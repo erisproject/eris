@@ -11,3 +11,9 @@
 *.lai
 *.la
 *.a
+
+# Test output
+a.out
+
+# vim swap files
+.*.swp
