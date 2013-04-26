@@ -1,0 +1,49 @@
+digraph {
+    rankdir="LR"
+    node [shape = "record"];
+    agent [
+        label = "<f0>Agent |<obj> double objective() |<end> Bundle endowment | ..."
+    ]
+    bundle [
+        label = "<f0>Bundle |<basket> Basket[] goods | ..."
+    ]
+    basket [
+        label = "<f0>Basket |<good> Good good |<quantity> double quantity | ..."
+    ]
+    good [
+        label = "<f0>Good |<id> id |<incr> double increment | ..."
+    ]
+    firm [
+        label = "<f0>Firm |<out> Bundle output |<owners> Share[] owners | ..."
+    ]
+    share [
+        label = "<f0>Share |<owner> Agent owner |<share> double share | ..."
+    ]
+    market [
+        label = "<f0>Market |<basket> Basket basket |<price> Basket price | ..."
+    ]
+
+    money [
+        label = "Money | id=\"money\" | increment=0"
+    ]
+    coconuts [
+        label = "e.g. Coconuts | id=\"coconuts\" | increment=1"
+    ]
+    hours [
+        label = "e.g. Hours | id=\"hours\" | increment=0.5"
+    ]
+
+    agent:end -> bundle:f0
+    bundle:basket -> basket:f0
+    basket:good -> good:f0
+    firm:out -> bundle:f0
+    firm:owners -> share:f0
+    share:owner -> agent:f0
+
+    market:basket -> basket:f0
+    market:price -> basket:f0
+
+    money -> good:f0 [label="is a"]
+    coconuts -> good:f0 [label="is a"]
+    hours -> good:f0 [label="is a"]
+}

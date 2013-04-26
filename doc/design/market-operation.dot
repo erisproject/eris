@@ -1,0 +1,28 @@
+digraph {
+    rankdir="TB"
+//    node [shape = "record"];
+    firms_s [label = "Firms"]
+    consumers_s [label = "Consumers"]
+    firms_d [label = "Firms"]
+    consumers_d [label = "Consumers"]
+
+    market [label = "Market", shape = "box"];
+
+    subgraph {
+        rankdir="LR"
+        firms_s -> market [label="supplied goods"]
+        consumers_s -> market [label="supplied goods"]
+    }
+
+    subgraph {
+        rankdir="RL"
+        firms_d -> market [label="payment goods (currency)"]
+        consumers_d -> market [label="payment goods (currency)"]
+    }
+
+    market -> allocation
+    allocation -> firms_s [label="payment goods (currency)"]
+    allocation -> consumers_s [label="payment goods (currency)"]
+    allocation -> firms_d [label="supplied goods"]
+    allocation -> consumers_d [label="supplied goods"]
+}

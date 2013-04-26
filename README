@@ -1,0 +1,16 @@
+Eris is a C++ library designed for simulating “economies“ consisting of agents
+who follow programmable rules, with the intention of deriving complex
+macro-level behaviour that is an emergent property of agent interaction.
+
+This project was motivated by the inadequacy of mathematical models, which
+often impose severe constraints on agents in the name of tractability.
+
+At its core, this library imposes few constraints on the behaviour of agents.
+Individuals agents can, for instance, be programmed to be ultra-rational, or
+can be “dumb” in the sense of following only simple rules of thumb.
+
+Beyond the core, the library offers many specialized implementations that may
+be used as appropriate, but can equally well be replaced with alternative
+implementations.
+
+The library name, Eris, is the name of the Greek god of chaos.
