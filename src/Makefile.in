@@ -61,12 +61,13 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
-am_lin_dem_OBJECTS = lin-dem.$(OBJEXT) Eris.$(OBJEXT) Agent.$(OBJEXT) \
-	Good.$(OBJEXT) Consumer.$(OBJEXT) Quadratic.$(OBJEXT)
+am_lin_dem_OBJECTS = lin-dem.$(OBJEXT) Eris.$(OBJEXT) \
+	Simulation.$(OBJEXT) Agent.$(OBJEXT) Good.$(OBJEXT) \
+	Bundle.$(OBJEXT) Consumer.$(OBJEXT) Quadratic.$(OBJEXT)
 lin_dem_OBJECTS = $(am_lin_dem_OBJECTS)
 lin_dem_LDADD = $(LDADD)
-am_test_OBJECTS = test.$(OBJEXT) Eris.$(OBJEXT) Agent.$(OBJEXT) \
-	Good.$(OBJEXT)
+am_test_OBJECTS = test.$(OBJEXT) Eris.$(OBJEXT) Simulation.$(OBJEXT) \
+	Agent.$(OBJEXT) Good.$(OBJEXT) Bundle.$(OBJEXT)
 test_OBJECTS = $(am_test_OBJECTS)
 test_LDADD = $(LDADD)
 DEFAULT_INCLUDES = -I.@am__isrc@
@@ -171,8 +172,8 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-test_SOURCES = test.cpp Eris.cpp Agent.cpp Good.cpp
-lin_dem_SOURCES = lin-dem.cpp Eris.cpp Agent.cpp Good.cpp agent/consumer/Consumer.cpp agent/consumer/Quadratic.cpp
+test_SOURCES = test.cpp Eris.cpp Simulation.cpp Agent.cpp Good.cpp Bundle.cpp
+lin_dem_SOURCES = lin-dem.cpp Eris.cpp Simulation.cpp Agent.cpp Good.cpp Bundle.cpp agent/consumer/Consumer.cpp agent/consumer/Quadratic.cpp
 all: all-am
 
 .SUFFIXES:
@@ -261,10 +262,12 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Agent.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Bundle.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Consumer.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Eris.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Good.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Quadratic.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Simulation.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lin-dem.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test.Po@am__quote@
 

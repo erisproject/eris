@@ -25,3 +25,4 @@ Makefile
 /src/.deps/
 /src/test
 /src/lin-dem
+/autom4te.cache/

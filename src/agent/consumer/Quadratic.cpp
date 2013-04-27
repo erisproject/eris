@@ -9,13 +9,13 @@
 
 Quadratic::Quadratic() {}
 
-Quadratic::Quadratic(map<eris_id_t, std::vector<double>> coefmap) : Quadratic() {
-    for (pair<eris_id_t, std::vector<double>> coefpair : coefmap)
+Quadratic::Quadratic(std::map<eris_id_t, std::vector<double>> coefmap) : Quadratic() {
+    for (std::pair<eris_id_t, std::vector<double>> coefpair : coefmap)
         setCoefs(coefpair.first, coefpair.second);
 }
 
 void Quadratic::setCoefs(eris_id_t gid, std::vector<double> c) {
-    coef.insert(make_pair(gid, c));
+    coef.insert(std::make_pair(gid, c));
 }
 
 void Quadratic::setCoefs(eris_id_t gid, std::initializer_list<double> c) {
@@ -24,7 +24,7 @@ void Quadratic::setCoefs(eris_id_t gid, std::initializer_list<double> c) {
 
 double Quadratic::utility(Bundle b) {
     double u = 0.0;
-    for (pair<eris_id_t, std::vector<double>> c : coef) {
+    for (std::pair<eris_id_t, std::vector<double>> c : coef) {
         double q = b[c.first];
         double qpow = 1.0;
         if (q != 0) {

@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include "agent/consumer/Consumer.hpp"
+#include "Bundle.hpp"
 #include "types.hpp"
 
 class Quadratic : Consumer {
@@ -8,7 +9,7 @@ class Quadratic : Consumer {
         // Initialize with empty
         Quadratic();
         // Initialize with map of good -> [coefs]
-        Quadratic(map<eris_id_t, std::vector<double>> coef);
+        Quadratic(std::map<eris_id_t, std::vector<double>> coef);
 
         void setCoefs(eris_id_t gid, std::vector<double> c);
 
@@ -17,5 +18,5 @@ class Quadratic : Consumer {
         double utility(Bundle b);
         // FIXME: what about a way to update A/B/g?
     protected:
-        map<eris_id_t, std::vector<double>> coef;
+        std::map<eris_id_t, std::vector<double>> coef;
 };

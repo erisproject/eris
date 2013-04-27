@@ -4,18 +4,16 @@
 
 /* Base class for Eris Good objects. */
 
-using namespace std;
-
 class Good {
     public:
-        Good(string name, double increment);
-        Good(double increment);
-        void setId(eris_id_t id);
-        eris_id_t id();
-        double increment();
+        Good(std::string name, double increment);
+        Good(double increment) : Good("", increment) {};
+        Good() : Good(0.0) {};
         std::string name();
+        void setName(std::string name);
+        double increment();
+        void setIncrement(double increment);
     private:
         double incr;
-        eris_id_t good_id;
         std::string good_name;
 };

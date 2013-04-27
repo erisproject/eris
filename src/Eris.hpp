@@ -1,36 +1,21 @@
 #pragma once
-#include "types.hpp"
-#include "Agent.hpp"
-#include "Good.hpp"
-#include <map>
+#include <memory>
 
-// FIXME: Rename this to Simulation
+// Top-level wrapper class around a Simulation.  Simulations should not be
+// created directly (as they need to be shared by simulation component classes,
+// and thus require dealing with strong and weak references).
 
-/* This class is at the centre of an Eris economy model; it keeps track of all
- * of the agents currently in the economy, all of the goods currently available
- * in the economy, and the interaction mechanisms (e.g. markets).  Note that
- * all of these can change from one period to the next.  It's also responsible
- * for dispatching interactions (e.g. letting markets operate) and any
- * iteration-sensitive agent events (e.g. aging/dying/etc.).
- *
- * In short, this is the central piece of the Eris framework that dictates how
- * all the other pieces interact.
- */
+template <class T>
+
 class Eris {
     public:
-        //Eris();
-        Agent &agent(eris_id_t);
-        Good &good(eris_id_t);
-        eris_id_t addAgent(Agent a);
-        eris_id_t addGood(Good a);
-        void removeAgent(eris_id_t aid);
-        void removeGood(eris_id_t gid);
-        AgentMap::iterator agents();
-        AgentMap::iterator agentsEnd();
-        GoodMap::iterator goods();
-        GoodMap::iterator goodsEnd();
+        // Generic constructor, creates a new T object.  T must have a public
+        // 0-argument constructor.
+        Eris() { t = std::shared_ptr<T>(new T); }
+        // For more complicated construction, use: Eris e(new T(...))
+        Eris(T *s) { t = std::shared_ptr<T>(s); }
+        // Deferenced member access gets redirected through the Simulation object
+        T* operator ->() { return t.get(); }
     private:
-        eris_id_t agent_id_next = 0, good_id_next = 0;
-        AgentMap agent_map;
-        GoodMap good_map;
+        std::shared_ptr<T> t;
 };

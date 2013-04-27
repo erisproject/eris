@@ -1,16 +1,14 @@
 #pragma once
+#include <memory>
 #include "types.hpp"
-#include "Eris.hpp"
+#include "Simulation.hpp"
 
-/* Base class for Eris Agent objects. */
-class Eris;
+class Simulation;
+
+/* Base class for Agent objects. */
 class Agent {
     public:
-        void setId(eris_id_t id);
-        eris_id_t id();
-        void setSim(Eris *s);
+        void setSim(std::shared_ptr<Simulation> s);
     protected:
-        Eris *simulator;
-    private:
-        eris_id_t agent_id;
+        std::weak_ptr<Simulation> simulator;
 };

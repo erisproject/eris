@@ -1,26 +1,25 @@
 #include "Eris.hpp"
+#include "Simulation.hpp"
 #include <iostream>
 
 using namespace std;
 
 int main() {
-    Eris sim;
+    Eris<Simulation> sim;
     for (int i = 0; i < 10; i++) {
-        Agent a;
-        sim.addAgent(a);
+        sim->addAgent(new Agent);
     }
 
     for (int i = 0; i < 3; i++) {
-        Good g(0);
-        sim.addGood(g);
+        sim->addGood(new Good(0));
     }
 
-    for (auto agit = sim.agents(); agit != sim.agentsEnd(); ++agit) {
-        Agent ag = agit->second;
-        cout << "Agent: " << agit->first << " => " << ag.id() << "\n";
+    for (auto agit = sim->agents(); agit != sim->agentsEnd(); ++agit) {
+        auto agent = agit->second;
+        cout << "Agent: " << agit->first << ", ptr: " << (long) agent.get() << "\n";
     }
-    for (auto gdit = sim.goods(); gdit != sim.goodsEnd(); ++gdit) {
-        Good gd = gdit->second;
-        cout << "Good: id=" << gd.id() << ", name=" << gd.name() << "\n";
+    for (auto gdit = sim->goods(); gdit != sim->goodsEnd(); ++gdit) {
+        auto good = gdit->second;
+        cout << "Good: id=" << gdit->first << ", name=" << good->name() << ", ptr=" << (long) good.get() << "\n";
     }
 }
