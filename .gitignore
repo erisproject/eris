@@ -17,3 +17,11 @@ a.out
 
 # vim swap files
 .*.swp
+
+# Build files
+Makefile
+/config.log
+/config.status
+/src/.deps/
+/src/test
+/src/lin-dem
