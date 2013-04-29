@@ -1,8 +1,8 @@
 #pragma once
-#include <vector>
 #include "agent/consumer/Consumer.hpp"
 #include "Bundle.hpp"
 #include "types.hpp"
+#include <map>
 
 /* Class for a simple consumer whose utility is separably additive and
  * polynomial across goods.  That is, utility is representable as: $u(X) =

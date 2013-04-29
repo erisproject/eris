@@ -16,7 +16,7 @@ std::vector<double> &Polynomial::operator[](eris_id_t gid) {
 }
 
 double Polynomial::utility(Bundle b) {
-    double u = 0.0;
+    double u = offset;
     for (std::pair<eris_id_t, std::vector<double>> c : coef) {
         double q = b[c.first];
         double qpow = 1.0;
