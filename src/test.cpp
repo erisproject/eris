@@ -10,9 +10,10 @@ int main() {
         sim->addAgent(new Agent);
     }
 
-    for (int i = 0; i < 3; i++) {
-        sim->addGood(new Good(0));
+    for (int i = 0; i < 2; i++) {
+        sim->addGood(new Good::Continuous());
     }
+    sim->addGood(new Good::Discrete());
 
     for (auto agit = sim->agents(); agit != sim->agentsEnd(); ++agit) {
         auto agent = agit->second;
@@ -20,6 +21,6 @@ int main() {
     }
     for (auto gdit = sim->goods(); gdit != sim->goodsEnd(); ++gdit) {
         auto good = gdit->second;
-        cout << "Good: id=" << gdit->first << ", name=" << good->name() << ", ptr=" << (long) good.get() << "\n";
+        cout << "Good: id=" << gdit->first << ", name=" << good->name << ", increment=" << good->increment() << ", ptr=" << (long) good.get() << "\n";
     }
 }

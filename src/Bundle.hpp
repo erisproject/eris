@@ -23,7 +23,7 @@
 
 class Bundle {
     public:
-        double operator[] (eris_id_t gid);
+        double operator[] (eris_id_t gid) const;
         void set(eris_id_t gid, double quantity);
         std::map<eris_id_t, double>::const_iterator begin();
         std::map<eris_id_t, double>::const_iterator end();

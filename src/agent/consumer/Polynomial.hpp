@@ -4,19 +4,32 @@
 #include "Bundle.hpp"
 #include "types.hpp"
 
-class Quadratic : Consumer {
+/* Class for a simple consumer whose utility is separably additive and
+ * polynomial across goods.  That is, utility is representable as: $u(X) =
+ * c_0 + f(x_1) + g(x_2) + \ldots$ where f() and g() are polynomials.
+ *
+ * Values for coefficients, $c_1 \ldots c_n$, specify the coefficients for
+ * $x_i^1 through x_i^n$.  Any constant terms must be aggregated and included
+ * in c_0 (by setting obj.offset).
+ */
+
+class Polynomial : public Consumer::Differentiable {
     public:
         // Initialize with empty
-        Quadratic();
+        Polynomial(double offset = 0.0);
         // Initialize with map of good -> [coefs]
-        Quadratic(std::map<eris_id_t, std::vector<double>> coef);
+        Polynomial(std::map<eris_id_t, std::vector<double>> coef, double offset = 0.0);
 
-        void setCoefs(eris_id_t gid, std::vector<double> c);
+        virtual std::vector<double> &operator[](eris_id_t gid);
 
-        void setCoefs(eris_id_t gid, std::initializer_list<double> c);
+        double offset = 0.0;
 
-        double utility(Bundle b);
-        // FIXME: what about a way to update A/B/g?
+        virtual double utility(Bundle b);
+
+        virtual double d(Bundle b, eris_id_t g);
+        virtual double d2(Bundle b, eris_id_t g1, eris_id_t g2);
+        // Override Consumer's hessian function because we can avoid the off-diagonal calculations:
+        virtual std::map<eris_id_t, std::map<eris_id_t, double>> hessian(std::vector<eris_id_t> g, Bundle b);
     protected:
         std::map<eris_id_t, std::vector<double>> coef;
 };

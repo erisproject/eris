@@ -27,7 +27,7 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         GoodMap::iterator goods();
         GoodMap::iterator goodsEnd();
     private:
-        eris_id_t agent_id_next = 0, good_id_next = 0;
+        eris_id_t agent_id_next = 1, good_id_next = 1;
         AgentMap agent_map;
         GoodMap good_map;
 };
