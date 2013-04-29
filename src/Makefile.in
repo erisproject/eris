@@ -63,7 +63,7 @@ am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
 am_lin_dem_OBJECTS = lin-dem.$(OBJEXT) Eris.$(OBJEXT) \
 	Simulation.$(OBJEXT) Agent.$(OBJEXT) Good.$(OBJEXT) \
-	Bundle.$(OBJEXT) Consumer.$(OBJEXT) Polynomial.$(OBJEXT)
+	Bundle.$(OBJEXT) Consumer.$(OBJEXT) Quadratic.$(OBJEXT)
 lin_dem_OBJECTS = $(am_lin_dem_OBJECTS)
 lin_dem_LDADD = $(LDADD)
 am_test_OBJECTS = test.$(OBJEXT) Eris.$(OBJEXT) Simulation.$(OBJEXT) \
@@ -173,7 +173,7 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 test_SOURCES = test.cpp Eris.cpp Simulation.cpp Agent.cpp Good.cpp Bundle.cpp
-lin_dem_SOURCES = lin-dem.cpp Eris.cpp Simulation.cpp Agent.cpp Good.cpp Bundle.cpp agent/consumer/Consumer.cpp agent/consumer/Polynomial.cpp
+lin_dem_SOURCES = lin-dem.cpp Eris.cpp Simulation.cpp Agent.cpp Good.cpp Bundle.cpp agent/consumer/Consumer.cpp agent/consumer/Quadratic.cpp
 all: all-am
 
 .SUFFIXES:
@@ -266,7 +266,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Consumer.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Eris.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Good.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Polynomial.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Quadratic.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Simulation.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lin-dem.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test.Po@am__quote@
@@ -299,19 +299,19 @@ Consumer.obj: agent/consumer/Consumer.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o Consumer.obj `if test -f 'agent/consumer/Consumer.cpp'; then $(CYGPATH_W) 'agent/consumer/Consumer.cpp'; else $(CYGPATH_W) '$(srcdir)/agent/consumer/Consumer.cpp'; fi`
 
-Polynomial.o: agent/consumer/Polynomial.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT Polynomial.o -MD -MP -MF $(DEPDIR)/Polynomial.Tpo -c -o Polynomial.o `test -f 'agent/consumer/Polynomial.cpp' || echo '$(srcdir)/'`agent/consumer/Polynomial.cpp
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/Polynomial.Tpo $(DEPDIR)/Polynomial.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='agent/consumer/Polynomial.cpp' object='Polynomial.o' libtool=no @AMDEPBACKSLASH@
+Quadratic.o: agent/consumer/Quadratic.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT Quadratic.o -MD -MP -MF $(DEPDIR)/Quadratic.Tpo -c -o Quadratic.o `test -f 'agent/consumer/Quadratic.cpp' || echo '$(srcdir)/'`agent/consumer/Quadratic.cpp
+@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/Quadratic.Tpo $(DEPDIR)/Quadratic.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='agent/consumer/Quadratic.cpp' object='Quadratic.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o Polynomial.o `test -f 'agent/consumer/Polynomial.cpp' || echo '$(srcdir)/'`agent/consumer/Polynomial.cpp
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o Quadratic.o `test -f 'agent/consumer/Quadratic.cpp' || echo '$(srcdir)/'`agent/consumer/Quadratic.cpp
 
-Polynomial.obj: agent/consumer/Polynomial.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT Polynomial.obj -MD -MP -MF $(DEPDIR)/Polynomial.Tpo -c -o Polynomial.obj `if test -f 'agent/consumer/Polynomial.cpp'; then $(CYGPATH_W) 'agent/consumer/Polynomial.cpp'; else $(CYGPATH_W) '$(srcdir)/agent/consumer/Polynomial.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/Polynomial.Tpo $(DEPDIR)/Polynomial.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='agent/consumer/Polynomial.cpp' object='Polynomial.obj' libtool=no @AMDEPBACKSLASH@
+Quadratic.obj: agent/consumer/Quadratic.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT Quadratic.obj -MD -MP -MF $(DEPDIR)/Quadratic.Tpo -c -o Quadratic.obj `if test -f 'agent/consumer/Quadratic.cpp'; then $(CYGPATH_W) 'agent/consumer/Quadratic.cpp'; else $(CYGPATH_W) '$(srcdir)/agent/consumer/Quadratic.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/Quadratic.Tpo $(DEPDIR)/Quadratic.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='agent/consumer/Quadratic.cpp' object='Quadratic.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o Polynomial.obj `if test -f 'agent/consumer/Polynomial.cpp'; then $(CYGPATH_W) 'agent/consumer/Polynomial.cpp'; else $(CYGPATH_W) '$(srcdir)/agent/consumer/Polynomial.cpp'; fi`
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o Quadratic.obj `if test -f 'agent/consumer/Quadratic.cpp'; then $(CYGPATH_W) 'agent/consumer/Quadratic.cpp'; else $(CYGPATH_W) '$(srcdir)/agent/consumer/Quadratic.cpp'; fi`
 
 ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
 	list='$(SOURCES) $(HEADERS) $(LISP) $(TAGS_FILES)'; \

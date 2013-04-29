@@ -1,6 +1,6 @@
 #include "Eris.hpp"
 #include "Simulation.hpp"
-#include "agent/consumer/Polynomial.hpp"
+#include "agent/consumer/Quadratic.hpp"
 #include <iostream>
 #include <map>
 #include <boost/format.hpp>
@@ -21,11 +21,19 @@ int main() {
 
 
     // We have just a single consumer, with quaslinear quadratic utility in the x good
-    // FIXME: Polynomial should be polynomial, and there should be a matrix of coefficients (to allow cross-product terms).
-    Polynomial fred;
+    Quadratic fred(0.0, {{money, 1}, {x, 10}, {w, 100}});
+
+    fred.setQuadCoef(money, x, 0.1);
+    fred.setQuadCoef(money, w, -0.1);
+    fred.setQuadCoef(x, x, -1);
+    fred.setQuadCoef(w, w, -1);
+    fred.setQuadCoef(x, w, 0.3);
+
+    /*
     fred[money] = {1};
     fred[x] = {5, -1};
     fred[w] = {2, -1};
+    */
 
     Bundle b;
     for (int m = 0; m <= 10; m++) {
