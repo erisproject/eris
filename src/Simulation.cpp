@@ -13,7 +13,8 @@ std::shared_ptr<Good> Simulation::good(eris_id_t gid) {
 // automatically destroyed!
 eris_id_t Simulation::addAgent(Agent *a) {
     eris_id_t id = agent_id_next++;
-    a->setSim(shared_from_this());
+    a->simulator = shared_from_this();
+    a->id = id;
     agent_map.insert(std::make_pair(id, std::shared_ptr<Agent>(a)));
     return id;
 }

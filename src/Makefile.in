@@ -49,7 +49,7 @@ POST_INSTALL = :
 NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
-bin_PROGRAMS = test$(EXEEXT) lin-dem$(EXEEXT)
+bin_PROGRAMS = test$(EXEEXT) lin-dem$(EXEEXT) bundle-test$(EXEEXT)
 subdir = src
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -61,13 +61,17 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
+am_bundle_test_OBJECTS = bundle-test.$(OBJEXT) Eris.$(OBJEXT) \
+	Simulation.$(OBJEXT) Good.$(OBJEXT)
+bundle_test_OBJECTS = $(am_bundle_test_OBJECTS)
+bundle_test_LDADD = $(LDADD)
 am_lin_dem_OBJECTS = lin-dem.$(OBJEXT) Eris.$(OBJEXT) \
 	Simulation.$(OBJEXT) Agent.$(OBJEXT) Good.$(OBJEXT) \
-	Bundle.$(OBJEXT) Consumer.$(OBJEXT) Quadratic.$(OBJEXT)
+	Consumer.$(OBJEXT) Quadratic.$(OBJEXT)
 lin_dem_OBJECTS = $(am_lin_dem_OBJECTS)
 lin_dem_LDADD = $(LDADD)
 am_test_OBJECTS = test.$(OBJEXT) Eris.$(OBJEXT) Simulation.$(OBJEXT) \
-	Agent.$(OBJEXT) Good.$(OBJEXT) Bundle.$(OBJEXT)
+	Agent.$(OBJEXT) Good.$(OBJEXT)
 test_OBJECTS = $(am_test_OBJECTS)
 test_LDADD = $(LDADD)
 DEFAULT_INCLUDES = -I.@am__isrc@
@@ -79,8 +83,9 @@ CXXCOMPILE = $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
 CXXLD = $(CXX)
 CXXLINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) $(AM_LDFLAGS) $(LDFLAGS) \
 	-o $@
-SOURCES = $(lin_dem_SOURCES) $(test_SOURCES)
-DIST_SOURCES = $(lin_dem_SOURCES) $(test_SOURCES)
+SOURCES = $(bundle_test_SOURCES) $(lin_dem_SOURCES) $(test_SOURCES)
+DIST_SOURCES = $(bundle_test_SOURCES) $(lin_dem_SOURCES) \
+	$(test_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -172,8 +177,9 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-test_SOURCES = test.cpp Eris.cpp Simulation.cpp Agent.cpp Good.cpp Bundle.cpp
-lin_dem_SOURCES = lin-dem.cpp Eris.cpp Simulation.cpp Agent.cpp Good.cpp Bundle.cpp agent/consumer/Consumer.cpp agent/consumer/Quadratic.cpp
+test_SOURCES = test.cpp Eris.cpp Simulation.cpp Agent.cpp Good.cpp
+lin_dem_SOURCES = lin-dem.cpp Eris.cpp Simulation.cpp Agent.cpp Good.cpp agent/consumer/Consumer.cpp agent/consumer/Quadratic.cpp
+bundle_test_SOURCES = bundle-test.cpp Eris.cpp Simulation.cpp Good.cpp
 all: all-am
 
 .SUFFIXES:
@@ -248,6 +254,9 @@ uninstall-binPROGRAMS:
 
 clean-binPROGRAMS:
 	-test -z "$(bin_PROGRAMS)" || rm -f $(bin_PROGRAMS)
+bundle-test$(EXEEXT): $(bundle_test_OBJECTS) $(bundle_test_DEPENDENCIES) $(EXTRA_bundle_test_DEPENDENCIES) 
+	@rm -f bundle-test$(EXEEXT)
+	$(CXXLINK) $(bundle_test_OBJECTS) $(bundle_test_LDADD) $(LIBS)
 lin-dem$(EXEEXT): $(lin_dem_OBJECTS) $(lin_dem_DEPENDENCIES) $(EXTRA_lin_dem_DEPENDENCIES) 
 	@rm -f lin-dem$(EXEEXT)
 	$(CXXLINK) $(lin_dem_OBJECTS) $(lin_dem_LDADD) $(LIBS)
@@ -262,12 +271,12 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Agent.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Bundle.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Consumer.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Eris.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Good.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Quadratic.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Simulation.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bundle-test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lin-dem.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test.Po@am__quote@
 

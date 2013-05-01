@@ -1,38 +1,108 @@
 #pragma once
 #include <map>
+#include <set>
 #include "types.hpp"
 
-// A Bundle is a map, of sorts, between good ids and quantities.
+// A Bundle is a thin wrapper around a std::map designed for storing a set of goods and associated
+// quantities.
 //
-// It's a bit more specialized than an std::map, however, in that it returns a
-// quantity of 0 for goods that are not in the bundle.  The mechanism for
-// removing a good is thus assigning a quantity of 0 to that good.
+// BundleNegative is a slightly more general class (Bundle is actually a specialization of
+// BundleNegative) that allows any double value in the quantity; Bundle allows only non-negative
+// quantities.
 //
-// Accessing a quantity is done through the [] operation (e.g. bundle[gid]);
-// setting requires a call to the set(gid, quantity) method.
+// Accessing quantities is done through the [] operation (e.g. bundle[gid]).  Accessing a good that
+// does not exist returns a value of 0.
 //
-// You can iterate through goods via the usual cbegin()/cend() pattern; these
-// get passed straight through to the underlying std::map's methods.  (Note that begin()/end() are not exposed
+// Setting values is done through the set(id, value) method, *not* using the [] operator (since
+// assignment may require checking, e.g.  for positive quantities).
 //
-// Bundle is actually a specialization of BundleNegative, also in this file.  Bundle allows only
-// non-negative quantities, while BundleNegative allows positive and negative quantities for the
-// handled goods.
-// Bundle allows only non-negative quantities for goods, but the
-// BundleNegative nested class is also provided which lifts this restriction.
+// You can iterate through goods via the usual begin()/end() pattern; note that these get mapped to
+// through to the underlying std::map<eris_id_t,double>'s cbegin()/cend() methods, and so are
+// immutable.
 //
-// Note that these class does *not* enforce a Good's increment parameter; any
-// class directly modifying a Bundle should thus ensure that the increment is
-// respected.
+// size() returns the number of goods in the bundle.  Note that values that have not been explicitly
+// set (and thus return a value of 0) are *not* included in the size(), but values that have been
+// explitly set (even to 0) *are* included.
+//
+// empty() returns true if size() == 0, false otherwise.
+//
+// count(id) returns 1 if the id exists in the Bundle (even if it equals 0), 0 otherwise.
+//
+// erase(id) removes the good `id' from the bundle (if it exists), and returns either 0 or 1
+// indicating whether the good was present in the bundle, like std::map::erase.
+//
+// remove(id) is like erase(id), except it returns the quantity of the removed good, or 0 if the
+// good was not in the bundle.
+//
+// The usual +, -, *, / operators as overloaded as expected for adding/scaling bundles, plus the
+// analogous +=, -=, *=, and /= operators.  After addition or subtraction, the result will contain
+// all goods that existed in either good.  Unary negative is defined, but always returns a
+// BundleNegative (even for a Bundle).
+//
+// Comparison operators are also overloaded.  Each of ==, >, >=, <, and <= is true iff all the
+// inequality relation is satisfied for the quantities of every good in either bundle.  Note that !=
+// is also overloaded, but different from the above: a != b is equivalent to !(a == b).  Goods that
+// are missing from one bundle or the other are implicitly assumed to have value 0.
+//
+// Some implications of this behaviour:
+// - a >= b is *not* equivalent to (a > b || a == b).  e.g. a=(2,2), b=(2,1).
+// - a > b does not imply a <= b (though the contrapositive *does* hold)
+// - >= (and <=) are not total (in economics terms, ``complete''): (a >= b) and (b >= a) can both be
+//   false.  e.g. a=(1,2), b=(2,1).
+//
+// Comparison operators w.r.t. a double are also defined, and return true if the comparison to the
+// double holds for every existing quantity in the Bundle, and all are always true for an empty
+// bundle.  Note that this behaviour may not do what you expect if goods that you care about aren't
+// actually in the bundle.  For example, if a=(x=1,y=2) and b=(x=1,y=1,z=1), a >= 1 will be true,
+// though a-b will result in a potentially unexpected negative (and illegal, if using Bundle instead
+// of NegativeBundle) quantity.  If in doubt, always compare to fixed Bundle that has known
+// (significant) quantities.
+//
+// Attempting to do something to a Bundle that would induce a negative quantity for one of the
+// Bundle's goods will throw a Bundle::negativity_error exception (which is a subclass of
+// std::range_error).
+//
+// Note that these class is not aware of a Good's increment parameter; any class directly modifying
+// a Bundle should thus ensure that the increment is respected.
 
 class Bundle;
 class BundleNegative {
     private:
         std::map<eris_id_t, double> bundle;
     public:
-        virtual void set(eris_id_t gid, double quantity);
         virtual double operator[] (eris_id_t gid) const;
-        virtual std::map<eris_id_t, double>::const_iterator begin();
-        virtual std::map<eris_id_t, double>::const_iterator end();
+        virtual void set(eris_id_t gid, double quantity);
+        virtual std::map<eris_id_t, double>::const_iterator begin() const;
+        virtual std::map<eris_id_t, double>::const_iterator end() const;
+
+        virtual bool empty() const;
+        virtual std::map<eris_id_t, double>::size_type size() const;
+        virtual int count(eris_id_t) const;
+        virtual int erase(eris_id_t);
+        virtual double remove(eris_id_t);
+
+        BundleNegative& operator += (const BundleNegative &b) noexcept;
+        BundleNegative& operator -= (const BundleNegative &b) noexcept;
+        BundleNegative& operator *= (double m) noexcept;
+        BundleNegative& operator /= (double d) noexcept;
+        BundleNegative operator + (const BundleNegative &b) noexcept;
+        BundleNegative operator - (const BundleNegative &b) noexcept;
+        BundleNegative operator - () noexcept;
+        BundleNegative operator * (double m) noexcept;
+        BundleNegative operator / (double d) noexcept;
+
+        bool operator >  (const BundleNegative &b);
+        bool operator >  (double q);
+        bool operator >= (const BundleNegative &b);
+        bool operator >= (double q);
+        bool operator == (const BundleNegative &b);
+        bool operator == (double q);
+        bool operator != (const BundleNegative &b);
+        bool operator != (double q);
+        bool operator <  (const BundleNegative &b);
+        bool operator <  (double q);
+        bool operator <= (const BundleNegative &b);
+        bool operator <= (double q);
 
         friend class Bundle;
 };
@@ -40,4 +110,169 @@ class BundleNegative {
 class Bundle : public BundleNegative {
     public:
         virtual void set(eris_id_t gid, double quantity);
+
+        Bundle& operator += (const BundleNegative &b);
+        Bundle& operator -= (const BundleNegative &b);
+        Bundle& operator *= (double m);
+        Bundle& operator /= (double d);
+        Bundle operator + (const BundleNegative &b);
+        Bundle operator - (const BundleNegative &b);
+        BundleNegative operator - () noexcept;
+        Bundle operator * (double m);
+        Bundle operator / (double d);
+
+        class negativity_error : public std::range_error {
+            public:
+                static negativity_error create(eris_id_t good, double value) {
+                    return negativity_error("Good " + std::to_string(good) + " assigned illegal negative value " +
+                            std::to_string(value), good, value);
+                }
+                negativity_error(eris_id_t good, double value) :
+                    std::range_error("Good " + std::to_string(good) + " assigned illegal negative value " + std::to_string(value)),
+                    good(good), value(value) {}
+                negativity_error(const std::string& what_arg, eris_id_t good, double value) :
+                    std::range_error(what_arg), good(good), value(value) {}
+                negativity_error(const char* what_arg, eris_id_t good, double value) :
+                    std::range_error(what_arg), good(good), value(value) {}
+                const eris_id_t good;
+                const double value;
+        };
 };
+
+// Define everything here, so that these functions can be inlined (if the compiler decides its
+// helpful).
+
+
+
+inline double BundleNegative::operator[] (eris_id_t gid) const {
+    // Don't want to invoke map's [] operator, because it auto-vivifies the element
+    return count(gid) ? bundle.at(gid) : 0.0;
+}
+
+inline void BundleNegative::set (eris_id_t gid, double quantity) {
+    bundle[gid] = quantity;
+}
+
+inline void Bundle::set (eris_id_t gid, double quantity) {
+    if (quantity < 0)
+        throw negativity_error::create(gid, quantity);
+
+    BundleNegative::set(gid, quantity);
+}
+
+inline bool BundleNegative::empty() const {
+    return bundle.empty();
+}
+inline std::map<eris_id_t, double>::size_type BundleNegative::size() const {
+    return bundle.size();
+}
+inline int BundleNegative::count(eris_id_t gid) const {
+    return bundle.count(gid);
+}
+inline int BundleNegative::erase(eris_id_t gid) {
+    return bundle.erase(gid);
+}
+inline double BundleNegative::remove(eris_id_t gid) {
+    double d = operator[](gid);
+    erase(gid);
+    return d;
+}
+
+inline std::map<eris_id_t, double>::const_iterator BundleNegative::begin() const {
+    return bundle.cbegin();
+}
+inline std::map<eris_id_t, double>::const_iterator BundleNegative::end() const {
+    return bundle.cend();
+}
+
+#define __ERIS_BUNDLE_HPP_ADDSUB(OP, OPEQ)\
+inline BundleNegative& BundleNegative::operator OPEQ (const BundleNegative &b) noexcept {\
+    for (auto g : b.bundle) bundle[g.first] OPEQ g.second;\
+    return *this;\
+}\
+inline BundleNegative BundleNegative::operator OP (const BundleNegative &b) noexcept {\
+    BundleNegative ret(*this);\
+    ret OPEQ b;\
+    return ret;\
+}\
+inline Bundle& Bundle::operator OPEQ (const BundleNegative &b) {\
+    for (auto g : b.bundle) {\
+        double q = bundle[g.first] OP g.second;\
+        if (q < 0)\
+            throw negativity_error(g.first, q);\
+        bundle[g.first] = q;\
+    }\
+    return *this;\
+}\
+inline Bundle Bundle::operator OP (const BundleNegative &b) {\
+    Bundle ret(*this);\
+    ret OPEQ b;\
+    return ret;\
+}
+
+__ERIS_BUNDLE_HPP_ADDSUB(+, +=)
+__ERIS_BUNDLE_HPP_ADDSUB(-, -=)
+
+#undef __ERIS_BUNDLE_HPP_ADDSUB
+
+inline BundleNegative& BundleNegative::operator *= (double m) noexcept {
+    for (auto g : bundle) bundle[g.first] *= m;
+    return *this;
+}
+inline Bundle& Bundle::operator *= (double m) {
+    if (m < 0) throw negativity_error("Attempt to scale Bundle by negative value " + std::to_string(m), 0, m);
+    return *static_cast<Bundle*>(&BundleNegative::operator*=(m));
+}
+inline BundleNegative& BundleNegative::operator /= (double d) noexcept {
+    return *this *= (1.0 / d);
+}
+inline BundleNegative BundleNegative::operator - () noexcept {
+    return operator*(-1.0);
+}
+inline BundleNegative Bundle::operator - () noexcept {
+    return BundleNegative::operator-();
+}
+inline BundleNegative BundleNegative::operator * (double m) noexcept {
+    BundleNegative ret(*this);
+    ret *= m;
+    return ret;
+}
+inline Bundle Bundle::operator * (double m) {
+    Bundle ret(*this);
+    ret *= m;
+    return ret;
+}
+inline BundleNegative BundleNegative::operator / (double d) noexcept {
+    return *this * (1.0/d);
+}
+inline Bundle Bundle::operator / (double d) {
+    return *this * (1.0/d);
+}
+
+#define __ERIS_BUNDLE_HPP_COMPARE(OP) \
+inline bool BundleNegative::operator OP (const BundleNegative &b) {\
+    std::set<eris_id_t> goods;\
+    for (auto g : bundle) goods.insert(goods.end(), g.first);\
+    for (auto g : b.bundle) goods.insert(g.first);\
+\
+    for (auto g : goods)\
+        if (!((*this)[g] OP b[g])) return false;\
+    return true;\
+}\
+inline bool BundleNegative::operator OP (double q) {\
+    for (auto g : bundle)\
+        if (!(g.second OP q)) return false;\
+    return true;\
+}
+
+__ERIS_BUNDLE_HPP_COMPARE(==)
+__ERIS_BUNDLE_HPP_COMPARE(<)
+__ERIS_BUNDLE_HPP_COMPARE(<=)
+__ERIS_BUNDLE_HPP_COMPARE(>)
+__ERIS_BUNDLE_HPP_COMPARE(>=)
+
+#undef __ERIS_BUNDLE_HPP_COMPARE
+
+inline bool BundleNegative::operator != (const BundleNegative &b) {
+    return !(*this == b);
+}

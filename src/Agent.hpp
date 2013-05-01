@@ -7,8 +7,9 @@ class Simulation;
 
 /* Base class for Agent objects. */
 class Agent {
-    public:
-        void setSim(std::shared_ptr<Simulation> s);
     protected:
+        eris_id_t id;
         std::weak_ptr<Simulation> simulator;
+        inline bool operator < (Agent other) { return id < other.id; }
+        friend Simulation;
 };
