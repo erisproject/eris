@@ -5,6 +5,8 @@
 #include <map>
 #include <vector>
 
+namespace eris { namespace consumer {
+
 /* Base class for consumers, a (general) specialization of an Agent which has a
  * utility function for any Bundle of goods.
  *
@@ -33,3 +35,5 @@ class Consumer::Differentiable : public Consumer {
         // Returns the Hessian for the given goods given a bundle.
         virtual std::map<eris_id_t, std::map<eris_id_t, double>> hessian(std::vector<eris_id_t> g, Bundle b);
 };
+
+} }

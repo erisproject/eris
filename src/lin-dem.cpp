@@ -1,11 +1,13 @@
 #include "Eris.hpp"
 #include "Simulation.hpp"
-#include "agent/consumer/Quadratic.hpp"
+#include "consumer/Quadratic.hpp"
 #include <iostream>
 #include <map>
 #include <boost/format.hpp>
 
 using namespace std;
+using namespace eris;
+using namespace eris::consumer;
 using boost::format;
 
 int main() {

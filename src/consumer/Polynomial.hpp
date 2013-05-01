@@ -1,8 +1,10 @@
 #pragma once
-#include "agent/consumer/Consumer.hpp"
+#include "consumer/Consumer.hpp"
 #include "Bundle.hpp"
 #include "types.hpp"
 #include <map>
+
+namespace eris { namespace consumer {
 
 /* Class for a simple consumer whose utility is separably additive and
  * polynomial across goods.  That is, utility is representable as: $u(X) =
@@ -33,3 +35,5 @@ class Polynomial : public Consumer::Differentiable {
     protected:
         std::map<eris_id_t, std::vector<double>> coef;
 };
+
+} }

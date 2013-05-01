@@ -1,6 +1,8 @@
 #include "Good.hpp"
 #include <string>
 
+namespace eris {
+
 Good::Good(std::string good_name) : name(good_name) {}
 
 Good::Continuous::Continuous(std::string name) : Good(name) {}
@@ -19,3 +21,4 @@ void Good::Discrete::setIncrement(double increment) {
 
 double Good::Discrete::increment() { return incr; }
 
+}

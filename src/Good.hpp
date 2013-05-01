@@ -2,6 +2,8 @@
 #include "types.hpp"
 #include <string>
 
+namespace eris {
+
 /* Base class for Eris Good objects.  Goods should generally be a subclass of
  * Good, typically either a Good::Continuous or Good::Discrete, also defined
  * here.
@@ -34,3 +36,5 @@ class Good::Discrete : public Good {
     private:
         double incr = 1.0;
 };
+
+}

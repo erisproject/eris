@@ -178,7 +178,7 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 test_SOURCES = test.cpp Eris.cpp Simulation.cpp Agent.cpp Good.cpp
-lin_dem_SOURCES = lin-dem.cpp Eris.cpp Simulation.cpp Agent.cpp Good.cpp agent/consumer/Consumer.cpp agent/consumer/Quadratic.cpp
+lin_dem_SOURCES = lin-dem.cpp Eris.cpp Simulation.cpp Agent.cpp Good.cpp consumer/Consumer.cpp consumer/Quadratic.cpp
 bundle_test_SOURCES = bundle-test.cpp Eris.cpp Simulation.cpp Good.cpp
 all: all-am
 
@@ -294,33 +294,33 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(CXXCOMPILE) -c -o $@ `$(CYGPATH_W) '$<'`
 
-Consumer.o: agent/consumer/Consumer.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT Consumer.o -MD -MP -MF $(DEPDIR)/Consumer.Tpo -c -o Consumer.o `test -f 'agent/consumer/Consumer.cpp' || echo '$(srcdir)/'`agent/consumer/Consumer.cpp
+Consumer.o: consumer/Consumer.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT Consumer.o -MD -MP -MF $(DEPDIR)/Consumer.Tpo -c -o Consumer.o `test -f 'consumer/Consumer.cpp' || echo '$(srcdir)/'`consumer/Consumer.cpp
 @am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/Consumer.Tpo $(DEPDIR)/Consumer.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='agent/consumer/Consumer.cpp' object='Consumer.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='consumer/Consumer.cpp' object='Consumer.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o Consumer.o `test -f 'agent/consumer/Consumer.cpp' || echo '$(srcdir)/'`agent/consumer/Consumer.cpp
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o Consumer.o `test -f 'consumer/Consumer.cpp' || echo '$(srcdir)/'`consumer/Consumer.cpp
 
-Consumer.obj: agent/consumer/Consumer.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT Consumer.obj -MD -MP -MF $(DEPDIR)/Consumer.Tpo -c -o Consumer.obj `if test -f 'agent/consumer/Consumer.cpp'; then $(CYGPATH_W) 'agent/consumer/Consumer.cpp'; else $(CYGPATH_W) '$(srcdir)/agent/consumer/Consumer.cpp'; fi`
+Consumer.obj: consumer/Consumer.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT Consumer.obj -MD -MP -MF $(DEPDIR)/Consumer.Tpo -c -o Consumer.obj `if test -f 'consumer/Consumer.cpp'; then $(CYGPATH_W) 'consumer/Consumer.cpp'; else $(CYGPATH_W) '$(srcdir)/consumer/Consumer.cpp'; fi`
 @am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/Consumer.Tpo $(DEPDIR)/Consumer.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='agent/consumer/Consumer.cpp' object='Consumer.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='consumer/Consumer.cpp' object='Consumer.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o Consumer.obj `if test -f 'agent/consumer/Consumer.cpp'; then $(CYGPATH_W) 'agent/consumer/Consumer.cpp'; else $(CYGPATH_W) '$(srcdir)/agent/consumer/Consumer.cpp'; fi`
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o Consumer.obj `if test -f 'consumer/Consumer.cpp'; then $(CYGPATH_W) 'consumer/Consumer.cpp'; else $(CYGPATH_W) '$(srcdir)/consumer/Consumer.cpp'; fi`
 
-Quadratic.o: agent/consumer/Quadratic.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT Quadratic.o -MD -MP -MF $(DEPDIR)/Quadratic.Tpo -c -o Quadratic.o `test -f 'agent/consumer/Quadratic.cpp' || echo '$(srcdir)/'`agent/consumer/Quadratic.cpp
+Quadratic.o: consumer/Quadratic.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT Quadratic.o -MD -MP -MF $(DEPDIR)/Quadratic.Tpo -c -o Quadratic.o `test -f 'consumer/Quadratic.cpp' || echo '$(srcdir)/'`consumer/Quadratic.cpp
 @am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/Quadratic.Tpo $(DEPDIR)/Quadratic.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='agent/consumer/Quadratic.cpp' object='Quadratic.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='consumer/Quadratic.cpp' object='Quadratic.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o Quadratic.o `test -f 'agent/consumer/Quadratic.cpp' || echo '$(srcdir)/'`agent/consumer/Quadratic.cpp
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o Quadratic.o `test -f 'consumer/Quadratic.cpp' || echo '$(srcdir)/'`consumer/Quadratic.cpp
 
-Quadratic.obj: agent/consumer/Quadratic.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT Quadratic.obj -MD -MP -MF $(DEPDIR)/Quadratic.Tpo -c -o Quadratic.obj `if test -f 'agent/consumer/Quadratic.cpp'; then $(CYGPATH_W) 'agent/consumer/Quadratic.cpp'; else $(CYGPATH_W) '$(srcdir)/agent/consumer/Quadratic.cpp'; fi`
+Quadratic.obj: consumer/Quadratic.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT Quadratic.obj -MD -MP -MF $(DEPDIR)/Quadratic.Tpo -c -o Quadratic.obj `if test -f 'consumer/Quadratic.cpp'; then $(CYGPATH_W) 'consumer/Quadratic.cpp'; else $(CYGPATH_W) '$(srcdir)/consumer/Quadratic.cpp'; fi`
 @am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/Quadratic.Tpo $(DEPDIR)/Quadratic.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='agent/consumer/Quadratic.cpp' object='Quadratic.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='consumer/Quadratic.cpp' object='Quadratic.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o Quadratic.obj `if test -f 'agent/consumer/Quadratic.cpp'; then $(CYGPATH_W) 'agent/consumer/Quadratic.cpp'; else $(CYGPATH_W) '$(srcdir)/agent/consumer/Quadratic.cpp'; fi`
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o Quadratic.obj `if test -f 'consumer/Quadratic.cpp'; then $(CYGPATH_W) 'consumer/Quadratic.cpp'; else $(CYGPATH_W) '$(srcdir)/consumer/Quadratic.cpp'; fi`
 
 ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
 	list='$(SOURCES) $(HEADERS) $(LISP) $(TAGS_FILES)'; \

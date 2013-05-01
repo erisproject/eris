@@ -1,6 +1,8 @@
-#include "agent/consumer/Quadratic.hpp"
+#include "consumer/Quadratic.hpp"
 #include <utility>
 #include <vector>
+
+namespace eris { namespace consumer {
 
 Quadratic::Quadratic() {}
 Quadratic::Quadratic(double offset, std::map<eris_id_t, double> linear) : offset(offset), linear(linear) {}
@@ -40,3 +42,4 @@ double Quadratic::d2(Bundle b, eris_id_t g1, eris_id_t g2) {
     return upp;
 }
 
+} }

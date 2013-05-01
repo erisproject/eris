@@ -3,6 +3,7 @@
 #include <iostream>
 
 using namespace std;
+using namespace eris;
 
 int main() {
     Eris<Simulation> sim;

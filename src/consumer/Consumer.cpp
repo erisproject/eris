@@ -1,4 +1,6 @@
-#include "agent/consumer/Consumer.hpp"
+#include "consumer/Consumer.hpp"
+
+namespace eris { namespace consumer {
 
 // Returns the gradient given a bundle.  By default this just calls d() for
 // each good, but subclasses may override this to provide a more efficient
@@ -34,3 +36,5 @@ std::map<eris_id_t, std::map<eris_id_t, double>> Consumer::Differentiable::hessi
 
     return H;
 }
+
+} }

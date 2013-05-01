@@ -5,6 +5,7 @@
 #include <iostream>
 
 using namespace std;
+using namespace eris;
 
 void _printBundle(string name, const BundleNegative &b) {
     cout << "Bundle " << name << " contents:\n";

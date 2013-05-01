@@ -3,6 +3,8 @@
 #include <set>
 #include "types.hpp"
 
+namespace eris {
+
 // A Bundle is a thin wrapper around a std::map designed for storing a set of goods and associated
 // quantities.
 //
@@ -275,4 +277,6 @@ __ERIS_BUNDLE_HPP_COMPARE(>=)
 
 inline bool BundleNegative::operator != (const BundleNegative &b) {
     return !(*this == b);
+}
+
 }

@@ -1,8 +1,10 @@
 #pragma once
 #include <map>
-#include "agent/consumer/Consumer.hpp"
+#include "consumer/Consumer.hpp"
 #include "Bundle.hpp"
 #include "types.hpp"
+
+namespace eris { namespace consumer {
 
 /* Class for a consumer whose utility is a sum of first and second order
  * polynomials.  In particular, such a consumer has a utility which is the sum
@@ -44,3 +46,5 @@ inline void Quadratic::setQuadCoef(const eris_id_t &g1, const eris_id_t &g2, dou
 inline double Quadratic::getQuadCoef(const eris_id_t &g1, const eris_id_t &g2) {
     return (g1 < g2 ? quad[g1][g2] : quad[g2][g1]);
 }
+
+} }

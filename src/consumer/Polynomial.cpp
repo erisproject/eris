@@ -1,4 +1,6 @@
-#include "agent/consumer/Polynomial.hpp"
+#include "consumer/Polynomial.hpp"
+
+namespace eris { namespace consumer {
 
 // A consumer who has quadratic utility of the form:
 // AX + BX^2
@@ -79,3 +81,5 @@ std::map<eris_id_t, std::map<eris_id_t, double>> Polynomial::hessian(std::vector
 
     return H;
 }
+
+} }

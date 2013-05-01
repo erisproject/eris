@@ -3,6 +3,8 @@
 #include "Agent.hpp"
 #include "Good.hpp"
 #include <map>
+
+namespace eris {
 /* This class is at the centre of an Eris economy model; it keeps track of all
  * of the agents currently in the economy, all of the goods currently available
  * in the economy, and the interaction mechanisms (e.g. markets).  Note that
@@ -31,3 +33,5 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         AgentMap agent_map;
         GoodMap good_map;
 };
+
+}

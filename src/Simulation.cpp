@@ -1,5 +1,7 @@
 #include "Simulation.hpp"
 
+namespace eris {
+
 std::shared_ptr<Agent> Simulation::agent(eris_id_t aid) {
     return agent_map.at(aid);
 }
@@ -48,4 +50,6 @@ GoodMap::iterator Simulation::goods() {
 }
 GoodMap::iterator Simulation::goodsEnd() {
     return good_map.end();
+}
+
 }

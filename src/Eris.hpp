@@ -1,6 +1,8 @@
 #pragma once
 #include <memory>
 
+namespace eris {
+
 // Top-level wrapper class around a Simulation.  Simulations should not be
 // created directly (as they need to be shared by simulation component classes,
 // and thus require dealing with strong and weak references).
@@ -19,3 +21,5 @@ class Eris {
     private:
         std::shared_ptr<T> t;
 };
+
+}
