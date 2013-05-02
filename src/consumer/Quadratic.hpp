@@ -1,5 +1,6 @@
 #pragma once
 #include <map>
+#include <utility>
 #include "consumer/Consumer.hpp"
 #include "Bundle.hpp"
 #include "types.hpp"
@@ -27,24 +28,30 @@ class Quadratic : public Consumer::Differentiable {
         double offset = 0.0;
         std::map<eris_id_t, double> linear;
 
-        // The quadratic term, however, needs to be accessed via these methods
-        // (to ensure symmetry and avoid duplicate storage)
-        double getQuadCoef(const eris_id_t &g1, const eris_id_t &g2);
-        void setQuadCoef(const eris_id_t &g1, const eris_id_t &g2, double coef);
+        // The quadratic term, however, needs to be accessed via these methods (to ensure symmetry
+        // and avoid duplicate storage)
+        double getQuadCoef(eris_id_t g1, eris_id_t g2) const;
+        void setQuadCoef(eris_id_t g1, eris_id_t g2, const double &coef);
 
-        virtual double utility(Bundle b);
+        virtual double utility(const Bundle &b) const;
 
-        virtual double d(Bundle b, eris_id_t g);
-        virtual double d2(Bundle b, eris_id_t g1, eris_id_t g2);
+        virtual double d(const Bundle &b, const eris_id_t &g) const;
+        virtual double d2(const Bundle &b, const eris_id_t &g1, const eris_id_t &g2) const;
     private:
         std::map<eris_id_t, std::map<eris_id_t, double>> quad;
 };
 // Inline these for efficiency:
-inline void Quadratic::setQuadCoef(const eris_id_t &g1, const eris_id_t &g2, double coef) {
-    (g1 < g2 ? quad[g1][g2] : quad[g2][g1]) = coef;
+inline void Quadratic::setQuadCoef(eris_id_t g1, eris_id_t g2, const double &coef) {
+    if (g1 > g2) std::swap(g1, g2);
+    quad[g1][g2] = coef;
 }
-inline double Quadratic::getQuadCoef(const eris_id_t &g1, const eris_id_t &g2) {
-    return (g1 < g2 ? quad[g1][g2] : quad[g2][g1]);
+inline double Quadratic::getQuadCoef(eris_id_t g1, eris_id_t g2) const {
+    if (g1 > g2) std::swap(g1, g2);
+
+    if (quad.count(g1) == 0) return 0.0;
+    auto nested = quad.at(g1);
+    if (nested.count(g2) == 0) return 0.0;
+    return nested.at(g2);
 }
 
 } }

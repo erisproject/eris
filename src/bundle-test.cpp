@@ -45,6 +45,8 @@ int main() {
     b[4] = b[0] + b[1];
 
     printBundle(b[0]);
+    printBundle(b[0] * 2);
+    printBundle(2 * b[0]);
     printBundle(b[0] + b[1]);
     printBundle(b[0] + b[1] - b[2]);
 
@@ -96,4 +98,36 @@ int main() {
 
     printBundle(b[4] * 2);
     printBundle(b[4] / 3);
+
+    bool good1 = false, good2 = false;
+    try { b[3].set(g3, -3); }
+    catch (Bundle::negativity_error e) { good1 = true; }
+    try { b[3].set({{g4,1}, {g3,-1}}); }
+    catch (Bundle::negativity_error e) { good2 = true; }
+
+    cout << "Caught negativity errors:\n";
+    print(good1);
+    print(good2);
+    printBundle(b[3]);
+
+
+    b[5].set({{ g1, 2 }, {g2, 3}});
+    b[6].set({{ g1, 1 }, {g2, 4}, {g3, 7}});
+    b[7] = Bundle({{ g1, 1 }, {g2, 1}, {g3, 1}, {g4, 1}});
+
+    printBundle(b[5]);
+    printBundle(b[6]);
+    printBundle(b[7]);
+    print(b[5] / b[6]);
+    try {printBundle(b[5] % b[6]);} catch (Bundle::negativity_error e) {}
+    print(b[6] / b[5]);
+    try {printBundle(b[6] % b[5]);} catch (Bundle::negativity_error e) {}
+    print(b[5] / b[7]);
+    try {printBundle(b[5] % b[7]);} catch (Bundle::negativity_error e) {}
+    print(b[7] / b[5]);
+    try {printBundle(b[7] % b[5]);} catch (Bundle::negativity_error e) {}
+    print(b[6] / b[7]);
+    try {printBundle(b[6] % b[7]);} catch (Bundle::negativity_error e) {}
+    print(b[7] / b[6]);
+    try {printBundle(b[7] % b[6]);} catch (Bundle::negativity_error e) {}
 }

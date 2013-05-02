@@ -67,7 +67,7 @@ bundle_test_OBJECTS = $(am_bundle_test_OBJECTS)
 bundle_test_LDADD = $(LDADD)
 am_lin_dem_OBJECTS = lin-dem.$(OBJEXT) Eris.$(OBJEXT) \
 	Simulation.$(OBJEXT) Agent.$(OBJEXT) Good.$(OBJEXT) \
-	Consumer.$(OBJEXT) Quadratic.$(OBJEXT)
+	Quadratic.$(OBJEXT) PriceFirm.$(OBJEXT)
 lin_dem_OBJECTS = $(am_lin_dem_OBJECTS)
 lin_dem_LDADD = $(LDADD)
 am_test_OBJECTS = test.$(OBJEXT) Eris.$(OBJEXT) Simulation.$(OBJEXT) \
@@ -178,7 +178,9 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 test_SOURCES = test.cpp Eris.cpp Simulation.cpp Agent.cpp Good.cpp
-lin_dem_SOURCES = lin-dem.cpp Eris.cpp Simulation.cpp Agent.cpp Good.cpp consumer/Consumer.cpp consumer/Quadratic.cpp
+lin_dem_SOURCES = lin-dem.cpp Eris.cpp Simulation.cpp Agent.cpp Good.cpp consumer/Quadratic.cpp \
+				  firm/PriceFirm.cpp
+
 bundle_test_SOURCES = bundle-test.cpp Eris.cpp Simulation.cpp Good.cpp
 all: all-am
 
@@ -271,9 +273,9 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Agent.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Consumer.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Eris.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Good.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/PriceFirm.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Quadratic.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Simulation.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bundle-test.Po@am__quote@
@@ -294,20 +296,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(CXXCOMPILE) -c -o $@ `$(CYGPATH_W) '$<'`
 
-Consumer.o: consumer/Consumer.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT Consumer.o -MD -MP -MF $(DEPDIR)/Consumer.Tpo -c -o Consumer.o `test -f 'consumer/Consumer.cpp' || echo '$(srcdir)/'`consumer/Consumer.cpp
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/Consumer.Tpo $(DEPDIR)/Consumer.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='consumer/Consumer.cpp' object='Consumer.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o Consumer.o `test -f 'consumer/Consumer.cpp' || echo '$(srcdir)/'`consumer/Consumer.cpp
-
-Consumer.obj: consumer/Consumer.cpp
-@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT Consumer.obj -MD -MP -MF $(DEPDIR)/Consumer.Tpo -c -o Consumer.obj `if test -f 'consumer/Consumer.cpp'; then $(CYGPATH_W) 'consumer/Consumer.cpp'; else $(CYGPATH_W) '$(srcdir)/consumer/Consumer.cpp'; fi`
-@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/Consumer.Tpo $(DEPDIR)/Consumer.Po
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='consumer/Consumer.cpp' object='Consumer.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o Consumer.obj `if test -f 'consumer/Consumer.cpp'; then $(CYGPATH_W) 'consumer/Consumer.cpp'; else $(CYGPATH_W) '$(srcdir)/consumer/Consumer.cpp'; fi`
-
 Quadratic.o: consumer/Quadratic.cpp
 @am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT Quadratic.o -MD -MP -MF $(DEPDIR)/Quadratic.Tpo -c -o Quadratic.o `test -f 'consumer/Quadratic.cpp' || echo '$(srcdir)/'`consumer/Quadratic.cpp
 @am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/Quadratic.Tpo $(DEPDIR)/Quadratic.Po
@@ -321,6 +309,20 @@ Quadratic.obj: consumer/Quadratic.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='consumer/Quadratic.cpp' object='Quadratic.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o Quadratic.obj `if test -f 'consumer/Quadratic.cpp'; then $(CYGPATH_W) 'consumer/Quadratic.cpp'; else $(CYGPATH_W) '$(srcdir)/consumer/Quadratic.cpp'; fi`
+
+PriceFirm.o: firm/PriceFirm.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT PriceFirm.o -MD -MP -MF $(DEPDIR)/PriceFirm.Tpo -c -o PriceFirm.o `test -f 'firm/PriceFirm.cpp' || echo '$(srcdir)/'`firm/PriceFirm.cpp
+@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/PriceFirm.Tpo $(DEPDIR)/PriceFirm.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='firm/PriceFirm.cpp' object='PriceFirm.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o PriceFirm.o `test -f 'firm/PriceFirm.cpp' || echo '$(srcdir)/'`firm/PriceFirm.cpp
+
+PriceFirm.obj: firm/PriceFirm.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT PriceFirm.obj -MD -MP -MF $(DEPDIR)/PriceFirm.Tpo -c -o PriceFirm.obj `if test -f 'firm/PriceFirm.cpp'; then $(CYGPATH_W) 'firm/PriceFirm.cpp'; else $(CYGPATH_W) '$(srcdir)/firm/PriceFirm.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/PriceFirm.Tpo $(DEPDIR)/PriceFirm.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='firm/PriceFirm.cpp' object='PriceFirm.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o PriceFirm.obj `if test -f 'firm/PriceFirm.cpp'; then $(CYGPATH_W) 'firm/PriceFirm.cpp'; else $(CYGPATH_W) '$(srcdir)/firm/PriceFirm.cpp'; fi`
 
 ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
 	list='$(SOURCES) $(HEADERS) $(LISP) $(TAGS_FILES)'; \
