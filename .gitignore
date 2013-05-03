@@ -22,8 +22,4 @@ a.out
 Makefile
 /config.log
 /config.status
-/src/.deps/
-/src/test
-/src/lin-dem
-/src/bundle-test
 /autom4te.cache/
