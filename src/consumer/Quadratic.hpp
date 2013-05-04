@@ -2,6 +2,7 @@
 #include <map>
 #include <utility>
 #include "consumer/Consumer.hpp"
+#include "Good.hpp"
 #include "Bundle.hpp"
 #include "types.hpp"
 
@@ -22,7 +23,7 @@ class Quadratic : public Consumer::Differentiable {
         Quadratic();
         // Initialize with constant and linear coefficients.  Quadratic coefficients have to be
         // set individually using setQuadCoef()
-        Quadratic(double offset, std::map<eris_id_t, double> linear);
+        Quadratic(double offset, std::initializer_list<std::map<eris_id_t, double>::value_type> linear);
 
         // Offset and linear may be accessed directly
         double offset = 0.0;

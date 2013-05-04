@@ -21,10 +21,10 @@ void _printBundle(string name, const BundleNegative &b) {
 int main() {
     Eris<Simulation> sim;
 
-    eris_id_t g1 = sim->addGood(new Good::Continuous());
-    eris_id_t g2 = sim->addGood(new Good::Continuous());
-    eris_id_t g3 = sim->addGood(new Good::Continuous());
-    eris_id_t g4 = sim->addGood(new Good::Continuous());
+    auto g1 = sim->addGood(Good::Continuous());
+    auto g2 = sim->addGood(Good::Continuous());
+    auto g3 = sim->addGood(Good::Continuous());
+    auto g4 = sim->addGood(Good::Continuous());
 
     Bundle b[10];
 
@@ -102,7 +102,7 @@ int main() {
     bool good1 = false, good2 = false;
     try { b[3].set(g3, -3); }
     catch (Bundle::negativity_error e) { good1 = true; }
-    try { b[3].set({{g4,1}, {g3,-1}}); }
+    try { b[3].set({{*g4,1}, {*g3,-1}}); }
     catch (Bundle::negativity_error e) { good2 = true; }
 
     cout << "Caught negativity errors:\n";
@@ -111,9 +111,9 @@ int main() {
     printBundle(b[3]);
 
 
-    b[5].set({{ g1, 2 }, {g2, 3}});
-    b[6].set({{ g1, 1 }, {g2, 4}, {g3, 7}});
-    b[7] = Bundle({{ g1, 1 }, {g2, 1}, {g3, 1}, {g4, 1}});
+    b[5].set({{ *g1, 2 }, {*g2, 3}});
+    b[6].set({{ *g1, 1 }, {*g2, 4}, {*g3, 7}});
+    b[7] = Bundle({{ *g1, 1 }, {*g2, 1}, {*g3, 1}, {*g4, 1}});
 
     printBundle(b[5]);
     printBundle(b[6]);

@@ -1,6 +1,6 @@
 #include "Good.hpp"
+#include <exception>
 #include <string>
-
 namespace eris {
 
 Good::Good(std::string good_name) : name(good_name) {}
@@ -13,9 +13,8 @@ Good::Discrete::Discrete(std::string name, double increment) : Good(name) {
     setIncrement(increment);
 }
 
-// FIXME: throw an exception for non-positive increments?
 void Good::Discrete::setIncrement(double increment) {
-    if (increment <= 0) throw "FIXME-increment non-positive";
+    if (increment <= 0) throw std::invalid_argument(std::to_string(increment));
     incr = increment;
 }
 

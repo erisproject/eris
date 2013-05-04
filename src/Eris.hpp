@@ -16,6 +16,9 @@ class Eris {
         Eris() { t = std::shared_ptr<T>(new T); }
         // For more complicated construction, use: Eris e(new T(...))
         Eris(T *s) { t = std::shared_ptr<T>(s); }
+
+        virtual ~Eris() = default;
+
         // Deferenced member access gets redirected through the Simulation object
         T* operator ->() { return t.get(); }
     private:

@@ -5,7 +5,7 @@
 namespace eris { namespace consumer {
 
 Quadratic::Quadratic() {}
-Quadratic::Quadratic(double offset, std::map<eris_id_t, double> linear) : offset(offset), linear(linear) {}
+Quadratic::Quadratic(double offset, std::initializer_list<std::map<eris_id_t, double>::value_type> linear) : offset(offset), linear(linear) {}
 
 double Quadratic::utility(const Bundle &b) const {
     double u = offset;

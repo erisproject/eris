@@ -9,14 +9,26 @@ namespace eris {
  * here.
  */
 
+class Simulation;
+
 class Good {
     public:
-        std::string name;
+        virtual ~Good() = default;
+
         virtual double increment() = 0;
+        eris_id_t id() const { return _id; }
+        operator eris_id_t() const { return _id; }
+
+        std::string name;
+
         class Continuous;
         class Discrete;
     protected:
         Good(std::string name);
+        eris_id_t _id = 0;
+        std::weak_ptr<eris::Simulation> simulator;
+        bool operator < (const Good &other) { return id() < other.id(); }
+        friend eris::Simulation;
 };
 
 /* Continous good.  This is a good with a fixed increment of 0, usable for any
@@ -36,5 +48,20 @@ class Good::Discrete : public Good {
     private:
         double incr = 1.0;
 };
+
+/* Wrapper around std::shared_ptr<G> that adds automatic G and eris_id_t cast conversion */
+template<class G> class SharedGood {
+    public:
+        operator G () const { return *ptr; }
+        operator eris_id_t () const { return ptr->id(); }
+        G& operator * () const { return *ptr; }
+        G* operator -> () const { return ptr.get(); }
+        std::shared_ptr<G> ptr;
+    private:
+        SharedGood(Good *g) : ptr(g) {}
+        template<class F> SharedGood(const SharedGood<F> &from) : ptr(std::static_pointer_cast<G,F>(from.ptr)) {}
+        friend class Simulation;
+};
+
 
 }

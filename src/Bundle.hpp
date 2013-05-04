@@ -3,7 +3,6 @@
 #include <limits>
 #include <map>
 #include <set>
-#include <iostream>
 
 namespace eris {
 
@@ -95,9 +94,12 @@ class BundleNegative {
         BundleNegative() {}
         BundleNegative(eris_id_t g, double q);
         BundleNegative(std::initializer_list<std::pair<eris_id_t, double>> init);
+
+        virtual ~BundleNegative() = default;
+
         virtual double operator[] (eris_id_t gid) const;
         virtual void set(eris_id_t gid, double quantity);
-        virtual void set(std::initializer_list<std::pair<eris_id_t, double>>);
+        virtual void set(std::initializer_list<std::pair<eris_id_t, double>> goods);
         virtual std::map<eris_id_t, double>::const_iterator begin() const;
         virtual std::map<eris_id_t, double>::const_iterator end() const;
 
@@ -147,8 +149,8 @@ class Bundle : public BundleNegative {
         Bundle() {};
         Bundle(eris_id_t g, double q);
         Bundle(std::initializer_list<std::pair<eris_id_t, double>> init);
+        using BundleNegative::set;
         virtual void set(eris_id_t gid, double quantity);
-        virtual void set(std::initializer_list<std::pair<eris_id_t, double>>);
 
         Bundle& operator += (const BundleNegative &b);
         Bundle& operator -= (const BundleNegative &b);
@@ -198,7 +200,7 @@ inline Bundle::Bundle(eris_id_t g, double q) {
     set(g, q);
 }
 inline Bundle::Bundle(std::initializer_list<std::pair<eris_id_t, double>> init) {
-    set(init);
+    BundleNegative::set(init);
 }
 
 inline double BundleNegative::operator[] (eris_id_t gid) const {
@@ -210,9 +212,6 @@ inline void BundleNegative::set(std::initializer_list<std::pair<eris_id_t, doubl
 }
 inline void BundleNegative::set(eris_id_t gid, double quantity) {
     bundle[gid] = quantity;
-}
-inline void Bundle::set(std::initializer_list<std::pair<eris_id_t, double>> goods) {
-    for (auto g : goods) set(g.first, g.second);
 }
 
 inline void Bundle::set(eris_id_t gid, double quantity) {
