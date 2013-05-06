@@ -31,8 +31,6 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
 
         template <class A> SharedAgent<A> addAgent(A a);
         template <class G> SharedGood<G> addGood(G g);
-        // void remove(Agent *a);
-        // void remove(Good *g);
         void removeAgent(eris_id_t aid);
         void removeGood(eris_id_t gid);
         void removeAgent(const Agent &a);
