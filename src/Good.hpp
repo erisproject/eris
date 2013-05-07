@@ -48,19 +48,4 @@ class Good::Discrete : public Good {
         double incr = 1.0;
 };
 
-/* Wrapper around std::shared_ptr<G> that adds automatic G and eris_id_t cast conversion */
-template<class G> class SharedGood {
-    public:
-        operator G () const { return *ptr; }
-        operator eris_id_t () const { return ptr->id(); }
-        G& operator * () const { return *ptr; }
-        G* operator -> () const { return ptr.get(); }
-        std::shared_ptr<G> ptr;
-        template<class F> SharedGood(const SharedGood<F> &from) : ptr(std::static_pointer_cast<G,F>(from.ptr)) {}
-    private:
-        SharedGood(Good *g) : ptr(g) {}
-        friend class Simulation;
-};
-
-
 }

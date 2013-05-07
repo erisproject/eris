@@ -31,13 +31,13 @@ int main() {
     }
 
 
-    // We should be able to automatically cast from a SharedAgent<A> to a SharedAgent<B> (assuming
+    // We should be able to automatically cast from a SharedObject<A> to a SharedObject<B> (assuming
     // that A can be cast as B):
-    SharedAgent<Quadratic> joeQ = sim->agent(1);
+    Simulation::SharedObject<Quadratic> joeQ = sim->agent(1);
     {
-        SharedAgent<Agent> joeA = joeQ;
+        Simulation::SharedObject<Agent> joeA = joeQ;
         std::cout << "joe has " << joeQ.ptr.use_count() << " referencees\n";
     }
     std::cout << "joe has " << joeQ.ptr.use_count() << " referencees\n";
-//    SharedAgent<Quadratic> joeQ = joe;
+//    SharedObject<Quadratic> joeQ = joe;
 }

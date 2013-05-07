@@ -2,22 +2,22 @@
 
 namespace eris {
 
-SharedAgent<Agent> Simulation::agent(eris_id_t aid) {
+Simulation::SharedObject<Agent> Simulation::agent(eris_id_t aid) {
     return agent_map.at(aid);
 }
 
-SharedGood<Good> Simulation::good(eris_id_t gid) {
+Simulation::SharedObject<Good> Simulation::good(eris_id_t gid) {
     return good_map.at(gid);
 }
 
 // Assign an ID, set it, store the simulator, and instead into the agent map
-void Simulation::insert(const SharedAgent<Agent> &a) {
+void Simulation::insertAgent(const Simulation::SharedObject<Agent> &a) {
     a->_id = agent_id_next++;
     a->simulator = shared_from_this();
     agent_map.insert(std::make_pair(a->id(), a));
 }
 // Assign an ID, set it, store the simulator, and instead into the good map
-void Simulation::insert(const SharedGood<Good> &g) {
+void Simulation::insertGood(const Simulation::SharedObject<Good> &g) {
     g->_id = good_id_next++;
     g->simulator = shared_from_this();
     good_map.insert(std::make_pair(g->id(), g));
@@ -31,11 +31,11 @@ void Simulation::removeGood(eris_id_t gid) {
     good_map.erase(gid);
 }
 
-const AgentMap Simulation::agents() {
+const Simulation::AgentMap Simulation::agents() {
     return agent_map;
 }
 
-const GoodMap Simulation::goods() {
+const Simulation::GoodMap Simulation::goods() {
     return good_map;
 }
 

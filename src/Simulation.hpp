@@ -8,8 +8,6 @@
 
 namespace eris {
 
-typedef std::map<eris_id_t, SharedGood<Good>> GoodMap;
-typedef std::map<eris_id_t, SharedAgent<Agent>> AgentMap;
 
 /* This class is at the centre of an Eris economy model; it keeps track of all
  * of the agents currently in the economy, all of the goods currently available
@@ -25,12 +23,41 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
     public:
         //Simulation();
         virtual ~Simulation() = default;
-        SharedAgent<Agent> agent(eris_id_t aid);
-        SharedGood<Good> good(eris_id_t gid);
+
+        // Wrapper around std::shared_ptr<G> that adds automatic G and eris_id_t cast conversion
+        template<class T> class SharedObject {
+            public:
+                virtual ~SharedObject() = default;
+                // Using as an A gives you the underlying A object:
+                virtual operator T () const { return *ptr; }
+                // Using as an eris_id_t gives you the object's id
+                virtual operator eris_id_t () const { return ptr->id(); }
+                // Dereferencing gives you the underlying A
+                virtual T& operator * () const { return *ptr; }
+                // Dereferencing member access works on the underlying A
+                virtual T* operator -> () const { return ptr.get(); }
+
+                // The underlying shared_ptr
+                const std::shared_ptr<T> ptr;
+
+                // Constructing a new SharedObject<A> using an existing SharedObject<F> recasts the F pointer
+                // to an A pointer.  This constructor also allows you to do things like:
+                // SharedObject<Subclass> = something_returning_SharedObject<Object>(...)
+                template<class F> SharedObject(const SharedObject<F> &from) : ptr(std::static_pointer_cast<T,F>(from.ptr)) {}
+            private:
+                SharedObject(T *g) : ptr(g) {}
+                friend class Simulation;
+        };
+
+        typedef std::map<eris_id_t, SharedObject<Good>> GoodMap;
+        typedef std::map<eris_id_t, SharedObject<Agent>> AgentMap;
+
+        SharedObject<Agent> agent(eris_id_t aid);
+        SharedObject<Good> good(eris_id_t gid);
 
 
-        template <class A> SharedAgent<A> addAgent(A a);
-        template <class G> SharedGood<G> addGood(G g);
+        template <class A> SharedObject<A> addAgent(A a);
+        template <class G> SharedObject<G> addGood(G g);
         void removeAgent(eris_id_t aid);
         void removeGood(eris_id_t gid);
         void removeAgent(const Agent &a);
@@ -51,8 +78,8 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         };
 
     private:
-        void insert(const SharedAgent<Agent> &agent);
-        void insert(const SharedGood<Good> &good);
+        void insertAgent(const SharedObject<Agent> &agent);
+        void insertGood(const SharedObject<Good> &good);
         eris_id_t agent_id_next = 1, good_id_next = 1;
         AgentMap agent_map;
         GoodMap good_map;
@@ -61,17 +88,19 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
 // Copies and stores the passed in Agent and returns a shared pointer to it.  Will throw a
 // Simulation::already_owned exception if the agent belongs to another Simulation, and a
 // Simulation::already_added exception if the agent has already been added to this Simulation.
-template <class A> SharedAgent<A> Simulation::addAgent(A a) {
-    SharedAgent<Agent> agent(new A(std::move(a)));
-    insert(agent);
-    return SharedAgent<A>(agent);
+template <class A> Simulation::SharedObject<A> Simulation::addAgent(A a) {
+    // This will fail if A isn't an Agent (sub)class:
+    Simulation::SharedObject<Agent> agent(new A(std::move(a)));
+    insertAgent(agent);
+    return agent;
 }
 
 // Copies and stores the passed-in Good, and returned a shared pointer to it.
-template <class G> SharedGood<G> Simulation::addGood(G g) {
-    SharedGood<Good> good(new G(std::move(g)));
-    insert(good);
-    return SharedGood<G>(good);
+template <class G> Simulation::SharedObject<G> Simulation::addGood(G g) {
+    // This will fail if G isn't a Good (sub)class:
+    Simulation::SharedObject<Good> good(new G(std::move(g)));
+    insertGood(good);
+    return good;
 }
 
 
