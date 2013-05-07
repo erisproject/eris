@@ -1,4 +1,4 @@
-CXXFLAGS = -std=c++11
+CXXFLAGS = -O4 -std=c++11 -Wall -Werror
 
 bin_PROGRAMS = test lin-dem bundle-test grad-hessian
 test_SOURCES = test.cpp Eris.cpp Simulation.cpp Good.cpp consumer/Quadratic.cpp
