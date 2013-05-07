@@ -2,11 +2,15 @@
 #include "Simulation.hpp"
 #include "Agent.hpp"
 #include "consumer/Quadratic.hpp"
+#include "market/Bertrand.hpp"
+#include "firm/PriceFirm.hpp"
 #include <iostream>
 
 using namespace std;
 using namespace eris;
 using namespace eris::consumer;
+using namespace eris::firm;
+using namespace eris::market;
 
 int main() {
     Eris<Simulation> sim;
@@ -14,10 +18,9 @@ int main() {
         sim->addAgent(Quadratic(1.0, {}));
     }
 
-    for (int i = 0; i < 2; i++) {
-        sim->addGood(Good::Continuous("continuous good"));
-    }
-    sim->addGood(Good::Discrete("discrete good"));
+    auto money = sim->addGood(Good::Continuous("money"));
+    auto cgood = sim->addGood(Good::Continuous("continuous good"));
+    auto dgood = sim->addGood(Good::Discrete("discrete good"));
 
     for (auto a : sim->agents()) {
         auto agent = a.second;
@@ -38,5 +41,24 @@ int main() {
         std::cout << "joe has " << joeQ.ptr.use_count() << " referencees\n";
     }
     std::cout << "joe has " << joeQ.ptr.use_count() << " referencees\n";
-//    SharedObject<Quadratic> joeQ = joe;
+
+
+    auto bertrand = sim->addMarket(Bertrand(Bundle(cgood, 1), Bundle(money, 1)));
+
+    auto f1 = sim->addAgent(PriceFirm(Bundle(cgood, 1), Bundle(money, 1), 0.4));
+    auto f2 = sim->addAgent(PriceFirm(Bundle(cgood, 1), Bundle(money, 1), 0.2));
+    auto f3 = sim->addAgent(PriceFirm(Bundle(cgood, 1), Bundle(money, 10), 0.2));
+    auto f4 = sim->addAgent(PriceFirm(Bundle(cgood, 1), Bundle(money, 10), 0.1));
+    auto f5 = sim->addAgent(PriceFirm(Bundle(cgood, 1), Bundle(money, 100)));
+    auto f6 = sim->addAgent(PriceFirm(Bundle(cgood, 1), Bundle(money, 100), 0.01));
+    auto f7 = sim->addAgent(PriceFirm(Bundle(cgood, 1), Bundle(money, 100), 0.05));
+    bertrand->addFirm(f1);
+    bertrand->addFirm(f2);
+    bertrand->addFirm(f3);
+    bertrand->addFirm(f4);
+    bertrand->addFirm(f5);
+    bertrand->addFirm(f6);
+    bertrand->addFirm(f7);
+
+    cout << "Betrand price for q=1 is: " << bertrand->price(1) << " (should be 13.6)\n";
 }

@@ -75,7 +75,8 @@ am_lin_dem_OBJECTS = lin-dem.$(OBJEXT) $(am__objects_1) \
 	Quadratic.$(OBJEXT) PriceFirm.$(OBJEXT)
 lin_dem_OBJECTS = $(am_lin_dem_OBJECTS)
 lin_dem_LDADD = $(LDADD)
-am_test_OBJECTS = test.$(OBJEXT) $(am__objects_1) Quadratic.$(OBJEXT)
+am_test_OBJECTS = test.$(OBJEXT) $(am__objects_1) Quadratic.$(OBJEXT) \
+	PriceFirm.$(OBJEXT) Bertrand.$(OBJEXT)
 test_OBJECTS = $(am_test_OBJECTS)
 test_LDADD = $(LDADD)
 DEFAULT_INCLUDES = -I.@am__isrc@
@@ -183,7 +184,7 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 _eris_base = Eris.cpp Simulation.cpp Good.cpp Market.cpp
-test_SOURCES = test.cpp $(_eris_base) consumer/Quadratic.cpp
+test_SOURCES = test.cpp $(_eris_base) consumer/Quadratic.cpp firm/PriceFirm.cpp market/Bertrand.cpp
 grad_hessian_SOURCES = grad-hessian.cpp $(_eris_base) consumer/Quadratic.cpp
 lin_dem_SOURCES = lin-dem.cpp $(_eris_base) consumer/Quadratic.cpp firm/PriceFirm.cpp
 bundle_test_SOURCES = bundle-test.cpp $(_eris_base)
@@ -280,6 +281,7 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Bertrand.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Eris.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Good.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Market.Po@am__quote@
@@ -332,6 +334,20 @@ PriceFirm.obj: firm/PriceFirm.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='firm/PriceFirm.cpp' object='PriceFirm.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o PriceFirm.obj `if test -f 'firm/PriceFirm.cpp'; then $(CYGPATH_W) 'firm/PriceFirm.cpp'; else $(CYGPATH_W) '$(srcdir)/firm/PriceFirm.cpp'; fi`
+
+Bertrand.o: market/Bertrand.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT Bertrand.o -MD -MP -MF $(DEPDIR)/Bertrand.Tpo -c -o Bertrand.o `test -f 'market/Bertrand.cpp' || echo '$(srcdir)/'`market/Bertrand.cpp
+@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/Bertrand.Tpo $(DEPDIR)/Bertrand.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='market/Bertrand.cpp' object='Bertrand.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o Bertrand.o `test -f 'market/Bertrand.cpp' || echo '$(srcdir)/'`market/Bertrand.cpp
+
+Bertrand.obj: market/Bertrand.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -MT Bertrand.obj -MD -MP -MF $(DEPDIR)/Bertrand.Tpo -c -o Bertrand.obj `if test -f 'market/Bertrand.cpp'; then $(CYGPATH_W) 'market/Bertrand.cpp'; else $(CYGPATH_W) '$(srcdir)/market/Bertrand.cpp'; fi`
+@am__fastdepCXX_TRUE@	$(am__mv) $(DEPDIR)/Bertrand.Tpo $(DEPDIR)/Bertrand.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='market/Bertrand.cpp' object='Bertrand.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) -c -o Bertrand.obj `if test -f 'market/Bertrand.cpp'; then $(CYGPATH_W) 'market/Bertrand.cpp'; else $(CYGPATH_W) '$(srcdir)/market/Bertrand.cpp'; fi`
 
 ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
 	list='$(SOURCES) $(HEADERS) $(LISP) $(TAGS_FILES)'; \
