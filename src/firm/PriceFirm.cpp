@@ -2,7 +2,7 @@
 
 namespace eris { namespace firm {
 
-PriceFirm::PriceFirm(Bundle price, Bundle output, double capacity) :
+PriceFirm::PriceFirm(Bundle output, Bundle price, double capacity) :
     _price(price), _output(output), capacity(capacity) {}
 
 bool PriceFirm::canProduce(const Bundle &b) const noexcept {

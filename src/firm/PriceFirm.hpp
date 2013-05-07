@@ -21,7 +21,7 @@ namespace eris { namespace firm {
  */
 class PriceFirm : public Firm {
     public:
-        PriceFirm(Bundle price, Bundle out, double capacity = std::numeric_limits<double>::infinity());
+        PriceFirm(Bundle out, Bundle price, double capacity = std::numeric_limits<double>::infinity());
 
         virtual void setPrice(Bundle price) noexcept;
         virtual const Bundle price() const noexcept;
