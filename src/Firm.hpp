@@ -3,7 +3,7 @@
 #include "Bundle.hpp"
 #include <initializer_list>
 
-namespace eris { namespace firm {
+namespace eris {
 
 /* Abstract base class for representing a firm that uses some input to produce some output.
  */
@@ -50,4 +50,4 @@ class Firm : public Agent {
         BundleNegative stock;
 };
 
-} }
+}

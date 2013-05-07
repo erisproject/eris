@@ -62,21 +62,20 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
-am_bundle_test_OBJECTS = bundle-test.$(OBJEXT) Eris.$(OBJEXT) \
-	Simulation.$(OBJEXT) Good.$(OBJEXT)
+am__objects_1 = Eris.$(OBJEXT) Simulation.$(OBJEXT) Good.$(OBJEXT) \
+	Market.$(OBJEXT)
+am_bundle_test_OBJECTS = bundle-test.$(OBJEXT) $(am__objects_1)
 bundle_test_OBJECTS = $(am_bundle_test_OBJECTS)
 bundle_test_LDADD = $(LDADD)
-am_grad_hessian_OBJECTS = grad-hessian.$(OBJEXT) Eris.$(OBJEXT) \
-	Simulation.$(OBJEXT) Good.$(OBJEXT) Quadratic.$(OBJEXT)
+am_grad_hessian_OBJECTS = grad-hessian.$(OBJEXT) $(am__objects_1) \
+	Quadratic.$(OBJEXT)
 grad_hessian_OBJECTS = $(am_grad_hessian_OBJECTS)
 grad_hessian_LDADD = $(LDADD)
-am_lin_dem_OBJECTS = lin-dem.$(OBJEXT) Eris.$(OBJEXT) \
-	Simulation.$(OBJEXT) Good.$(OBJEXT) Quadratic.$(OBJEXT) \
-	PriceFirm.$(OBJEXT)
+am_lin_dem_OBJECTS = lin-dem.$(OBJEXT) $(am__objects_1) \
+	Quadratic.$(OBJEXT) PriceFirm.$(OBJEXT)
 lin_dem_OBJECTS = $(am_lin_dem_OBJECTS)
 lin_dem_LDADD = $(LDADD)
-am_test_OBJECTS = test.$(OBJEXT) Eris.$(OBJEXT) Simulation.$(OBJEXT) \
-	Good.$(OBJEXT) Quadratic.$(OBJEXT)
+am_test_OBJECTS = test.$(OBJEXT) $(am__objects_1) Quadratic.$(OBJEXT)
 test_OBJECTS = $(am_test_OBJECTS)
 test_LDADD = $(LDADD)
 DEFAULT_INCLUDES = -I.@am__isrc@
@@ -183,12 +182,11 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-test_SOURCES = test.cpp Eris.cpp Simulation.cpp Good.cpp consumer/Quadratic.cpp
-grad_hessian_SOURCES = grad-hessian.cpp Eris.cpp Simulation.cpp Good.cpp consumer/Quadratic.cpp
-lin_dem_SOURCES = lin-dem.cpp Eris.cpp Simulation.cpp Good.cpp consumer/Quadratic.cpp \
-				  firm/PriceFirm.cpp
-
-bundle_test_SOURCES = bundle-test.cpp Eris.cpp Simulation.cpp Good.cpp
+_eris_base = Eris.cpp Simulation.cpp Good.cpp Market.cpp
+test_SOURCES = test.cpp $(_eris_base) consumer/Quadratic.cpp
+grad_hessian_SOURCES = grad-hessian.cpp $(_eris_base) consumer/Quadratic.cpp
+lin_dem_SOURCES = lin-dem.cpp $(_eris_base) consumer/Quadratic.cpp firm/PriceFirm.cpp
+bundle_test_SOURCES = bundle-test.cpp $(_eris_base)
 all: all-am
 
 .SUFFIXES:
@@ -284,6 +282,7 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Eris.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Good.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Market.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/PriceFirm.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Quadratic.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Simulation.Po@am__quote@

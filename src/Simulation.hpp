@@ -1,13 +1,14 @@
 #pragma once
 #include "types.hpp"
+#include "Member.hpp"
 #include "Agent.hpp"
 #include "Good.hpp"
+#include "Market.hpp"
 #include <map>
 #include <type_traits>
 #include <exception>
 
 namespace eris {
-
 
 /* This class is at the centre of an Eris economy model; it keeps track of all
  * of the agents currently in the economy, all of the goods currently available
@@ -24,46 +25,26 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         //Simulation();
         virtual ~Simulation() = default;
 
-        // Wrapper around std::shared_ptr<G> that adds automatic G and eris_id_t cast conversion
-        template<class T> class SharedObject {
-            public:
-                virtual ~SharedObject() = default;
-                // Using as an A gives you the underlying A object:
-                virtual operator T () const { return *ptr; }
-                // Using as an eris_id_t gives you the object's id
-                virtual operator eris_id_t () const { return ptr->id(); }
-                // Dereferencing gives you the underlying A
-                virtual T& operator * () const { return *ptr; }
-                // Dereferencing member access works on the underlying A
-                virtual T* operator -> () const { return ptr.get(); }
+        typedef std::map<eris_id_t, SharedMember<Good>> GoodMap;
+        typedef std::map<eris_id_t, SharedMember<Agent>> AgentMap;
+        typedef std::map<eris_id_t, SharedMember<Market>> MarketMap;
 
-                // The underlying shared_ptr
-                const std::shared_ptr<T> ptr;
+        SharedMember<Agent> agent(eris_id_t aid);
+        SharedMember<Good> good(eris_id_t gid);
+        SharedMember<Market> market(eris_id_t mid);
 
-                // Constructing a new SharedObject<A> using an existing SharedObject<F> recasts the F pointer
-                // to an A pointer.  This constructor also allows you to do things like:
-                // SharedObject<Subclass> = something_returning_SharedObject<Object>(...)
-                template<class F> SharedObject(const SharedObject<F> &from) : ptr(std::static_pointer_cast<T,F>(from.ptr)) {}
-            private:
-                SharedObject(T *g) : ptr(g) {}
-                friend class Simulation;
-        };
-
-        typedef std::map<eris_id_t, SharedObject<Good>> GoodMap;
-        typedef std::map<eris_id_t, SharedObject<Agent>> AgentMap;
-
-        SharedObject<Agent> agent(eris_id_t aid);
-        SharedObject<Good> good(eris_id_t gid);
-
-
-        template <class A> SharedObject<A> addAgent(A a);
-        template <class G> SharedObject<G> addGood(G g);
+        template <class A> SharedMember<A> addAgent(A a);
+        template <class G> SharedMember<G> addGood(G g);
+        template <class M> SharedMember<M> addMarket(M m);
         void removeAgent(eris_id_t aid);
         void removeGood(eris_id_t gid);
+        void removeMarket(eris_id_t mid);
         void removeAgent(const Agent &a);
         void removeGood(const Good &g);
+        void removeMarket(const Market &m);
         const AgentMap agents();
         const GoodMap goods();
+        const MarketMap markets();
 
         class already_owned : public std::invalid_argument {
             public:
@@ -77,30 +58,41 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
                 already_added(const std::string &objType) : std::invalid_argument(objType + " already belongs to this Simulation") {}
         };
 
+
     private:
-        void insertAgent(const SharedObject<Agent> &agent);
-        void insertGood(const SharedObject<Good> &good);
-        eris_id_t agent_id_next = 1, good_id_next = 1;
+        void insertAgent(const SharedMember<Agent> &agent);
+        void insertGood(const SharedMember<Good> &good);
+        void insertMarket(const SharedMember<Market> &market);
+        eris_id_t id_next = 1;
         AgentMap agent_map;
         GoodMap good_map;
+        MarketMap market_map;
 };
 
 // Copies and stores the passed in Agent and returns a shared pointer to it.  Will throw a
 // Simulation::already_owned exception if the agent belongs to another Simulation, and a
 // Simulation::already_added exception if the agent has already been added to this Simulation.
-template <class A> Simulation::SharedObject<A> Simulation::addAgent(A a) {
+template <class A> SharedMember<A> Simulation::addAgent(A a) {
     // This will fail if A isn't an Agent (sub)class:
-    Simulation::SharedObject<Agent> agent(new A(std::move(a)));
+    SharedMember<Agent> agent(new A(std::move(a)));
     insertAgent(agent);
     return agent;
 }
 
 // Copies and stores the passed-in Good, and returned a shared pointer to it.
-template <class G> Simulation::SharedObject<G> Simulation::addGood(G g) {
+template <class G> SharedMember<G> Simulation::addGood(G g) {
     // This will fail if G isn't a Good (sub)class:
-    Simulation::SharedObject<Good> good(new G(std::move(g)));
+    SharedMember<Good> good(new G(std::move(g)));
     insertGood(good);
     return good;
+}
+
+// Copies and stores the passed-in Market, and returned a shared pointer to it.
+template <class M> SharedMember<M> Simulation::addMarket(M g) {
+    // This will fail if M isn't a Market (sub)class:
+    SharedMember<Market> market(new M(std::move(g)));
+    insertMarket(market);
+    return market;
 }
 
 

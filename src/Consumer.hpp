@@ -5,7 +5,7 @@
 #include <map>
 #include <vector>
 
-namespace eris { namespace consumer {
+namespace eris {
 
 /* Base class for consumers, a (general) specialization of an Agent which has a
  * utility function for any Bundle of goods.
@@ -66,4 +66,4 @@ inline std::map<eris_id_t, std::map<eris_id_t, double>> Consumer::Differentiable
     return hess;
 }
 
-} }
+}

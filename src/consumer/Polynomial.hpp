@@ -1,5 +1,5 @@
 #pragma once
-#include "consumer/Consumer.hpp"
+#include "Consumer.hpp"
 #include "Bundle.hpp"
 #include "types.hpp"
 #include <map>

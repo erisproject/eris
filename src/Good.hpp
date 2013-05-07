@@ -1,5 +1,5 @@
 #pragma once
-#include "types.hpp"
+#include "Member.hpp"
 #include <string>
 
 namespace eris {
@@ -8,15 +8,9 @@ namespace eris {
  * a Good::Continuous or Good::Discrete, also defined here.
  */
 
-class Simulation;
-
-class Good {
+class Good : public Member {
     public:
-        virtual ~Good() = default;
-
         virtual double increment() = 0;
-        eris_id_t id() const { return _id; }
-        operator eris_id_t() const { return _id; }
 
         std::string name;
 
@@ -24,10 +18,6 @@ class Good {
         class Discrete;
     protected:
         Good(std::string name);
-        eris_id_t _id = 0;
-        std::weak_ptr<eris::Simulation> simulator;
-        bool operator < (const Good &other) { return id() < other.id(); }
-        friend eris::Simulation;
 };
 
 /* Continous good.  This is a good with a fixed increment of 0, usable for any

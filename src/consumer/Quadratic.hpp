@@ -1,7 +1,7 @@
 #pragma once
 #include <map>
 #include <utility>
-#include "consumer/Consumer.hpp"
+#include "Consumer.hpp"
 #include "Good.hpp"
 #include "Bundle.hpp"
 #include "types.hpp"

@@ -1,5 +1,5 @@
 #pragma once
-#include "firm/Firm.hpp"
+#include "Firm.hpp"
 #include <limits>
 
 namespace eris { namespace firm {

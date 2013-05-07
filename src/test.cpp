@@ -2,7 +2,6 @@
 #include "Simulation.hpp"
 #include "Agent.hpp"
 #include "consumer/Quadratic.hpp"
-#include "consumer/Consumer.hpp"
 #include <iostream>
 
 using namespace std;
@@ -33,9 +32,9 @@ int main() {
 
     // We should be able to automatically cast from a SharedObject<A> to a SharedObject<B> (assuming
     // that A can be cast as B):
-    Simulation::SharedObject<Quadratic> joeQ = sim->agent(1);
+    SharedMember<Quadratic> joeQ = sim->agent(1);
     {
-        Simulation::SharedObject<Agent> joeA = joeQ;
+        SharedMember<Agent> joeA = joeQ;
         std::cout << "joe has " << joeQ.ptr.use_count() << " referencees\n";
     }
     std::cout << "joe has " << joeQ.ptr.use_count() << " referencees\n";
