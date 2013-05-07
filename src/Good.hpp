@@ -56,9 +56,9 @@ template<class G> class SharedGood {
         G& operator * () const { return *ptr; }
         G* operator -> () const { return ptr.get(); }
         std::shared_ptr<G> ptr;
+        template<class F> SharedGood(const SharedGood<F> &from) : ptr(std::static_pointer_cast<G,F>(from.ptr)) {}
     private:
         SharedGood(Good *g) : ptr(g) {}
-        template<class F> SharedGood(const SharedGood<F> &from) : ptr(std::static_pointer_cast<G,F>(from.ptr)) {}
         friend class Simulation;
 };
 
