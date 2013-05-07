@@ -29,4 +29,15 @@ int main() {
         cout << "================== Good: id=" << g.first << ", name=" << good->name << ", increment=" << good->increment() <<
             ", ptr=" << good.ptr.get() << ", refcount: " << good.ptr.use_count() << "\n";
     }
+
+
+    // We should be able to automatically cast from a SharedAgent<A> to a SharedAgent<B> (assuming
+    // that A can be cast as B):
+    SharedAgent<Quadratic> joeQ = sim->agent(1);
+    {
+        SharedAgent<Agent> joeA = joeQ;
+        std::cout << "joe has " << joeQ.ptr.use_count() << " referencees\n";
+    }
+    std::cout << "joe has " << joeQ.ptr.use_count() << " referencees\n";
+//    SharedAgent<Quadratic> joeQ = joe;
 }

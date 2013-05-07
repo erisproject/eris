@@ -4,9 +4,8 @@
 
 namespace eris {
 
-/* Base class for Eris Good objects.  Goods should generally be a subclass of
- * Good, typically either a Good::Continuous or Good::Discrete, also defined
- * here.
+/* Base class for Eris Good objects.  Goods should generally be a subclass of Good, typically either
+ * a Good::Continuous or Good::Discrete, also defined here.
  */
 
 class Simulation;
