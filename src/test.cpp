@@ -43,7 +43,7 @@ int main() {
     std::cout << "joe has " << joeQ.ptr.use_count() << " referencees\n";
 
 
-    auto bertrand = sim->addMarket(Bertrand(Bundle(cgood, 1), Bundle(money, 1)));
+    auto bertrand = sim->addMarket(Bertrand(Bundle(cgood, 1), Bundle(money, 1), true));
 
     auto f1 = sim->addAgent(PriceFirm(Bundle(cgood, 1), Bundle(money, 1), 0.4));
     auto f2 = sim->addAgent(PriceFirm(Bundle(cgood, 1), Bundle(money, 1), 0.2));
@@ -51,7 +51,7 @@ int main() {
     auto f4 = sim->addAgent(PriceFirm(Bundle(cgood, 1), Bundle(money, 10), 0.1));
     auto f5 = sim->addAgent(PriceFirm(Bundle(cgood, 1), Bundle(money, 100)));
     auto f6 = sim->addAgent(PriceFirm(Bundle(cgood, 1), Bundle(money, 100), 0.01));
-    auto f7 = sim->addAgent(PriceFirm(Bundle(cgood, 1), Bundle(money, 100), 0.05));
+    auto f7 = sim->addAgent(PriceFirm(Bundle(cgood, 1), Bundle(money, 100), 0.04));
     bertrand->addFirm(f1);
     bertrand->addFirm(f2);
     bertrand->addFirm(f3);
