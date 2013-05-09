@@ -400,7 +400,7 @@ inline bool BundleNegative::operator OP (const double &q) const noexcept {\
     return true;\
 }\
 inline bool operator OP (const double &q, const BundleNegative &b) noexcept {\
-    return b.operator OP(q);\
+    return b OP q;\
 }
 
 __ERIS_BUNDLE_HPP_COMPARE(==)
@@ -413,6 +413,12 @@ __ERIS_BUNDLE_HPP_COMPARE(>=)
 
 inline bool BundleNegative::operator != (const BundleNegative &b) const noexcept {
     return !(*this == b);
+}
+inline bool BundleNegative::operator != (const double &q) const noexcept {
+    return !(*this == q);
+}
+inline bool operator != (const double &q, const BundleNegative &b) noexcept {
+    return b != q;
 }
 
 }
