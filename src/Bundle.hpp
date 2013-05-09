@@ -30,7 +30,8 @@ namespace eris {
 //
 // empty() returns true if size() == 0, false otherwise.  Note that empty() is not true for a bundle
 // with explicit quantities of 0; for testing whether a bundle is empty in the sense of all
-// quantities being 0, use the a == 0 operator, discussed below.
+// quantities being 0 (explicitly or implicitly by omission), use the a == 0 operator, discussed
+// below.
 //
 // count(id) returns 1 if the id exists in the Bundle (even if it equals 0), 0 otherwise.
 //
