@@ -7,10 +7,8 @@ namespace eris { namespace market {
 Bertrand::Bertrand(Bundle output, Bundle priceUnit, bool randomize)
     : Market(output, priceUnit), randomize(randomize) {}
 
-double Bertrand::price(double q) const {
-    allocation a = allocate(q);
-    if (!a.feasible) return -1.0;
-    return a.totalPrice;
+Market::price_info Bertrand::price(double q) const {
+    return allocate(q).p;
 }
 
 Bertrand::allocation Bertrand::allocate(double q) const {
@@ -26,10 +24,10 @@ Bertrand::allocation Bertrand::allocate(double q) const {
         SharedMember<firm::PriceFirm> firm = f.second;
         // Make sure the "price" object in this market can pay for the units the firm wants
         if (_price.covers(firm->price())) {
-            double productivity = firm->canProduceAny(qBundle);
+            double productivity = firm->canSupplyAny(qBundle);
             if (productivity > 0) {
                 aggQuantity += productivity;
-                // First we need the market output produced per firm output bundle unit, then we
+                // First we need the market output supplied per firm output bundle unit, then we
                 // multiple that by the firm's price per market price.  This is because one firm
                 // could have (price=2,output=2), while another has (price=3,output=3) and another
                 // has (price=1,output=1); all three have the same per-unit price.
@@ -46,23 +44,30 @@ Bertrand::allocation Bertrand::allocate(double q) const {
         }
     }
 
+    allocation a = { .p={ .feasible=false } };
+
     // aggQuantity is in terms of the requested output bundle; if it doesn't add up to at least
     // 1, the entire market cannot supply the requested quantity at any price.
-    if (aggQuantity < 1.0) { return { .feasible=false }; }
+    if (aggQuantity < 1.0) { return a; }
 
-    allocation a = { .feasible=true };
+    a.p.feasible = true;
 
     double needQ = 1.0;
+    bool firstPrice = true;
     for (auto pf : priceFirm) {
         double price = pf.first;
+        if (firstPrice) {
+            a.p.marginalFirst = price;
+            firstPrice = false;
+        }
         double aggQ = priceAggQ[price];
-        a.totalPrice += price * (aggQ <= needQ ? aggQ : needQ);
+        a.p.total += price * (aggQ <= needQ ? aggQ : needQ);
 
         auto firms = pf.second;
 
         if (aggQ <= needQ) {
             // The aggregate quantity at this price does not exceed the needed aggregate quantity,
-            // so allocation is easy: every firm produces their full reported productivity value.
+            // so allocation is easy: every firm supplies their full reported productivity value.
             for (auto firmprod : firms) {
                 a.shares[firmprod.first].p = price;
                 a.shares[firmprod.first].q += firmprod.second;
@@ -163,7 +168,7 @@ Bertrand::allocation Bertrand::allocate(double q) const {
         }
 
         if (needQ <= 0) {
-            a.margPrice = price;
+            a.p.marginal = price;
             break;
         }
     }
@@ -172,12 +177,14 @@ Bertrand::allocation Bertrand::allocate(double q) const {
 }
 
 void Bertrand::buy(double q, double pMax, Bundle &assets) {
+    // FIXME: need to lock the economy until this transaction completes; otherwise supply() could
+    // fail.
     allocation a = allocate(q);
-    if (!a.feasible) throw output_infeasible();
+    if (!a.p.feasible) throw output_infeasible();
 
-    if (a.totalPrice > pMax) throw low_price();
+    if (a.p.total > pMax) throw low_price();
 
-    Bundle cost = a.totalPrice*_price;
+    Bundle cost = a.p.total*_price;
     if (!(assets >= cost)) throw insufficient_assets();
 
     assets -= cost;

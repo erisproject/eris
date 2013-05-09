@@ -4,10 +4,10 @@
 
 namespace eris { namespace firm {
 
-/* This class captures a firm that sets an input price, and can produce any amount at the given
- * price, optionally up to a maximum capacity.  Both the input price and outputs are Bundles; most
- * commonly the input price is a Bundle containing just a "money" good, while output is often just a
- * single good.
+/* This class captures a firm that sets an input price, and can instantly produce any amount at the
+ * given price, optionally up to a maximum capacity.  Both the input price and outputs are Bundles;
+ * most commonly the input price is a Bundle containing just a "money" good, while output is often
+ * just a single good.
  *
  * The input bundle defines the price per multiple of the output bundle.  Typically this will be
  * single Good bundles.  e.g. if the input bundle is (1,1.5,0) and the output bundle is (0,0,1), then
@@ -29,10 +29,10 @@ class PriceFirm : public Firm {
         virtual void setOutput(Bundle output) noexcept;
         virtual const Bundle output() const noexcept;
 
-        virtual double canProduceAny(Bundle const &b) const noexcept;
+        virtual double canSupplyAny(const Bundle &b) const noexcept;
 
-        virtual bool produce(Bundle const &b);
-        virtual double produceAny(Bundle const &b);
+        virtual void supply(const Bundle &b);
+        virtual double supplyAny(Bundle const &b);
 
         virtual void advance();
 

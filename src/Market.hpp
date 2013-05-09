@@ -29,14 +29,29 @@ class Market : public Member {
 
         Market(Bundle output, Bundle priceUnit);
 
-        // Returns the price of a multiple of the output bundle as a multiple of the price unit bundle.
-        // Returns a negative value if the given quantity cannot be produced (i.e. calling buy()
-        // would throw a Market::output_infeasible exception).
-        virtual double price(double q) const = 0;
+        // The "price" of a given quantity of the output is a little bit complicated: there is, of
+        // course, the total price of the output, but decisions may also depend on marginal prices.
+        // Thus the following, which includes both.
+        struct price_info {
+            bool feasible;
+            double total, marginal, marginalFirst;
+        };
 
-        // Returns the price of the given multiple of the output bundle as a Bundle.  This is
-        // exactly the priceUnit times price(q)
-        const Bundle priceBundle(double q) const;
+        // Returns the price information for buying the given multiple of the output bundle.
+        // Returned is a price_info struct with .feasible set to true iff the quantity can be
+        // produced in this market.  If .feasible, .total, .marginal, and .marginalFirst are set to
+        // the total price and marginal prices of the given quantity.  .marginal is the marginal
+        // price of the last infinitesimal unit (which is not necessarily the same as the marginal
+        // price for the *next* unit sold, as the quantity could just hit a threshold where marginal
+        // price jumps).  .marginalFirst is the marginal price of the very first (fractional) unit
+        // produced.  Essentially, marginalFirst should not depend on the quantity requested (but
+        // often will depend on past market purchases), and won't change until some internal economy
+        // state changes (such change need not occur in this market, however: transactions in other
+        // markets may affect the participating firms of this market).
+        //
+        // Often .marginalFirst <= .marginal will hold, but it doesn't have to: a supplier could,
+        // for example, have increasing returns to scale.
+        virtual price_info price(double q) const = 0;
 
         // Buys q times the output bundle for price at most pMax; removes the actual price from the
         // provided assets bundle, transferring it to the seller(s), and adds the purchased amount

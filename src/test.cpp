@@ -60,5 +60,5 @@ int main() {
     bertrand->addFirm(f6);
     bertrand->addFirm(f7);
 
-    cout << "Betrand price for q=1 is: " << bertrand->price(1) << " (should be 13.6)\n";
+    cout << "Betrand price for q=1 is: " << bertrand->price(1).total << " (should be 13.6)\n";
 }

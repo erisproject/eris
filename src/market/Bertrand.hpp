@@ -19,7 +19,7 @@ class Bertrand : public Market, private Random {
         // which, if true, randomly selects a lowest-price firm in the event of times (defaults to
         // false, which evenly divides among lowest-price firms).
         Bertrand(Bundle output, Bundle priceUnit, bool randomize = false);
-        virtual double price(double q) const;
+        virtual price_info price(double q) const;
         virtual void buy(double q, double pMax, Bundle &assets);
         virtual void addFirm(SharedMember<Firm> f);
 
@@ -27,8 +27,7 @@ class Bertrand : public Market, private Random {
         bool randomize;
         struct share { double p, q; };
         struct allocation {
-            bool feasible;
-            double margPrice, totalPrice;
+            price_info p;
             std::map<eris_id_t, share> shares;
         };
         virtual allocation allocate(double q) const;

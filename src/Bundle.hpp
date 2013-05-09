@@ -1,6 +1,7 @@
 #pragma once
 #include "types.hpp"
 #include <algorithm>
+#include <exception>
 #include <limits>
 #include <map>
 #include <set>
