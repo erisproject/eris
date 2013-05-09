@@ -17,6 +17,7 @@ a.out
 
 # vim swap files
 .*.swp
+.swp
 
 # Build files
 Makefile
