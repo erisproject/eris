@@ -29,10 +29,10 @@ class PriceFirm : public Firm {
         virtual void setOutput(Bundle output) noexcept;
         virtual const Bundle output() const noexcept;
 
-        virtual double canSupplyAny(const Bundle &b) const noexcept;
+        virtual double canProduceAny(const Bundle &b) const noexcept;
 
-        virtual void supply(const Bundle &b);
-        virtual double supplyAny(Bundle const &b);
+        virtual void produce(const Bundle &b);
+        virtual double produceAny(Bundle const &b);
 
         virtual void advance();
 
