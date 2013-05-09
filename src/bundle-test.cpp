@@ -8,10 +8,14 @@ using namespace std;
 using namespace eris;
 
 void _printBundle(string name, const BundleNegative &b) {
-    cout << "Bundle " << name << " contents:\n";
+    cout << "Bundle " << name << " contents: [";
+    bool first = true;
     for (auto g : b) {
-        cout << "    " << g.first << ": " << g.second << "\n";
+        if (first) first = false;
+        else cout << ", ";
+        cout << g.first << "=" << g.second;
     }
+    cout << "]\n";
 }
 #define printBundle(b) _printBundle(#b, b)
 
@@ -26,7 +30,7 @@ int main() {
     auto g3 = sim->addGood(Good::Continuous());
     auto g4 = sim->addGood(Good::Continuous());
 
-    Bundle b[10];
+    Bundle b[100];
 
     b[0].set(g1, 1);
     b[0] *= 3;
@@ -130,4 +134,23 @@ int main() {
     try {printBundle(b[6] % b[7]);} catch (Bundle::negativity_error e) {}
     print(b[7] / b[6]);
     try {printBundle(b[7] % b[6]);} catch (Bundle::negativity_error e) {}
+
+    cout << "\n\nTesting common/reduce:\n";
+    b[8].set({{g1,1}, {g2,3}, {g3,1}, {g4,0}});
+    b[9].set({{g1,4}, {g3,1}, {g4,4}});
+    printBundle(b[8]);
+    printBundle(b[9]);
+    printBundle(Bundle::common(b[8], b[9]));
+    printBundle(Bundle::common(b[9], b[8]));
+    printBundle(Bundle::reduce(b[8], b[9]));
+    printBundle(b[8]);
+    printBundle(b[9]);
+    cout << "(Restoring bundles)\n";
+    b[8].set({{g1,1}, {g2,3}, {g3,1}, {g4,0}});
+    b[9].set({{g1,4}, {g3,1}, {g4,4}});
+    printBundle(Bundle::reduce(b[8], b[9]));
+    printBundle(b[8]);
+    printBundle(b[9]);
+
+// e.g. this=[a=1,b=3,c=1,d=0], that=[a=4,c=1,d=4], common(this,that)=[a=1,c=1,d=0]
 }

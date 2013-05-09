@@ -1,5 +1,6 @@
 #pragma once
 #include "types.hpp"
+#include <algorithm>
 #include <limits>
 #include <map>
 #include <set>
@@ -78,6 +79,14 @@ namespace eris {
 // though a-b will result in a potentially unexpected negative (and illegal, if using Bundle instead
 // of NegativeBundle) quantity.  If in doubt, always compare to fixed Bundle that has known
 // (significant) quantities.
+//
+// common(a,b) returns a maximum common bundle between one bundle and another.  The resulting bundle will
+// contain all goods that are in both bundles (though quantities may be zero), and will not include
+// goods only in one of the two bundles.
+// e.g. this=[a=1,b=3,c=1,d=0], that=[a=4,c=1,d=4], common(this,that)=[a=1,c=1,d=0]
+//
+// reduce(&a,&b) is similar to common(), above, except that it also subtracts the common Bundle from
+// both a and b before returning it.
 //
 // Attempting to do something to a Bundle that would induce a negative quantity for one of the
 // Bundle's goods will throw a Bundle::negativity_error exception (which is a subclass of
@@ -168,6 +177,9 @@ class Bundle : public BundleNegative {
         bool covers(const Bundle &b) const noexcept;
         double operator / (const Bundle &b) const noexcept;
         Bundle operator % (const Bundle &b) const;
+
+        static Bundle common(const Bundle &a, const Bundle &b) noexcept;
+        static Bundle reduce(Bundle &a, Bundle &b) noexcept;
 
         class negativity_error : public std::range_error {
             public:
@@ -348,6 +360,22 @@ inline Bundle Bundle::operator % (const Bundle &b) const {
     ret -= *this;
     ret.clearZeros();
     return ret;
+}
+
+inline Bundle Bundle::common(const Bundle &a, const Bundle &b) noexcept {
+    Bundle result;
+    for (auto ag : a) {
+        if (b.count(ag.first))
+            result.set(ag.first, std::min<double>(ag.second, b[ag.first]));
+    }
+    return result;
+}
+
+inline Bundle Bundle::reduce(Bundle &a, Bundle &b) noexcept {
+    Bundle result = common(a, b);
+    a -= result;
+    b -= result;
+    return result;
 }
 
 #define __ERIS_BUNDLE_HPP_COMPARE(OP) \
