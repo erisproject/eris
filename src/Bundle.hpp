@@ -82,11 +82,13 @@ namespace eris {
 //
 // common(a,b) returns a maximum common bundle between one bundle and another.  The resulting bundle will
 // contain all goods that are in both bundles (though quantities may be zero), and will not include
-// goods only in one of the two bundles.
+// goods only in one of the two bundles.  If either a or b is a BundleNegative, any negative
+// quantities will be treated as if they do not exist in the Bundle.
 // e.g. this=[a=1,b=3,c=1,d=0], that=[a=4,c=1,d=4], common(this,that)=[a=1,c=1,d=0]
 //
 // reduce(&a,&b) is similar to common(), above, except that it also subtracts the common Bundle from
-// both a and b before returning it.
+// both a and b before returning it.  Like common(), negative quantities are treated as
+// non-existant.
 //
 // Attempting to do something to a Bundle that would induce a negative quantity for one of the
 // Bundle's goods will throw a Bundle::negativity_error exception (which is a subclass of
@@ -178,8 +180,8 @@ class Bundle : public BundleNegative {
         double operator / (const Bundle &b) const noexcept;
         Bundle operator % (const Bundle &b) const;
 
-        static Bundle common(const Bundle &a, const Bundle &b) noexcept;
-        static Bundle reduce(Bundle &a, Bundle &b) noexcept;
+        static Bundle common(const BundleNegative &a, const BundleNegative &b) noexcept;
+        static Bundle reduce(BundleNegative &a, BundleNegative &b) noexcept;
 
         class negativity_error : public std::range_error {
             public:
@@ -362,16 +364,18 @@ inline Bundle Bundle::operator % (const Bundle &b) const {
     return ret;
 }
 
-inline Bundle Bundle::common(const Bundle &a, const Bundle &b) noexcept {
+inline Bundle Bundle::common(const BundleNegative &a, const BundleNegative &b) noexcept {
     Bundle result;
     for (auto ag : a) {
-        if (b.count(ag.first))
-            result.set(ag.first, std::min<double>(ag.second, b[ag.first]));
+        if (ag.second >= 0 and b.count(ag.first)) {
+            double bq = b[ag.first];
+            if (bq >= 0) result.set(ag.first, std::min<double>(ag.second, bq));
+        }
     }
     return result;
 }
 
-inline Bundle Bundle::reduce(Bundle &a, Bundle &b) noexcept {
+inline Bundle Bundle::reduce(BundleNegative &a, BundleNegative &b) noexcept {
     Bundle result = common(a, b);
     a -= result;
     b -= result;
