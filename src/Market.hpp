@@ -31,25 +31,24 @@ class Market : public Member {
 
         // Returns the price of a multiple of the output bundle as a multiple of the price unit bundle.
         // Returns a negative value if the given quantity cannot be produced (i.e. calling buy()
-        // would throw a Market::output_NA exception).
+        // would throw a Market::output_infeasible exception).
         virtual double price(double q) const = 0;
 
         // Returns the price of the given multiple of the output bundle as a Bundle.  This is
         // exactly the priceUnit times price(q)
         const Bundle priceBundle(double q) const;
 
-        // Buys q times the output bundle for price at most p; removes the actual price from the
-        // provided assets bundle, transferring it to the seller(s).  This method can throw several
-        // exceptions:
-        //   Market::output_NA -- if q*output output is not available (exceeds market production capacity)
+        // Buys q times the output bundle for price at most pMax; removes the actual price from the
+        // provided assets bundle, transferring it to the seller(s), and adds the purchased amount
+        // into the assets Bundle.  This method can throw several exceptions:
+        //   Market::output_infeasible -- if q*output output is not available (exceeds market
+        //                                production capacity)
         //   Market::low_price -- if q*output is available, but costs more than p*price
-        //   Market::insufficient -- if q and p are acceptable, but assets doesn't contain the
-        //                           needed price.  (Note that this is not necessarily p*price: the
-        //                           actual transaction price could be lower).
-        virtual double buy(double q, double pMax, const Bundle &assets) = 0;
-
-        // Just like buy(), but multiplies the return by the price unit.
-        const Bundle buyBundle(double q, double p, const Bundle &assets);
+        //   Market::insufficient_assets -- if q and p are acceptable, but assets doesn't contain the
+        //                                  needed price.  (Note that this is not necessarily
+        //                                  thrown if assets are less than pMax*price: the actual
+        //                                  transaction price could be lower).
+        virtual void buy(double q, double pMax, Bundle &assets) = 0;
 
         // Adds f to the firms supplying in this market
         virtual void addFirm(SharedMember<Firm> f);
@@ -69,13 +68,13 @@ class Market : public Member {
         // (usually a money good) with a quantity of 1.
         const Bundle priceUnit() const;
 
-        class output_NA : public std::exception {
+        class output_infeasible : public std::exception {
             public: const char* what() const noexcept { return "Requested output not available"; }
         };
         class low_price : public std::exception {
             public: const char* what() const noexcept { return "Requested output not available for given price"; }
         };
-        class insufficient : public std::exception {
+        class insufficient_assets : public std::exception {
             public: const char* what() const noexcept { return "Assets insufficient for purchasing requested output"; }
         };
 

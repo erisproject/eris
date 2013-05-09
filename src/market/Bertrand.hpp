@@ -20,7 +20,7 @@ class Bertrand : public Market, private Random {
         // false, which evenly divides among lowest-price firms).
         Bertrand(Bundle output, Bundle priceUnit, bool randomize = false);
         virtual double price(double q) const;
-        virtual double buy(double q, double pMax, const Bundle &assets);
+        virtual void buy(double q, double pMax, Bundle &assets);
         virtual void addFirm(SharedMember<Firm> f);
 
     protected:

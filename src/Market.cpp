@@ -9,8 +9,6 @@ Market::Market(Bundle output, Bundle priceUnit) {
 
 const Bundle Market::priceBundle(double q) const { return _price * price(q); }
 
-const Bundle Market::buyBundle(double q, double p, const Bundle &assets) { return _price * buy(q, p, assets); }
-
 void Market::setOutput(Bundle out)          { _output = std::move(out); }
 void Market::setPriceUnit(Bundle priceUnit) { _price = std::move(priceUnit); }
 

@@ -171,15 +171,24 @@ Bertrand::allocation Bertrand::allocate(double q) const {
     return a;
 }
 
-    double Bertrand::buy(double q, double pMax, const Bundle &assets) {
-        throw output_NA(); // FIXME TODO
-    }
+void Bertrand::buy(double q, double pMax, Bundle &assets) {
+    allocation a = allocate(q);
+    if (!a.feasible) throw output_infeasible();
 
-    void Bertrand::addFirm(SharedMember<Firm> f) {
-        if (!dynamic_cast<firm::PriceFirm*>(f.ptr.get()))
-            throw std::invalid_argument("Firm passed to Bertrand.addFirm(...) is not a PriceFirm instance");
-        Market::addFirm(f);
-    }
+    if (a.totalPrice > pMax) throw low_price();
+
+    Bundle cost = a.totalPrice*_price;
+    if (!(assets >= cost)) throw insufficient_assets();
+
+    assets -= cost;
+    assets += q*_output;
+}
+
+void Bertrand::addFirm(SharedMember<Firm> f) {
+    if (!dynamic_cast<firm::PriceFirm*>(f.ptr.get()))
+        throw std::invalid_argument("Firm passed to Bertrand.addFirm(...) is not a PriceFirm instance");
+    Market::addFirm(f);
+}
 
 } }
 
