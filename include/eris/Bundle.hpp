@@ -1,5 +1,5 @@
 #pragma once
-#include "types.hpp"
+#include <eris/types.hpp>
 #include <algorithm>
 #include <exception>
 #include <limits>

@@ -1,4 +1,4 @@
-#include "firm/PriceFirm.hpp"
+#include <eris/firm/PriceFirm.hpp>
 #include <algorithm>
 
 namespace eris { namespace firm {

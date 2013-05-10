@@ -1,7 +1,7 @@
 #pragma once
-#include "Consumer.hpp"
-#include "Bundle.hpp"
-#include "types.hpp"
+#include <eris/Consumer.hpp>
+#include <eris/Bundle.hpp>
+#include <eris/types.hpp>
 #include <map>
 
 namespace eris { namespace consumer {
@@ -26,12 +26,13 @@ class Polynomial : public Consumer::Differentiable {
 
         double offset = 0.0;
 
-        virtual double utility(Bundle b);
+        virtual double utility(const Bundle &b) const;
 
-        virtual double d(Bundle b, eris_id_t g);
-        virtual double d2(Bundle b, eris_id_t g1, eris_id_t g2);
+        virtual double d(const Bundle &b, const eris_id_t &g) const;
+        virtual double d2(const Bundle &b, const eris_id_t &g1, const eris_id_t &g2) const;
         // Override Consumer's hessian function because we can avoid the off-diagonal calculations:
-        virtual std::map<eris_id_t, std::map<eris_id_t, double>> hessian(std::vector<eris_id_t> g, Bundle b);
+        virtual std::map<eris_id_t, std::map<eris_id_t, double>>
+            hessian(const std::vector<eris_id_t> &g, const Bundle &b) const;
     protected:
         std::map<eris_id_t, std::vector<double>> coef;
 };

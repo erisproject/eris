@@ -1,5 +1,5 @@
-#include "Random.hpp"
-#include "cycle.h"
+#include <eris/Random.hpp>
+#include <eris/cycle.h>
 #include <string>
 #include <cstdlib>
 

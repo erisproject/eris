@@ -1,6 +1,6 @@
-#include "Eris.hpp"
-#include "Simulation.hpp"
-#include "Bundle.hpp"
+#include <eris/Eris.hpp>
+#include <eris/Simulation.hpp>
+#include <eris/Bundle.hpp>
 #include <string>
 #include <iostream>
 

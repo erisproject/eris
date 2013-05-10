@@ -1,7 +1,7 @@
-#include "Eris.hpp"
-#include "Simulation.hpp"
-#include "consumer/Quadratic.hpp"
-#include "firm/PriceFirm.hpp"
+#include <eris/Eris.hpp>
+#include <eris/Simulation.hpp>
+#include <eris/consumer/Quadratic.hpp>
+#include <eris/firm/PriceFirm.hpp>
 #include <iostream>
 #include <map>
 #include <boost/format.hpp>

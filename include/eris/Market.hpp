@@ -1,9 +1,9 @@
 #pragma once
-#include "Member.hpp"
-#include "Agent.hpp"
-#include "Firm.hpp"
-#include "Good.hpp"
-#include "Bundle.hpp"
+#include <eris/Member.hpp>
+#include <eris/Agent.hpp>
+#include <eris/Firm.hpp>
+#include <eris/Good.hpp>
+#include <eris/Bundle.hpp>
 #include <map>
 
 // Base class for markets in Eris.  At this basic level, a market has an output bundle and a price

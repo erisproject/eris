@@ -1,9 +1,9 @@
-#include "Eris.hpp"
-#include "Simulation.hpp"
-#include "Agent.hpp"
-#include "consumer/Quadratic.hpp"
-#include "market/Bertrand.hpp"
-#include "firm/PriceFirm.hpp"
+#include <eris/Eris.hpp>
+#include <eris/Simulation.hpp>
+#include <eris/Agent.hpp>
+#include <eris/consumer/Quadratic.hpp>
+#include <eris/market/Bertrand.hpp>
+#include <eris/firm/PriceFirm.hpp>
 #include <iostream>
 
 using namespace std;

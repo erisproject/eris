@@ -1,7 +1,7 @@
 #pragma once
-#include "Market.hpp"
-#include "firm/PriceFirm.hpp"
-#include "Random.hpp"
+#include <eris/Market.hpp>
+#include <eris/firm/PriceFirm.hpp>
+#include <eris/Random.hpp>
 #include <vector>
 #include <random>
 

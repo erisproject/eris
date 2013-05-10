@@ -1,7 +1,7 @@
 #pragma once
-#include "types.hpp"
-#include "Agent.hpp"
-#include "Bundle.hpp"
+#include <eris/types.hpp>
+#include <eris/Agent.hpp>
+#include <eris/Bundle.hpp>
 #include <map>
 #include <vector>
 

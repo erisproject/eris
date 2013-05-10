@@ -1,5 +1,5 @@
 #pragma once
-#include "Member.hpp"
+#include <eris/Member.hpp>
 
 namespace eris {
 

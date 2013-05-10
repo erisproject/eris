@@ -1,4 +1,4 @@
-#include "consumer/Quadratic.hpp"
+#include <eris/consumer/Quadratic.hpp>
 #include <utility>
 #include <vector>
 

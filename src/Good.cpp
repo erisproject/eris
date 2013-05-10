@@ -1,4 +1,4 @@
-#include "Good.hpp"
+#include <eris/Good.hpp>
 #include <exception>
 #include <string>
 namespace eris {

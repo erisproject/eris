@@ -1,6 +1,6 @@
 #pragma once
-#include "Agent.hpp"
-#include "Bundle.hpp"
+#include <eris/Agent.hpp>
+#include <eris/Bundle.hpp>
 #include <algorithm>
 #include <exception>
 #include <initializer_list>

@@ -1,4 +1,4 @@
-#include "Simulation.hpp"
+#include <eris/Simulation.hpp>
 
 namespace eris {
 

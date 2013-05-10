@@ -1,5 +1,5 @@
 #pragma once
-#include "types.hpp"
+#include <eris/types.hpp>
 
 // Contains the Member class, which is a very general base class for objects "owned" and stored by a
 // Simulation (e.g. goods, agents, markets).  Also contains the SharedMember<M> class, a wrapper

@@ -1,9 +1,9 @@
 #pragma once
-#include "types.hpp"
-#include "Member.hpp"
-#include "Agent.hpp"
-#include "Good.hpp"
-#include "Market.hpp"
+#include <eris/types.hpp>
+#include <eris/Member.hpp>
+#include <eris/Agent.hpp>
+#include <eris/Good.hpp>
+#include <eris/Market.hpp>
 #include <map>
 #include <type_traits>
 #include <exception>

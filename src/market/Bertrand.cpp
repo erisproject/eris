@@ -1,4 +1,4 @@
-#include "market/Bertrand.hpp"
+#include <eris/market/Bertrand.hpp>
 
 #include <iostream>
 

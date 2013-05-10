@@ -1,10 +1,10 @@
 #pragma once
 #include <map>
 #include <utility>
-#include "Consumer.hpp"
-#include "Good.hpp"
-#include "Bundle.hpp"
-#include "types.hpp"
+#include <eris/Consumer.hpp>
+#include <eris/Good.hpp>
+#include <eris/Bundle.hpp>
+#include <eris/types.hpp>
 
 namespace eris { namespace consumer {
 
