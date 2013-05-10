@@ -28,7 +28,7 @@ class Member {
 template<class T> class SharedMember {
     public:
         // Using as an A gives you the underlying A object:
-        virtual operator T () const { return *ptr; }
+        virtual operator T& () const { return *ptr; }
         // Using as an eris_id_t gives you the object's id
         virtual operator eris_id_t () const { return ptr->id(); }
         // Dereferencing gives you the underlying A
