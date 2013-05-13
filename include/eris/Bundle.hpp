@@ -3,13 +3,13 @@
 #include <algorithm>
 #include <exception>
 #include <limits>
-#include <map>
-#include <set>
+#include <unordered_map>
+#include <unordered_set>
 
 namespace eris {
 
-// A Bundle is a thin wrapper around a std::map designed for storing a set of goods and associated
-// quantities.
+// A Bundle is a thin wrapper around a std::unordered_map designed for storing
+// a set of goods and associated quantities.
 //
 // BundleNegative is a slightly more general class (Bundle is actually a specialization of
 // BundleNegative) that allows any double value in the quantity; Bundle allows only non-negative
@@ -21,8 +21,9 @@ namespace eris {
 // Setting values is done through the set(id, value) method, *not* using the [] operator (since
 // assignment may require checking, e.g.  for positive quantities).
 //
-// You can iterate through goods via the usual begin()/end() pattern; note that these get mapped to
-// through to the underlying std::map<eris_id_t,double>'s cbegin()/cend() methods, and so are
+// You can iterate through goods via the usual begin()/end() pattern; note that
+// these get mapped to through to the underlying
+// std::unordered_map<eris_id_t,double>'s cbegin()/cend() methods, and so are
 // immutable.
 //
 // size() returns the number of goods in the bundle.  Note that values that have not been explicitly
@@ -37,7 +38,7 @@ namespace eris {
 // count(id) returns 1 if the id exists in the Bundle (even if it equals 0), 0 otherwise.
 //
 // erase(id) removes the good `id' from the bundle (if it exists), and returns either 0 or 1
-// indicating whether the good was present in the bundle, like std::map::erase.
+// indicating whether the good was present in the bundle, like std::unordered_map::erase.
 //
 // remove(id) is like erase(id), except it returns the quantity of the removed good, or 0 if the
 // good was not in the bundle.
@@ -102,7 +103,7 @@ namespace eris {
 class Bundle;
 class BundleNegative {
     private:
-        std::map<eris_id_t, double> bundle;
+        std::unordered_map<eris_id_t, double> bundle;
     public:
         BundleNegative() {}
         BundleNegative(eris_id_t g, double q);
@@ -113,11 +114,11 @@ class BundleNegative {
         virtual double operator[] (eris_id_t gid) const;
         virtual void set(eris_id_t gid, double quantity);
         virtual void set(std::initializer_list<std::pair<eris_id_t, double>> goods);
-        virtual std::map<eris_id_t, double>::const_iterator begin() const;
-        virtual std::map<eris_id_t, double>::const_iterator end() const;
+        virtual std::unordered_map<eris_id_t, double>::const_iterator begin() const;
+        virtual std::unordered_map<eris_id_t, double>::const_iterator end() const;
 
         virtual bool empty() const;
-        virtual std::map<eris_id_t, double>::size_type size() const;
+        virtual std::unordered_map<eris_id_t, double>::size_type size() const;
         virtual int count(eris_id_t) const;
         virtual int erase(eris_id_t);
         virtual double remove(eris_id_t);
@@ -130,7 +131,7 @@ class BundleNegative {
 
         BundleNegative operator + (const BundleNegative &b) const noexcept;
         BundleNegative operator - (const BundleNegative &b) const noexcept;
-        BundleNegative operator - () const noexcept;
+        virtual BundleNegative operator - () const noexcept;
         BundleNegative operator * (const double &m) const noexcept;
         BundleNegative operator / (const double &d) const noexcept;
         friend BundleNegative operator * (const double &m, const BundleNegative &b) noexcept;
@@ -169,8 +170,6 @@ class Bundle : public BundleNegative {
         Bundle& operator -= (const BundleNegative &b);
         Bundle& operator *= (const double &m);
         Bundle& operator /= (const double &d);
-
-        BundleNegative operator - () const noexcept;
 
         Bundle operator + (const BundleNegative &b) const;
         Bundle operator - (const BundleNegative &b) const;
@@ -240,7 +239,7 @@ inline void Bundle::set(eris_id_t gid, double quantity) {
 inline bool BundleNegative::empty() const {
     return bundle.empty();
 }
-inline std::map<eris_id_t, double>::size_type BundleNegative::size() const {
+inline std::unordered_map<eris_id_t, double>::size_type BundleNegative::size() const {
     return bundle.size();
 }
 inline int BundleNegative::count(eris_id_t gid) const {
@@ -262,10 +261,10 @@ inline void BundleNegative::clearZeros() {
             ++it;
     }
 }
-inline std::map<eris_id_t, double>::const_iterator BundleNegative::begin() const {
+inline std::unordered_map<eris_id_t, double>::const_iterator BundleNegative::begin() const {
     return bundle.cbegin();
 }
-inline std::map<eris_id_t, double>::const_iterator BundleNegative::end() const {
+inline std::unordered_map<eris_id_t, double>::const_iterator BundleNegative::end() const {
     return bundle.cend();
 }
 
@@ -312,9 +311,6 @@ inline BundleNegative& BundleNegative::operator /= (const double &d) noexcept {
 }
 inline BundleNegative BundleNegative::operator - () const noexcept {
     return operator*(-1.0);
-}
-inline BundleNegative Bundle::operator - () const noexcept {
-    return BundleNegative::operator-();
 }
 inline BundleNegative BundleNegative::operator * (const double &m) const noexcept {
     BundleNegative ret(*this);
@@ -386,7 +382,7 @@ inline Bundle Bundle::reduce(BundleNegative &a, BundleNegative &b) noexcept {
 
 #define __ERIS_BUNDLE_HPP_COMPARE(OP) \
 inline bool BundleNegative::operator OP (const BundleNegative &b) const noexcept {\
-    std::set<eris_id_t> goods;\
+    std::unordered_set<eris_id_t> goods;\
     for (auto g : bundle) goods.insert(goods.end(), g.first);\
     for (auto g : b.bundle) goods.insert(g.first);\
 \
