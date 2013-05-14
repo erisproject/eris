@@ -21,3 +21,5 @@ add_definitions(-std=c++11 -Wall -Werror)
 add_library(eris SHARED ${eris_src})
 
 add_subdirectory(scratch)
+
+add_subdirectory(tests)
