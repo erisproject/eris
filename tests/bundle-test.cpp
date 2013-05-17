@@ -1,4 +1,9 @@
 // Test script for testing various Bundle and BundleNegative behaviours
+//
+// NB: Take care to use numbers that are exactly representable in doubles when doing arithmetic
+// manipulations: otherwise you get numerical imprecision resulting in things not being equal.  e.g.
+// 0.1*0.2 != 0.02 in double math.  Stick to fractions representable with a denominator of a power
+// of 2.
 
 #include <limits>
 #include <eris/Bundle.hpp>
