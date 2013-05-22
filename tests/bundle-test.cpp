@@ -735,6 +735,9 @@ TEST(AlgebraicModifiers, PlusEqualsBundle) {
     EXPECT_THROW(c += BundleNegative({{333, -0.125}}), Bundle::negativity_error);
     BundleNegative *cn = dynamic_cast<BundleNegative *>(&c);
     EXPECT_THROW(*cn += BundleNegative({{333, -0.125}}), Bundle::negativity_error);
+
+    // Slightly more complicated: let's try adding  a negative quantity to the returned value of a +=
+    EXPECT_THROW((c += Bundle(1,0)) += BundleNegative({{333, -0.125}}), Bundle::negativity_error);
 }
 TEST(AlgebraicModifiers, MinusEqualsBundle) {
     GIMME_BUNDLES;

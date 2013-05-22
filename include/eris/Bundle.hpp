@@ -135,7 +135,7 @@ class BundleNegative {
 
         BundleNegative operator + (const BundleNegative &b) const noexcept;
         BundleNegative operator - (const BundleNegative &b) const noexcept;
-        virtual BundleNegative operator - () const noexcept;
+        BundleNegative operator - () const noexcept;
         BundleNegative operator * (const double &m) const noexcept;
         BundleNegative operator / (const double &d) const noexcept;
         friend BundleNegative operator * (const double &m, const BundleNegative &b) noexcept;
@@ -178,8 +178,6 @@ class Bundle : public BundleNegative {
         using BundleNegative::set;
         void set(const eris_id_t &gid, const double &quantity);
 
-        Bundle& operator += (const BundleNegative &b);
-        Bundle& operator -= (const BundleNegative &b);
         Bundle& operator *= (const double &m);
         Bundle& operator /= (const double &d);
 
@@ -289,10 +287,6 @@ inline BundleNegative BundleNegative::operator OP (const BundleNegative &b) cons
     BundleNegative ret(*this);\
     ret OPEQ b;\
     return ret;\
-}\
-inline Bundle& Bundle::operator OPEQ (const BundleNegative &b) {\
-    BundleNegative::operator OPEQ(b);\
-    return *this;\
 }\
 inline Bundle Bundle::operator OP (const BundleNegative &b) const {\
     Bundle ret(*this);\
