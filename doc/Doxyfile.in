@@ -1,0 +1,51 @@
+#---------------------------------------------------------------------------
+# Project related configuration options
+#---------------------------------------------------------------------------
+DOXYFILE_ENCODING      = UTF-8
+PROJECT_NAME           = @PROJECT_NAME@
+PROJECT_NUMBER         = v@ERIS_VERSION_MAJOR@.@ERIS_VERSION_MINOR@.@ERIS_VERSION_PATCH@
+PROJECT_BRIEF          = "agent-based economic modelling library"
+INPUT                  = @CMAKE_CURRENT_SOURCE_DIR@/../include @CMAKE_CURRENT_SOURCE_DIR@/../src
+INPUT_ENCODING         = UTF-8
+FILE_PATTERNS          = *.cpp *.hpp
+RECURSIVE              = YES
+OUTPUT_DIRECTORY       = @CMAKE_CURRENT_BINARY_DIR@
+
+QUIET                  = YES
+
+FULL_PATH_NAMES        = YES
+STRIP_FROM_PATH        = @CMAKE_CURRENT_SOURCE_DIR@/..
+
+GENERATE_HTML          = YES
+HTML_FILE_EXTENSION    = .xhtml
+HTML_OUTPUT            = api
+
+GENERATE_LATEX         = NO
+LATEX_OUTPUT           = api-latex
+PDF_HYPERLINKS         = YES
+USE_PDFLATEX           = YES
+PAPER_TYPE             = letter
+
+HAVE_DOT               = YES
+DOT_IMAGE_FORMAT       = svg
+
+CLASS_GRAPH            = YES
+COLLABORATION_GRAPH    = YES
+GROUP_GRAPHS           = YES
+INCLUDE_GRAPH          = YES
+INCLUDED_BY_GRAPH      = YES
+CALL_GRAPH             = YES
+CALLER_GRAPH           = YES
+GRAPHICAL_HIERARCHY    = YES
+
+
+#---------------------------------------------------------------------------
+# Configuration options related to the preprocessor
+#---------------------------------------------------------------------------
+#ENABLE_PREPROCESSING   = YES
+#MACRO_EXPANSION        = YES
+#SKIP_FUNCTION_MACROS   = NO
+
+#---------------------------------------------------------------------------
+# Configuration options related to the dot tool
+#---------------------------------------------------------------------------
