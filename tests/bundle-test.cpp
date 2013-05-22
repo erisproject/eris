@@ -634,11 +634,6 @@ TEST(Algebra, Addition) {
     EXPECT_EQ(bb[2], bb[7] + Bundle({{3,0.125}}));
     EXPECT_EQ(Bundle({{1,11}, {2,6}, {3,1}}), bb[6] + bb[1]);
 
-    EXPECT_THROW(bb[4] + BundleNegative({{4, -0.001}}), Bundle::negativity_error);
-    EXPECT_NO_THROW(bb[4] + BundleNegative({{4, 0.001}}));
-    EXPECT_NO_THROW(bb[4] + BundleNegative({{1, -7}, {2, -12}, {3, -1}}));
-    EXPECT_THROW(bb[4] + BundleNegative({{1, -7}, {2, -12}, {3, -1.001}}), Bundle::negativity_error);
-
     EXPECT_EQ(BundleNegative({{2,3}, {4,4}}),
             BundleNegative({{1,-1}, {2,2}, {3,0}, {4,4}}) + BundleNegative({{1, 1}, {2,1}, {3,0}, {4,0}}));
 }
@@ -655,10 +650,9 @@ TEST(Algebra, Subtraction) {
     EXPECT_EQ(bb[6], Bundle({{1,11}, {2,6}, {3,1}}) - bb[1]);
     EXPECT_EQ(0, bb[6] - bb[7]);
 
-    EXPECT_THROW(bb[4] - BundleNegative({{4, 0.001}}), Bundle::negativity_error);
-    EXPECT_NO_THROW(bb[4] - BundleNegative({{4, -0.001}}));
-    EXPECT_NO_THROW(bb[8] - BundleNegative({{1, 1}, {2, 3}, {3, 1}, {4,0}, {5,0}}));
-    EXPECT_THROW(bb[8] - BundleNegative({{1, 1}, {2, 3}, {3, 1.001}}), Bundle::negativity_error);
+    EXPECT_THROW(bb[4] - Bundle({{4, 0.001}}), Bundle::negativity_error);
+    EXPECT_NO_THROW(bb[8] - Bundle({{1, 1}, {2, 3}, {3, 1}, {4,0}, {5,0}}));
+    EXPECT_THROW(bb[8] - Bundle({{1, 1}, {2, 3}, {3, 1.001}}), Bundle::negativity_error);
 
     EXPECT_EQ(BundleNegative({{1,-2}, {2,1}, {4,4}}),
             BundleNegative({{1,-1}, {2,2}, {3,0}, {4,4}}) - BundleNegative({{1, 1}, {2,1}, {3,0}, {4,0}}));

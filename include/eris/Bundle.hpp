@@ -49,8 +49,10 @@ namespace eris {
 //
 // The usual +, -, *, / operators as overloaded as expected for adding/scaling bundles, plus the
 // analogous +=, -=, *=, and /= operators.  After addition or subtraction, the result will contain
-// all goods that existed in either good.  Unary negative is defined, but always returns a
-// BundleNegative (even for a Bundle).
+// all goods that existed in either good, even if those goods had quantities of 0.  Unary negative
+// is defined, but always returns a BundleNegative (even for a Bundle).  Adding and subtracting two
+// Bundles returns a Bundle; if either of the bundles being added or subtracted are BundleNegative
+// objects, a BundleNegative is returned.
 //
 // Comparison operators are also overloaded.  Each of ==, >, >=, <, and <= is true iff all the
 // inequality relation is satisfied for the quantities of every good in either bundle.  Note that !=
@@ -106,7 +108,6 @@ class Bundle;
 class BundleNegative {
     private:
         std::unordered_map<eris_id_t, double> bundle;
-    protected:
         typedef std::initializer_list<std::pair<eris_id_t, double>> init_list;
     public:
         BundleNegative() {}
@@ -115,18 +116,18 @@ class BundleNegative {
 
         virtual ~BundleNegative() = default;
 
-        virtual double operator[] (const eris_id_t &gid) const;
+        double operator[] (const eris_id_t &gid) const;
         virtual void set(const eris_id_t &gid, const double &quantity);
         virtual void set(const init_list &goods);
-        virtual std::unordered_map<eris_id_t, double>::const_iterator begin() const;
-        virtual std::unordered_map<eris_id_t, double>::const_iterator end() const;
+        std::unordered_map<eris_id_t, double>::const_iterator begin() const;
+        std::unordered_map<eris_id_t, double>::const_iterator end() const;
 
-        virtual bool empty() const;
-        virtual std::unordered_map<eris_id_t, double>::size_type size() const;
-        virtual int count(const eris_id_t &gid) const;
-        virtual int erase(const eris_id_t &gid);
-        virtual double remove(const eris_id_t &gid);
-        virtual void clearZeros();
+        bool empty() const;
+        std::unordered_map<eris_id_t, double>::size_type size() const;
+        int count(const eris_id_t &gid) const;
+        int erase(const eris_id_t &gid);
+        double remove(const eris_id_t &gid);
+        void clearZeros();
 
         BundleNegative& operator += (const BundleNegative &b);
         BundleNegative& operator -= (const BundleNegative &b);
@@ -181,9 +182,11 @@ class Bundle : public BundleNegative {
         Bundle& operator *= (const double &m);
         Bundle& operator /= (const double &d);
 
-        Bundle operator + (const BundleNegative &b) const;
+        // Inherit the BundleNegative versions of these:
+        using BundleNegative::operator +;
         using BundleNegative::operator -;
-        Bundle operator - (const BundleNegative &b) const;
+        Bundle operator + (const Bundle &b) const noexcept;
+        Bundle operator - (const Bundle &b) const;
         Bundle operator * (const double &m) const;
         friend Bundle operator * (const double &m, const Bundle &a);
         Bundle operator / (const double &d) const;
@@ -201,8 +204,8 @@ class Bundle : public BundleNegative {
         class negativity_error : public std::range_error {
             public:
                 negativity_error(const eris_id_t &good, const double &value) :
-                    std::range_error("Good " + std::to_string(good) + " assigned illegal negative value " + std::to_string(value)),
-                    good(good), value(value) {}
+                    std::range_error("Good " + std::to_string(good) + " assigned illegal negative value "
+                            + std::to_string(value)), good(good), value(value) {}
                 negativity_error(const std::string& what_arg, const eris_id_t &good, const double &value) :
                     std::range_error(what_arg), good(good), value(value) {}
                 negativity_error(const char* what_arg, const eris_id_t &good, const double &value) :
@@ -287,17 +290,24 @@ inline BundleNegative BundleNegative::operator OP (const BundleNegative &b) cons
     BundleNegative ret(*this);\
     ret OPEQ b;\
     return ret;\
-}\
-inline Bundle Bundle::operator OP (const BundleNegative &b) const {\
-    Bundle ret(*this);\
-    ret OPEQ b;\
-    return ret;\
 }
 
 _ERIS_BUNDLE_HPP_ADDSUB(+, +=)
 _ERIS_BUNDLE_HPP_ADDSUB(-, -=)
 
 #undef _ERIS_BUNDLE_HPP_ADDSUB
+
+inline Bundle Bundle::operator + (const Bundle &b) const noexcept {
+    Bundle ret(*this);
+    ret += b;
+    return ret;
+}
+inline Bundle Bundle::operator - (const Bundle &b) const {
+    Bundle ret(*this);
+    ret -= b;
+    return ret;
+}
+
 
 inline BundleNegative& BundleNegative::operator *= (const double &m) {
     for (auto g : bundle) set(g.first, g.second * m);
