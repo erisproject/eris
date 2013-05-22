@@ -177,7 +177,7 @@ class Bundle : public BundleNegative {
         Bundle(const eris_id_t &g, const double &q);
         Bundle(const init_list &init);
         using BundleNegative::set;
-        void set(const eris_id_t &gid, const double &quantity);
+        void set(const eris_id_t &gid, const double &quantity) override;
 
         Bundle& operator *= (const double &m);
         Bundle& operator /= (const double &d);
@@ -185,6 +185,7 @@ class Bundle : public BundleNegative {
         // Inherit the BundleNegative versions of these:
         using BundleNegative::operator +;
         using BundleNegative::operator -;
+        // Also define +/- for two Bundles to return a Bundle (instead of a BundleNegative)
         Bundle operator + (const Bundle &b) const noexcept;
         Bundle operator - (const Bundle &b) const;
         Bundle operator * (const double &m) const;
