@@ -4,9 +4,10 @@
 #include <eris/Agent.hpp>
 #include <eris/Good.hpp>
 #include <eris/Market.hpp>
-#include <map>
-#include <type_traits>
 #include <exception>
+#include <map>
+#include <memory>
+#include <type_traits>
 
 namespace eris {
 

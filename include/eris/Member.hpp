@@ -1,5 +1,6 @@
 #pragma once
 #include <eris/types.hpp>
+#include <memory>
 
 // Contains the Member class, which is a very general base class for objects "owned" and stored by a
 // Simulation (e.g. goods, agents, markets).  Also contains the SharedMember<M> class, a wrapper
@@ -25,7 +26,7 @@ class Member {
 };
 
 // Wrapper around std::shared_ptr<G> that adds automatic G and eris_id_t cast conversion
-template<class T> class SharedMember {
+template<class T> class SharedMember final {
     public:
         // Using as an A gives you the underlying A object:
         virtual operator T& () const { return *ptr; }
