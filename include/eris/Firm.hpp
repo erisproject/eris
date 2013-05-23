@@ -14,7 +14,7 @@ class Firm : public Agent {
         // Returns true if the firm is able to supply the given Bundle.  Returning false thus
         // indicates that the firm either cannot supply some of the items in the Bundle, or else
         // that producing the given quantities exceeds some production limit.  By default, this
-        // checks whether stock has enough to supply the request; if not, it calls canProduce with
+        // checks whether assets has enough to supply the request; if not, it calls canProduce with
         // the extra amount needed to fulfill the request.
         // simply calls canSupplyAny, and returns true of false depending on whether canSupplyAny
         // returned a value >= 1.
@@ -50,9 +50,9 @@ class Firm : public Agent {
         // between if a fraction of the bundle was supplied.  This method may throw a
         // supply_mismatch exception (or a subclass thereof) in the same situation supply() does,
         // but will not throw a supply_constraint or supply_failure.  By default, this attempts to
-        // supply from current stock, and if insufficient, calls produceAny() for make up the
+        // supply from current assets, and if insufficient, calls produceAny() for make up the
         // difference.  If produceAny throws a supply_mismatch exception *and* no multiple of the
-        // bundle can be provided from stock, this will rethrow produceAny()'s exception.
+        // bundle can be provided from assets, this will rethrow produceAny()'s exception.
         virtual double supplyAny(const Bundle &b);
 
         // Resets a firm production.  This is called when, for example, beginning a new period, to
@@ -60,8 +60,8 @@ class Firm : public Agent {
         // nothing.
         virtual void advance() {}
 
-        // Adds the given Bundle to the firm's current stock of resources.
-        virtual void addResources(Bundle b) { stock += b; }
+        // Adds the given Bundle to the firm's current assets.
+        virtual void addResources(Bundle b) { assets += b; }
 
         // The exceptions that can be thrown by supply().  Subclasses may define additional
         // exceptions, but they should inherit from one of these.
@@ -80,13 +80,6 @@ class Firm : public Agent {
                 supply_constraint() : supply_failure("Firm cannot supply requested bundle: capacity constraint would be violated") {}
         };
     protected:
-        // The current stock of resources.
-        //
-        // Subclasses don't have to use this at all, but could, for example, record surplus
-        // production here (for example, when a firm supplys 2 units of A for each unit of B, but
-        // is instructed to supply 3 units of each (thus resulting in 3 surplus units of A).
-        Bundle stock;
-
         // The following are internal methods that subclasses should provide, but should only be
         // called externally indirectly through a call to the analogous supply...() function.
 
@@ -100,16 +93,16 @@ class Firm : public Agent {
         // it returns 0, which should be appropriate for firms that don't instantaneously produce.
         virtual double canProduceAny(const Bundle &b) const noexcept { return 0.0; }
 
-        // See supply().  This method is called by supply if the current stock is insufficient to
+        // See supply().  This method is called by supply if the current assets are insufficient to
         // supply the requested bundle.  This method must be provided by a subclass; non-production
         // firms should throw either a supply_mismatch (the requested good is never supplied by this
-        // firm) or supply_constraint (the current stock is out, and the firm cannot produce more
+        // firm) or supply_constraint (the current assets are out, and the firm cannot produce more
         // (or cannot produce at all)) exception.  Instantaneous production firms should, if unable
         // to produce, throw one of these or some other supply_failure exception (or subclass
         // thereof) as appropriate.
         virtual void produce(const Bundle &b) = 0;
 
-        // See supplyAny().  This method is called by supplyAny() if the current stock is
+        // See supplyAny().  This method is called by supplyAny() if the current assets are
         // insufficient to supply the requested bundle.  By default this method just calls
         // produce(), returning 1.0 if it succeeds, 0.0 if it throws a supply_constraint, and
         // passing through any other exception.
@@ -121,11 +114,11 @@ class Firm : public Agent {
 };
 
 inline double Firm::canSupplyAny(const Bundle &b) const noexcept {
-    // We can supply the entire thing from current stock:
-    if (stock >= b) return 1.0;
+    // We can supply the entire thing from current assets:
+    if (assets >= b) return 1.0;
 
     // Otherwise try production to make up the difference
-    Bundle onhand = Bundle::common(stock, b);
+    Bundle onhand = Bundle::common(assets, b);
     Bundle need = b - onhand;
     double c = canProduceAny(need);
     if (c >= 1.0) return 1.0;
@@ -137,31 +130,31 @@ inline double Firm::canSupplyAny(const Bundle &b) const noexcept {
 }
 
 inline void Firm::supply(const Bundle &b) {
-    // Check to see if we have enough stock to cover the demand
-    Bundle onhand = Bundle::common(stock, b);
+    // Check to see if we have enough assets to cover the demand
+    Bundle onhand = Bundle::common(assets, b);
     Bundle need = b - onhand;
 
-    // If needed, produce what we can't supply from stock
+    // If needed, produce what we can't supply from assets
     if (need != 0) produce(need);
 
-    // If we survived this far, either stock is enough or production succeeded; take the onhand
-    // amount out of stock as well.
-    stock -= onhand;
+    // If we survived this far, either assets has enough or production succeeded; take the onhand
+    // amount out of assets as well.
+    assets -= onhand;
 }
 
 inline double Firm::supplyAny(const Bundle &b) {
-    // Check to see if we have enough stock to cover the demand
-    Bundle onhand = Bundle::common(stock, b);
+    // Check to see if we have enough assets to cover the demand
+    Bundle onhand = Bundle::common(assets, b);
     Bundle need = b - onhand;
 
     if (need == 0) {
-        // Supply it all from stock
-        stock -= onhand;
+        // Supply it all from assets
+        assets -= onhand;
         return 1.0;
     }
 
-    // Otherwise produce what we can't supply from stock
-    // (NB: can't reduce stock yet, because produceAny might throw a supply_mismatch)
+    // Otherwise produce what we can't supply from assets
+    // (NB: can't reduce assets yet, because produceAny might throw a supply_mismatch)
     double c = 0.0;
     try {
         c = produceAny(need);
@@ -183,8 +176,8 @@ inline double Firm::supplyAny(const Bundle &b) {
     }
     // else produceAny() didn't produce anything
 
-    // Add any onhand surplus back into stock
-    stock -= onhand % b;
+    // Add any onhand surplus back into assets
+    assets -= onhand % b;
     return c >= 1.0 ? 1.0 : onhand / b;
 }
 

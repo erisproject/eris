@@ -23,7 +23,7 @@ const Bundle PriceFirm::output() const noexcept {
 double PriceFirm::canProduceAny(const Bundle &b) const noexcept {
     if (!_output.covers(b) || capacityUsed >= capacity) return 0.0;
     
-    // Return the stock + maximum we can produce, divided by the desired bundle.  Note that this
+    // Return the assets + maximum we can produce, divided by the desired bundle.  Note that this
     // could well be infinity!
     return ((capacity - capacityUsed) * _output) / b;
 }
@@ -45,7 +45,7 @@ void PriceFirm::produce(const Bundle &b) {
         capacityUsed += produce;
 
         // Record any new surplus as a result of production:
-        stock += b % _output;
+        assets += b % _output;
     }
 }
 
@@ -70,8 +70,8 @@ double PriceFirm::produceAny(const Bundle &b) {
 
     // Production might have resulted in excess of some goods (for example, when we want (4,1)
     // but produce in ratios of (1,1), we'll have an excess of (0,3)), so skim off any excess
-    // that may have resulted and add it to the surplus stock
-    stock += (produce * _output) % b;
+    // that may have resulted and add it to the surplus assets
+    assets += (produce * _output) % b;
 
     return constrained ? produce / want : 1.0;
 }

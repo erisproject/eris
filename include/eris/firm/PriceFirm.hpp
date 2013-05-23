@@ -36,8 +36,6 @@ class PriceFirm : public Firm {
 
         virtual void advance();
 
-        //virtual void addResources(Bundle b) { stock += b; }
-
     protected:
         Bundle _price, _output;
         double capacity, capacityUsed = 0;
