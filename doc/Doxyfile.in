@@ -22,6 +22,7 @@ JAVADOC_AUTOBRIEF      = YES
 GENERATE_HTML          = YES
 HTML_FILE_EXTENSION    = .xhtml
 HTML_OUTPUT            = api
+LAYOUT_FILE            = DoxygenLayout.xml
 
 GENERATE_LATEX         = NO
 LATEX_OUTPUT           = api-latex
