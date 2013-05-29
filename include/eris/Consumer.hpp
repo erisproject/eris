@@ -7,31 +7,52 @@
 
 namespace eris {
 
-/* Base class for consumers, a (general) specialization of an Agent which has a
- * utility function for any Bundle of goods.
- *
- * There is also the further specialization base class
- * Consumer::Differentiable, which is used for consumers that also have
- * analytical first and second derivatives.
- */
+/** Namespace for all specific eris::Consumer implementations. */
+namespace consumer{}
 
+/** Base class for consumers, a (general) specialization of an Agent which has a utility function
+ * for any Bundle of goods.
+ */
 class Consumer : public Agent {
     public:
+        /// Returns the Consumer's utility for the given Bundle.
         virtual double utility(const Bundle &b) const = 0;
 
         class Differentiable;
 };
 
+/** Specialization of Consumer which is used for consumer instances that have analytical first and
+ * second derivatives.
+ */
 class Consumer::Differentiable : public Consumer {
     public:
-        // Returns $\frac{\partial u(b)}{\partial g}$
+        /// Returns \f$\frac{\partial u(\mathbf{g})}{\partial g_i}\f$
         virtual double d(const Bundle &b, const eris_id_t &gid) const = 0;
-        // Returns $\frac{\partial^2 u(b)}{\partial g_1 \partial g_2}$
+        /// Returns \f$\frac{\partial^2 u(\mathbf{g})}{\partial g_i \partial g_j}\f$
         virtual double d2(const Bundle &b, const eris_id_t &g1, const eris_id_t &g2) const = 0;
-        // Returns the gradient for the given goods given a bundle.  (We can't just use the bundle's
-        // included goods because it might not include some goods for which the gradient is needed).
+        /** Returns the gradient for the given goods g evaluated at Bundle b.  These must be passed
+         * separately because the Bundle need not contain quantities for all valid goods.  The
+         * default implementation simply calls d() for each good, but subclasses may override that
+         * behaviour (i.e. if a more efficient alternative is available).
+         *
+         * \param g a std::vector<eris_id_t> of the goods for which the gradient is sought
+         * \param b the Bundle at which the gradient is to be evaluated
+         */
         virtual std::map<eris_id_t, double> gradient(const std::vector<eris_id_t> &g, const Bundle &b) const;
-        // Returns the Hessian for the given goods given a bundle.
+        /** Returns the Hessian (as a two-dimensional nested std::map) for the given set of goods g
+         * given a Bundle b.  The Bundle and std::vector of Good ids is specified separately because
+         * the Bundle is not required to contain all of the goods at which the Hessian is to be
+         * evaluated (in particular, it is free to omit 0-quantity goods).
+         *
+         * By default this calls h() for each good-good combination, and assumes symmetry in the
+         * Hessian (thus making only \f$ \frac{g(g+1)}{2} < g^2 \f$ calls to h()).  If this isn't
+         * the case (which means utility has non-continuous second derivatives), this method must be
+         * overridden.  As with gradient(), this may also be overridden if a more efficient
+         * calculation is available.
+         *
+         * \param g a std::vector<eris_id_t> of the goods for which the hessian is sought
+         * \param b the Bundle at which the hessian is to be evaluated
+         */
         virtual std::map<eris_id_t, std::map<eris_id_t, double>> hessian(const std::vector<eris_id_t> &g, const Bundle &b) const;
 };
 
