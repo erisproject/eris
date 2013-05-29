@@ -33,13 +33,16 @@ PAPER_TYPE             = letter
 HAVE_DOT               = YES
 DOT_IMAGE_FORMAT       = svg
 
+USE_MATHJAX            = YES
+MATHJAX_RELPATH        = ../MathJax
+
 CLASS_GRAPH            = YES
 COLLABORATION_GRAPH    = YES
 GROUP_GRAPHS           = YES
 INCLUDE_GRAPH          = YES
 INCLUDED_BY_GRAPH      = YES
-CALL_GRAPH             = YES
-CALLER_GRAPH           = YES
+#CALL_GRAPH             = YES
+#CALLER_GRAPH           = YES
 GRAPHICAL_HIERARCHY    = YES
 
 
