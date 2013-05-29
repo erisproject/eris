@@ -18,6 +18,8 @@ a.out
 # vim swap files
 .*.swp
 .swp
+.*.swo
+.swo
 
 # Build files
 /build/
