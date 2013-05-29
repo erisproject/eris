@@ -1,24 +1,55 @@
 #include <eris/market/Bertrand.hpp>
-
-#include <iostream>
+#include <limits>
 
 namespace eris { namespace market {
 
-Bertrand::Bertrand(Bundle output, Bundle priceUnit, bool randomize)
-    : Market(output, priceUnit), randomize(randomize) {}
+Bertrand::Bertrand(Bundle output, Bundle price_unit, bool randomize)
+    : Market(output, price_unit), randomize(randomize) {}
 
 Market::price_info Bertrand::price(double q) const {
     return allocate(q).p;
 }
 
+double Bertrand::quantity(double price) const {
+    // Keys are prices, values are aggregate quantities available
+    std::map<double, double> price_quantity;
+
+    for (auto f : suppliers) {
+        SharedMember<firm::PriceFirm> firm = f.second;
+        double s = firm.canSupplyAny(_output);
+        if (s > 0) {
+            double firm_price = (_output / firm->output()) * (firm->price() / _price);
+            price_quantity[firm_price] += s;
+        }
+    }
+
+    double quantity = 0;
+    for (auto pf : price_firm) {
+        double p = pf.first;
+        double q = pf.second;
+        if (price > p*q) {
+            // Buying everything at this price level doesn't exhaust income
+            quantity += q;
+            price -= p*q;
+        }
+        else {
+            // Otherwise buy as much as possible at this price level, and we're done.
+            quantity += price/p;
+            break;
+        }
+    }
+
+    return quantity;
+}
+
 Bertrand::allocation Bertrand::allocate(double q) const {
     // Keys are prices, values are fraction of q*_output available at that price
-    std::map<double, double> priceAggQ;
+    std::map<double, double> price_agg_q;
     // Keys are prices, values are maps of <firm -> fraction of q*_output available>
-    std::map<double, std::vector<std::pair<eris_id_t, double>>> priceFirm;
+    std::map<double, std::vector<std::pair<eris_id_t, double>>> price_firm;
 
-    double aggQuantity = 0.0;
-    Bundle qBundle = q * _output;
+    double agg_quantity = 0.0;
+    Bundle q_bundle = q * _output;
 
     for (auto f : suppliers) {
         SharedMember<firm::PriceFirm> firm = f.second;
@@ -26,7 +57,7 @@ Bertrand::allocation Bertrand::allocate(double q) const {
         if (_price.covers(firm->price())) {
             double productivity = firm->canSupplyAny(qBundle);
             if (productivity > 0) {
-                aggQuantity += productivity;
+                agg_quantity += productivity;
                 // First we need the market output supplied per firm output bundle unit, then we
                 // multiple that by the firm's price per market price.  This is because one firm
                 // could have (price=2,output=2), while another has (price=3,output=3) and another
@@ -37,59 +68,54 @@ Bertrand::allocation Bertrand::allocate(double q) const {
                 //     (market.outout/firm.output) * (firm.price / market.price)
                 // because those divisions are lossy when Bundles aren't scaled versions of each
                 // other (see Bundle.hpp's description of Bundle division)
-                double firmPrice = (_output / firm->output()) * (firm->price() / _price);
-                priceAggQ[firmPrice] += productivity;
-                priceFirm[firmPrice].push_back(std::pair<eris_id_t,double>(firm, productivity));
+                double firm_price = (_output / firm->output()) * (firm->price() / _price);
+                price_agg_q[firm_price] += productivity;
+                price_firm[firm_price].push_back(std::pair<eris_id_t,double>(firm, productivity));
             }
         }
     }
 
-    allocation a = { .p={ .feasible=false } };
+    // Figure out how we're going to allocate this.
+    allocation a;
 
-    // aggQuantity is in terms of the requested output bundle; if it doesn't add up to at least
-    // 1, the entire market cannot supply the requested quantity at any price.
-    if (aggQuantity < 1.0) { return a; }
-
-    a.p.feasible = true;
-
-    double needQ = 1.0;
-    bool firstPrice = true;
-    for (auto pf : priceFirm) {
+    double need_q = 1.0;
+    bool first_price = true;
+    for (auto pf : price_firm) {
         double price = pf.first;
-        if (firstPrice) {
+        if (first_price) {
             a.p.marginalFirst = price;
-            firstPrice = false;
+            first_price = false;
         }
-        double aggQ = priceAggQ[price];
-        a.p.total += price * (aggQ <= needQ ? aggQ : needQ);
+        double agg_q = price_agg_q[price];
+        a.p.total += price * (agg_q <= need_q ? agg_q : need_q);
 
         auto firms = pf.second;
 
-        if (aggQ <= needQ) {
+        if (agg_q <= need_q) {
             // The aggregate quantity at this price does not exceed the needed aggregate quantity,
             // so allocation is easy: every firm supplies their full reported productivity value.
             for (auto firmprod : firms) {
                 a.shares[firmprod.first].p = price;
                 a.shares[firmprod.first].q += firmprod.second;
             }
-            needQ -= aggQ;
+            need_q -= agg_q;
         }
         else if (firms.size() == 1) {
             // There is excess capacity, but all from one firm, so allocation is easy again.
-            a.shares[firms[0].first] = { .p=price, .q=needQ };
-            needQ = 0;
+            a.shares[firms[0].first] = { .p=price, .q=need_q };
+            need_q = 0;
         }
         else {
             // Otherwise life is more complicated: there is excess capacity, so we need to worry
             // about allocation rules among multiple firms.
-            while (needQ > 0) {
+            while (need_q > 0) {
                 int nFirms = firms.size();
                 if (nFirms == 1) {
                     // Only one firm left, use it for everything remaining (we're guaranteed,
-                    // by the above if (aggQ ..), that there is enough quantity available).
+                    // by the above if (agg_q ..), that there is enough quantity available).
                     a.shares[firms[0].first].p = price;
-                    a.shares[firms[0].first].q += needQ;
-                    needQ = 0;
+                    a.shares[firms[0].first].q += need_q;
+                    need_q = 0;
                 }
                 else if (randomize) {
                     // We're going to randomize among the available firms.  There's a wrinkle here,
@@ -99,15 +125,15 @@ Bertrand::allocation Bertrand::allocate(double q) const {
                     std::uniform_int_distribution<unsigned int> randFirmDist(0, nFirms-1);
                     int luckyFirm = randFirmDist(rng());
                     auto f = firms[luckyFirm];
-                    if (f.second >= needQ) {
+                    if (f.second >= need_q) {
                         a.shares[f.first].p = price;
-                        a.shares[f.first].q += needQ;
-                        needQ = 0;
+                        a.shares[f.first].q += need_q;
+                        need_q = 0;
                     }
                     else {
                         a.shares[f.first].p = price;
                         a.shares[f.first].q += f.second;
-                        needQ -= f.second;
+                        need_q -= f.second;
                         firms.erase(firms.begin() + luckyFirm);
                     }
                 }
@@ -116,47 +142,47 @@ Bertrand::allocation Bertrand::allocate(double q) const {
                     // too: there may be a firm whose capacity is insufficient.  For example,
                     // suppose:
                     //
-                    // needQ = 1.0, capacities: firm1 = 1, firm2 = 0.5, firm3 = 0.2, firm4 = 0.1
+                    // need_q = 1.0, capacities: firm1 = 1, firm2 = 0.5, firm3 = 0.2, firm4 = 0.1
                     //
                     // An even split would assign 0.25 to each, but that exceeds 3 and 4's
                     // capacities; so we need to assign 0.1 to each of them, then reconsider
                     // (leaving off firm4):
                     //
-                    // needQ = 0.6, capacities: firm1 = 0.9, firm2 = 0.4, firm3 = 0.1
+                    // need_q = 0.6, capacities: firm1 = 0.9, firm2 = 0.4, firm3 = 0.1
                     //
                     // Now 3 has a binding constraint, so again assign 0.1 to each firm, to get:
                     //
-                    // needQ = 0.3, capacities: firm1 = 0.8, firm2 = 0.3
+                    // need_q = 0.3, capacities: firm1 = 0.8, firm2 = 0.3
                     //
                     // Now the even split, 0.15 each, isn't a problem, so assign it and we're done
                     // with final firm quantities of:
                     //
                     // firm1 = 0.35, firm2 = 0.35, firm3 = 0.2, firm4 = 0.1
 
-                    double evenSplit = needQ / nFirms;
-                    double qEach = evenSplit;
+                    double evenSplit = need_q / nFirms;
+                    double q_each = evenSplit;
 
                     // Find the maximum quantity all firms can handle:
-                    for (auto f : firms) if (f.second < qEach) qEach = f.second;
+                    for (auto f : firms) if (f.second < q_each) q_each = f.second;
 
-                    if (qEach == evenSplit) {
+                    if (q_each == evenSplit) {
                         // No binding constraints, easy:
                         for (auto f : firms) {
                             a.shares[f.first].p = price;
-                            a.shares[f.first].q += qEach;
+                            a.shares[f.first].q += q_each;
                         }
-                        needQ = 0.0;
+                        need_q = 0.0;
                     }
                     else {
                         // At least one firm had a (strictly) binding constraint, so we need to
                         // assign the max capacity to each firm and remove any firms whose
                         // constraints bind
-                        needQ -= nFirms * qEach;
+                        need_q -= nFirms * q_each;
 
                         for (auto f = firms.begin(); f != firms.end(); ) {
                             a.shares[f->first].p = price;
-                            a.shares[f->first].q += qEach;
-                            f->second -= qEach;
+                            a.shares[f->first].q += q_each;
+                            f->second -= q_each;
                             if (f->second <= 0)
                                 f = firms.erase(f);
                             else
@@ -167,28 +193,39 @@ Bertrand::allocation Bertrand::allocate(double q) const {
             }
         }
 
-        if (needQ <= 0) {
-            a.p.marginal = price;
-            break;
-        }
+        a.p.marginal = price;
+        // If we've allocated all the needed quantity, we're done.
+        if (need_q <= 0) break;
     }
+
+    a.p.feasible = (need_q <= 0);
 
     return a;
 }
 
-void Bertrand::buy(double q, double pMax, Bundle &assets) {
+void Bertrand::buy(double q, double p_max, Bundle &assets) {
     // FIXME: need to lock the economy until this transaction completes; otherwise supply() could
     // fail.
     allocation a = allocate(q);
     if (!a.p.feasible) throw output_infeasible();
 
-    if (a.p.total > pMax) throw low_price();
+    if (a.p.total > p_max) throw low_price();
 
     Bundle cost = a.p.total*_price;
     if (!(assets >= cost)) throw insufficient_assets();
 
+    throw "FIXME: need to:\n  - transfer cost to providing firms\n  - make firms actually produce";
+    // FIXME: big failure here: we need to transfer the cost to the providing firms!
     assets -= cost;
     assets += q*_output;
+}
+
+double Bertrand::buy(Bundle &assets) {
+    // FIXME: need to lock the market between the quantity call and the end of the buy() call
+    double p_max = assets / _price;
+    double q = quantity(assets / _price);
+    buy(q, p_max, assets);
+    return q;
 }
 
 void Bertrand::addFirm(SharedMember<Firm> f) {
