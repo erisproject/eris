@@ -10,21 +10,31 @@ PriceFirm::PriceFirm(Bundle output, Bundle price, double capacity) :
 void PriceFirm::setPrice(Bundle price) noexcept {
     _price = price;
 }
-const Bundle PriceFirm::price() const noexcept {
+const Bundle& PriceFirm::price() const noexcept {
     return _price;
 }
 void PriceFirm::setOutput(Bundle output) noexcept {
     _output = output;
 }
-const Bundle PriceFirm::output() const noexcept {
+const Bundle& PriceFirm::output() const noexcept {
     return _output;
+}
+
+double PriceFirm::canSupplyAny(const Bundle &b) const noexcept {
+    double s = canProduceAny(b);
+    if (s >= std::numeric_limits<double>::infinity())
+        return s;
+
+    // Otherwise get the supply maximum by adding assets on hand to the maximum production, then
+    // dividing into the requested bundle
+    return (s*b + assets) / b;
 }
 
 double PriceFirm::canProduceAny(const Bundle &b) const noexcept {
     if (!_output.covers(b) || capacityUsed >= capacity) return 0.0;
-    
-    // Return the assets + maximum we can produce, divided by the desired bundle.  Note that this
-    // could well be infinity!
+
+    // Return the maximum that we can produce, divided by the desired bundle.  Note that this could
+    // well be infinity!
     return ((capacity - capacityUsed) * _output) / b;
 }
 
