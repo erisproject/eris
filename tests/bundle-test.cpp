@@ -511,31 +511,6 @@ TEST(Modification, setSingle) {
     EXPECT_EQ(0, a2[0]);
     EXPECT_EQ(11, a2[3]);
 }
-TEST(Modification, setList) {
-    GIMME_BUNDLES;
-
-    a.set({{2,2}, {3,2}, {45,12}, {123,456}});
-    EXPECT_EQ(6, a.size());
-    EXPECT_EQ(-4.5, a[23]);
-    EXPECT_EQ(12, a[45]);
-    EXPECT_EQ(0, a[678]);
-    EXPECT_EQ(2, a[2]);
-    EXPECT_EQ(2, a[3]);
-    EXPECT_EQ(456, a[123]);
-    EXPECT_EQ(0, a[124]);
-    EXPECT_EQ(0, a[0]);
-
-    a2.set({{2,2}, {3,2}, {45,12}, {123,456}});
-    EXPECT_EQ(6, a2.size());
-    EXPECT_EQ(4.5, a2[23]);
-    EXPECT_EQ(12, a2[45]);
-    EXPECT_EQ(0, a2[678]);
-    EXPECT_EQ(2, a2[2]);
-    EXPECT_EQ(2, a2[3]);
-    EXPECT_EQ(456, a2[123]);
-    EXPECT_EQ(0, a2[124]);
-    EXPECT_EQ(0, a2[0]);
-}
 TEST(Modification, erase) {
     GIMME_BUNDLES;
 
