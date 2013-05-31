@@ -28,16 +28,20 @@ double Firm::canProduceAny(const Bundle &b) const noexcept {
     return 0.0;
 }
 
+bool Firm::produces(const Bundle &b) const noexcept {
+    return canProduceAny(b) > 0;
+}
+
 double Firm::produceAny(const Bundle &b) {
     try { produce(b); }
     catch (supply_constraint&) { return 0.0; }
     return 1.0;
 }
 
-double Firm::supplies(const Bundle &b) const noexcept {
+bool Firm::supplies(const Bundle &b) const noexcept {
     Bundle checkProduce;
     for (auto item : b) {
-        eris_id_t g = item->first;
+        eris_id_t g = item.first;
         if (assets[g] <= 0)
             checkProduce.set(g, 1);
     }
@@ -45,7 +49,7 @@ double Firm::supplies(const Bundle &b) const noexcept {
     if (checkProduce.empty()) // Assets has positive quantities of everything requested
         return true;
 
-    return canProduceAny(checkProduce) > 0;
+    return produces(checkProduce);
 }
 
 double Firm::canSupplyAny(const Bundle &b) const noexcept {

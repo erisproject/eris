@@ -36,6 +36,13 @@ class Firm : public Agent {
          */
         virtual double canSupplyAny(const Bundle &b) const noexcept;
 
+        /** This is similar to canSupplyAny(), but only returns a true/false value indicating
+         * whether the firm can supply any positive multiple of the given Bundle.  This is identical
+         * in functionality to (canSupplyAny(b) > 0), but more efficient (as the calculations to
+         * figure out the precise multiple supplyable are skipped).
+         */
+        virtual bool supplies(const Bundle &b) const noexcept;
+
         /** Tells the firm to supply the given Bundle.  Throws one of the following exceptions if the
          * firm cannot supply the given Bundle for some reason:
          * - supply_failure    --- Some supply failure not covered by the below.  All exceptions
@@ -119,6 +126,17 @@ class Firm : public Agent {
          * it returns 0, which should be appropriate for firms that don't instantaneously produce.
          */
         virtual double canProduceAny(const Bundle &b) const noexcept;
+
+        /** Analogous to (and called by) supplies(), this method returns true if the firm is able to
+         * produce some positive quantity of each of the given Bundle.  This is equivalent to
+         * (canProduceAny(b) > 0), but may be more efficient when the specific value of
+         * canProduceAny() isn't needed.
+         *
+         * Note to subclasses: by default, this simply calls (canProduceAny(b) > 0), where the
+         * default canProduceAny(b) simply returns 0.  If overriding canProduceAny(b) with more
+         * complicated logic, you should also contemplate overriding produces().
+         */
+        virtual bool produces(const Bundle &b) const noexcept;
 
         /** This method is called by supply() if the current assets are insufficient to supply the
          * requested bundle.  This method must be provided by a subclass; non-production firms
