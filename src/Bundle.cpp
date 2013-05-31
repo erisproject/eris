@@ -1,10 +1,18 @@
 // Bundle methods.  Note that many of the small, more commonly-used methods are inlined (and thus
 // declared in Bundle.hpp).
 
-#include "eris/Bundle.hpp"
+#include <eris/Bundle.hpp>
+#include <unordered_set>
+#include <set>
 
 namespace eris {
 
+BundleNegative::BundleNegative(const init_list &init) {
+    for (auto g : init) set(g.first, g.second);
+}
+Bundle::Bundle(const init_list &init) {
+    for (auto g : init) set(g.first, g.second);
+}
 void BundleNegative::clearZeros() {
     for (auto it = bundle.begin(); it != bundle.end(); ) {
         if (it->second == 0)
@@ -70,8 +78,9 @@ Bundle Bundle::reduce(BundleNegative &a, BundleNegative &b) {
     return result;
 }
 
-// All of the ==/</<=/>/>= methods are exactly the same, aside from the
-// operator; this macro handles that.
+// All of the ==/</<=/>/>= methods are exactly the same, aside from the operator; this macro handles
+// that.  REVOP is the reverse order version of the operator, needed for the static (e.g. 3 >= b)
+// operator, as it just translate this into (b <= 3)
 #define _ERIS_BUNDLE_CPP_COMPARE(OP, REVOP) \
 bool BundleNegative::operator OP (const BundleNegative &b) const noexcept {\
     std::unordered_set<eris_id_t> goods;\

@@ -4,9 +4,7 @@
 #include <exception>
 #include <limits>
 #include <ostream>
-#include <set>
 #include <unordered_map>
-#include <unordered_set>
 
 namespace eris {
 
@@ -49,7 +47,7 @@ namespace eris {
  * - a == 0 tests whether a good is empty (this is, has no goods at all, or has only goods with
  *   quantities of 0).
  *
- * Division of one Bundle (but *not* NegativeBundles) by another is also defined as follows:  a/b
+ * Division of one Bundle (but *not* BundleNegative) by another is also defined as follows:  a/b
  * returns the minimum value m such that m*b >= a.  Modulus is defined in a related way: a % b
  * equals a Bundle c such that c = (a / b) * b - a.  For example, if a=(2,3,1), b=(1,2,2.5) then a/b
  * == 2 and a%b == (0,1,4).  If any good with a positive quantity in a does not have a positive
@@ -87,16 +85,27 @@ namespace eris {
 
 class Bundle;
 class BundleNegative {
+    private:
+        typedef std::initializer_list<std::pair<eris_id_t, double>> init_list;
+
     public:
-        BundleNegative() {}
+        /// Constructs a new BundleNegative with no initial good/quantity values.
+        BundleNegative();
+        /// Constructs a new BundleNegative containing a single good, g, with quantity q.
         BundleNegative(const eris_id_t &g, const double &q);
+        /** Allows initialization with a static std::initializer_list of std::pairs, such as:
+         * BundleNegative b {{1, 1.0}, {2, 0.5}, {3, 100}};
+         * Since an initializer_list requires constant values, this is primary useful for debugging
+         * purposes.
+         */
         BundleNegative(const init_list &init);
 
         virtual ~BundleNegative() = default;
 
+        /** Read-only access to BundleNegative quantities given a good id. */
         double operator[] (const eris_id_t &gid) const;
+        /** Sets the quantity of the given good id to the given value. */
         virtual void set(const eris_id_t &gid, const double &quantity);
-        virtual void set(const init_list &goods);
         std::unordered_map<eris_id_t, double>::const_iterator begin() const;
         std::unordered_map<eris_id_t, double>::const_iterator end() const;
 
@@ -105,12 +114,14 @@ class BundleNegative {
          * values that have been explitly set (even to 0) *are* included.
          */
         std::unordered_map<eris_id_t, double>::size_type size() const;
+
         /** Returns true iff size() == 0.  Note that empty() is not true for a bundle with explicit
          * quantities of 0; for testing whether a bundle is empty in the sense of all quantities
          * being 0 (explicitly or implicitly by omission), use the (b == 0) operator, discussed
          * below.
          */
         bool empty() const;
+
         /** Returns 1 if the given id exists in the Bundle (even if it equals 0), 0 otherwise.
          */
         int count(const eris_id_t &gid) const;
@@ -118,12 +129,14 @@ class BundleNegative {
         /** Removes the specified good from the bundle (if it exists), and returns either 0 or 1
          * indicating whether the good was present in the bundle, like std::unordered_map::erase.
          */
-        bool erase(const eris_id_t &gid);
+        int erase(const eris_id_t &gid);
+
         /** Like erase(id), but returns the quantity of the removed good, or 0 if the good was not
          * in the bundle.  Note that there is no way to distinguish between a good that was not in
          * the Bundle and a good that was in the Bundle with a quantity of 0.
          */
         double remove(const eris_id_t &gid);
+
         /** Removes any goods from the bundle that have a quantity equal to 0. */
         void clearZeros();
 
@@ -170,7 +183,6 @@ class BundleNegative {
 
     private:
         std::unordered_map<eris_id_t, double> bundle;
-        typedef std::initializer_list<std::pair<eris_id_t, double>> init_list;
 };
 
 class Bundle final : public BundleNegative {
@@ -221,35 +233,20 @@ class Bundle final : public BundleNegative {
 // Define various methods that are frequently called here, so that these functions can be inlined
 // (if the compiler decides it's helpful).  Less frequently called and/or more complex functions are
 // in src/Bundle.cpp
-
-inline BundleNegative::BundleNegative(const eris_id_t &g, const double &q) {
-    set(g, q);
-}
-inline BundleNegative::BundleNegative(const init_list &init) {
-    set(init);
-}
-inline Bundle::Bundle(const eris_id_t &g, const double &q) {
-    set(g, q);
-}
-inline Bundle::Bundle(const init_list &init) {
-    BundleNegative::set(init);
-}
+inline BundleNegative::BundleNegative() {}
+inline BundleNegative::BundleNegative(const eris_id_t &g, const double &q) { set(g, q); }
+inline Bundle::Bundle(const eris_id_t &g, const double &q) { set(g, q); }
 
 inline double BundleNegative::operator[] (const eris_id_t &gid) const {
     // Don't want to invoke map's [] operator, because it auto-vivifies the element
     return count(gid) ? bundle.at(gid) : 0.0;
-}
-inline void BundleNegative::set(const init_list &goods) {
-    for (auto g : goods) set(g.first, g.second);
 }
 inline void BundleNegative::set(const eris_id_t &gid, const double &quantity) {
     bundle[gid] = quantity;
 }
 
 inline void Bundle::set(const eris_id_t &gid, const double &quantity) {
-    if (quantity < 0)
-        throw negativity_error(gid, quantity);
-
+    if (quantity < 0) throw negativity_error(gid, quantity);
     BundleNegative::set(gid, quantity);
 }
 
