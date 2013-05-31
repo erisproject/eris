@@ -83,7 +83,7 @@ class Market : public Member {
          * when assets are less than p_max*price: the actual transaction price could be low enough
          * that assets is sufficient.
          */
-        virtual void buy(double q, double p_max, Bundle &assets) = 0;
+        virtual void buy(double q, BundleNegative &assets, double p_max = std::numeric_limits<double>::infinity()) = 0;
 
         /** Buys as much quantity as can be purchased with the given assets.  Returns the multiple
          * of the output() Bundle purchased.  The assets Bundle will be reduced by the price of the
@@ -92,7 +92,7 @@ class Market : public Member {
          * \throws Market::output_infeasible if no market output is available at all (the same
          * condition as price() returning .feasible=false).
          */
-        virtual double buy(Bundle &assets) = 0;
+        virtual double buy(BundleNegative &assets) = 0;
 
         /** Adds f to the firms supplying in this market. */
         virtual void addFirm(SharedMember<Firm> f);

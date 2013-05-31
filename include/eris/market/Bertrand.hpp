@@ -31,10 +31,10 @@ class Bertrand : public Market, private Random {
         /// Returns the quantity (in terms of multiples of the output Bundle) that p units of the
         /// price Bundle will purchase.
         virtual double quantity(double p) const override;
-        /// Buys q units.
-        virtual void buy(double q, double p_max, Bundle &assets) override;
+        /// Buys q units, paying at most p_max for them.
+        virtual void buy(double q, BundleNegative &assets, double p_max = std::numeric_limits<double>::infinity()) override;
         /// Buys as much as possible with the provided assets bundle
-        virtual void buy(Bundle &assets) override;
+        virtual double buy(BundleNegative &assets) override;
         /// Adds a firm to this market.
         virtual void addFirm(SharedMember<Firm> f) override;
 

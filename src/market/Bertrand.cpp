@@ -16,7 +16,7 @@ double Bertrand::quantity(double price) const {
 
     for (auto f : suppliers) {
         SharedMember<firm::PriceFirm> firm = f.second;
-        double s = firm.canSupplyAny(_output);
+        double s = firm->canSupplyAny(_output);
         if (s > 0) {
             double firm_price = (_output / firm->output()) * (firm->price() / _price);
             price_quantity[firm_price] += s;
@@ -24,7 +24,7 @@ double Bertrand::quantity(double price) const {
     }
 
     double quantity = 0;
-    for (auto pf : price_firm) {
+    for (auto pf : price_quantity) {
         double p = pf.first;
         double q = pf.second;
         if (price > p*q) {
@@ -55,7 +55,7 @@ Bertrand::allocation Bertrand::allocate(double q) const {
         SharedMember<firm::PriceFirm> firm = f.second;
         // Make sure the "price" object in this market can pay for the units the firm wants
         if (_price.covers(firm->price())) {
-            double productivity = firm->canSupplyAny(qBundle);
+            double productivity = firm->canSupplyAny(q_bundle);
             if (productivity > 0) {
                 agg_quantity += productivity;
                 // First we need the market output supplied per firm output bundle unit, then we
@@ -203,7 +203,7 @@ Bertrand::allocation Bertrand::allocate(double q) const {
     return a;
 }
 
-void Bertrand::buy(double q, double p_max, Bundle &assets) {
+void Bertrand::buy(double q, BundleNegative &assets, double p_max) {
     // FIXME: need to lock the economy until this transaction completes; otherwise supply() could
     // fail.
     allocation a = allocate(q);
@@ -220,11 +220,21 @@ void Bertrand::buy(double q, double p_max, Bundle &assets) {
     assets += q*_output;
 }
 
-double Bertrand::buy(Bundle &assets) {
+double Bertrand::buy(BundleNegative &assets) {
+    Bundle assets_pos;
+    Bundle *a = dynamic_cast<Bundle*>(&assets);
+    if (!a) {
+        a = &assets_pos;
+        for (auto g : assets) {
+            if (g.second > 0)
+                assets_pos.set(g.first, g.second);
+        }
+    }
+
     // FIXME: need to lock the market between the quantity call and the end of the buy() call
-    double p_max = assets / _price;
-    double q = quantity(assets / _price);
-    buy(q, p_max, assets);
+    double p_max = *a / _price;
+    double q = quantity(p_max);
+    buy(q, assets, p_max);
     return q;
 }
 
