@@ -34,10 +34,10 @@ class Quadratic : public Consumer::Differentiable {
         double getQuadCoef(eris_id_t g1, eris_id_t g2) const;
         void setQuadCoef(eris_id_t g1, eris_id_t g2, const double &coef);
 
-        virtual double utility(const Bundle &b) const;
+        virtual double utility(const BundleNegative &b) const;
 
-        virtual double d(const Bundle &b, const eris_id_t &g) const;
-        virtual double d2(const Bundle &b, const eris_id_t &g1, const eris_id_t &g2) const;
+        virtual double d(const BundleNegative &b, const eris_id_t &g) const;
+        virtual double d2(const BundleNegative &b, const eris_id_t &g1, const eris_id_t &g2) const;
     private:
         std::map<eris_id_t, std::map<eris_id_t, double>> quad;
 };

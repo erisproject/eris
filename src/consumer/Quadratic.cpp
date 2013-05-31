@@ -7,7 +7,7 @@ namespace eris { namespace consumer {
 Quadratic::Quadratic() {}
 Quadratic::Quadratic(double offset, std::initializer_list<std::map<eris_id_t, double>::value_type> linear) : offset(offset), linear(linear) {}
 
-double Quadratic::utility(const Bundle &b) const {
+double Quadratic::utility(const BundleNegative &b) const {
     double u = offset;
 
     for (auto g1 : b) {
@@ -20,7 +20,7 @@ double Quadratic::utility(const Bundle &b) const {
     return u;
 }
 
-double Quadratic::d(const Bundle &b, const eris_id_t &g) const {
+double Quadratic::d(const BundleNegative &b, const eris_id_t &g) const {
     double up = linear.count(g) ? linear.at(g) : 0.0;
 
     for (auto g2 : b) {
@@ -34,7 +34,7 @@ double Quadratic::d(const Bundle &b, const eris_id_t &g) const {
 
 // The second derivative is really easy: it's just the coefficient (double for
 // Hessian diagonals):
-double Quadratic::d2(const Bundle &b, const eris_id_t &g1, const eris_id_t &g2) const {
+double Quadratic::d2(const BundleNegative &b, const eris_id_t &g1, const eris_id_t &g2) const {
     double upp = getQuadCoef(g1, g2);
     if (g1 == g2) upp *= 2.0;
     return upp;

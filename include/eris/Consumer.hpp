@@ -15,8 +15,10 @@ namespace consumer{}
  */
 class Consumer : public Agent {
     public:
-        /// Returns the Consumer's utility for the given Bundle.
-        virtual double utility(const Bundle &b) const = 0;
+        /** Returns the Consumer's utility for the given Bundle.
+         * /param b a BundleNegative (or Bundle) at which to evaluate the consumer's utility.
+         */
+        virtual double utility(const BundleNegative &b) const = 0;
 
         class Differentiable;
 };
@@ -27,18 +29,18 @@ class Consumer : public Agent {
 class Consumer::Differentiable : public Consumer {
     public:
         /// Returns \f$\frac{\partial u(\mathbf{g})}{\partial g_i}\f$
-        virtual double d(const Bundle &b, const eris_id_t &gid) const = 0;
+        virtual double d(const BundleNegative &b, const eris_id_t &gid) const = 0;
         /// Returns \f$\frac{\partial^2 u(\mathbf{g})}{\partial g_i \partial g_j}\f$
-        virtual double d2(const Bundle &b, const eris_id_t &g1, const eris_id_t &g2) const = 0;
+        virtual double d2(const BundleNegative &b, const eris_id_t &g1, const eris_id_t &g2) const = 0;
         /** Returns the gradient for the given goods g evaluated at Bundle b.  These must be passed
          * separately because the Bundle need not contain quantities for all valid goods.  The
          * default implementation simply calls d() for each good, but subclasses may override that
          * behaviour (i.e. if a more efficient alternative is available).
          *
          * \param g a std::vector<eris_id_t> of the goods for which the gradient is sought
-         * \param b the Bundle at which the gradient is to be evaluated
+         * \param b the BundleNegative (typically a Bundle instance) at which the gradient is to be evaluated
          */
-        virtual std::map<eris_id_t, double> gradient(const std::vector<eris_id_t> &g, const Bundle &b) const;
+        virtual std::map<eris_id_t, double> gradient(const std::vector<eris_id_t> &g, const BundleNegative &b) const;
         /** Returns the Hessian (as a two-dimensional nested std::map) for the given set of goods g
          * given a Bundle b.  The Bundle and std::vector of Good ids is specified separately because
          * the Bundle is not required to contain all of the goods at which the Hessian is to be
@@ -53,7 +55,7 @@ class Consumer::Differentiable : public Consumer {
          * \param g a std::vector<eris_id_t> of the goods for which the hessian is sought
          * \param b the Bundle at which the hessian is to be evaluated
          */
-        virtual std::map<eris_id_t, std::map<eris_id_t, double>> hessian(const std::vector<eris_id_t> &g, const Bundle &b) const;
+        virtual std::map<eris_id_t, std::map<eris_id_t, double>> hessian(const std::vector<eris_id_t> &g, const BundleNegative &b) const;
 };
 
 }

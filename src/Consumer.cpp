@@ -2,7 +2,7 @@
 
 namespace eris {
 
-std::map<eris_id_t, double> Consumer::Differentiable::gradient(const std::vector<eris_id_t> &goods, const Bundle &b) const {
+std::map<eris_id_t, double> Consumer::Differentiable::gradient(const std::vector<eris_id_t> &goods, const BundleNegative &b) const {
     std::map<eris_id_t, double> grad;
     for (auto good : goods)
         grad[good] = d(b, good);
@@ -10,7 +10,7 @@ std::map<eris_id_t, double> Consumer::Differentiable::gradient(const std::vector
     return grad;
 }
 
-std::map<eris_id_t, std::map<eris_id_t, double>> Consumer::Differentiable::hessian(const std::vector<eris_id_t> &goods, const Bundle &b) const {
+std::map<eris_id_t, std::map<eris_id_t, double>> Consumer::Differentiable::hessian(const std::vector<eris_id_t> &goods, const BundleNegative &b) const {
     std::map<eris_id_t, std::map<eris_id_t, double>> hess;
     std::vector<eris_id_t> priorG;
 

@@ -17,7 +17,7 @@ std::vector<double> &Polynomial::operator[](eris_id_t gid) {
     return coef[gid];
 }
 
-double Polynomial::utility(const Bundle &b) const {
+double Polynomial::utility(const BundleNegative &b) const {
     double u = offset;
     for (std::pair<eris_id_t, std::vector<double>> c : coef) {
         double q = b[c.first];
@@ -35,7 +35,7 @@ double Polynomial::utility(const Bundle &b) const {
 
 // Calculate the derivative for good g.  Since utility is separable, we only
 // need to use the coefficients for good g to get the value of the derivative
-double Polynomial::d(const Bundle &b, const eris_id_t &g) const {
+double Polynomial::d(const BundleNegative &b, const eris_id_t &g) const {
     if (!coef.count(g)) return 0.0;
     auto c = coef.at(g);
     double up = 0.0;
@@ -50,7 +50,7 @@ double Polynomial::d(const Bundle &b, const eris_id_t &g) const {
     return up;
 }
 
-double Polynomial::d2(const Bundle &b, const eris_id_t &g1, const eris_id_t &g2) const {
+double Polynomial::d2(const BundleNegative &b, const eris_id_t &g1, const eris_id_t &g2) const {
     double upp = 0.0;
 
     // Separable polynomial utility has no iteration terms, so Hessian is diagonal; thus we can just
@@ -76,7 +76,7 @@ double Polynomial::d2(const Bundle &b, const eris_id_t &g1, const eris_id_t &g2)
 // Override Consumer's hessian function: since off-diagonals of the Hessian are
 // 0 for this class, we can skip those calculations.
 std::map<eris_id_t, std::map<eris_id_t, double>>
-Polynomial::hessian(const std::vector<eris_id_t> &goods, const Bundle &b) const {
+Polynomial::hessian(const std::vector<eris_id_t> &goods, const BundleNegative &b) const {
     std::map<eris_id_t, std::map<eris_id_t, double>> H;
 
     for (auto g1 : goods) {
