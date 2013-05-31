@@ -1,13 +1,15 @@
 // Test script to work out how to get all combinations of size 2 or above from a set of elements.
 //
+#include <eris/algorithms.hpp>
 #include <set>
+#include <unordered_set>
 #include <stack>
 #include <vector>
 #include <iostream>
 
 using std::cout;
 
-void print_vec(std::vector<int> v) {
+void print_vec(const std::vector<int> &v) {
     cout << "[";
     bool first = true;
     for (auto vi : v) {
@@ -30,6 +32,15 @@ int main() {
     permute.insert(88);
     permute.insert(99);
 
+    eris::all_combinations(permute.begin(), permute.end(), print_vec);
+    eris::all_combinations(permute.crbegin(), permute.crend(),
+            [](const std::vector<int> &comb) -> void { print_vec(comb); });
+
+    std::unordered_set<int> pb;
+    pb.insert(33);
+    pb.insert(44);
+    eris::all_combinations(pb.cbegin(), pb.cend(), print_vec);
+/*
     std::vector<int> combination;
     std::stack<std::set<int>::const_iterator> it_stack;
     auto end = permute.cend();
@@ -60,4 +71,5 @@ int main() {
     }
 
     cout << iters << " loop iterations\n";
+    */
 }
