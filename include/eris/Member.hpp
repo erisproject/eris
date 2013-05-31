@@ -23,8 +23,8 @@ class Member {
          */
         operator eris_id_t() const { return _id; }
     protected:
-        /** Stores a weak pointer to the simulator this Member belongs to. */
-        std::weak_ptr<eris::Simulation> simulator;
+        /** Stores a weak pointer to the simulation this Member belongs to. */
+        std::weak_ptr<eris::Simulation> simulation;
         friend eris::Simulation;
         friend eris::Optimizer;
     private:
@@ -87,7 +87,7 @@ class SharedMember final {
             // Raise an exception if the ptr above gave back a null shared pointer: that means the
             // cast attempted to cast to a derived class, when the actual object is only a base
             // class instance.
-            if (!ptr) throw std::bad_cast()
+            if (!ptr) throw std::bad_cast();
         }
 
     private:
