@@ -17,19 +17,19 @@ SharedMember<Market> Simulation::market(eris_id_t mid) {
 // Assign an ID, set it, store the simulator, and insert into the agent map
 void Simulation::insertAgent(const SharedMember<Agent> &a) {
     a->_id = id_next++;
-    a->simulator = shared_from_this();
+    a->simulation = shared_from_this();
     agent_map.insert(std::make_pair(a->id(), a));
 }
 // Assign an ID, set it, store the simulator, and insert into the good map
 void Simulation::insertGood(const SharedMember<Good> &g) {
     g->_id = id_next++;
-    g->simulator = shared_from_this();
+    g->simulation = shared_from_this();
     good_map.insert(std::make_pair(g->id(), g));
 }
 // Assign an ID, set it, store the simulator, and insert into the agent map
 void Simulation::insertMarket(const SharedMember<Market> &m) {
     m->_id = id_next++;
-    m->simulator = shared_from_this();
+    m->simulation = shared_from_this();
     market_map.insert(std::make_pair(m->id(), m));
 }
 
