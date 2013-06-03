@@ -855,8 +855,6 @@ TEST(AdvancedAlgebra, reduce) {
 }
 
 int main(int argc, char **argv) {
-    Bundle b {{3,4},{5,7}};
-    std::cout << b << "\n";
     testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }
