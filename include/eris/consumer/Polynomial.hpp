@@ -57,14 +57,14 @@ class Polynomial : public Consumer::Differentiable {
         virtual double utility(const BundleNegative &b) const override;
 
         /** Returns the first derivative of utility with respect to good \f$g\f$, evaluated at
-         * Bundle \f$b\f$:
+         * Bundle \f$b\f$.  Mathematically:
          * \f[
          *      \frac{\partial u(b)}{\partial g}
          * \f]
          */
         virtual double d(const BundleNegative &b, const eris_id_t &g) const;
         /** Returns the second derivate with respect to \f$g_1\f$ then \f$g_2\f$, evaluated at
-         * Bundle \f$b\f$:
+         * Bundle \f$b\f$.  Mathematically:
          * \f[
          *      \frac{\partial^2 u(b)}{\partial g_1 \partial g_2}
          * \f]
