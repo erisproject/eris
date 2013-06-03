@@ -11,15 +11,32 @@ namespace eris { namespace consumer {
 
 Polynomial::Polynomial(double offset) : offset(offset) {}
 
-Polynomial::Polynomial(std::map<eris_id_t, std::vector<double>> coef, double offset) : offset(offset), coef(coef) {}
+Polynomial::Polynomial(std::map<eris_id_t, std::vector<double>> coef, double offset) : offset(offset), coefficients(coef) {}
 
-std::vector<double> &Polynomial::operator[](eris_id_t gid) {
-    return coef[gid];
+double& Polynomial::coef(const eris_id_t &g, const int &n) {
+    if (coefficients[g].size() < n+1)
+        coefficients[g].resize(n+1);
+
+    return coefficients[g][n];
+}
+
+double Polynomial::coef(const eris_id_t &g, const int &n) const {
+    return coefficients.count(g) and coefficients.at(g).size() > n
+        ? coefficients.at(g).at(n)
+        : 0.0;
+}
+
+double& Polynomial::coef() {
+    return offset;
+}
+
+double Polynomial::coef() const {
+    return offset;
 }
 
 double Polynomial::utility(const BundleNegative &b) const {
     double u = offset;
-    for (std::pair<eris_id_t, std::vector<double>> c : coef) {
+    for (std::pair<eris_id_t, std::vector<double>> c : coefficients) {
         double q = b[c.first];
         double qpow = 1.0;
         if (q != 0) {
@@ -36,8 +53,8 @@ double Polynomial::utility(const BundleNegative &b) const {
 // Calculate the derivative for good g.  Since utility is separable, we only
 // need to use the coefficients for good g to get the value of the derivative
 double Polynomial::d(const BundleNegative &b, const eris_id_t &g) const {
-    if (!coef.count(g)) return 0.0;
-    auto c = coef.at(g);
+    if (!coefficients.count(g)) return 0.0;
+    auto c = coefficients.at(g);
     double up = 0.0;
     double q = b[g];
     double qpow = 1.0;
@@ -56,10 +73,10 @@ double Polynomial::d2(const BundleNegative &b, const eris_id_t &g1, const eris_i
     // Separable polynomial utility has no iteration terms, so Hessian is diagonal; thus we can just
     // return 0 right away if we're looking for an off-diagonal element.  We can also return it
     // right away if g1 doesn't have any coefficients at all.
-    if (g1 != g2 || !coef.count(g1)) return upp;
+    if (g1 != g2 || !coefficients.count(g1)) return upp;
 
     double q = b[g1];
-    auto c = coef.at(g1);
+    auto c = coefficients.at(g1);
     double qpow = 1.0;
     double exponent = 2.0;
     bool first = true;

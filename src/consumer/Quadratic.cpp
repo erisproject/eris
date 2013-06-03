@@ -1,11 +1,35 @@
 #include <eris/consumer/Quadratic.hpp>
 #include <utility>
-#include <vector>
 
 namespace eris { namespace consumer {
 
-Quadratic::Quadratic() {}
-Quadratic::Quadratic(double offset, std::initializer_list<std::map<eris_id_t, double>::value_type> linear) : offset(offset), linear(linear) {}
+Quadratic::Quadratic(double offset) : offset(offset) {}
+Quadratic::Quadratic(std::map<eris_id_t, double> linear, double offset) : offset(offset), linear(linear) {}
+
+// Constant
+double& Quadratic::coef() {
+    return offset;
+}
+double Quadratic::coef() const {
+    return offset;
+}
+// Linear term
+double& Quadratic::coef(eris_id_t g) {
+    return linear[g];
+}
+double Quadratic::coef(eris_id_t g) const {
+    return linear.count(g) ? linear.at(g) : 0.0;
+}
+// Quadratic term
+double& Quadratic::coef(eris_id_t g1, eris_id_t g2) {
+    // quad only stores elements with g1 <= g2, so swap if necessary
+    if (g1 > g2) std::swap(g1, g2);
+    return quad[g1][g2];
+}
+double Quadratic::coef(eris_id_t g1, eris_id_t g2) const {
+    if (g1 > g2) std::swap(g1, g2);
+    return quad.count(g1) && quad.at(g1).count(g2) ? quad.at(g1).at(g2) : 0.0;
+}
 
 double Quadratic::utility(const BundleNegative &b) const {
     double u = offset;
@@ -14,7 +38,7 @@ double Quadratic::utility(const BundleNegative &b) const {
         if (linear.count(g1.first)) u += linear.at(g1.first) * g1.second;
 
         for (auto g2 : b)
-            u += getQuadCoef(g1.first, g2.first) * g1.second * g2.second;
+            u += (coef(g1.first, g2.first)) * (g1.second) * (g2.second);
     }
 
     return u;
@@ -24,7 +48,7 @@ double Quadratic::d(const BundleNegative &b, const eris_id_t &g) const {
     double up = linear.count(g) ? linear.at(g) : 0.0;
 
     for (auto g2 : b) {
-        double _u = getQuadCoef(g, g2.first);
+        double _u = coef(g, g2.first);
         if (g == g2.first) _u *= 2.0; // Squared term has the extra 2 coefficient
         up += _u;
     }
@@ -32,10 +56,10 @@ double Quadratic::d(const BundleNegative &b, const eris_id_t &g) const {
     return up;
 }
 
-// The second derivative is really easy: it's just the coefficient (double for
-// Hessian diagonals):
+// The second derivative is really easy: it's just the coefficient for off-diagonals, and double the
+// coefficient for diagonals.
 double Quadratic::d2(const BundleNegative &b, const eris_id_t &g1, const eris_id_t &g2) const {
-    double upp = getQuadCoef(g1, g2);
+    double upp = coef(g1, g2);
     if (g1 == g2) upp *= 2.0;
     return upp;
 }
