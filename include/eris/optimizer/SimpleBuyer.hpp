@@ -36,9 +36,6 @@ namespace eris { namespace optimizer {
  *       current discrete choices further up the recursive chain)
  *     - Once we've run out of discrete goods, optimize the remaining continuous goods
  * - then unwind everything and pick the highest
- *
- * \todo This optimizer has a rather nice little combinator generation code that really should be
- * moved into sort sort of utility class, as it will undoubtedly be useful elsewhere in the future.
  */
 
 class SimpleBuyer : public Optimizer {
