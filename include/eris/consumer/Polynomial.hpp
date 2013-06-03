@@ -21,10 +21,10 @@ class Polynomial : public Consumer::Differentiable {
          * offset.  The order of coefficients is in increasing order, beginning at the coefficient
          * on the linear term, then the squared term, etc.
          *
-         * For example, initializing with a map of \f${1 \to \[5,-1\], 3 \to \[0,5,-1\]}\f$ and
+         * For example, initializing with a map of \f$\{1 \to [5,-1], 3 \to [0,5,-1]\}\f$ and
          * constant of 3 creates a consumer with utility function
          * \f[
-         *     u(\mathbf{X}) = 3 + 5 X_1 - X_1^2 + 5 X_3^2 - X_3^3
+         *     u(\mathbf{X}) = 3 + 5 x_1 - x_1^2 + 5 x_3^2 - x_3^3
          * \f]
          */
         Polynomial(std::map<eris_id_t, std::vector<double>> coef, double offset = 0.0);
