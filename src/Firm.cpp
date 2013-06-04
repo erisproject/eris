@@ -8,10 +8,6 @@ bool Firm::canSupply(const Bundle &b) const noexcept {
 
 void Firm::advance() {}
 
-void Firm::addResources(const Bundle &b) {
-    assets += b;
-}
-
 Firm::supply_failure::supply_failure(std::string what) : std::runtime_error(what) {}
 Firm::supply_mismatch::supply_mismatch(std::string what) : supply_failure(what) {}
 Firm::supply_mismatch::supply_mismatch() : supply_failure("Firm does not supply requested goods") {}
@@ -40,9 +36,10 @@ double Firm::produceAny(const Bundle &b) {
 
 bool Firm::supplies(const Bundle &b) const noexcept {
     Bundle checkProduce;
+    const BundleNegative &a = assets();
     for (auto item : b) {
         eris_id_t g = item.first;
-        if (assets[g] <= 0)
+        if (a[g] <= 0)
             checkProduce.set(g, 1);
     }
 
@@ -54,10 +51,10 @@ bool Firm::supplies(const Bundle &b) const noexcept {
 
 double Firm::canSupplyAny(const Bundle &b) const noexcept {
     // We can supply the entire thing from current assets:
-    if (assets >= b) return 1.0;
+    if (assets() >= b) return 1.0;
 
     // Otherwise try production to make up the difference
-    Bundle onhand = Bundle::common(assets, b);
+    Bundle onhand = Bundle::common(assets(), b);
     Bundle need = b - onhand;
     double c = canProduceAny(need);
     if (c >= 1.0) return 1.0;
@@ -70,7 +67,7 @@ double Firm::canSupplyAny(const Bundle &b) const noexcept {
 
 void Firm::supply(const Bundle &b) {
     // Check to see if we have enough assets to cover the demand
-    Bundle onhand = Bundle::common(assets, b);
+    Bundle onhand = Bundle::common(assets(), b);
     Bundle need = b - onhand;
 
     // If needed, produce what we can't supply from assets
@@ -78,17 +75,17 @@ void Firm::supply(const Bundle &b) {
 
     // If we survived this far, either assets has enough or production succeeded; take the onhand
     // amount out of assets as well.
-    assets -= onhand;
+    assets() -= onhand;
 }
 
 double Firm::supplyAny(const Bundle &b) {
     // Check to see if we have enough assets to cover the demand
-    Bundle onhand = Bundle::common(assets, b);
+    Bundle onhand = Bundle::common(assets(), b);
     Bundle need = b - onhand;
 
     if (need == 0) {
         // Supply it all from assets
-        assets -= onhand;
+        assets() -= onhand;
         return 1.0;
     }
 
@@ -116,7 +113,7 @@ double Firm::supplyAny(const Bundle &b) {
     // else produceAny() didn't produce anything
 
     // Add any onhand surplus back into assets
-    assets -= onhand % b;
+    assets() -= onhand % b;
     return c >= 1.0 ? 1.0 : onhand / b;
 }
 

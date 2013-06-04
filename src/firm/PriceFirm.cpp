@@ -27,7 +27,7 @@ double PriceFirm::canSupplyAny(const Bundle &b) const noexcept {
 
     // Otherwise get the supply maximum by adding assets on hand to the maximum production, then
     // dividing into the requested bundle
-    return (s*b + assets) / b;
+    return (s*b + assetsB()) / b;
 }
 
 double PriceFirm::canProduceAny(const Bundle &b) const noexcept {
@@ -55,7 +55,7 @@ void PriceFirm::produce(const Bundle &b) {
         capacityUsed += produce;
 
         // Record any new surplus as a result of production:
-        assets += b % _output;
+        assets() += b % _output;
     }
 }
 
@@ -81,7 +81,7 @@ double PriceFirm::produceAny(const Bundle &b) {
     // Production might have resulted in excess of some goods (for example, when we want (4,1)
     // but produce in ratios of (1,1), we'll have an excess of (0,3)), so skim off any excess
     // that may have resulted and add it to the surplus assets
-    assets += (produce * _output) % b;
+    assets() += (produce * _output) % b;
 
     return constrained ? produce / want : 1.0;
 }

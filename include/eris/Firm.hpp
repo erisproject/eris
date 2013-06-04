@@ -77,10 +77,6 @@ class Firm : public Agent {
          */
         virtual void advance();
 
-        /** Adds the given Bundle to the firm's current assets.
-         */
-        virtual void addResources(const Bundle &b);
-
         /** An exception class that can be thrown by supply() to indicate a supply failure.
          * This may be subclassed as needed to provide for more specific supply errors.
          * \see supply_mismatch
