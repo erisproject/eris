@@ -65,16 +65,6 @@ namespace eris {
  * of NegativeBundle) quantity.  If in doubt, always compare to fixed Bundle that has known
  * (significant) quantities.
  *
- * common(a,b) returns a maximum common bundle between one bundle and another.  The resulting bundle will
- * contain all goods that are in both bundles (though quantities may be zero), and will not include
- * goods only in one of the two bundles.  If either a or b is a BundleNegative, any negative
- * quantities will be treated as if they do not exist in the Bundle.
- * e.g. this=[a=1,b=3,c=1,d=0], that=[a=4,c=1,d=4], common(this,that)=[a=1,c=1,d=0]
- *
- * reduce(&a,&b) is similar to common(), above, except that it also subtracts the common Bundle from
- * both a and b before returning it.  Like common(), negative quantities are treated as
- * non-existant.
- *
  * Attempting to do something to a Bundle that would induce a negative quantity for one of the
  * Bundle's goods will throw a Bundle::negativity_error exception (which is a subclass of
  * std::range_error).
@@ -210,17 +200,43 @@ class Bundle final : public BundleNegative {
         double operator / (const Bundle &b) const noexcept;
         Bundle operator % (const Bundle &b) const;
 
+        /** Returns a maximum common bundle between one bundle and another.  The resulting bundle
+         * will contain all goods that are in both bundles (though quantities may be zero), and will
+         * not include goods only in one of the two bundles.  The quantity of each good will be the
+         * lower quantity of the good in the two bundles.  Any negative quantities will be treated
+         * as if they do not exist.
+         *
+         * Example: if \f$b_1=[a=1, b=3, c=1, d=0, e=-3], b_2=[a=4, c=1, d=4, e=2]\f$ then
+         * \f$common(b_1,b_2) = [a=1,c=1,d=0]\f$.
+         *
+         * \see reduce(BundleNegative&, BundleNegative&)
+         */
         static Bundle common(const BundleNegative &a, const BundleNegative &b) noexcept;
+        /** This is like common(), but it also subtracts the common Bundle from both bundles before
+         * returning it.
+         */
         static Bundle reduce(BundleNegative &a, BundleNegative &b);
 
-        // For printing a bundle
+        /** Overloaded so that a Bundle can be printed nicely with `std::cout << bundle`.
+         *
+         * Example outputs:
+         *
+         *     Bundle([4]=12, [6]=0)
+         *     Bundle()
+         *     BundleNegative([3]=-3.75, [2]=0, [1]=4.2e-24)
+         *
+         * The value in brackets is the eris_id_t of the good.
+         */
         friend std::ostream& operator << (std::ostream &os, const Bundle& b);
 
+        /** Exception class for attempting to do some operation that would resulting in a negative
+         * quantity being set in a Bundle.
+         */
         class negativity_error : public std::range_error {
             public:
                 negativity_error(const eris_id_t &good, const double &value) :
-                    std::range_error("Good " + std::to_string(good) + " assigned illegal negative value "
-                            + std::to_string(value)), good(good), value(value) {}
+                    std::range_error("eris_id_t=" + std::to_string(good) + " assigned illegal negative value "
+                            + std::to_string(value) + " in Bundle."), good(good), value(value) {}
                 negativity_error(const std::string& what_arg, const eris_id_t &good, const double &value) :
                     std::range_error(what_arg), good(good), value(value) {}
                 negativity_error(const char* what_arg, const eris_id_t &good, const double &value) :
