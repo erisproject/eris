@@ -13,14 +13,18 @@ Polynomial::Polynomial(double offset) : offset(offset) {}
 
 Polynomial::Polynomial(std::map<eris_id_t, std::vector<double>> coef, double offset) : offset(offset), coefficients(coef) {}
 
-double& Polynomial::coef(const eris_id_t &g, const int &n) {
-    if (coefficients[g].size() < n+1)
-        coefficients[g].resize(n+1);
+double& Polynomial::coef(const eris_id_t &g, const unsigned int &n) {
+    if (n == 0) return coef();
 
-    return coefficients[g][n];
+    if (coefficients[g].size() < n)
+        coefficients[g].resize(n);
+
+    return coefficients[g][n-1];
 }
 
-double Polynomial::coef(const eris_id_t &g, const int &n) const {
+double Polynomial::coef(const eris_id_t &g, const unsigned int &n) const {
+    if (n == 0) return coef();
+
     return coefficients.count(g) and coefficients.at(g).size() > n
         ? coefficients.at(g).at(n)
         : 0.0;

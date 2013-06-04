@@ -29,19 +29,21 @@ class Polynomial : public Consumer::Differentiable {
          */
         Polynomial(std::map<eris_id_t, std::vector<double>> coef, double offset = 0.0);
 
-        /** Returns a (mutable) reference to coefficient \f$n\f$ on good \f$g\f$ (i.e. the
-         * coefficient on the \f$g^{n+1}\f$ term).  If the coefficient or lesser coefficients for
-         * the given good do not yet exist, they will be automatically created with values of 0.
+        /** Returns a (mutable) reference to the coefficient on the \f$g^n\f$ term.  If the
+         * coefficient or lesser coefficients for the given good do not yet exist, they will be
+         * automatically created with values of 0.  Giving a value of n=0 is equivalent to calling
+         * coef() with no arguments, i.e. it returns the constant term.
          *
          * The coefficients std::map can also be accessed directly via the coefficients member, but
-         * such access does not include any auto-vivification.
+         * such access does not include any auto-vivification, and the nth element there actually
+         * applies to the (n+1)th power.
          */
-        virtual double& coef(const eris_id_t &g, const int &n);
+        virtual double& coef(const eris_id_t &g, const unsigned int &n);
 
         /** `const` version of `coef` that does not auto-vivify elements, but still returns 0 when
          * accessing non-existing elements.
          */
-        virtual double coef(const eris_id_t &g, const int &n) const;
+        virtual double coef(const eris_id_t &g, const unsigned int &n) const;
 
         /** Returns a reference to the constant offset term.  Identical to accessing the `offset`
          * member directly.
