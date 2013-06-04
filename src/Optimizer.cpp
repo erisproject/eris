@@ -9,7 +9,13 @@ std::shared_ptr<Simulation> Optimizer::simulation() {
     return std::shared_ptr<Simulation>(sim);
 }
 
-BundleNegative& Optimizer::assets() { return simulation()->agent(agent_id)->assetsRef(); }
+SharedMember<Agent> Optimizer::agent() {
+    return simulation()->agent(agent_id);
+}
+
+BundleNegative& Optimizer::assets() {
+    return agent()->assets();
+}
 
 void Optimizer::reset() {}
 

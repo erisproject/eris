@@ -26,14 +26,21 @@ class Optimizer {
          */
         virtual bool optimize() = 0;
 
-        // Called before the first optimization in a period.  By default does nothing.  This will
-        // always be called before optimize(), and so can do any pre-optimization initialization
-        // required.
+        /** Called at the beginning of a period before any optimizations in that period.  By default
+         * does nothing.  This will always be called before optimize()---even for the very first
+         * optimization period---and so can do any pre-optimization initialization required.
+         */
         virtual void reset();
     protected:
-        // Returns a shared pointer to the simulation object.  Throws an exception if the simulator
-        // has gone away.
+        /** Returns a shared pointer to the simulation object.  Throws an exception if the simulator
+         * has gone away.
+         */
         std::shared_ptr<Simulation> simulation();
+
+        /** Returns the agent this optimizer is attached to.  Throws an exception if the simulator
+         * has gone away.
+         */
+        SharedMember<Agent> agent();
 
         /** Returns a reference to the Agent's assets Bundle. */
         BundleNegative& assets();
