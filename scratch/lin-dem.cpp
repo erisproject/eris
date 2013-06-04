@@ -16,23 +16,25 @@ int main() {
     Eris<Simulation> sim;
 
     // Set up a numeraire good
-    auto money = sim->addGood(Good::Continuous("Money"));
+    auto money = sim->createGood<Good::Continuous>("Money");
     // Plus another divisible good
-    auto x = sim->addGood(Good::Continuous("x"));
+    auto x = sim->createGood<Good::Continuous>("x");
     // And a discrete good
-    auto w = sim->addGood(Good::Discrete("w"));
+    auto w = sim->createGood<Good::Discrete>("w");
 
 
+    std::map<eris_id_t, double> init;
+    init[money] = 1;
+    init[x] = 10;
+    init[w] = 100;
     // We have just a single consumer, with quaslinear quadratic utility in the x good
-    Quadratic c1(0.0, {{*money, 1}, {*x, 10}, {*w, 100}});
+    auto c1 = sim->createAgent<Quadratic>(init, 0.0);
 
-    c1.setQuadCoef(*money, *x, -1.1);
-    c1.setQuadCoef(*money, *w, -0.1);
-    c1.setQuadCoef(*x, *x, -1);
-    c1.setQuadCoef(*w, *w, -1);
-    c1.setQuadCoef(*x, *w, 0.3);
-
-    sim->addAgent(c1);
+    c1->coef(money, x) = -1.1;
+    c1->coef(money, w) = -0.1;
+    c1->coef(x, x) = -1;
+    c1->coef(w, w) = -1;
+    c1->coef(x, w) = 0.3;
 
     // And a price-setting firm:
     PriceFirm f1(Bundle(x, 1), Bundle(money, 2));
@@ -44,7 +46,7 @@ int main() {
     */
 
     /*for (int i = 0; i < 3; i++) {
-        sim->addGood(&g);
+        sim->createGood(&g);
     }
 
     for (auto agit = sim->agents(); agit != sim->agentsEnd(); ++agit) {

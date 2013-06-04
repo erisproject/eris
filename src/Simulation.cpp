@@ -37,8 +37,8 @@ void Simulation::removeAgent(eris_id_t aid)  { agent_map.erase(aid);  }
 void Simulation::removeGood(eris_id_t gid)   { good_map.erase(gid);   }
 void Simulation::removeMarket(eris_id_t gid) { market_map.erase(gid); }
 
-const Simulation::AgentMap Simulation::agents()   { return agent_map;  }
-const Simulation::GoodMap Simulation::goods()     { return good_map;   }
-const Simulation::MarketMap Simulation::markets() { return market_map; }
+const Simulation::AgentMap& Simulation::agents()   { return agent_map;  }
+const Simulation::GoodMap& Simulation::goods()     { return good_map;   }
+const Simulation::MarketMap& Simulation::markets() { return market_map; }
 
 }

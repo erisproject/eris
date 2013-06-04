@@ -15,12 +15,12 @@ using namespace eris::market;
 int main() {
     Eris<Simulation> sim;
     for (int i = 0; i < 10; i++) {
-        sim->addAgent(Quadratic(1.0, {}));
+        sim->createAgent<Quadratic>(1.0);
     }
 
-    auto money = sim->addGood(Good::Continuous("money"));
-    auto cgood = sim->addGood(Good::Continuous("continuous good"));
-    auto dgood = sim->addGood(Good::Discrete("discrete good"));
+    auto money = sim->createGood<Good::Continuous>("money");
+    auto cgood = sim->createGood<Good::Continuous>("continuous good");
+    auto dgood = sim->createGood<Good::Discrete>("discrete good");
 
     for (auto a : sim->agents()) {
         auto agent = a.second;
@@ -43,15 +43,15 @@ int main() {
     std::cout << "joe has " << joeQ.ptr.use_count() << " referencees\n";
 
 
-    auto bertrand = sim->addMarket(Bertrand(Bundle(cgood, 1), Bundle(money, 1), true));
+    auto bertrand = sim->createMarket<Bertrand>(Bundle(cgood, 1), Bundle(money, 1), true);
 
-    auto f1 = sim->addAgent(PriceFirm(Bundle(cgood, 1), Bundle(money, 1), 0.4));
-    auto f2 = sim->addAgent(PriceFirm(Bundle(cgood, 1), Bundle(money, 1), 0.2));
-    auto f3 = sim->addAgent(PriceFirm(Bundle(cgood, 1), Bundle(money, 10), 0.2));
-    auto f4 = sim->addAgent(PriceFirm(Bundle(cgood, 1), Bundle(money, 10), 0.1));
-    auto f5 = sim->addAgent(PriceFirm(Bundle(cgood, 1), Bundle(money, 100)));
-    auto f6 = sim->addAgent(PriceFirm(Bundle(cgood, 1), Bundle(money, 100), 0.01));
-    auto f7 = sim->addAgent(PriceFirm(Bundle(cgood, 1), Bundle(money, 100), 0.04));
+    auto f1 = sim->createAgent<PriceFirm>(Bundle(cgood, 1), Bundle(money, 1), 0.4);
+    auto f2 = sim->createAgent<PriceFirm>(Bundle(cgood, 1), Bundle(money, 1), 0.2);
+    auto f3 = sim->createAgent<PriceFirm>(Bundle(cgood, 1), Bundle(money, 10), 0.2);
+    auto f4 = sim->createAgent<PriceFirm>(Bundle(cgood, 1), Bundle(money, 10), 0.1);
+    auto f5 = sim->createAgent<PriceFirm>(Bundle(cgood, 1), Bundle(money, 100));
+    auto f6 = sim->createAgent<PriceFirm>(Bundle(cgood, 1), Bundle(money, 100), 0.01);
+    auto f7 = sim->createAgent<PriceFirm>(Bundle(cgood, 1), Bundle(money, 100), 0.04);
     bertrand->addFirm(f1);
     bertrand->addFirm(f2);
     bertrand->addFirm(f3);
