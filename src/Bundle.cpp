@@ -120,7 +120,7 @@ bool operator != (const double &q, const BundleNegative &b) noexcept {
 }
 
 std::ostream& operator << (std::ostream &os, const BundleNegative &b) {
-    os << ((dynamic_cast<const Bundle*>(&b) != NULL) ? "Bundle(" : "NegativeBundle(");
+    os << ((dynamic_cast<const Bundle*>(&b) != NULL) ? "Bundle(" : "BundleNegative(");
 
     // Sort the keys:
     std::set<eris_id_t> keys;
