@@ -38,18 +38,51 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
 
         /** Constructs a new A object using the given constructor arguments Args, adds it as an
          * agent, and returns a SharedMember<A> referencing it.
+         *
+         * \throws std::bad_cast if A cannot be cast to an Agent
          */
         template <class A, typename... Args> SharedMember<A> createAgent(const Args&... args);
 
+        /** Makes a copy of the given A object, adds the copy to the simulation, and returns a
+         * SharedMember<A> referencing it.  A must be a subclass of Agent.
+         *
+         * In practice, the template is typically omitted as it can be inferred from the argument.
+         *
+         * \throws std::bad_cast if A cannot be cast to an Agent
+         */
+        template <class A> SharedMember<A> cloneAgent(A a);
+
         /** Constructs a new G object using the given constructor arguments Args, adds it as a good,
          * and returns a SharedMember<G> referencing it.
+         *
+         * \throws std::bad_cast if G cannot be cast to a Good
          */
         template <class G, typename... Args> SharedMember<G> createGood(const Args&... args);
 
+        /** Makes a copy of the given G object, adds the copy to the simulation, and returns a
+         * SharedMember<G> referencing it.  G must be a subclass of Good.
+         *
+         * In practice, the template argument is omitted as it can be inferred from the argument.
+         *
+         * \throws std::bad_cast if G cannot be cast to a Good
+         */
+        template <class G> SharedMember<G> cloneGood(G g);
+
         /** Constructs a new M object using the given constructor arguments Args, adds it as a
          * market, and returns a SharedMember<M> referencing it.
+         *
+         * \throws std::bad_cast if M cannot be cast to a Market
          */
         template <class M, typename... Args> SharedMember<M> createMarket(const Args&... args);
+
+        /** Makes a copy of the given M object, adds the copy to the simulation, and returns a
+         * SharedMember<M> referencing it.  M must be a subclass of Market.
+         *
+         * In practice, the template argument is omitted as it can be inferred from the argument.
+         *
+         * \throws std::bad_cast if M cannot be cast to a Market
+         */
+        template <class M> SharedMember<M> cloneMarket(M m);
 
         /** Removes the given agent from this simulation.  Note that both Agent instances and
          * SharedMember<Agent> instances are automatically cast to eris_id_t when required, so
@@ -91,9 +124,23 @@ template <class A, typename... Args> SharedMember<A> Simulation::createAgent(con
     return agent; // Implicit recast back to SharedMember<A>
 }
 
+template <class A> SharedMember<A> Simulation::cloneAgent(A a) {
+    // NB: Stored in a SM<Agent> rather than SM<A> ensures that A is an Agent subclass
+    SharedMember<Agent> agent(new A(std::move(a)));
+    insertAgent(agent);
+    return agent; // Implicit recast back to SharedMember<A>
+}
+
 template <class G, typename... Args> SharedMember<G> Simulation::createGood(const Args&... args) {
     // NB: Stored in a SM<Good> rather than SM<G> ensures that G is an Good subclass
     SharedMember<Good> good(new G(args...));
+    insertGood(good);
+    return good; // Implicit recast back to SharedMember<G>
+}
+
+template <class G> SharedMember<G> Simulation::cloneGood(G g) {
+    // NB: Stored in a SM<Good> rather than SM<G> ensures that G is an Good subclass
+    SharedMember<Good> good(new G(std::move(g)));
     insertGood(good);
     return good; // Implicit recast back to SharedMember<G>
 }
@@ -104,6 +151,14 @@ template <class M, typename... Args> SharedMember<M> Simulation::createMarket(co
     insertMarket(market);
     return market; // Implicit recast back to SharedMember<M>
 }
+
+template <class M> SharedMember<M> Simulation::cloneMarket(M m) {
+    // NB: Stored in a SM<Market> rather than SM<M> ensures that M is an Market subclass
+    SharedMember<Market> market(new M(std::move(m)));
+    insertMarket(market);
+    return market; // Implicit recast back to SharedMember<M>
+}
+
 
 
 }

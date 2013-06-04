@@ -14,8 +14,10 @@ using namespace eris::market;
 
 int main() {
     Eris<Simulation> sim;
+
+    Quadratic templ(1.0);
     for (int i = 0; i < 10; i++) {
-        sim->createAgent<Quadratic>(1.0);
+        sim->cloneAgent(templ);
     }
 
     auto money = sim->createGood<Good::Continuous>("money");
