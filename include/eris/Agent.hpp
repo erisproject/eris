@@ -22,10 +22,10 @@ class Agent : public Member {
          *
          * \throws std::bad_cast if the assets() BundleNegative cannot be cast to a Bundle.
          */
-        virtual Bundle& assetsB() { return dynamic_cast<Bundle&>(assets()); }
+        Bundle& assetsB() { return dynamic_cast<Bundle&>(assets()); }
 
         /// `const` version of assetsB()
-        virtual const Bundle& assetsB() const { return dynamic_cast<const Bundle&>(assets()); }
+        const Bundle& assetsB() const { return dynamic_cast<const Bundle&>(assets()); }
 
     private:
         /** The current set of resources.  For a consumer, this could be the things to consume; for
