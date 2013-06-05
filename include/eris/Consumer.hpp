@@ -23,7 +23,7 @@ class Consumer : public Agent {
         /** Returns the Consumer's utility for the current assets() Bundle.  This is identical to
          * calling consumer->utility(consumer->assets()).
          */
-        double utility() const;
+        double currUtility() const;
 
         class Differentiable;
 };

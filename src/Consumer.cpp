@@ -2,7 +2,7 @@
 
 namespace eris {
 
-double Consumer::utility() const {
+double Consumer::currUtility() const {
     return utility(assets());
 }
 
