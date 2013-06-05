@@ -47,15 +47,6 @@ namespace eris {
  * - a == 0 tests whether a good is empty (this is, has no goods at all, or has only goods with
  *   quantities of 0).
  *
- * Division of one Bundle (but *not* BundleNegative) by another is also defined as follows:  a/b
- * returns the minimum value m such that m*b >= a.  Modulus is defined in a related way: a % b
- * equals a Bundle c such that c = (a / b) * b - a.  For example, if a=(2,3,1), b=(1,2,2.5) then a/b
- * == 2 and a%b == (0,1,4).  If any good with a positive quantity in a does not have a positive
- * quantity in b division returns infinity and modulus throws a negativity error.  A special method
- * covers() is provided for this purpose: b.covers(a) returns true iff b has positive quantities for
- * every positive-quantity good in a.  Division of a zero-bundle by another zero-bundle return a
- * (quiet) NaN.  Attempting to use a%b when b.covers(a) is false will result in a negativity_error
- * exception (see below) from the above '- a' operation.
  *
  * Comparison operators w.r.t. a double are also defined, and return true if the comparison to the
  * double holds for every existing quantity in the Bundle, and all are always true for an empty
@@ -177,7 +168,7 @@ class BundleNegative {
 
 class Bundle final : public BundleNegative {
     public:
-        Bundle() {};
+        Bundle();
         Bundle(const eris_id_t &g, const double &q);
         Bundle(const init_list &init);
         using BundleNegative::set;
@@ -189,16 +180,79 @@ class Bundle final : public BundleNegative {
         // Inherit the BundleNegative versions of these:
         using BundleNegative::operator +;
         using BundleNegative::operator -;
-        // Also define +/- for two Bundles to return a Bundle (instead of a BundleNegative)
+        /** Adding two Bundle objects returns a Bundle object.  Note that it is the visible type,
+         * not the actual type, that governs this behaviour.  In other words, in the following code
+         * `c` will be a Bundle and `d` will be a BundleNegative:
+         *
+         *     Bundle a = ...;
+         *     Bundle b = ...;
+         *     auto c = a + b;
+         *     auto d = a + (BundleNegative) b;
+         */
         Bundle operator + (const Bundle &b) const noexcept;
+        /** Subtracting two Bundle objects returns a Bundle object.  Note that this can throw an
+         * exception if the quantity any good in b is greater than in a.  If you want to allow for
+         * the quantity to be negative, you should cast one of the objects to a BundleNegative or
+         * use unary minus (which returns a BundleNegative), such as one of these:
+         *
+         *     Bundle a({{ 1, 2 }});
+         *     Bundle b({{ 1, 3 }});
+         *
+         *     auto pos1 = b - a;                  // Bundle([1]=1)
+         *     auto neg1 = (BundleNegative) a - b; // BundleNegative([1]=-1)
+         *     auto neg2 = -b + a;                 // Same
+         *     auto neg3 = a - b; // Oops: throws eris::Bundle::negativity_error
+         *
+         * The neg1 calculation is slightly more efficient than neg2 as it doesn't need to create
+         * the intermediate `-b` BundleNegative object.
+         */
         Bundle operator - (const Bundle &b) const;
+        /** Multiplying a Bundle by a constant returns a Bundle with quantities scaled by the
+         * constant.
+         *
+         * \throws Bundle::negativity_error if m < 0.  If you need a negative, first cast the Bundle
+         * as a BundleNegative, such as: `auto neg = -3 * (BundleNegative) b;`
+         */
         Bundle operator * (const double &m) const;
         friend Bundle operator * (const double &m, const Bundle &a);
+        /** Dividing a Bundle by a constant returns a Bundle with quantities scaled by the inverse
+         * of the constant.
+         *
+         * \throws Bundle::negativity_error if m < 0
+         */
         Bundle operator / (const double &d) const;
 
-        bool covers(const Bundle &b) const noexcept;
+        /** Performs "bundle division."  Division of one Bundle (but *not* BundleNegative) by
+         * another is also defined as follows:  `a/b` returns the minimum value \f$m\f$ such that
+         * \f$mb \gtreq a\f$.
+         *
+         * Division of a zero-bundle by another zero-bundle return a (quiet) NaN.  Division of a
+         * Bundle with a positive quantity in one or more goods by a Bundle with a quantity of 0 for
+         * those goods returns infinity.  covers() can be used to detect this case.
+         *
+         * For example, if \f$a = (2,3,1), b = (1,2,2.5)\f$ then \f$a / b = 2\f$
+         *
+         * \sa operator%
+         * \sa covers
+         */
         double operator / (const Bundle &b) const noexcept;
+        /** Returns the modulus (i.e. remainder) of bundle division.  Modulus is defined in terms of
+         * bundle division: `a % b` equals Bundle c such that c = (a / b) * b - a.
+         *
+         * Taking the modulus of a Bundle with positive quantity in one or more goods by a Bundle
+         * with quantity 0 for those goods throws a negativity_error exception.  covers() can be
+         * used to detect this case.
+         *
+         * For example, if \f$a = (2,3,1), b = (1,2,2.5)\f$ then \f$a \% b = (0,1,4)\f$
+         *
+         * \sa operator/
+         * \sa covers
+         */
         Bundle operator % (const Bundle &b) const;
+        /** Returns true iff the passed-in Bundle b has positive quantities for every
+         * positive-quantity good in the current bundle.
+         */
+        bool covers(const Bundle &b) const noexcept;
 
         /** Returns a maximum common bundle between one bundle and another.  The resulting bundle
          * will contain all goods that are in both bundles (though quantities may be zero), and will
@@ -251,6 +305,7 @@ class Bundle final : public BundleNegative {
 // in src/Bundle.cpp
 inline BundleNegative::BundleNegative() {}
 inline BundleNegative::BundleNegative(const eris_id_t &g, const double &q) { set(g, q); }
+inline Bundle::Bundle() {}
 inline Bundle::Bundle(const eris_id_t &g, const double &q) { set(g, q); }
 
 inline double BundleNegative::operator[] (const eris_id_t &gid) const {

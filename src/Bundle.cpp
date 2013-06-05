@@ -138,7 +138,7 @@ std::ostream& operator << (std::ostream &os, const BundleNegative &b) {
     return os << ")";
 }
 std::ostream& operator << (std::ostream &os, const Bundle &b) {
-    return os << static_cast<BundleNegative>(b);
+    return os << (BundleNegative) b;
 }
 
 }
