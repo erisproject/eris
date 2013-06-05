@@ -40,7 +40,11 @@ class Market : public Member {
             /// True if the requested quantity is available.
             bool feasible;
             /// Total price 
-            double total, marginal, marginalFirst;
+            double total;
+            /// marginal price of the last quantity purchased.
+            double marginal;
+            /// marginal price of the first quantity purchased.
+            double marginalFirst;
         };
 
         /** Returns the price information for buying the given multiple of the output bundle.
@@ -104,7 +108,7 @@ class Market : public Member {
         virtual void setOutput(Bundle out);
 
         /** Returns the output units of this market. */
-        const Bundle output() const;
+        const Bundle& output() const;
 
         /** Changes the market's price basis to the new Bundle. */
         virtual void setPriceUnit(Bundle priceUnit);
@@ -112,7 +116,7 @@ class Market : public Member {
         /** Returns the Bundle of price units.  Often this will simply be a Bundle of a single good
          * (usually a money good) with a quantity of 1.
          */
-        const Bundle priceUnit() const;
+        const Bundle& priceUnit() const;
 
         /** Exception class thrown when a quantity that exceeds the market capacity has been
          * requested.
