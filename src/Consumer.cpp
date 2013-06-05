@@ -2,6 +2,10 @@
 
 namespace eris {
 
+double Consumer::utility() {
+    return utility(assets());
+}
+
 std::map<eris_id_t, double> Consumer::Differentiable::gradient(const std::vector<eris_id_t> &goods, const BundleNegative &b) const {
     std::map<eris_id_t, double> grad;
     for (auto good : goods)
