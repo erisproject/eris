@@ -40,7 +40,8 @@ class Bertrand : public Market, private Random {
 
     protected:
         bool randomize;
-        struct share { double p, q; };
+        /** Stores a quantity and a total price that quantity is sold for. */
+        struct share { double q, p; };
         /** Allocation information. */
         struct allocation {
             price_info p;

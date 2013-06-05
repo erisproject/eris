@@ -76,9 +76,9 @@ Bertrand::allocation Bertrand::allocate(double q) const {
     }
 
     // Figure out how we're going to allocate this.
-    allocation a;
+    allocation a = {};
 
-    double need_q = 1.0;
+    double need_q = q; //1.0;
     bool first_price = true;
     for (auto pf : price_firm) {
         double price = pf.first;
@@ -95,14 +95,15 @@ Bertrand::allocation Bertrand::allocate(double q) const {
             // The aggregate quantity at this price does not exceed the needed aggregate quantity,
             // so allocation is easy: every firm supplies their full reported productivity value.
             for (auto firmprod : firms) {
-                a.shares[firmprod.first].p = price;
                 a.shares[firmprod.first].q += firmprod.second;
+                a.shares[firmprod.first].p += price*firmprod.second;
             }
             need_q -= agg_q;
         }
         else if (firms.size() == 1) {
             // There is excess capacity, but all from one firm, so allocation is easy again.
-            a.shares[firms[0].first] = { .p=price, .q=need_q };
+            a.shares[firms[0].first].q += need_q;
+            a.shares[firms[0].first].p += price*need_q;
             need_q = 0;
         }
         else {
@@ -113,8 +114,8 @@ Bertrand::allocation Bertrand::allocate(double q) const {
                 if (nFirms == 1) {
                     // Only one firm left, use it for everything remaining (we're guaranteed,
                     // by the above if (agg_q ..), that there is enough quantity available).
-                    a.shares[firms[0].first].p = price;
                     a.shares[firms[0].first].q += need_q;
+                    a.shares[firms[0].first].p += price*need_q;
                     need_q = 0;
                 }
                 else if (randomize) {
@@ -126,13 +127,13 @@ Bertrand::allocation Bertrand::allocate(double q) const {
                     int luckyFirm = randFirmDist(rng());
                     auto f = firms[luckyFirm];
                     if (f.second >= need_q) {
-                        a.shares[f.first].p = price;
                         a.shares[f.first].q += need_q;
+                        a.shares[f.first].p += price*need_q;
                         need_q = 0;
                     }
                     else {
-                        a.shares[f.first].p = price;
                         a.shares[f.first].q += f.second;
+                        a.shares[f.first].p += price*f.second;
                         need_q -= f.second;
                         firms.erase(firms.begin() + luckyFirm);
                     }
@@ -168,20 +169,20 @@ Bertrand::allocation Bertrand::allocate(double q) const {
                     if (q_each == evenSplit) {
                         // No binding constraints, easy:
                         for (auto f : firms) {
-                            a.shares[f.first].p = price;
                             a.shares[f.first].q += q_each;
+                            a.shares[f.first].p += price*q_each;
                         }
                         need_q = 0.0;
                     }
                     else {
                         // At least one firm had a (strictly) binding constraint, so we need to
-                        // assign the max capacity to each firm and remove any firms whose
-                        // constraints bind
+                        // assign the maximum common capacity to each firm and remove any firms
+                        // whose constraints bind
                         need_q -= nFirms * q_each;
 
                         for (auto f = firms.begin(); f != firms.end(); ) {
-                            a.shares[f->first].p = price;
                             a.shares[f->first].q += q_each;
+                            a.shares[f->first].p += price*q_each;
                             f->second -= q_each;
                             if (f->second <= 0)
                                 f = firms.erase(f);
@@ -211,13 +212,22 @@ void Bertrand::buy(double q, BundleNegative &assets, double p_max) {
 
     if (a.p.total > p_max) throw low_price();
 
-    Bundle cost = a.p.total*_price;
+    Bundle cost = a.p.total*priceUnit();
     if (!(assets >= cost)) throw insufficient_assets();
 
-    throw "FIXME: need to:\n  - transfer cost to providing firms\n  - make firms actually produce";
-    // FIXME: big failure here: we need to transfer the cost to the providing firms!
+    // Remove the customer's payment:
     assets -= cost;
-    assets += q*_output;
+
+    // Get the firms to produce:
+    for (auto firm_share : a.shares) {
+        auto firm = suppliers.at(firm_share.first);
+        auto sh = firm_share.second;
+        firm->supply(sh.q*output());
+        firm->assets() += priceUnit()*sh.p;
+    }
+
+    // Transfer the production to the customer
+    assets += q*output();
 }
 
 double Bertrand::buy(BundleNegative &assets) {
