@@ -26,6 +26,7 @@ class Consumer : public Agent {
         double currUtility() const;
 
         class Differentiable;
+        class Simple;
 };
 
 /** Specialization of Consumer which is used for consumer instances that have analytical first and
@@ -61,6 +62,25 @@ class Consumer::Differentiable : public Consumer {
          * \param b the Bundle at which the hessian is to be evaluated
          */
         virtual std::map<eris_id_t, std::map<eris_id_t, double>> hessian(const std::vector<eris_id_t> &g, const BundleNegative &b) const;
+};
+
+/** Very simple consumer class that takes a function (or lambda) that takes a const BundleNegative &
+ * and returns a utility value.
+ */
+class Consumer::Simple : public Consumer {
+    public:
+        /** Constructs a Consumer::Simple object given a function (or lambda expression).  When
+         * utility() is called for this consumer, it simply dispatches the call to the passed-in
+         * u function.
+         *
+         * \param u a function that takes a `const BundleNegative &` and returns a double.
+         */
+        Simple(std::function<double(const BundleNegative &)> u) : u(u) {}
+        /** Utility wrapper that simply calls the function passed-in in the constructor.
+         */
+        double utility(const BundleNegative &b) const { return u(b); }
+    private:
+        std::function<double(const BundleNegative &)> u;
 };
 
 }
