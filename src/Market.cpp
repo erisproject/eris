@@ -10,8 +10,8 @@ Market::Market(Bundle output, Bundle priceUnit) {
 void Market::setOutput(Bundle out)          { _output = std::move(out); }
 void Market::setPriceUnit(Bundle priceUnit) { _price = std::move(priceUnit); }
 
-const Bundle Market::output()    const { return _output; }
-const Bundle Market::priceUnit() const { return _price; }
+const Bundle& Market::output()    const { return _output; }
+const Bundle& Market::priceUnit() const { return _price; }
 
 void Market::addFirm(SharedMember<Firm> f) {
     suppliers.insert(std::make_pair(f->id(), f));
