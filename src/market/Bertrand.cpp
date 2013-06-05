@@ -78,7 +78,7 @@ Bertrand::allocation Bertrand::allocate(double q) const {
     // Figure out how we're going to allocate this.
     allocation a = {};
 
-    double need_q = q; //1.0;
+    double need_q = q;
     bool first_price = true;
     for (auto pf : price_firm) {
         double price = pf.first;
