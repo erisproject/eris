@@ -21,7 +21,7 @@ class Consumer : public Agent {
         virtual double utility(const BundleNegative &b) const = 0;
 
         /** Returns the Consumer's utility for the current assets() Bundle.  This is identical to
-         * calling consumer->utility(consumer->assets).
+         * calling consumer->utility(consumer->assets()).
          */
         double utility() const;
 
