@@ -34,11 +34,14 @@ double Quadratic::coef(eris_id_t g1, eris_id_t g2) const {
 double Quadratic::utility(const BundleNegative &b) const {
     double u = offset;
 
-    for (auto g1 : b) {
-        if (linear.count(g1.first)) u += linear.at(g1.first) * g1.second;
+    for (auto g1it = b.begin(); g1it != b.end(); ++g1it) {
+        if (linear.count(g1it->first))
+            u += linear.at(g1it->first) * g1it->second;
 
-        for (auto g2 : b)
-            u += (coef(g1.first, g2.first)) * (g1.second) * (g2.second);
+        // For quadratic terms, only add starting at the current element (otherwise we'd end up
+        // adding both c*g1*g2 and c*g2*g1, which isn't wanted.
+        for (auto g2it = g1it; g2it != b.end(); ++g2it)
+            u += (coef(g1it->first, g2it->first)) * (g1it->second) * (g2it->second);
     }
 
     return u;
@@ -48,9 +51,12 @@ double Quadratic::d(const BundleNegative &b, const eris_id_t &g) const {
     double up = linear.count(g) ? linear.at(g) : 0.0;
 
     for (auto g2 : b) {
-        double _u = coef(g, g2.first);
-        if (g == g2.first) _u *= 2.0; // Squared term has the extra 2 coefficient
-        up += _u;
+        double c = coef(g, g2.first);
+        if (c != 0) {
+            double _u = c * b[g2.first];
+            if (g == g2.first) _u *= 2.0; // Squared term has the extra 2 coefficient
+            up += _u;
+        }
     }
 
     return up;
