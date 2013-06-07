@@ -14,16 +14,16 @@ Bundle::Bundle(const init_list &init) {
     for (auto g : init) set(g.first, g.second);
 }
 void BundleNegative::clearZeros() {
-    for (auto it = bundle.begin(); it != bundle.end(); ) {
+    for (auto it = goods_.begin(); it != goods_.end(); ) {
         if (it->second == 0)
-            it = bundle.erase(it);
+            it = goods_.erase(it);
         else
             ++it;
     }
 }
 
 int BundleNegative::erase(const eris_id_t &gid) {
-    return bundle.erase(gid);
+    return goods_.erase(gid);
 }
 
 double BundleNegative::remove(const eris_id_t &gid) {
@@ -39,7 +39,7 @@ bool Bundle::covers(const Bundle &b) const noexcept {
 }
 double Bundle::operator / (const Bundle &b) const noexcept {
     double mult = 0;
-    for (auto g : bundle) {
+    for (auto g : goods_) {
         if (g.second > 0) {
             double theirs = b[g.first];
             if (theirs == 0) return std::numeric_limits<double>::infinity();
@@ -84,15 +84,15 @@ Bundle Bundle::reduce(BundleNegative &a, BundleNegative &b) {
 #define _ERIS_BUNDLE_CPP_COMPARE(OP, REVOP) \
 bool BundleNegative::operator OP (const BundleNegative &b) const noexcept {\
     std::unordered_set<eris_id_t> goods;\
-    for (auto g : bundle) goods.insert(goods.end(), g.first);\
-    for (auto g : b.bundle) goods.insert(g.first);\
+    for (auto g : goods_) goods.insert(goods.end(), g.first);\
+    for (auto g : b.goods_) goods.insert(g.first);\
 \
     for (auto g : goods)\
         if (!((*this)[g] OP b[g])) return false;\
     return true;\
 }\
 bool BundleNegative::operator OP (const double &q) const noexcept {\
-    for (auto g : bundle)\
+    for (auto g : goods_)\
         if (!(g.second OP q)) return false;\
     return true;\
 }\

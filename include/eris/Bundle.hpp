@@ -66,7 +66,7 @@ namespace eris {
 
 class Bundle;
 class BundleNegative {
-    private:
+    protected:
         typedef std::initializer_list<std::pair<eris_id_t, double>> init_list;
 
     public:
@@ -160,10 +160,9 @@ class BundleNegative {
         // For printing a bundle
         friend std::ostream& operator << (std::ostream &os, const BundleNegative& b);
 
-        friend class Bundle;
-
     private:
-        std::unordered_map<eris_id_t, double> bundle;
+        friend class Bundle;
+        std::unordered_map<eris_id_t, double> goods_;
 };
 
 class Bundle final : public BundleNegative {
@@ -310,10 +309,10 @@ inline Bundle::Bundle(const eris_id_t &g, const double &q) { set(g, q); }
 
 inline double BundleNegative::operator[] (const eris_id_t &gid) const {
     // Don't want to invoke map's [] operator, because it auto-vivifies the element
-    return count(gid) ? bundle.at(gid) : 0.0;
+    return count(gid) ? goods_.at(gid) : 0.0;
 }
 inline void BundleNegative::set(const eris_id_t &gid, const double &quantity) {
-    bundle[gid] = quantity;
+    goods_[gid] = quantity;
 }
 
 inline void Bundle::set(const eris_id_t &gid, const double &quantity) {
@@ -322,24 +321,24 @@ inline void Bundle::set(const eris_id_t &gid, const double &quantity) {
 }
 
 inline bool BundleNegative::empty() const {
-    return bundle.empty();
+    return goods_.empty();
 }
 inline std::unordered_map<eris_id_t, double>::size_type BundleNegative::size() const {
-    return bundle.size();
+    return goods_.size();
 }
 inline int BundleNegative::count(const eris_id_t &gid) const {
-    return bundle.count(gid);
+    return goods_.count(gid);
 }
 inline std::unordered_map<eris_id_t, double>::const_iterator BundleNegative::begin() const {
-    return bundle.cbegin();
+    return goods_.cbegin();
 }
 inline std::unordered_map<eris_id_t, double>::const_iterator BundleNegative::end() const {
-    return bundle.cend();
+    return goods_.cend();
 }
 
 #define _ERIS_BUNDLE_HPP_ADDSUB(OP, OPEQ)\
 inline BundleNegative& BundleNegative::operator OPEQ (const BundleNegative &b) {\
-    for (auto g : b.bundle) set(g.first, (*this)[g.first] OP g.second);\
+    for (auto g : b.goods_) set(g.first, (*this)[g.first] OP g.second);\
     return *this;\
 }\
 inline BundleNegative BundleNegative::operator OP (const BundleNegative &b) const noexcept {\
@@ -366,7 +365,7 @@ inline Bundle Bundle::operator - (const Bundle &b) const {
 
 
 inline BundleNegative& BundleNegative::operator *= (const double &m) {
-    for (auto g : bundle) set(g.first, g.second * m);
+    for (auto g : goods_) set(g.first, g.second * m);
     return *this;
 }
 inline Bundle& Bundle::operator *= (const double &m) {
