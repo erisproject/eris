@@ -3,7 +3,7 @@
 namespace eris {
 
 // The sim argument below will throw a std::bad_weak_ptr exception if the simulation pointer is expired
-Optimizer::Optimizer(const Agent &a) : agent_id(a), sim(std::shared_ptr<Simulation>(a.simulation)) {}
+Optimizer::Optimizer(const Agent &a) : agent_id(a), sim(std::shared_ptr<Simulation>(a.simulation())) {}
 
 std::shared_ptr<Simulation> Optimizer::simulation() {
     return std::shared_ptr<Simulation>(sim);
