@@ -14,6 +14,8 @@ namespace eris {
  *
  * This class is provided as a wrapper making the shared_ptr access slightly more convenient; it can
  * be ignored entirely and replaced with direct shared_ptr<Simulation> objects.
+ *
+ * An Eris<T> can also be used anywhere a std::shared_ptr<T> is needed.
  */
 
 template <class T = Simulation>
@@ -34,6 +36,9 @@ class Eris {
 
         /** Deferenced member access gets redirected through the Simulation object */
         T* operator ->() { return sim_.get(); }
+
+        /** Returns the shared pointer to the simulation */
+        operator std::shared_ptr<T> () { return sim_; }
     private:
         std::shared_ptr<T> sim_;
 };
