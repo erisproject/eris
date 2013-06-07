@@ -5,9 +5,6 @@
 #include <set>
 #include <unordered_map>
 
-#include <iostream> // DEBUG
-#define PRINT(a) if (false) std::cout << #a << " = " << a << "\n";
-
 namespace eris { namespace optimizer {
 
 SimpleBuyer::SimpleBuyer(const Consumer &consumer, eris_id_t money, int rounds) :
@@ -36,15 +33,12 @@ bool SimpleBuyer::optimize() {
 
     ++round;
 
-PRINT(round);
-
     auto sim = simulation();
     SharedMember<Consumer> consumer = sim->agent(agent_id);
 
     BundleNegative &a = assets();
 
     double cash = a[money];
-    PRINT(cash);
     if (cash <= 0) {
         // All out of money
         return false;
@@ -55,14 +49,11 @@ PRINT(round);
     // The amount of money to spend for this increment:
     const Bundle spending = (cash / (rounds-round+1)) * money_unit;
     BundleNegative remaining = a - spending;
-PRINT(spending);
-PRINT(remaining);
 
     // Stores the utility changes for each market
     std::map<eris_id_t, double> delta_u;
 
     double current_utility = consumer->utility(a);
-PRINT(current_utility);
 
     // The base case: don't spend anything (0 is special for "don't spend")
     std::vector<eris_id_t> best {0};
@@ -75,7 +66,6 @@ PRINT(current_utility);
 
     for (auto mkt : sim->markets()) {
         auto mkt_id = mkt.first;
-PRINT(mkt_id);
         auto market = mkt.second;
 
         Bundle priceUnit = market->priceUnit();
@@ -92,20 +82,17 @@ PRINT(mkt_id);
 
         // Figure out how much `spending' buys in this market:
         double q = market->quantity(spending / priceUnit);
-PRINT(q);
+
         // Cache the value, as we may need it again and ->quantity can be expensive
         q_cache[mkt_id].emplace(1, q);
 
         double mkt_delta_u = consumer->utility(remaining + q*market->output()) - current_utility;
         delta_u[market] = mkt_delta_u;
-PRINT(mkt_delta_u);
         if (mkt_delta_u > best_delta_u) {
             best[0] = market;
             best_delta_u = mkt_delta_u;
         }
     }
-PRINT(best[0]);
-PRINT(best_delta_u);
 
     // Now figure out which, if any, permutations we also need to consider
     std::set<eris_id_t> permute;
@@ -134,10 +121,8 @@ PRINT(best_delta_u);
         // Ignore 0- or 1-element combinations (we already checked those above)
         if (comb_size < 2) return;
 
-        PRINT("CHECKING COMB");
         BundleNegative comb = remaining;
         for (auto mkt_id : combination) {
-            PRINT(mkt_id);
             auto market = sim->market(mkt_id);
 
             // Get the market quantity we can afford (if we haven't already), spending an equal
@@ -148,9 +133,7 @@ PRINT(best_delta_u);
             comb += q_cache[mkt_id][comb_size] * market->output();
         }
 
-        PRINT(comb);
         double mkt_delta_u = consumer->utility(comb) - current_utility;
-        PRINT(mkt_delta_u);
         if (mkt_delta_u > best_delta_u) {
             best = combination;
             best_delta_u = mkt_delta_u;
@@ -165,12 +148,6 @@ PRINT(best_delta_u);
         // change, so don't buy anything; returning false indicates that nothing changed.
         return false;
     }
-
-PRINT(comb_size);
-for (auto best_i : best) {
-    PRINT(best_i);
-}
-PRINT(best_delta_u);
 
     // Add a tiny fraction of the increment to assets, just in case numerical precision would
     // possibly push assets negative (which raises an exception).  We'll subtract this off again (if
@@ -190,7 +167,6 @@ PRINT(best_delta_u);
     else
         a -= tiny_extra;
 
-PRINT(true);
     return true;
 }
 
