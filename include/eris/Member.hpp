@@ -17,19 +17,26 @@ class Member {
         /** Returns the eris_id_t ID of this member.  Returns 0 if this Member instance has not yet
          * been added to a Simulation.
          */
-        eris_id_t id() const { return _id; }
+        eris_id_t id() const { return id_; }
         /** A Member object can be used anywhere an eris_id_t value is called for and will evaluate
          * to the Member's ID.
          */
-        operator eris_id_t() const { return _id; }
+        operator eris_id_t() const { return id_; }
+
+        /** Creates and returns a shared pointer to the simulation this object belongs.  Returns a
+         * null shared_ptr if there is no (current) simulation.
+         */
+        virtual std::shared_ptr<Simulation> simulation() const { return simulation_.lock(); }
+
     protected:
-        /** Stores a weak pointer to the simulation this Member belongs to. */
-        std::weak_ptr<eris::Simulation> simulation;
+        virtual void simulation(std::shared_ptr<Simulation> sim) { simulation_ = sim; }
+        virtual void id(eris_id_t id) { id_ = id; }
         friend eris::Simulation;
         friend eris::Optimizer;
     private:
-        eris_id_t _id = 0;
-        friend eris::Simulation;
+        eris_id_t id_ = 0;
+        /** Stores a weak pointer to the simulation this Member belongs to. */
+        std::weak_ptr<eris::Simulation> simulation_;
 };
 
 /** Wrapper around std::shared_ptr<T> that adds automatic T and eris_id_t cast conversion.  Since
