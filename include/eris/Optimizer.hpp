@@ -42,9 +42,6 @@ class Optimizer {
          */
         SharedMember<Agent> agent();
 
-        /** Returns a reference to the Agent's assets Bundle. */
-        BundleNegative& assets();
-
         /** The id of the agent to which this optimizer is attached. */
         eris_id_t agent_id;
 

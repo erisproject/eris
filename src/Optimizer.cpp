@@ -13,10 +13,6 @@ SharedMember<Agent> Optimizer::agent() {
     return simulation()->agent(agent_id);
 }
 
-BundleNegative& Optimizer::assets() {
-    return agent()->assets();
-}
-
 void Optimizer::reset() {}
 
 }

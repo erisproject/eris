@@ -36,7 +36,7 @@ bool SimpleBuyer::optimize() {
     auto sim = simulation();
     SharedMember<Consumer> consumer = sim->agent(agent_id);
 
-    BundleNegative &a = assets();
+    BundleNegative &a = consumer->assets();
 
     double cash = a[money];
     if (cash <= 0) {
