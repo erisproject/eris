@@ -56,6 +56,7 @@
 #include <eris/Simulation.hpp>
 #include <eris/consumer/Polynomial.hpp>
 #include <eris/consumer/Quadratic.hpp>
+#include <eris/consumer/CobbDouglas.hpp>
 #include <eris/optimizer/IncrementalBuyer.hpp>
 #include <eris/market/Bertrand.hpp>
 #include <cmath>
@@ -100,22 +101,6 @@ using namespace eris::optimizer;
     \
     int rounds = 0;
 
-
-class CobbDouglas3 : public Consumer {
-    public:
-        CobbDouglas3(eris_id_t x, eris_id_t y, eris_id_t z, double powX=1, double powY=1, double powZ=1)
-            : x(x), y(y), z(z), powX(powX), powY(powY), powZ(powZ) {}
-        double utility(const BundleNegative &b) const override {
-            double u = 1;
-            if (powX != 0) u *= pow(b[x], powX);
-            if (powY != 0) u *= pow(b[y], powY);
-            if (powZ != 0) u *= pow(b[z], powZ);
-            return u;
-        }
-    private:
-        eris_id_t x, y, z;
-        double powX, powY, powZ;
-};
 
 TEST(Case01_OneGood, Linear) {
     SETUP_SIM;
@@ -238,7 +223,7 @@ TEST(Case02_Linear, Px6_Py6) {
 TEST(Case03_CobbDouglas, Px1_Py1_Pz1__a1_b1_c1) {
     SETUP_SIM;
 
-    auto con = sim->createAgent<CobbDouglas3>(x, y, z);
+    auto con = sim->createAgent<CobbDouglas>(x, 1.0, y, 1.0, z, 1.0);
     con->assets() += 300*m1;
 
     IncrementalBuyer opt(con, m, 600);
@@ -261,7 +246,7 @@ TEST(Case03_CobbDouglas, Px1_Py1_Pz1__a1_b1_c1) {
 TEST(Case03_CobbDouglas, Px6_Py1_Pz1__a1_b1_c2) {
     SETUP_SIM;
 
-    auto con = sim->createAgent<CobbDouglas3>(x, y, z, 1, 1, 2);
+    auto con = sim->createAgent<CobbDouglas>(x, 1, y, 1, z, 2);
     con->assets() += 300*m1;
 
     IncrementalBuyer opt(con, m, 600);
@@ -289,7 +274,7 @@ TEST(Case03_CobbDouglas, Px6_Py1_Pz1__a1_b1_c2) {
 TEST(Case03_CobbDouglas, Px1_Py1_Pz6__a0_b1_c3) {
     SETUP_SIM;
 
-    auto con = sim->createAgent<CobbDouglas3>(x, y, z, 0, 1, 3);
+    auto con = sim->createAgent<CobbDouglas>(x, 0, y, 1, z, 3);
     con->assets() += 300*m1;
 
     IncrementalBuyer opt(con, m, 600);
@@ -314,7 +299,7 @@ TEST(Case03_CobbDouglas, Px1_Py1_Pz6__a0_b1_c3) {
 TEST(Case03_CobbDouglas, Px1_Py6_Pz6__a1_b23_c13) {
     SETUP_SIM;
 
-    auto con = sim->createAgent<CobbDouglas3>(x, y, z, 1, 2.0/3, 1.0/3);
+    auto con = sim->createAgent<CobbDouglas>(x, 1, y, 2.0/3, z, 1.0/3);
     con->assets() += 300*m1;
 
     IncrementalBuyer opt(con, m, 600);
