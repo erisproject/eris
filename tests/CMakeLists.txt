@@ -9,7 +9,7 @@ include_directories(${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
 
 set(eris_tests
     bundle-test
-    simplebuyer
+    incr-buyer-test
     )
 
 foreach(t ${eris_tests})
