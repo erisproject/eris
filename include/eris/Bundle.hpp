@@ -157,7 +157,16 @@ class BundleNegative {
         friend bool operator <  (const double &q, const BundleNegative &b) noexcept;
         friend bool operator <= (const double &q, const BundleNegative &b) noexcept;
 
-        // For printing a bundle
+        /** Overloaded so that a Bundle can be printed nicely with `std::cout << bundle`.
+         *
+         * Example outputs:
+         *
+         *     Bundle([4]=12, [6]=0)
+         *     Bundle()
+         *     BundleNegative([3]=-3.75, [2]=0, [1]=4.2e-24)
+         *
+         * The value in brackets is the eris_id_t of the good.
+         */
         friend std::ostream& operator << (std::ostream &os, const BundleNegative& b);
 
     private:
@@ -269,18 +278,6 @@ class Bundle final : public BundleNegative {
          * returning it.
          */
         static Bundle reduce(BundleNegative &a, BundleNegative &b);
-
-        /** Overloaded so that a Bundle can be printed nicely with `std::cout << bundle`.
-         *
-         * Example outputs:
-         *
-         *     Bundle([4]=12, [6]=0)
-         *     Bundle()
-         *     BundleNegative([3]=-3.75, [2]=0, [1]=4.2e-24)
-         *
-         * The value in brackets is the eris_id_t of the good.
-         */
-        friend std::ostream& operator << (std::ostream &os, const Bundle& b);
 
         /** Exception class for attempting to do some operation that would resulting in a negative
          * quantity being set in a Bundle.
