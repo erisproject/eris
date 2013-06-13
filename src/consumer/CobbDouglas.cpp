@@ -63,8 +63,11 @@ double CobbDouglas::utility(const BundleNegative &b) const {
 }
 
 double CobbDouglas::d(const BundleNegative &b, const eris_id_t &g) const {
-    double grad = constant;
+    // Short-circuit cases resulting in a 0 derivative
+    if (!exponents.count(g) or exponents.at(g) == 0)
+        return 0.0;
 
+    double grad = constant;
     for (auto e : exponents) {
         if (grad == 0 or grad == std::numeric_limits<double>::infinity()) return grad;
 
@@ -81,8 +84,11 @@ double CobbDouglas::d(const BundleNegative &b, const eris_id_t &g) const {
     return grad;
 }
 double CobbDouglas::d2(const BundleNegative &b, const eris_id_t &g1, const eris_id_t &g2) const {
-    double h = constant;
+    // Short-circuit all the things that always result in a 0 second derivative
+    if (!exponents.count(g1) or !exponents.count(g2) or exponents.at(g1) == 0 or exponents.at(g2) == 0)
+        return 0.0;
 
+    double h = constant;
     for (auto e : exponents) {
         if (h == 0 or h == std::numeric_limits<double>::infinity()) return h;
 
