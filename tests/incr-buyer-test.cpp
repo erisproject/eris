@@ -57,6 +57,7 @@
 #include <eris/consumer/Polynomial.hpp>
 #include <eris/consumer/Quadratic.hpp>
 #include <eris/consumer/CobbDouglas.hpp>
+#include <eris/consumer/Compound.hpp>
 #include <eris/optimizer/IncrementalBuyer.hpp>
 #include <eris/market/Bertrand.hpp>
 #include <cmath>
@@ -123,7 +124,7 @@ TEST(Case01_OneGood, Linear) {
 TEST(Case01_OneGood, Sqrt) {
     SETUP_SIM;
 
-    auto con = sim->createAgent<Consumer::Simple>([x](const BundleNegative &b) { return sqrt(b[x]); });
+    auto con = sim->createAgent<CobbDouglas>(x, 0.5);
     // con: u(x) = sqrt(x)
     IncrementalBuyer opt(con, m, 100);
 
@@ -347,7 +348,10 @@ TEST(Case04_Bliss, Constant) {
 TEST(Case04_Bliss, ConstantMinusEach) {
     SETUP_SIM;
 
-    auto con = sim->createAgent<Consumer::Simple>([&](const BundleNegative &b) { return 5.0-b[x]-b[y]-b[z]; });
+    auto con = sim->createAgent<Polynomial>(5.0);
+    con->coef(x, 1) = -1;
+    con->coef(y, 1) = -1;
+    con->coef(z, 1) = -1;
 
     con->assets() += m1;
 
@@ -367,7 +371,8 @@ TEST(Case04_Bliss, ConstantMinusEach) {
 TEST(Case04_Bliss, ConstantMinusProd) {
     SETUP_SIM;
 
-    auto con = sim->createAgent<Consumer::Simple>([&](const BundleNegative &b) { return -3.0-b[x]*b[y]*b[z]; });
+    //auto con = sim->createAgent<Consumer::Simple>([&](const BundleNegative &b) { return -3.0-b[x]*b[y]*b[z]; });
+    auto con = sim->createAgent<CompoundSum>(new Polynomial(-3), new CobbDouglas(x, 1, y, 1, z, 1, -1.0));
 
     con->assets() += 3*m1;
 
