@@ -119,12 +119,13 @@ bool operator != (const double &q, const BundleNegative &b) noexcept {
     return b != q;
 }
 
-std::ostream& operator << (std::ostream &os, const BundleNegative &b) {
-    os << ((dynamic_cast<const Bundle*>(&b) != NULL) ? "Bundle(" : "BundleNegative(");
+// Prints everything *after* the "Bundle" or "BundleNegative" tag, i.e. starting from "(".
+void BundleNegative::_print(std::ostream &os) const {
+    os << "(";
 
     // Sort the keys:
     std::set<eris_id_t> keys;
-    for (auto g : b)
+    for (auto g : goods_)
         keys.insert(g.first);
 
     bool first = true;
@@ -132,10 +133,21 @@ std::ostream& operator << (std::ostream &os, const BundleNegative &b) {
         if (!first) os << ", ";
         else first = false;
 
-        os << "[" << k << "]=" << b[k];
+        os << "[" << k << "]=" << goods_.at(k);
     }
 
-    return os << ")";
+    os << ")";
+}
+
+std::ostream& operator << (std::ostream &os, const BundleNegative &b) {
+    os << ((dynamic_cast<const Bundle*>(&b) != NULL) ? "Bundle" : "BundleNegative");
+    b._print(os);
+    return os;
+}
+std::ostream& operator << (std::ostream &os, const Bundle &b) {
+    os << "Bundle";
+    b._print(os);
+    return os;
 }
 
 }
