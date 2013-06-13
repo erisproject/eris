@@ -40,7 +40,7 @@ double Polynomial::coef() const {
 
 double Polynomial::utility(const BundleNegative &b) const {
     double u = offset;
-    for (std::pair<eris_id_t, std::vector<double>> c : coefficients) {
+    for (auto c : coefficients) {
         double q = b[c.first];
         double qpow = 1.0;
         if (q != 0) {
