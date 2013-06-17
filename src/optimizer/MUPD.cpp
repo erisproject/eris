@@ -1,10 +1,6 @@
 #include <eris/optimizer/MUPD.hpp>
 #include <unordered_map>
 
-#include <iostream>
-
-#define PRINT if (false) std::cout
-
 using std::unordered_map;
 
 namespace eris { namespace optimizer {
@@ -26,20 +22,21 @@ MUPD::allocation MUPD::spending_allocation(const unordered_map<eris_id_t, double
     auto sim = simulation();
 
     for (auto m : spending) {
-        PRINT << "m.f=" << m.first << ", .s=" << m.second << "\n";
-        if (m.first == 0) {
-            // Holding cash
-            a.bundle += money_unit * m.second;
-            a.quantity[m.first] = m.second;
-        }
-        else if (m.second > 0) {
-            // Otherwise query the market for the resulting quantity
-            auto mkt = sim->market(m.first);
+        if (m.second > 0) {
+            if (m.first == 0) {
+                // Holding cash
+                a.bundle += money_unit * m.second;
+                a.quantity[m.first] = m.second;
+            }
+            else {
+                // Otherwise query the market for the resulting quantity
+                auto mkt = sim->market(m.first);
 
-            // FIXME: feasible?
-            a.quantity[m.first] = mkt->quantity(m.second * price_ratio(mkt));
+                // FIXME: feasible?
+                a.quantity[m.first] = mkt->quantity(m.second * price_ratio(mkt));
 
-            a.bundle += mkt->output() * a.quantity[m.first];
+                a.bundle += mkt->output() * a.quantity[m.first];
+            }
         }
     }
 
@@ -52,7 +49,6 @@ double MUPD::calc_mu_per_d(
         const allocation &a,
         const Bundle &b) {
 
-    PRINT << "Looking for mu/d for mkt_id=" << mkt_id << "; con->d(b, "<<money<<")=" << con->d(b,money) << "\n";
     if (mkt_id == 0)
         return con->d(b, money);
 
@@ -80,11 +76,13 @@ bool MUPD::optimize() {
 
     Bundle &a = consumer->assetsB();
 
-    double cash = a[money];
+    Bundle a_no_money = a;
+    double cash = a_no_money.remove(money);
     if (cash <= 0) {
         // All out of money
         return false;
     }
+
 
     unordered_map<eris_id_t, double> spending;
 
@@ -121,7 +119,6 @@ bool MUPD::optimize() {
         if (m.first != 0)
             m.second = cash / markets;
     }
-    PRINT << "c/m = " << cash / markets << "; spending[12]=" << spending[12] << "\n";
 
     unordered_map <eris_id_t, double> mu_per_d;
 
@@ -129,7 +126,7 @@ bool MUPD::optimize() {
 
     while (true) {
         allocation alloc = spending_allocation(spending);
-        Bundle tryout = a + alloc.bundle;
+        Bundle tryout = a_no_money + alloc.bundle;
 
         for (auto m : spending) {
             mu_per_d[m.first] = calc_mu_per_d(consumer, m.first, alloc, tryout);
@@ -151,27 +148,32 @@ bool MUPD::optimize() {
             }
         }
 
-        PRINT << "Highest: [" << highest << "]=" << highest_u << ", lowest: [" << lowest << "]=" << lowest_u << "\n";
-
         if (highest_u <= lowest_u or (highest_u - lowest_u) / highest_u < tolerance) {
-            PRINT << "So ending, with bundle: " << alloc.bundle << "\n";
             final_alloc = alloc;
             break; // Nothing more to optimize
         }
 
-        // Attempt to transfer half of the low utility spending to the high-utility market.
-        // If MU/$ are equal, we're done; if the lower utility is still lower, transfer 3/4, otherwise transfer 1/4.
-        // Repeat (how much?)
+        double baseU = consumer->utility(tryout);
+        // Attempt to transfer all of the low utility spending to the high-utility market.  If MU/$
+        // are equal, we're done; if the lower utility is still lower, transfer 3/4, otherwise
+        // transfer 1/4.  Repeat.
+        //
+        // We do have to be careful, however: transferring everything might screw things up (e.g.
+        // consider u = xyz^2: setting z=0 will result in MU=0 for all three goods.  So we need to
+        // check not just the marginal utilities, but that this reallocation actually increases
+        // overall utility.
         unordered_map<eris_id_t, double> try_spending = spending;
 
         try_spending[highest] = spending[highest] + spending[lowest];
         try_spending[lowest] = 0;
 
         alloc = spending_allocation(try_spending);
-        tryout = a + alloc.bundle;
-        if (calc_mu_per_d(consumer, highest, alloc, tryout) < calc_mu_per_d(consumer, lowest, alloc, tryout)) {
+        tryout = a_no_money + alloc.bundle;
+        if (consumer->utility(tryout) < baseU or
+                calc_mu_per_d(consumer, highest, alloc, tryout) < calc_mu_per_d(consumer, lowest, alloc, tryout)) {
             // Transferring *everything* from lowest to highest is too much (MU/$ for the highest
-            // good would end up lower than the lowest good, post-transfer).
+            // good would end up lower than the lowest good, post-transfer, or else overall utility
+            // goes down entirely).
             //
             // We need to transfer less than everything, so use a binary search to figure out the
             // optimum transfer.
@@ -182,26 +184,37 @@ bool MUPD::optimize() {
             // Take 10 binary steps (which means we get granularity of 1/1024).  However, since
             // we'll probably come in here again (comparing this good to other goods) before
             // optimize() finishes, this gets amplified.
+            //
+            // FIXME: this is a very good target for optimization; typically this loop will run
+            // around 53 times (which makes perfect sense, as that's when step_size runs off the end
+            // of the least precise double bit--sometimes a bit more, if the transfer ratio is a
+            // very small number).
             double step_size = 0.25;
+            double last_transfer = 1.0;
             double transfer = 0.5;
-            for (int i = 0; i < 10; i++) {
+
+            int debugiters = 0;
+            // 0.25^-100 == 3.9e-31, so this 3e-31 corresponds to 100 iterations
+            for (int i = 0; transfer != last_transfer and i < 100; ++i) {
+                debugiters++;
+                last_transfer = transfer;
+
                 try_spending[highest] = spending[highest] + transfer * spending[lowest];
-                try_spending[lowest] = spending[lowest] * (1-transfer) * spending[lowest];
+                try_spending[lowest] = (1-transfer) * spending[lowest];
 
                 alloc = spending_allocation(try_spending);
-                tryout = a + alloc.bundle;
+                tryout = a_no_money + alloc.bundle;
                 double delta = calc_mu_per_d(consumer, highest, alloc, tryout) - calc_mu_per_d(consumer, lowest, alloc, tryout);
-                if (delta == 0) {
-                    // We equalized MU/$.  Cool.
+                if (delta == 0)
+                    // We equalized MU/$.  Done.
                     break;
-                }
-                else if (delta > 0) {
+                else if (delta > 0)
                     // MU/$ is still higher for `highest', so transfer more
                     transfer += step_size;
-                }
-                else {
+                else
+                    // Otherwise transfer less
                     transfer -= step_size;
-                }
+                // Eventually this step_size will become too small to change transfer
                 step_size /= 2;
             }
         }
@@ -210,9 +223,18 @@ bool MUPD::optimize() {
         final_alloc = alloc;
     }
 
-    PRINT << "final alloc: Bundle: " << final_alloc.bundle << "\n";
-    for (auto m : final_alloc.quantity) {
-        PRINT << "    [" << m.first << "] = " << m.second << "\n";
+    // Safety check: make sure we're actually increasing utility.
+    if (consumer->utility(a_no_money + final_alloc.bundle) <= consumer->currUtility()) {
+        return false;
+    }
+
+    // If we haven't held back on any spending, add a tiny fraction of the amount of cash we are
+    // spending to assets (to prevent numerical errors causing insufficient assets exceptions), then
+    // subtract it off after purchasing.
+    double extra = 0;
+    if (spending[0] == 0.0) {
+        extra = cash * 1e-10;
+        a += extra * money_unit;
     }
 
     bool purchased = false;
@@ -221,6 +243,15 @@ bool MUPD::optimize() {
             sim->market(m.first)->buy(m.second, a);
             purchased = true;
         }
+    }
+
+    // If we added an extra bit (which means we didn't mean to hold back any money), take it off
+    // now, setting money to exactly 0 if taking it off would leave us within extra (again) of 0.
+    if (purchased and extra > 0) {
+        if (a[money] < 2*extra)
+            a.set(money, 0);
+        else
+            a -= extra * money_unit;
     }
 
     return purchased;

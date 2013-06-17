@@ -29,6 +29,7 @@
 // Expect no spending.
 //
 // V. Leontif: u(x,y,z) = min{x, 2y} + z
+//    (Note: cannot be handled by MUPD, because the utility function is not differentiable)
 //     (0) px = 1, py = 6, pz = 6  (expect all spending on x=2y, with z=0)
 //         NB: IncrementalBuyer can't actually handle this well, because each
 //         increment will spend equally on x and y, which isn't x=2y, so
@@ -236,7 +237,7 @@ TEST(Case03_CobbDouglas, Px1_Py1_Pz1__a1_b1_c1) {
 
     while (opt.optimize()) { ++rounds; }
 
-    EXPECT_EQ(600, rounds);
+    EXPECT_EQ(1, rounds);
     Bundle a = con->assetsB();
     EXPECT_NEAR(100, a.remove(x), 1e-12);
     EXPECT_NEAR(100, a.remove(y), 1e-12);
@@ -260,15 +261,11 @@ TEST(Case03_CobbDouglas, Px6_Py1_Pz1__a1_b1_c2) {
 
     while (opt.optimize()) { ++rounds; }
 
-    EXPECT_EQ(600, rounds);
+    EXPECT_EQ(1, rounds);
     Bundle a = con->assetsB();
-    // These can be off by quite a bit, since the algorithm typically works by
-    // alternating between them at each step.  In the above, this won't happen
-    // because it's crafted the exactly and equally split the purchase on every
-    // iteration (it has equal prices and equal utility weights)
-    EXPECT_NEAR(12.5, a.remove(x), 0.2);
-    EXPECT_NEAR(75,   a.remove(y), 0.2);
-    EXPECT_NEAR(150,  a.remove(z), 0.2);
+    EXPECT_NEAR(12.5, a.remove(x), 1e-9);
+    EXPECT_NEAR(75,   a.remove(y), 5e-9);
+    EXPECT_NEAR(150,  a.remove(z), 1e-8);
     EXPECT_EQ(0, a);
     EXPECT_NEAR(12.5*75*150*150, con->currUtility(), 100); // 100 isn't that big (utility ~ 21 million)
 }
@@ -288,7 +285,7 @@ TEST(Case03_CobbDouglas, Px1_Py1_Pz6__a0_b1_c3) {
 
     while (opt.optimize()) { ++rounds; }
 
-    EXPECT_EQ(600, rounds);
+    EXPECT_EQ(1, rounds);
     Bundle a = con->assetsB();
     // Should get 1/4 of spending on y, 3/4 on z, none on x
     EXPECT_EQ(0, a[x]);
@@ -313,7 +310,7 @@ TEST(Case03_CobbDouglas, Px1_Py6_Pz6__a1_b23_c13) {
 
     while (opt.optimize()) { ++rounds; }
 
-    EXPECT_EQ(600, rounds);
+    EXPECT_EQ(1, rounds);
     Bundle a = con->assetsB();
     // Should get 1/2 of spending on x, 1/3 on y, 1/6 on z
     double goodX, goodY, goodZ;
@@ -414,7 +411,7 @@ TEST(Case06_Numeraire, Px1_Py6) {
 
     while (opt.optimize()) ++rounds;
 
-    EXPECT_EQ(4, rounds);
+    EXPECT_EQ(1, rounds);
     Bundle a = con->assetsB();
     EXPECT_NEAR(4, a.remove(x), 1e-13);
     EXPECT_NEAR(96, a.remove(m), 1e-13);
@@ -431,7 +428,7 @@ TEST(Case06_Numeraire, Px6_Py1) {
 
     while (opt.optimize()) ++rounds;
 
-    EXPECT_EQ(3, rounds);
+    EXPECT_EQ(1, rounds);
     Bundle a = con->assetsB();
     EXPECT_NEAR(3, a.remove(y), 1e-13);
     EXPECT_NEAR(97, a.remove(m), 1e-13);
@@ -448,7 +445,7 @@ TEST(Case06_Numeraire, Px1_Py1) {
 
     while (opt.optimize()) ++rounds;
 
-    EXPECT_EQ(7, rounds);
+    EXPECT_EQ(1, rounds);
     Bundle a = con->assetsB();
     EXPECT_NEAR(4, a.remove(x), 1e-13);
     EXPECT_NEAR(3, a.remove(y), 1e-13);
@@ -480,7 +477,7 @@ TEST(Case06_Numeraire, Px1_Py1_I2) {
 
     while (opt.optimize()) ++rounds;
 
-    EXPECT_EQ(100, rounds);
+    EXPECT_EQ(1, rounds);
     Bundle a = con->assetsB();
     EXPECT_NEAR(1.5, a.remove(x), 1e-14);
     EXPECT_NEAR(0.5, a.remove(y), 1e-14);
@@ -495,32 +492,13 @@ TEST(Case06_Numeraire, Px1_Py1_I69) {
     sim->cloneMarket(mX1);
     sim->cloneMarket(mY1);
 
-    // Using the default 100 rounds won't let us get all those close: we'll spend .069 each time,
-    // and the closest we can get to optimal with that is 57*.069 units of x, 43*.069 units of y.
-
     while (opt.optimize()) ++rounds;
 
-    EXPECT_EQ(100, rounds);
+    EXPECT_EQ(1, rounds);
     Bundle a = con->assetsB();
-    const double expX = 0.57*6.9, expY = 0.43*6.9;
-    EXPECT_NEAR(expX, a.remove(x), 1e-13);
-    EXPECT_NEAR(expY, a.remove(y), 1e-13);
+    EXPECT_NEAR(3.95, a.remove(x), 1e-13);
+    EXPECT_NEAR(2.95, a.remove(y), 1e-13);
     EXPECT_EQ(0, a);
-    EXPECT_NEAR(7.5 + 5*expX - expX*expX/2 + 4*expY - expY*expY/2, con->currUtility(), 1e-13);
-
-    // We can cheat a little bit by using 138: this will result in increments of 0.05, which should
-    // allow IncrementalBuyer to get within numerical precision error of 3.95/2.95.
-    con->assets() = 6.9*m1;
-    int rounds2 = 0;
-    MUPD opt2(con, m);
-    opt2.reset();
-    while (opt2.optimize()) ++rounds2;
-
-    EXPECT_EQ(138, rounds2);
-    Bundle b = con->assetsB();
-    EXPECT_NEAR(3.95, b.remove(x), 1e-13);
-    EXPECT_NEAR(2.95, b.remove(y), 1e-13);
-    EXPECT_EQ(0, b);
     EXPECT_NEAR(7.5 + 5*3.95 - 3.95*3.95/2 + 4*2.95 - 2.95*2.95/2, con->currUtility(), 1e-13);
 }
 
@@ -550,12 +528,11 @@ TEST(Case07_UBB, Test1) {
     sim->cloneMarket(mY1);
     sim->cloneMarket(mZ1);
 
-//    opt.permuteAll();
     while (opt.optimize()) ++rounds;
 
     double denom1 = (beta + 2*gamma) * (beta - gamma);
 
-    EXPECT_EQ(999, rounds);
+    EXPECT_EQ(1, rounds);
     Bundle b = con->assetsB();
     EXPECT_NEAR(b.remove(x), alpha/(beta+2*gamma) - (beta+gamma) / denom1 * 1
             + gamma / denom1 * (1 + 1), 1e-11);
@@ -606,13 +583,11 @@ TEST(Case07_UBB, Test2) {
     sim->cloneMarket(mY6); // changed
     sim->cloneMarket(mZ1);
 
-//    opt.permuteAll();
     while (opt.optimize()) ++rounds;
 
     double denom1 = (beta + 2*gamma) * (beta - gamma);
 
     // These are what x,y,z should be, if the consumer was perfectly optimizing:
-    /*
     double trueX = alpha/(beta+2*gamma) - (beta+gamma) / denom1 * 1
             + gamma / denom1 * (6 + 1);
     double trueY = alpha/(beta+2*gamma) - (beta+gamma) / denom1 * 6
@@ -620,36 +595,20 @@ TEST(Case07_UBB, Test2) {
     double trueZ = alpha/(beta+2*gamma) - (beta+gamma) / denom1 * 1
             + gamma / denom1 * (1 + 6);
     double trueM = 300 - 1*trueX - 6*trueY - 1*trueZ;
-    */
 
-    double simpX = 54.35, simpZ = 54.35, simpY = 211.0/30;
+/*    double simpX = 54.35, simpZ = 54.35, simpY = 211.0/30;
     double simpM = 300 - 1*simpX - 6*simpY - 1*simpZ;
+*/
 
-    EXPECT_EQ(1509, rounds);
+    EXPECT_EQ(1, rounds);
     Bundle b = con->assetsB();
-    EXPECT_NEAR(simpX, b.remove(x), 1e-11);
-    EXPECT_NEAR(simpY, b.remove(y), 1e-11);
-    EXPECT_NEAR(simpZ, b.remove(z), 1e-11);
-    EXPECT_NEAR(simpM, b.remove(m), 1e-11);
+    EXPECT_NEAR(trueX, b.remove(x), 1e-8);
+    EXPECT_NEAR(trueY, b.remove(y), 1e-8);
+    EXPECT_NEAR(trueZ, b.remove(z), 1e-8);
+    EXPECT_NEAR(trueM, b.remove(m), 1e-8);
 
-    EXPECT_NEAR(simpM + alpha*(simpX+simpY+simpZ) - beta/2*(simpX*simpX + simpY*simpY + simpZ*simpZ)
-            - gamma*(simpX*simpY + simpX*simpZ + simpY*simpZ), con->currUtility(), 1e-11);
-
-//    std::cout << "\n\n";
-//    std::cout << "optimized bundle:  " << con->assets() << "\n";
-//    std::cout << "optimized utility: " << con->currUtility() << "\n";
-//    std::cout << "optimal? bundle:   " << Bundle({{x,wantX}, {y,wantY}, {z,wantZ}, {m,wantM}}) << "\n";
-//    std::cout << "optimal? utility:  " << con->utility(Bundle {{x,wantX}, {y,wantY}, {z,wantZ}, {m,wantM}}) << "\n";
-//    std::cout << "du/dx: " << con->d(con->assets(), x) << "\n";
-//    std::cout << "du/dy: " << con->d(con->assets(), y) << "\n";
-//    std::cout << "du/dz: " << con->d(con->assets(), z) << "\n";
-//    std::cout << "du/dm: " << con->d(con->assets(), m) << "\n";
-//
-//    std::cout << "du/dx: " << con->d(con->assets() - x1, x) << "\n";
-//    std::cout << "du/dy: " << con->d(con->assets() - y1, y) << "\n";
-//    std::cout << "du/dz: " << con->d(con->assets() - z1, z) << "\n";
-//    std::cout << "du/dm: " << con->d(con->assets() - m1, m) << "\n";
-//    EXPECT_NEAR(1, con->currUtility(), 1e-10);
+    EXPECT_NEAR(trueM + alpha*(trueX+trueY+trueZ) - beta/2*(trueX*trueX + trueY*trueY + trueZ*trueZ)
+            - gamma*(trueX*trueY + trueX*trueZ + trueY*trueZ), con->currUtility(), 1e-11);
 }
 
 int main(int argc, char **argv) {

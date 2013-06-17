@@ -22,9 +22,9 @@ class MUPD : public Optimizer {
          *
          * \param tolerance the relative tolerance of the algorithm; optimization will stop when the
          * difference between highest and lowest MU/$ values (calculated as \f$ \frac{highest -
-         * lowest}{highest} \f$ is smaller than this value.  Defaults to 1.0e-8.
+         * lowest}{highest} \f$ is smaller than this value.  Defaults to 1.0e-10.
          */
-        MUPD(const Consumer::Differentiable &consumer, const eris_id_t &money, double tolerance = 1.0e-8);
+        MUPD(const Consumer::Differentiable &consumer, const eris_id_t &money, double tolerance = 1.0e-10);
 
         /** Attempts to spend any available money optimally.  Returns false is no money was spent;
          * typically, with no other changes to the economy between calls, optimize() will return
