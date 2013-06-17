@@ -28,7 +28,7 @@
 //     (c) u(x,y,z) = c - xyz
 // Expect no spending.
 //
-// V. Leontif: u(x,y,z) = min{x, 2y} + z
+// V. Leontief: u(x,y,z) = min{x, 2y} + z
 //     (0) px = 1, py = 6, pz = 6  (expect all spending on x=2y, with z=0)
 //         NB: IncrementalBuyer can't actually handle this well, because each
 //         increment will spend equally on x and y, which isn't x=2y, so
@@ -390,7 +390,7 @@ TEST(Case04_Bliss, ConstantMinusProd) {
     EXPECT_EQ(-3.0, con->currUtility());
 }
 
-TEST(Case05_Leontif, Px1_Py6) {
+TEST(Case05_Leontief, Px1_Py6) {
     SETUP_SIM;
 
     auto con = sim->createAgent<Consumer::Simple>([&](const BundleNegative &b) {
@@ -415,7 +415,7 @@ TEST(Case05_Leontif, Px1_Py6) {
     EXPECT_EQ(0, a);
     EXPECT_NEAR(3.5, con->currUtility(), 1e-13);
 }
-TEST(Case05_Leontif, Px1_Py1_Pz1) {
+TEST(Case05_Leontief, Px1_Py1_Pz1) {
     SETUP_SIM;
 
     auto con = sim->createAgent<Consumer::Simple>([&](const BundleNegative &b) {

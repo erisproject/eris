@@ -28,7 +28,7 @@
 //     (c) u(x,y,z) = c - xyz
 // Expect no spending.
 //
-// V. Leontif: u(x,y,z) = min{x, 2y} + z
+// V. Leontief: u(x,y,z) = min{x, 2y} + z
 //    (Note: cannot be handled by MUPD, because the utility function is not differentiable)
 //     (0) px = 1, py = 6, pz = 6  (expect all spending on x=2y, with z=0)
 //         NB: IncrementalBuyer can't actually handle this well, because each
@@ -387,7 +387,7 @@ TEST(Case04_Bliss, ConstantMinusProd) {
     EXPECT_EQ(-3.0, con->currUtility());
 }
 
-// Case 5 is Leontif, but MUPD can't handle that because Leotif utility functions aren't
+// Case 5 is Leontief, but MUPD can't handle that because Leontief utility functions aren't
 // differentiable.
 
 #define SETUP_CASE6 \
