@@ -48,8 +48,8 @@ void Simulation::insertInterOpt(const SharedMember<InterOptimizer> &o) {
     interopts_.insert(std::make_pair(o->id(), o));
 }
 
-void Simulation::registerDependent(const eris_id_t &member, const eris_id_t &dep) {
-    deps_[member].insert(dep);
+void Simulation::registerDependency(const eris_id_t &member, const eris_id_t &depends_on) {
+    depends_on_[depends_on].insert(member);
 }
 
 void Simulation::removeAgent(const eris_id_t &aid) {
@@ -79,11 +79,11 @@ void Simulation::removeInterOpt(const eris_id_t &oid) {
 }
 
 void Simulation::removeDeps(const eris_id_t &member) {
-    if (!deps_.count(member)) return;
+    if (!depends_on_.count(member)) return;
 
-    // Remove the deps before iterating, to break potential dependency loops
-    const auto deps = deps_.at(member);
-    deps_.erase(member);
+    // Remove the dependents before iterating, to break potential dependency loops
+    const auto deps = depends_on_.at(member);
+    depends_on_.erase(member);
 
     for (const auto &dep : deps) {
         if      (   agents_.count(dep))    removeAgent(dep);

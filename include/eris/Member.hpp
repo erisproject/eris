@@ -25,7 +25,7 @@ class Member {
         /** Creates and returns a shared pointer to the simulation this object belongs.  Returns a
          * null shared_ptr if there is no (current) simulation.
          */
-        virtual std::shared_ptr<Simulation> simulation() const { return simulation_.lock(); }
+        virtual std::shared_ptr<Simulation> simulation() const;
 
     protected:
         /** Called (by Simulation) to store a weak pointer to the simulation this member belongs to
@@ -33,25 +33,37 @@ class Member {
          * again (with a null shared pointer and id of 0) when the Member is removed from a
          * Simulation.
          */
-        void simulation(const std::shared_ptr<Simulation> &sim, const eris_id_t &id) {
-            if (id == 0) removed();
-            simulation_ = sim;
-            id_ = id;
-            if (id > 0) added();
-        }
+        void simulation(const std::shared_ptr<Simulation> &sim, const eris_id_t &id);
         friend eris::Simulation;
 
         /** Virtual method called just after the member is added to a Simulation object.  The
          * default implementation does nothing.  This method is typically used to record a
          * dependency in the simulation.
          */
-        virtual void added() {}
+        virtual void added();
 
-        /** Virtual method called just after the member is removed from a Simulation object.
-         * The simulation() and id() methods are still available, but the simulation no longer
-         * references this Member.  The default implementation does nothing.
+        /** Virtual method called just after the member is removed from a Simulation object.  The
+         * default implementation does nothing.  The simulation() and id() methods are still
+         * available, but the simulation no longer references this Member.
+         *
+         * Note that any registered dependencies may not exist (in particular when the removal is
+         * occuring as the result of a cascading dependency removal).  In other words, if this
+         * Member has registered a dependency on B, when B is removed, this Member will also be
+         * removed *after* B has been removed from the Simulation.  Thus classes overriding this
+         * method must *not* make use of dependent objects.
          */
-        virtual void removed() {}
+        virtual void removed();
+
+        /** Records a dependency with the Simulation object.  This should not be called until after
+         * simulation() has been called, and is typically invoked in an overridden added() method.
+         *
+         * This is simply an alias for Simulation::registerDependency; the two following statements
+         * are exactly equivalent:
+         *
+         *     shared_member->dependsOn(other_member);
+         *     shared_member->simulation()->registerDependency(shared_member, other_member);
+         */
+        void dependsOn(const eris_id_t &id);
     private:
         eris_id_t id_ = 0;
         /** Stores a weak pointer to the simulation this Member belongs to. */

@@ -162,10 +162,13 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
          * objects. */
         const InterOptMap& interOpts();
 
-        /** Records already-stored member `dep' as a dependent of `member'.  If `member' is
-         * subseqently removed from the simulation, `dep' will be automatically removed as well.
+        /** Records already-stored member `depends_on' as a dependency of `member'.  If `depends_on'
+         * is removed from the simulation, `member' will be automatically removed as well.
+         *
+         * Note that dependents are removed *after* removal of their dependencies.  That is, if A
+         * depends on B, and B is removed, the B removal occurs *first*, followed by the A removal.
          */
-        void registerDependent(const eris_id_t &member, const eris_id_t &dep);
+        void registerDependency(const eris_id_t &member, const eris_id_t &depends_on);
 
     private:
         void insertAgent(const SharedMember<Agent> &agent);
@@ -180,7 +183,7 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         IntraOptMap intraopts_;
         InterOptMap interopts_;
 
-        std::unordered_map<eris_id_t, std::unordered_set<eris_id_t>> deps_;
+        std::unordered_map<eris_id_t, std::unordered_set<eris_id_t>> depends_on_;
         void removeDeps(const eris_id_t &member);
 };
 

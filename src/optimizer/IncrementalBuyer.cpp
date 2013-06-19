@@ -171,8 +171,8 @@ bool IncrementalBuyer::optimize() {
 }
 
 void IncrementalBuyer::added() {
-    simulation()->registerDependent(*this, con_id);
-    simulation()->registerDependent(*this, money);
+    dependsOn(con_id);
+    dependsOn(money);
 }
 
 }}
