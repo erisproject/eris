@@ -8,7 +8,7 @@
 namespace eris { namespace optimizer {
 
 IncrementalBuyer::IncrementalBuyer(const Consumer &consumer, eris_id_t money, int rounds) :
-    Optimizer(consumer), money(money), rounds(rounds) {}
+    con_id(consumer), money(money), rounds(rounds) {}
 
 void IncrementalBuyer::reset() {
     round = 0;
@@ -34,7 +34,7 @@ bool IncrementalBuyer::optimize() {
     ++round;
 
     auto sim = simulation();
-    SharedMember<Consumer> consumer = sim->agent(agent_id);
+    SharedMember<Consumer> consumer = sim->agent(con_id);
 
     BundleNegative &a = consumer->assets();
 
@@ -168,6 +168,11 @@ bool IncrementalBuyer::optimize() {
         a -= tiny_extra;
 
     return true;
+}
+
+void IncrementalBuyer::added() {
+    simulation()->registerDependent(*this, con_id);
+    simulation()->registerDependent(*this, money);
 }
 
 }}

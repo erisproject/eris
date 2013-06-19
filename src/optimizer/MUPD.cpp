@@ -6,7 +6,7 @@ using std::unordered_map;
 namespace eris { namespace optimizer {
 
 MUPD::MUPD(const Consumer::Differentiable &consumer, const eris_id_t &money, double tolerance) :
-    Optimizer(consumer), tolerance(tolerance), money(money), money_unit(Bundle {{ money, 1 }})
+    tolerance(tolerance), con_id(consumer), money(money), money_unit(Bundle {{ money, 1 }})
     {}
 
 double MUPD::price_ratio(const SharedMember<Market> &m) {
@@ -72,7 +72,7 @@ double MUPD::calc_mu_per_d(
 bool MUPD::optimize() {
     
     auto sim = simulation();
-    SharedMember<Consumer::Differentiable> consumer = sim->agent(agent_id);
+    SharedMember<Consumer::Differentiable> consumer = sim->agent(con_id);
 
     Bundle &a = consumer->assetsB();
 
@@ -255,6 +255,11 @@ bool MUPD::optimize() {
     }
 
     return purchased;
+}
+
+void MUPD::added() {
+    simulation()->registerDependent(*this, con_id);
+    simulation()->registerDependent(*this, money);
 }
 
 } }

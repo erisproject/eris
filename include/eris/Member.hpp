@@ -5,11 +5,10 @@
 namespace eris {
 
 class Simulation;
-class Optimizer;
 
-/** Base class for "members" of a simulation: goods, agents, and markets.  This class provides an
- * id, a weak reference to the owning simulation object, and a < operator comparing ids (so that
- * ordering works).
+/** Base class for "members" of a simulation: goods, agents, markets, and optimizers.  This class
+ * provides an id, a weak reference to the owning simulation object, and a < operator comparing ids
+ * (so that ordering works).
  */
 class Member {
     public:
@@ -29,10 +28,30 @@ class Member {
         virtual std::shared_ptr<Simulation> simulation() const { return simulation_.lock(); }
 
     protected:
-        virtual void simulation(std::shared_ptr<Simulation> sim) { simulation_ = sim; }
-        virtual void id(eris_id_t id) { id_ = id; }
+        /** Called (by Simulation) to store a weak pointer to the simulation this member belongs to
+         * and the member's id.  This is called once when the Member is added to a simulation, and
+         * again (with a null shared pointer and id of 0) when the Member is removed from a
+         * Simulation.
+         */
+        void simulation(const std::shared_ptr<Simulation> &sim, const eris_id_t &id) {
+            if (id == 0) removed();
+            simulation_ = sim;
+            id_ = id;
+            if (id > 0) added();
+        }
         friend eris::Simulation;
-        friend eris::Optimizer;
+
+        /** Virtual method called just after the member is added to a Simulation object.  The
+         * default implementation does nothing.  This method is typically used to record a
+         * dependency in the simulation.
+         */
+        virtual void added() {}
+
+        /** Virtual method called just after the member is removed from a Simulation object.
+         * The simulation() and id() methods are still available, but the simulation no longer
+         * references this Member.  The default implementation does nothing.
+         */
+        virtual void removed() {}
     private:
         eris_id_t id_ = 0;
         /** Stores a weak pointer to the simulation this Member belongs to. */
@@ -49,8 +68,8 @@ class Member {
  * SharedMember<Good>.
  *
  * Note that SharedMember instances *cannot* be constructed directly (except when copying from
- * another compatible SharedMember instance), but are created via the addGood, addAgent, and
- * addMarket methods of Simulation.
+ * another compatible SharedMember instance), but are created via the various add* and clone*
+ * methods of Simulation.
  */
 template<class T>
 class SharedMember final {

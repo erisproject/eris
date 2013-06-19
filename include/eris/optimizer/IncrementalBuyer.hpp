@@ -43,7 +43,7 @@ namespace eris { namespace optimizer {
  * - then unwind everything and pick the highest
  */
 
-class IncrementalBuyer : public Optimizer {
+class IncrementalBuyer : public IntraOptimizer {
     public:
         /** Constructs a new IncrementalBuyer optimization object for a given agent.
          *
@@ -99,11 +99,14 @@ class IncrementalBuyer : public Optimizer {
          */
         virtual void reset() override;
     protected:
+        const eris_id_t con_id;
         const eris_id_t money;
         const int rounds = 100;
         int round = -1;
         double threshold = 1.0 - 1e-8;
         bool permute_zeros = false;
+
+        virtual void added() override;
 };
 
 }}

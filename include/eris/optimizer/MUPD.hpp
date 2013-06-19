@@ -6,7 +6,7 @@
 
 namespace eris { namespace optimizer {
 
-/** Optimizer class that picks an optimal bundle by attempting to equate marginal utility per
+/** IntraOptimizer class that picks an optimal bundle by attempting to equate marginal utility per
  * marginal dollar across the available goods.  This is restricted to Consumer::Differentiable
  * consumers due to the need to calculate marginal utility, and is only capable of dealing with
  * markets with a single money good as purchase price.
@@ -16,7 +16,7 @@ namespace eris { namespace optimizer {
  * marginal utility per money unit is equal in each available market.  Multi-good markets are
  * handled (the marginal utility is the sum of the marginal utility of the individual goods).
  */
-class MUPD : public Optimizer {
+class MUPD : public IntraOptimizer {
     public:
         /** Constructors a MUPD optimizer given a differentiable consumer instance and a money good.
          *
@@ -36,6 +36,7 @@ class MUPD : public Optimizer {
         double tolerance;
 
     protected:
+        const eris_id_t con_id;
         const eris_id_t money;
         const Bundle money_unit;
 
@@ -71,6 +72,9 @@ class MUPD : public Optimizer {
         /// Returns the ratio between the market's output price and the optimizer's money unit.
         /// Results are cached for performance.
         double price_ratio(const SharedMember<Market> &m);
+
+        /// Declares a dependency on the consumer when added to a simulation
+        virtual void added() override;
 };
 
 } }

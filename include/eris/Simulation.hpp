@@ -4,10 +4,10 @@
 #include <eris/Agent.hpp>
 #include <eris/Good.hpp>
 #include <eris/Market.hpp>
-#include <exception>
-#include <map>
+#include <eris/Optimizer.hpp>
+#include <unordered_map>
+#include <unordered_set>
 #include <memory>
-#include <type_traits>
 
 namespace eris {
 
@@ -25,9 +25,11 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         //Simulation();
         virtual ~Simulation() = default;
 
-        typedef std::map<eris_id_t, SharedMember<Good>> GoodMap;
-        typedef std::map<eris_id_t, SharedMember<Agent>> AgentMap;
-        typedef std::map<eris_id_t, SharedMember<Market>> MarketMap;
+        typedef std::unordered_map<eris_id_t, SharedMember<Good>> GoodMap;
+        typedef std::unordered_map<eris_id_t, SharedMember<Agent>> AgentMap;
+        typedef std::unordered_map<eris_id_t, SharedMember<Market>> MarketMap;
+        typedef std::unordered_map<eris_id_t, SharedMember<IntraOptimizer>> IntraOptMap;
+        typedef std::unordered_map<eris_id_t, SharedMember<InterOptimizer>> InterOptMap;
 
         /// Accesses an agent given the agent's eris_id_t
         SharedMember<Agent> agent(eris_id_t aid);
@@ -35,6 +37,10 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         SharedMember<Good> good(eris_id_t gid);
         /// Accesses a market given the market's eris_id_t
         SharedMember<Market> market(eris_id_t mid);
+        /// Accesses an intra-period optimization object given the object's eris_id_t
+        SharedMember<IntraOptimizer> intraOpt(eris_id_t oid);
+        /// Accesses an inter-period optimization object given the object's eris_id_t
+        SharedMember<InterOptimizer> interOpt(eris_id_t oid);
 
         /** Constructs a new A object using the given constructor arguments Args, adds it as an
          * agent, and returns a SharedMember<A> referencing it.
@@ -50,7 +56,7 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
          *
          * \throws std::bad_cast if A cannot be cast to an Agent
          */
-        template <class A> SharedMember<A> cloneAgent(A a);
+        template <class A> SharedMember<A> cloneAgent(const A &a);
 
         /** Constructs a new G object using the given constructor arguments Args, adds it as a good,
          * and returns a SharedMember<G> referencing it.
@@ -66,7 +72,7 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
          *
          * \throws std::bad_cast if G cannot be cast to a Good
          */
-        template <class G> SharedMember<G> cloneGood(G g);
+        template <class G> SharedMember<G> cloneGood(const G &g);
 
         /** Constructs a new M object using the given constructor arguments Args, adds it as a
          * market, and returns a SharedMember<M> referencing it.
@@ -82,23 +88,66 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
          *
          * \throws std::bad_cast if M cannot be cast to a Market
          */
-        template <class M> SharedMember<M> cloneMarket(M m);
+        template <class M> SharedMember<M> cloneMarket(const M &m);
 
-        /** Removes the given agent from this simulation.  Note that both Agent instances and
-         * SharedMember<Agent> instances are automatically cast to eris_id_t when required, so
-         * calling this method with those objects is acceptable (and indeed preferred).
+        /** Constructs a new intra-period optimizer object using the given constructor arguments
+         * Args, adds it to the simulation, and returns a SharedMember<O> referencing it.
          */
-        void removeAgent(eris_id_t aid);
-        /** Removes the given good from this simulation.  Note that both Good instances and
-         * SharedMember<Good> instances are automatically cast to eris_id_t when required, so
-         * calling this method with those objects is acceptable (and indeed preferred).
+        template <class O, typename... Args> SharedMember<O> createIntraOpt(const Args&... args);
+
+        /** Makes a copy of the given O obejct, adds the copy to the simulation, and returns a
+         * SharedMember<O> referencing it.  O must be a subclass of IntraOptimizer.
+         *
+         * In practice, the template argument is omitted as it can be inferred from the argument.
+         *
+         * \throws std::bad_cast if O cannot be cast to an IntraOptimizer.
          */
-        void removeGood(eris_id_t gid);
-        /** Removes the given good from this simulation.  Note that both Good instances and
-         * SharedMember<Good> instances are automatically cast to eris_id_t when required, so
-         * calling this method with those objects is acceptable (and indeed preferred).
+        template <class O> SharedMember<O> cloneIntraOpt(const O &o);
+
+        /** Constructs a new inter-period optimizer object using the given constructor arguments
+         * Args, adds it to the simulation, and returns a SharedMember<O> referencing it.
          */
-        void removeMarket(eris_id_t mid);
+        template <class O, typename... Args> SharedMember<O> createInterOpt(const Args&... args);
+
+        /** Makes a copy of the given inter-period optimizer O obejct, adds the copy to the
+         * simulation, and returns a SharedMember<O> referencing it.  O must be a subclass of
+         * InterOptimizer.
+         *
+         * In practice, the template argument is omitted as it can be inferred from the argument.
+         *
+         * \throws std::bad_cast if O cannot be cast to an InterOptimizer.
+         */
+        template <class O> SharedMember<O> cloneInterOpt(const O &o);
+
+        /** Removes the given agent (and any dependencies) from this simulation.  Note that both
+         * Agent instances and SharedMember<Agent> instances are automatically cast to eris_id_t
+         * when required, so calling this method with those objects is acceptable (and indeed
+         * preferred).
+         */
+        void removeAgent(const eris_id_t &aid);
+        /** Removes the given good (and any dependencies) from this simulation.  Note that both Good
+         * instances and SharedMember<Good> instances are automatically cast to eris_id_t when
+         * required, so calling this method with those objects is acceptable (and indeed preferred).
+         */
+        void removeGood(const eris_id_t &gid);
+        /** Removes the given market (and any dependencies) from this simulation.  Note that both
+         * Market instances and SharedMember<Market> instances are automatically cast to eris_id_t
+         * when required, so calling this method with those objects is acceptable (and indeed
+         * preferred).
+         */
+        void removeMarket(const eris_id_t &mid);
+        /** Removes the given intra-temporal optimizer object (and any dependencies) from this
+         * simulation.  Note that both IntraTemporal and SharedMember<IntraTemporal> instances are
+         * automatically cast to eris_id_t when required, so calling this method with those objects
+         * as arguments is acceptable (and indeed preferred).
+         */
+        void removeIntraOpt(const eris_id_t &oid);
+        /** Removes the given inter-temporal optimizer object (and any dependencies) from this
+         * simulation.  Note that both InterTemporal and SharedMember<InterTemporal> instances are
+         * automatically cast to eris_id_t when required, so calling this method with those objects
+         * as arguments is acceptable (and indeed preferred).
+         */
+        void removeInterOpt(const eris_id_t &oid);
 
         /** Provides read-only access to the map of the simulation's agents. */
         const AgentMap& agents();
@@ -106,15 +155,33 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         const GoodMap& goods();
         /** Provides read-only access to the map of the simulation's markets. */
         const MarketMap& markets();
+        /** Provides read-only access to the map of the simulation's intra-period optimization
+         * objects. */
+        const IntraOptMap& intraOpts();
+        /** Provides read-only access to the map of the simulation's inter-period optimization
+         * objects. */
+        const InterOptMap& interOpts();
+
+        /** Records already-stored member `dep' as a dependent of `member'.  If `member' is
+         * subseqently removed from the simulation, `dep' will be automatically removed as well.
+         */
+        void registerDependent(const eris_id_t &member, const eris_id_t &dep);
 
     private:
         void insertAgent(const SharedMember<Agent> &agent);
         void insertGood(const SharedMember<Good> &good);
         void insertMarket(const SharedMember<Market> &market);
-        eris_id_t id_next = 1;
-        AgentMap agent_map;
-        GoodMap good_map;
-        MarketMap market_map;
+        void insertIntraOpt(const SharedMember<IntraOptimizer> &opt);
+        void insertInterOpt(const SharedMember<InterOptimizer> &opt);
+        eris_id_t id_next_ = 1;
+        AgentMap agents_;
+        GoodMap goods_;
+        MarketMap markets_;
+        IntraOptMap intraopts_;
+        InterOptMap interopts_;
+
+        std::unordered_map<eris_id_t, std::unordered_set<eris_id_t>> deps_;
+        void removeDeps(const eris_id_t &member);
 };
 
 template <class A, typename... Args> SharedMember<A> Simulation::createAgent(const Args&... args) {
@@ -124,9 +191,9 @@ template <class A, typename... Args> SharedMember<A> Simulation::createAgent(con
     return agent; // Implicit recast back to SharedMember<A>
 }
 
-template <class A> SharedMember<A> Simulation::cloneAgent(A a) {
+template <class A> SharedMember<A> Simulation::cloneAgent(const A &a) {
     // NB: Stored in a SM<Agent> rather than SM<A> ensures that A is an Agent subclass
-    SharedMember<Agent> agent(new A(std::move(a)));
+    SharedMember<Agent> agent(new A(a));
     insertAgent(agent);
     return agent; // Implicit recast back to SharedMember<A>
 }
@@ -138,9 +205,9 @@ template <class G, typename... Args> SharedMember<G> Simulation::createGood(cons
     return good; // Implicit recast back to SharedMember<G>
 }
 
-template <class G> SharedMember<G> Simulation::cloneGood(G g) {
+template <class G> SharedMember<G> Simulation::cloneGood(const G &g) {
     // NB: Stored in a SM<Good> rather than SM<G> ensures that G is an Good subclass
-    SharedMember<Good> good(new G(std::move(g)));
+    SharedMember<Good> good(new G(g));
     insertGood(good);
     return good; // Implicit recast back to SharedMember<G>
 }
@@ -152,13 +219,40 @@ template <class M, typename... Args> SharedMember<M> Simulation::createMarket(co
     return market; // Implicit recast back to SharedMember<M>
 }
 
-template <class M> SharedMember<M> Simulation::cloneMarket(M m) {
+template <class M> SharedMember<M> Simulation::cloneMarket(const M &m) {
     // NB: Stored in a SM<Market> rather than SM<M> ensures that M is an Market subclass
-    SharedMember<Market> market(new M(std::move(m)));
+    SharedMember<Market> market(new M(m));
     insertMarket(market);
     return market; // Implicit recast back to SharedMember<M>
 }
 
+template <class O, typename... Args> SharedMember<O> Simulation::createIntraOpt(const Args&... args) {
+    // NB: Stored in a SM<IntraOpt> rather than SM<O> ensures that O is an IntraOptimizer subclass
+    SharedMember<IntraOptimizer> opt(new O(args...));
+    insertIntraOpt(opt);
+    return opt; // Implicit recast back to SharedMember<O>
+}
+
+template <class O> SharedMember<O> Simulation::cloneIntraOpt(const O &o) {
+    // NB: Stored in a SM<IntraOpt> rather than SM<O> ensures that O is an IntraOptimizer subclass
+    SharedMember<IntraOptimizer> opt(new O(o));
+    insertIntraOpt(opt);
+    return market; // Implicit recast back to SharedMember<O>
+}
+
+template <class O, typename... Args> SharedMember<O> Simulation::createInterOpt(const Args&... args) {
+    // NB: Stored in a SM<InterOpt> rather than SM<O> ensures that O is an InterOptimizer subclass
+    SharedMember<InterOptimizer> opt(new O(args...));
+    insertInterOpt(opt);
+    return opt; // Implicit recast back to SharedMember<O>
+}
+
+template <class O> SharedMember<O> Simulation::cloneInterOpt(const O &o) {
+    // NB: Stored in a SM<InterOpt> rather than SM<O> ensures that O is an InterOptimizer subclass
+    SharedMember<InterOptimizer> opt(new O(o));
+    insertInterOpt(opt);
+    return market; // Implicit recast back to SharedMember<O>
+}
 
 
 }

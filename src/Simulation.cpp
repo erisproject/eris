@@ -3,42 +3,103 @@
 namespace eris {
 
 SharedMember<Agent> Simulation::agent(eris_id_t aid) {
-    return agent_map.at(aid);
+    return agents_.at(aid);
 }
 
 SharedMember<Good> Simulation::good(eris_id_t gid) {
-    return good_map.at(gid);
+    return goods_.at(gid);
 }
 
 SharedMember<Market> Simulation::market(eris_id_t mid) {
-    return market_map.at(mid);
+    return markets_.at(mid);
+}
+
+SharedMember<IntraOptimizer> Simulation::intraOpt(eris_id_t oid) {
+    return intraopts_.at(oid);
+}
+
+SharedMember<InterOptimizer> Simulation::interOpt(eris_id_t oid) {
+    return interopts_.at(oid);
 }
 
 // Assign an ID, set it, store the simulator, and insert into the agent map
 void Simulation::insertAgent(const SharedMember<Agent> &a) {
-    a->id(id_next++);
-    a->simulation(shared_from_this());
-    agent_map.insert(std::make_pair(a->id(), a));
+    a->simulation(shared_from_this(), id_next_++);
+    agents_.insert(std::make_pair(a->id(), a));
 }
 // Assign an ID, set it, store the simulator, and insert into the good map
 void Simulation::insertGood(const SharedMember<Good> &g) {
-    g->id(id_next++);
-    g->simulation(shared_from_this());
-    good_map.insert(std::make_pair(g->id(), g));
+    g->simulation(shared_from_this(), id_next_++);
+    goods_.insert(std::make_pair(g->id(), g));
 }
-// Assign an ID, set it, store the simulator, and insert into the agent map
+// Assign an ID, set it, store the simulator, and insert into the market map
 void Simulation::insertMarket(const SharedMember<Market> &m) {
-    m->id(id_next++);
-    m->simulation(shared_from_this());
-    market_map.insert(std::make_pair(m->id(), m));
+    m->simulation(shared_from_this(), id_next_++);
+    markets_.insert(std::make_pair(m->id(), m));
+}
+// Assign an ID, set it, store the optimizer, and insert into the intraopt map
+void Simulation::insertIntraOpt(const SharedMember<IntraOptimizer> &o) {
+    o->simulation(shared_from_this(), id_next_++);
+    intraopts_.insert(std::make_pair(o->id(), o));
+}
+// Assign an ID, set it, store the optimizer, and insert into the interopt map
+void Simulation::insertInterOpt(const SharedMember<InterOptimizer> &o) {
+    o->simulation(shared_from_this(), id_next_++);
+    interopts_.insert(std::make_pair(o->id(), o));
 }
 
-void Simulation::removeAgent(eris_id_t aid)  { agent_map.erase(aid);  }
-void Simulation::removeGood(eris_id_t gid)   { good_map.erase(gid);   }
-void Simulation::removeMarket(eris_id_t gid) { market_map.erase(gid); }
+void Simulation::registerDependent(const eris_id_t &member, const eris_id_t &dep) {
+    deps_[member].insert(dep);
+}
 
-const Simulation::AgentMap& Simulation::agents()   { return agent_map;  }
-const Simulation::GoodMap& Simulation::goods()     { return good_map;   }
-const Simulation::MarketMap& Simulation::markets() { return market_map; }
+void Simulation::removeAgent(const eris_id_t &aid) {
+    agents_.at(aid)->simulation(nullptr, 0);
+    agents_.erase(aid);
+    removeDeps(aid);
+}
+void Simulation::removeGood(const eris_id_t &gid) {
+    goods_.at(gid)->simulation(nullptr, 0);
+    goods_.erase(gid);
+    removeDeps(gid);
+}
+void Simulation::removeMarket(const eris_id_t &mid) {
+    markets_.at(mid)->simulation(nullptr, 0);
+    markets_.erase(mid);
+    removeDeps(mid);
+}
+void Simulation::removeIntraOpt(const eris_id_t &oid) {
+    intraopts_.at(oid)->simulation(nullptr, 0);
+    intraopts_.erase(oid);
+    removeDeps(oid);
+}
+void Simulation::removeInterOpt(const eris_id_t &oid) {
+    interopts_.at(oid)->simulation(nullptr, 0);
+    interopts_.erase(oid);
+    removeDeps(oid);
+}
+
+void Simulation::removeDeps(const eris_id_t &member) {
+    if (!deps_.count(member)) return;
+
+    // Remove the deps before iterating, to break potential dependency loops
+    const auto deps = deps_.at(member);
+    deps_.erase(member);
+
+    for (const auto &dep : deps) {
+        if      (   agents_.count(dep))    removeAgent(dep);
+        else if (    goods_.count(dep))     removeGood(dep);
+        else if (  markets_.count(dep))   removeMarket(dep);
+        else if (intraopts_.count(dep)) removeIntraOpt(dep);
+        else if (interopts_.count(dep)) removeInterOpt(dep);
+        // Otherwise it's already removed (possibly because of some nested dependencies), so don't
+        // worry about it.
+    }
+}
+
+const Simulation::AgentMap& Simulation::agents()       { return agents_;    }
+const Simulation::GoodMap& Simulation::goods()         { return goods_;     }
+const Simulation::MarketMap& Simulation::markets()     { return markets_;   }
+const Simulation::IntraOptMap& Simulation::intraOpts() { return intraopts_; }
+const Simulation::InterOptMap& Simulation::interOpts() { return interopts_; }
 
 }
