@@ -76,4 +76,30 @@ all_combinations(
     }
 }
 
+/** Wrapper class around a pair of iterators that converts the pair into a range, so that a
+ * for-range statement can be used.  The primary target of this is multimap's equal_range method,
+ * which returns just such a pair.  This class is typically invoked via the range() function.
+ */
+template <class Iter>
+class range_ : public std::pair<Iter, Iter> {
+    public:
+        range_(std::pair<Iter, Iter> const &pair) : std::pair<Iter, Iter>(pair) {}
+        Iter begin() const { return this->first;  }
+        Iter end()   const { return this->second; }
+};
+/** Takes a std::pair of iterators that represents a range, and returns an iterable object for that
+ * range.  This is intended to allow for range-based for loops for methods that return a pair of
+ * iterators representing a range, such as multimap's equal_range() method.
+ *
+ * Example:
+ *
+ *     for (auto &whatever : eris::range(mmap.equal_range(key))) {
+ *         ...
+ *     }
+ */
+template <class Iter>
+range_<Iter> range(std::pair<Iter, Iter> const &pair) {
+    return range_<Iter>(pair);
+}
+
 }
