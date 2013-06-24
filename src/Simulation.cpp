@@ -102,4 +102,6 @@ const Simulation::MarketMap& Simulation::markets()     { return markets_;   }
 const Simulation::IntraOptMap& Simulation::intraOpts() { return intraopts_; }
 const Simulation::InterOptMap& Simulation::interOpts() { return interopts_; }
 
+const Simulation::DepMap& Simulation::deps() { return depends_on_; }
+
 }

@@ -25,11 +25,18 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         //Simulation();
         virtual ~Simulation() = default;
 
+        /// typedef for the map of id's to shared goods
         typedef std::unordered_map<eris_id_t, SharedMember<Good>> GoodMap;
+        /// typedef for the map of id's to shared agents
         typedef std::unordered_map<eris_id_t, SharedMember<Agent>> AgentMap;
+        /// typedef for the map of id's to shared markets
         typedef std::unordered_map<eris_id_t, SharedMember<Market>> MarketMap;
+        /// typedef for the map of id's to shared intraperiod optimizations
         typedef std::unordered_map<eris_id_t, SharedMember<IntraOptimizer>> IntraOptMap;
+        /// typedef for the map of id's to shared interperiod optimizations
         typedef std::unordered_map<eris_id_t, SharedMember<InterOptimizer>> InterOptMap;
+        /// typedef for the map of id's to the set of dependent members
+        typedef std::unordered_map<eris_id_t, std::unordered_set<eris_id_t>> DepMap;
 
         /// Accesses an agent given the agent's eris_id_t
         SharedMember<Agent> agent(eris_id_t aid);
@@ -170,6 +177,9 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
          */
         void registerDependency(const eris_id_t &member, const eris_id_t &depends_on);
 
+        /// Returns the map of dependencies.
+        const DepMap& deps();
+
     private:
         void insertAgent(const SharedMember<Agent> &agent);
         void insertGood(const SharedMember<Good> &good);
@@ -183,7 +193,7 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         IntraOptMap intraopts_;
         InterOptMap interopts_;
 
-        std::unordered_map<eris_id_t, std::unordered_set<eris_id_t>> depends_on_;
+        DepMap depends_on_;
         void removeDeps(const eris_id_t &member);
 };
 
