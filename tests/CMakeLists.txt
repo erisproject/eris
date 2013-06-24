@@ -11,6 +11,7 @@ set(eris_tests
     bundle-test
     incr-buyer-test
     mupd-test
+    sim-setup-test
     )
 
 foreach(t ${eris_tests})
