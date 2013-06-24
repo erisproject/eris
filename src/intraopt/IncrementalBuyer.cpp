@@ -1,11 +1,11 @@
-#include <eris/optimizer/IncrementalBuyer.hpp>
+#include <eris/intraopt/IncrementalBuyer.hpp>
 #include <eris/algorithms.hpp>
 #include <cmath>
 #include <limits>
 #include <set>
 #include <unordered_map>
 
-namespace eris { namespace optimizer {
+namespace eris { namespace intraopt {
 
 IncrementalBuyer::IncrementalBuyer(const Consumer &consumer, eris_id_t money, int rounds) :
     con_id(consumer), money(money), rounds(rounds) {}

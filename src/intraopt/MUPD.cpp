@@ -1,9 +1,9 @@
-#include <eris/optimizer/MUPD.hpp>
+#include <eris/intraopt/MUPD.hpp>
 #include <unordered_map>
 
 using std::unordered_map;
 
-namespace eris { namespace optimizer {
+namespace eris { namespace intraopt {
 
 MUPD::MUPD(const Consumer::Differentiable &consumer, const eris_id_t &money, double tolerance) :
     tolerance(tolerance), con_id(consumer), money(money), money_unit(Bundle {{ money, 1 }})

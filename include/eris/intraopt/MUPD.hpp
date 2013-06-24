@@ -4,7 +4,7 @@
 #include <eris/Optimizer.hpp>
 #include <eris/Simulation.hpp>
 
-namespace eris { namespace optimizer {
+namespace eris { namespace intraopt {
 
 /** IntraOptimizer class that picks an optimal bundle by attempting to equate marginal utility per
  * marginal dollar across the available goods.  This is restricted to Consumer::Differentiable

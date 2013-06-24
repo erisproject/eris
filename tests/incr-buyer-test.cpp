@@ -58,7 +58,7 @@
 #include <eris/consumer/Quadratic.hpp>
 #include <eris/consumer/CobbDouglas.hpp>
 #include <eris/consumer/Compound.hpp>
-#include <eris/optimizer/IncrementalBuyer.hpp>
+#include <eris/intraopt/IncrementalBuyer.hpp>
 #include <eris/market/Bertrand.hpp>
 #include <cmath>
 #include <gtest/gtest.h>
@@ -67,7 +67,7 @@ using namespace eris;
 using namespace eris::market;
 using namespace eris::consumer;
 using namespace eris::firm;
-using namespace eris::optimizer;
+using namespace eris::intraopt;
 
 
 #define SETUP_SIM \

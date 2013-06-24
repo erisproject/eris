@@ -6,6 +6,9 @@
 
 namespace eris {
 
+/// Namespace for intra-period optimization implementations.
+namespace intraopt {}
+
 /** Optimization base-class for intra-period optimization.  This abstract class defines the basic
  * interface used by Eris to allow agents to optimize.  There are two primary methods: optimize(),
  * which has an agent optimize (e.g. a consumer picking an optimal bundle), and reset() which resets
@@ -34,6 +37,9 @@ class IntraOptimizer : public Member {
          */
         virtual void reset() {}
 };
+
+/// Namespace for inter-period optimization implementations.
+namespace intraopt {}
 
 /** Base class for inter-period optimization.  This class has two primary methods: optimize(), which
  * calculates changes to apply for the next period, and apply() which applies those changes.

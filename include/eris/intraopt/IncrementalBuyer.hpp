@@ -3,7 +3,7 @@
 #include <eris/Optimizer.hpp>
 #include <eris/Simulation.hpp>
 
-namespace eris { namespace optimizer {
+namespace eris { namespace intraopt {
 
 /** Simple buyer that has a single 'money' good and uses it to buy from the Simulation's Markets
  * in small increments until all money is spent.

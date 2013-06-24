@@ -4,7 +4,7 @@
 
 /** The top-level eris namespace is the namespace containing all of the eris core functionality.
  * Non-core functionality, such as specific implementations of different types of objects, goes into
- * nested namespaces such as eris::consumer, eris::firm, eris::market, eris::optimizer.
+ * nested namespaces such as eris::consumer, eris::market, eris::intraopt.
  */
 namespace eris {
 

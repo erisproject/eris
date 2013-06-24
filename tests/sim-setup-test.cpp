@@ -7,7 +7,7 @@
 #include <eris/consumer/Quadratic.hpp>
 #include <eris/consumer/Compound.hpp>
 #include <eris/consumer/CobbDouglas.hpp>
-#include <eris/optimizer/MUPD.hpp>
+#include <eris/intraopt/MUPD.hpp>
 #include <eris/market/Bertrand.hpp>
 #include <cmath>
 #include <gtest/gtest.h>
@@ -16,7 +16,7 @@
 using namespace std;
 using namespace eris;
 using namespace eris::consumer;
-using namespace eris::optimizer;
+using namespace eris::intraopt;
 
 std::string as_string(const unordered_map<eris_id_t, unordered_set<eris_id_t>> &deps) {
     // Stick everything into a map/set, so that it is ordered
