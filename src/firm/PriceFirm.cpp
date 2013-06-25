@@ -87,6 +87,7 @@ double PriceFirm::produceAny(const Bundle &b) {
 }
 
 void PriceFirm::advance() {
+    Firm::advance();
     capacityUsed = 0;
 }
 
