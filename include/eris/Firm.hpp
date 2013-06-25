@@ -71,12 +71,6 @@ class Firm : public Agent {
          */
         virtual double supplyAny(const Bundle &b);
 
-        /** Resets the firm's production.  This is called when, for example, beginning a new period, to
-         * reset costs, discard perishable output, depreciate capital, etc.  By default it does
-         * nothing.
-         */
-        virtual void advance();
-
         /** An exception class that can be thrown by supply() to indicate a supply failure.
          * This may be subclassed as needed to provide for more specific supply errors.
          * \see supply_mismatch

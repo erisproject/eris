@@ -27,6 +27,11 @@ class Agent : public Member {
         /// `const` version of assetsB()
         const Bundle& assetsB() const { return dynamic_cast<const Bundle&>(assets()); }
 
+        /** Called when advancing a period.  Subclasses are intended to override (or enhance) as
+         * required.  This could, for example, reset costs, reset costs, discard perishable output,
+         * depreciate capital, etc.  By default clears the agent's assets.
+         */
+        virtual void advance() { assets_ = Bundle(); }
     private:
         /** The current set of resources.  For a consumer, this could be the things to consume; for
          * a producer, this could be a stock of resources.
