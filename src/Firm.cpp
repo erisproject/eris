@@ -6,8 +6,6 @@ bool Firm::canSupply(const Bundle &b) const noexcept {
     return canSupplyAny(b) >= 1.0;
 }
 
-void Firm::advance() {}
-
 Firm::supply_failure::supply_failure(std::string what) : std::runtime_error(what) {}
 Firm::supply_mismatch::supply_mismatch(std::string what) : supply_failure(what) {}
 Firm::supply_mismatch::supply_mismatch() : supply_failure("Firm does not supply requested goods") {}
