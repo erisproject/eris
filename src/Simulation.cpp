@@ -104,4 +104,38 @@ const Simulation::InterOptMap& Simulation::interOpts() { return interopts_; }
 
 const Simulation::DepMap& Simulation::deps() { return depends_on_; }
 
+void Simulation::run() {
+    if (++iteration_ > 1) {
+        // Skip all this on the first iteration
+        
+        for (auto inter : interOpts()) {
+            inter.second->optimize();
+        }
+
+        for (auto agent : agents()) {
+            agent.second->advance();
+        }
+
+        for (auto inter : interOpts()) {
+            inter.second->apply();
+        }
+    }
+
+    for (auto intra : intraOpts()) {
+        intra.second->reset();
+    }
+
+    intraopt_loops = 0;
+    bool done = false;
+    while (!done) {
+        done = true;
+        ++intraopt_loops;
+
+        for (auto intra : intraOpts()) {
+            if (intra.second->optimize())
+                done = false;
+        }
+    }
+}
+
 }

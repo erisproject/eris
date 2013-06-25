@@ -180,6 +180,22 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         /// Returns the map of dependencies.
         const DepMap& deps();
 
+        /** Runs one period of period of the simulation.  The following happens, in order (except on
+         * the first run, when the first 3 are skipped):
+         *
+         * - All inter-period optimizers have their optimize() methods invoked.
+         * - All agents have their advance() method called.
+         * - All inter-period optimizers have apply() invoked.
+         * - All intra-period optimizers have reset() called.
+         * - All intra-period optimizers have their optimize() methods called until all optimizers
+         *   return false.  If *any* optimizer returns true, all optimizers will be called again.
+         *   The specific pattern and order of these calls is not guaranteed.
+         */
+        void run();
+
+        /// Accesses the number of run throughs of the intra-period optimizers in the previous run() call.
+        int intraopt_loops = -1;
+
     private:
         void insertAgent(const SharedMember<Agent> &agent);
         void insertGood(const SharedMember<Good> &good);
@@ -195,6 +211,8 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
 
         DepMap depends_on_;
         void removeDeps(const eris_id_t &member);
+
+        int iteration_ = 0;
 };
 
 template <class A, typename... Args> SharedMember<A> Simulation::createAgent(const Args&... args) {
