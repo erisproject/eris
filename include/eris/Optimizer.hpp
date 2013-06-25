@@ -47,14 +47,13 @@ namespace intraopt {}
 class InterOptimizer : public Member {
     public:
         /** Called once when advancing a period.  This should calculate any changes (e.g. setting a
-         * new price), but not apply them until apply() is called.  Should returns true if changes
-         * need to be applied (i.e. if apply() needs to be called), false if no apply() call is
-         * needed.
+         * new price), but not apply them until apply() is called.  This method is declared const;
+         * subclasses will typically need to declare some mutable fields to store changes the be
+         * applied in apply().
          */
-        virtual bool optimize() = 0;
+        virtual void optimize() const = 0;
 
-        /** Called to apply the changes calculated in optimize() if optimize() returned true.  If
-         * optimize() returned false, calling this method is skipped.
+        /** Called to apply any changes calculated in optimize().
          */
         virtual void apply() = 0;
 };
