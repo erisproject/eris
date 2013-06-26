@@ -30,7 +30,10 @@ class Market : public Member {
     public:
         virtual ~Market() = default;
 
-        Market(Bundle output, Bundle priceUnit);
+        /** Constructs a market that provides units of output_unit in exchange for units of
+         * price_unit.  All exchanged quantities will be in scalar multiples of these bundles.
+         */
+        Market(const Bundle output_unit, const Bundle price_unit);
 
         /** The "price" of a given quantity of the output is a little bit complicated: there is, of
          * course, the total price of the output, but decisions may also depend on marginal prices.
@@ -94,7 +97,7 @@ class Market : public Member {
          * purchased quantity, and increased by the purchased Bundle.
          *
          * \throws Market::output_infeasible if no market output is available at all (the same
-         * condition as price() returning .feasible=false).
+         * condition as price(0) returning .feasible=false).
          */
         virtual double buy(BundleNegative &assets) = 0;
 
@@ -103,20 +106,6 @@ class Market : public Member {
 
         /** Removes f from the firms supplying in this market. */
         virtual void removeFirm(eris_id_t fid);
-
-        /** Changes the market's output Bundle to the new Bundle. */
-        virtual void setOutput(Bundle out);
-
-        /** Returns the output units of this market. */
-        const Bundle& output() const;
-
-        /** Changes the market's price basis to the new Bundle. */
-        virtual void setPriceUnit(Bundle priceUnit);
-
-        /** Returns the Bundle of price units.  Often this will simply be a Bundle of a single good
-         * (usually a money good) with a quantity of 1.
-         */
-        const Bundle& priceUnit() const;
 
         /** Exception class thrown when a quantity that exceeds the market capacity has been
          * requested.
@@ -137,8 +126,16 @@ class Market : public Member {
             public: const char* what() const noexcept override { return "Assets insufficient for purchasing requested output"; }
         };
 
+        /** The base unit of this market's output; quantities produced/purchased are in terms of
+         * multiples of this Bundle.  Subclasses are not required to make use of this bundle.
+         */
+        const Bundle output_unit;
+        /** The base unit of this market's price; prices paid for output are in terms of multiples
+         * of this Bundle.  Subclasses are not required to make use of this bundle.
+         */
+        const Bundle price_unit;
+
     protected:
-        Bundle _output, _price;
         std::unordered_map<eris_id_t, SharedMember<Firm>> suppliers;
 };
 

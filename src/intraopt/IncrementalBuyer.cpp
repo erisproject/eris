@@ -68,25 +68,23 @@ bool IncrementalBuyer::optimize() {
         auto mkt_id = mkt.first;
         auto market = mkt.second;
 
-        Bundle priceUnit = market->priceUnit();
-        if (not(priceUnit.covers(money_unit) and money_unit.covers(priceUnit))) {
-            // priceUnit is not (or not just) money; we can't handle that, so ignore this market
+        if (not(market->price_unit.covers(money_unit) and money_unit.covers(market->price_unit))) {
+            // price_unit is not (or not just) money; we can't handle that, so ignore this market
             continue;
         }
 
-        Bundle output = market->output();
-        if (output[money] > 0) {
+        if (market->output_unit[money] > 0) {
             // Something screwy about this market: it costs money, but also produces money.  Ignore.
             continue;
         }
 
         // Figure out how much `spending' buys in this market:
-        double q = market->quantity(spending / priceUnit);
+        double q = market->quantity(spending / market->price_unit);
 
         // Cache the value, as we may need it again and ->quantity can be expensive
         q_cache[mkt_id].emplace(1, q);
 
-        double mkt_delta_u = consumer->utility(remaining + q*market->output()) - current_utility;
+        double mkt_delta_u = consumer->utility(remaining + q*market->output_unit) - current_utility;
         delta_u[market] = mkt_delta_u;
         if (mkt_delta_u > best_delta_u) {
             best[0] = market;
@@ -128,9 +126,9 @@ bool IncrementalBuyer::optimize() {
             // Get the market quantity we can afford (if we haven't already), spending an equal
             // share of the spending chunk on each good in the combination
             if (!q_cache[mkt_id].count(comb_size))
-                q_cache[mkt_id].emplace(comb_size, market->quantity(spend_each / market->priceUnit()));
+                q_cache[mkt_id].emplace(comb_size, market->quantity(spend_each / market->price_unit));
 
-            comb += q_cache[mkt_id][comb_size] * market->output();
+            comb += q_cache[mkt_id][comb_size] * market->output_unit;
         }
 
         double mkt_delta_u = consumer->utility(comb) - current_utility;

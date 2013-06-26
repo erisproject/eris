@@ -11,7 +11,7 @@ MUPD::MUPD(const Consumer::Differentiable &consumer, const eris_id_t &money, dou
 
 double MUPD::price_ratio(const SharedMember<Market> &m) {
     if (!price_ratio_cache.count(m))
-        price_ratio_cache[m] = money_unit / m->priceUnit();
+        price_ratio_cache[m] = money_unit / m->price_unit;
 
     return price_ratio_cache[m];
 }
@@ -35,7 +35,7 @@ MUPD::allocation MUPD::spending_allocation(const unordered_map<eris_id_t, double
                 // FIXME: feasible?
                 a.quantity[m.first] = mkt->quantity(m.second * price_ratio(mkt));
 
-                a.bundle += mkt->output() * a.quantity[m.first];
+                a.bundle += mkt->output_unit * a.quantity[m.first];
             }
         }
     }
@@ -58,7 +58,7 @@ double MUPD::calc_mu_per_d(
     double mu = 0.0;
     // Add together all of the marginal utilities weighted by the output level, since the market may
     // produce more than one good, and quantities may not equal 1.
-    for (auto g : mkt->output())
+    for (auto g : mkt->output_unit)
         mu += g.second * con->d(b, g.first);
 
     double q = a.quantity.count(mkt) ? a.quantity.at(mkt) : 0;
@@ -92,14 +92,12 @@ bool MUPD::optimize() {
         auto mkt_id = mkt.first;
         auto market = mkt.second;
 
-        Bundle priceUnit = market->priceUnit();
-        if (not(priceUnit.covers(money_unit) and money_unit.covers(priceUnit))) {
-            // priceUnit is not (or not just) money; we can't handle that, so ignore this market
+        if (not(market->price_unit.covers(money_unit) and money_unit.covers(market->price_unit))) {
+            // price_unit is not (or not just) money; we can't handle that, so ignore this market
             continue;
         }
 
-        Bundle output = market->output();
-        if (output[money] > 0) {
+        if (market->output_unit[money] > 0) {
             // Something screwy about this market: it costs money, but also produces money.  Ignore.
             continue;
         }
