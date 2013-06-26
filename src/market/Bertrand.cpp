@@ -3,8 +3,8 @@
 
 namespace eris { namespace market {
 
-Bertrand::Bertrand(Bundle output, Bundle price_unit, bool randomize)
-    : Market(output, price_unit), randomize(randomize) {}
+Bertrand::Bertrand(Bundle output_unit, Bundle price_unit, bool randomize)
+    : Market(output_unit, price_unit), randomize(randomize) {}
 
 Market::price_info Bertrand::price(double q) const {
     return allocate(q).p;
@@ -16,9 +16,9 @@ double Bertrand::quantity(double price) const {
 
     for (auto f : suppliers) {
         SharedMember<firm::PriceFirm> firm = f.second;
-        double s = firm->canSupplyAny(_output);
+        double s = firm->canSupplyAny(output_unit);
         if (s > 0) {
-            double firm_price = (_output / firm->output()) * (firm->price() / _price);
+            double firm_price = (output_unit / firm->output()) * (firm->price() / price_unit);
             price_quantity[firm_price] += s;
         }
     }
@@ -43,18 +43,18 @@ double Bertrand::quantity(double price) const {
 }
 
 Bertrand::allocation Bertrand::allocate(double q) const {
-    // Keys are prices, values are fraction of q*_output available at that price
+    // Keys are prices, values are fraction of q*output_unit available at that price
     std::map<double, double> price_agg_q;
-    // Keys are prices, values are maps of <firm -> fraction of q*_output available>
+    // Keys are prices, values are maps of <firm -> fraction of q*output_unit available>
     std::map<double, std::vector<std::pair<eris_id_t, double>>> price_firm;
 
     double agg_quantity = 0.0;
-    Bundle q_bundle = q * _output;
+    Bundle q_bundle = q * output_unit;
 
     for (auto f : suppliers) {
         SharedMember<firm::PriceFirm> firm = f.second;
         // Make sure the "price" object in this market can pay for the units the firm wants
-        if (_price.covers(firm->price())) {
+        if (price_unit.covers(firm->price())) {
             double productivity = firm->canSupplyAny(q_bundle);
             if (productivity > 0) {
                 agg_quantity += productivity;
@@ -68,7 +68,7 @@ Bertrand::allocation Bertrand::allocate(double q) const {
                 //     (market.outout/firm.output) * (firm.price / market.price)
                 // because those divisions are lossy when Bundles aren't scaled versions of each
                 // other (see Bundle.hpp's description of Bundle division)
-                double firm_price = (_output / firm->output()) * (firm->price() / _price);
+                double firm_price = (output_unit / firm->output()) * (firm->price() / price_unit);
                 price_agg_q[firm_price] += productivity;
                 price_firm[firm_price].push_back(std::pair<eris_id_t,double>(firm, productivity));
             }
@@ -212,7 +212,7 @@ void Bertrand::buy(double q, BundleNegative &assets, double p_max) {
 
     if (a.p.total > p_max) throw low_price();
 
-    Bundle cost = a.p.total*priceUnit();
+    Bundle cost = a.p.total*price_unit;
     if (!(assets >= cost)) throw insufficient_assets();
 
     // Remove the customer's payment:
@@ -222,12 +222,12 @@ void Bertrand::buy(double q, BundleNegative &assets, double p_max) {
     for (auto firm_share : a.shares) {
         auto firm = suppliers.at(firm_share.first);
         auto sh = firm_share.second;
-        firm->supply(sh.q*output());
-        firm->assets() += priceUnit()*sh.p;
+        firm->supply(sh.q*output_unit);
+        firm->assets() += price_unit*sh.p;
     }
 
     // Transfer the production to the customer
-    assets += q*output();
+    assets += q*output_unit;
 }
 
 double Bertrand::buy(BundleNegative &assets) {
@@ -242,7 +242,7 @@ double Bertrand::buy(BundleNegative &assets) {
     }
 
     // FIXME: need to lock the market between the quantity call and the end of the buy() call
-    double p_max = *a / _price;
+    double p_max = *a / price_unit;
     double q = quantity(p_max);
     buy(q, assets, p_max);
     return q;
