@@ -121,6 +121,9 @@ class BundleNegative {
         /** Removes any goods from the bundle that have a quantity equal to 0. */
         void clearZeros();
 
+        /** Constructs a new Bundle consisting of all the non-negative quantities of this Bundle. */
+        virtual Bundle positive() const noexcept;
+
         BundleNegative& operator += (const BundleNegative &b);
         BundleNegative& operator -= (const BundleNegative &b);
         BundleNegative& operator *= (const double &m);
@@ -264,6 +267,11 @@ class Bundle final : public BundleNegative {
          * positive-quantity good in the current bundle.
          */
         bool covers(const Bundle &b) const noexcept;
+
+        /** Returns a copy of this Bundle.  This overrides BundleNegative::positive() since the
+         * current object is already a non-negative Bundle.
+         */
+        Bundle positive() const noexcept override;
 
         /** Returns a maximum common bundle between one bundle and another.  The resulting bundle
          * will contain all goods that are in both bundles (though quantities may be zero), and will
