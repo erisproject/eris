@@ -39,7 +39,7 @@ class IntraOptimizer : public Member {
 };
 
 /// Namespace for inter-period optimization implementations.
-namespace intraopt {}
+namespace interopt {}
 
 /** Base class for inter-period optimization.  This class has two primary methods: optimize(), which
  * calculates changes to apply for the next period, and apply() which applies those changes.
