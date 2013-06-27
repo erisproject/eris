@@ -184,8 +184,8 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
          * the first run, when the first 3 are skipped):
          *
          * - All inter-period optimizers have their optimize() methods invoked.
-         * - All agents have their advance() method called.
          * - All inter-period optimizers have apply() invoked.
+         * - All agents have their advance() method called.
          * - All intra-period optimizers have reset() called.
          * - All intra-period optimizers have their optimize() methods called until all optimizers
          *   return false.  If *any* optimizer returns true, all optimizers will be called again.

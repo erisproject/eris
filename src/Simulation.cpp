@@ -112,12 +112,12 @@ void Simulation::run() {
             inter.second->optimize();
         }
 
-        for (auto agent : agents()) {
-            agent.second->advance();
-        }
-
         for (auto inter : interOpts()) {
             inter.second->apply();
+        }
+
+        for (auto agent : agents()) {
+            agent.second->advance();
         }
     }
 
