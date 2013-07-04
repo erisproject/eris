@@ -42,13 +42,13 @@ void PriceFirm::produce(const Bundle &b) {
     if (!_output.covers(b))
         throw supply_mismatch();
     else if (capacityUsed >= capacity)
-        throw supply_constraint();
+        throw production_constraint();
 
     double produce = b / _output;
 
     if (capacityUsed + produce > capacity) {
         // We can't produce enough, so error out
-        throw supply_constraint();
+        throw production_constraint();
     }
     else {
         // Produce the needed amount

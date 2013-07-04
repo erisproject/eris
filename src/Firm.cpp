@@ -9,10 +9,12 @@ bool Firm::canSupply(const Bundle &b) const noexcept {
 Firm::supply_failure::supply_failure(std::string what) : std::runtime_error(what) {}
 Firm::supply_mismatch::supply_mismatch(std::string what) : supply_failure(what) {}
 Firm::supply_mismatch::supply_mismatch() : supply_failure("Firm does not supply requested goods") {}
-Firm::supply_constraint::supply_constraint(std::string what) : supply_failure(what) {}
-Firm::supply_constraint::supply_constraint()
+Firm::production_constraint::production_constraint(std::string what) : supply_failure(what) {}
+Firm::production_constraint::production_constraint()
     : supply_failure("Firm cannot supply requested bundle: capacity constraint would be violated")
 {}
+Firm::production_unavailable::production_unavailable()
+    : production_constraint("Firm has no instantaneous production ability") {}
 
 bool Firm::canProduce(const Bundle &b) const noexcept {
     return canProduceAny(b) >= 1.0;
@@ -28,7 +30,7 @@ bool Firm::produces(const Bundle &b) const noexcept {
 
 double Firm::produceAny(const Bundle &b) {
     try { produce(b); }
-    catch (supply_constraint&) { return 0.0; }
+    catch (production_constraint&) { return 0.0; }
     return 1.0;
 }
 

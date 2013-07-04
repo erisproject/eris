@@ -45,13 +45,15 @@ class Firm : public Agent {
 
         /** Tells the firm to supply the given Bundle.  Throws one of the following exceptions if the
          * firm cannot supply the given Bundle for some reason:
-         * - supply_failure    --- Some supply failure not covered by the below.  All exceptions
-         *                         thrown by this class, including the below, inherit from this class
-         * - supply_mismatch   --- the firm does not supply one or more of the goods in the bundle.
-         *                         This is not a constraint violation: the firm, even if
-         *                         unconstrained, simply cannot produce some of the requested goods.
-         * - supply_constraint --- supplying the requested bundle exceeds the firm's capacity (e.g.
-         *                         a production constraint, or some other supply limit).
+         *
+         * - supply_failure --- Some supply failure not covered by the below.  All exceptions thrown
+         *   by this class, including the below, inherit from this class
+         * - supply_mismatch --- the firm does not supply one or more of the goods in the bundle.
+         *   This is not a constraint violation: the firm, even if unconstrained, simply cannot
+         *   produce some of the requested goods.
+         * - production_constraint --- supplying the requested bundle exceeds the firm's capacity
+         *   (e.g.  a production constraint, or some other supply limit).
+         *
          * If no exception is thrown, the firm has supplied the requested bundle.
          */
         virtual void supply(const Bundle &b);
@@ -63,8 +65,8 @@ class Firm : public Agent {
          * between if a fraction of the bundle was supplied.
          *
          * This method may throw a supply_mismatch exception (or a subclass thereof) in the same
-         * situation supply() does, but will not throw a supply_constraint or supply_failure.  By
-         * default, this attempts to supply from current assets, and if insufficient, calls
+         * situation supply() does, but will not throw a production_constraint or supply_failure.
+         * By default, this attempts to supply from current assets, and if insufficient, calls
          * produceAny() for make up the difference.  If produceAny throws a supply_mismatch
          * exception *and* no multiple of the bundle can be provided from assets, this will rethrow
          * produceAny()'s exception.
@@ -74,7 +76,7 @@ class Firm : public Agent {
         /** An exception class that can be thrown by supply() to indicate a supply failure.
          * This may be subclassed as needed to provide for more specific supply errors.
          * \see supply_mismatch
-         * \see supply_constraint
+         * \see production_constraint
          */
         class supply_failure : public std::runtime_error {
             public:
@@ -92,15 +94,28 @@ class Firm : public Agent {
          /** Exception class thrown when supplying the requested bundle would exceeds the firm's
           * capacity (e.g. a production constraint, or some other supply limit).
           */
-        class supply_constraint : public supply_failure {
+        class production_constraint : public supply_failure {
             public:
                 /// Constructs the exception with the specified message
-                supply_constraint(std::string what);
+                production_constraint(std::string what);
                 /** Constructs the exception with a default message about a capacity constraint
                  * being violated.
                  */
-                supply_constraint();
+                production_constraint();
         };
+        /** Exception class thrown when asking a firm without instantaneous production ability to
+         * produce.
+         */
+        class production_unavailable : public production_constraint {
+            public:
+                /// Constructs the exception with the specified message
+                production_unavailable(std::string what);
+                /** Constructs the exception with a default message about this firm having no
+                 * instantaneous production ability.
+                 */
+                production_unavailable();
+        };
+
     protected:
         // The following are internal methods that subclasses should provide, but should only be
         // called externally indirectly through a call to the analogous supply...() function.
@@ -113,7 +128,8 @@ class Firm : public Agent {
 
         /** Analogous to (and called by) canSupplyAny(), this method should return a value between 0
          * and 1 indicating the proportion of the bundle the firm can instantly produce.  By default
-         * it returns 0, which should be appropriate for firms that don't instantaneously produce.
+         * it returns 0, which should be appropriate for firms that don't instantaneously produce,
+         * but will certainly need to be overridden by classes with within-period production.
          */
         virtual double canProduceAny(const Bundle &b) const noexcept;
 
@@ -130,17 +146,20 @@ class Firm : public Agent {
 
         /** This method is called by supply() if the current assets are insufficient to supply the
          * requested bundle.  This method must be provided by a subclass; non-production firms
-         * should throw either a supply_mismatch (the requested good is never supplied by this firm)
-         * or supply_constraint (the current assets are out, and the firm cannot produce more (or
-         * cannot produce at all)) exception.  Instantaneous production firms should, if unable to
-         * produce, throw one of these or some other supply_failure exception (or subclass thereof)
-         * as appropriate.
+         * should throw one of the following exceptions:
+         *
+         * - supply_mismatch --- the requested bundle is not produced by this firm
+         * - production_constraint --- the requested bundle would violate a production constraint
+         * - production_unavailable --- the firm does not have instantaneous production ability
+         * 
+         * Instantaneous production firms should, if unable to produce, throw one of the first two
+         * as appropriate; non-producing firms will generally throw either the first or third.
          */
         virtual void produce(const Bundle &b) = 0;
 
         /** This method is called by supplyAny() if the current assets are insufficient to supply
          * the requested bundle.  By default this method just calls produce(), returning 1.0 if it
-         * succeeds, 0.0 if it throws a supply_constraint, and passing through any other exception.
+         * succeeds, 0.0 if it throws a production_constraint, and passing through any other exception.
          */
         virtual double produceAny(const Bundle &b);
 };
