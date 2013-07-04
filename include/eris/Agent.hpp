@@ -17,7 +17,7 @@ class Agent : public Member {
          * required.  This could, for example, reset costs, reset costs, discard perishable output,
          * depreciate capital, etc.  By default clears the agent's assets.
          */
-        virtual void advance() { assets_ = Bundle(); }
+        virtual void advance() { assets_.clear(); }
     private:
         /** The current set of resources.  For a consumer, this could be the things to consume; for
          * a producer, this could be a stock of resources.

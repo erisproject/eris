@@ -121,6 +121,9 @@ class BundleNegative {
         /** Removes any goods from the bundle that have a quantity equal to 0. */
         void clearZeros();
 
+        /** Removes all goods/quantities from the Bundle. */
+        void clear();
+
         /** Constructs a new Bundle consisting of all the non-negative quantities of this Bundle. */
         virtual Bundle positive() const noexcept;
 

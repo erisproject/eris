@@ -22,6 +22,11 @@ void BundleNegative::clearZeros() {
     }
 }
 
+void BundleNegative::clear() {
+    for (auto it = goods_.begin(); it != goods_.end(); )
+        it = goods_.erase(it);
+}
+
 int BundleNegative::erase(const eris_id_t &gid) {
     return goods_.erase(gid);
 }
