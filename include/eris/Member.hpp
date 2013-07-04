@@ -38,7 +38,7 @@ class Member {
 
         /** Virtual method called just after the member is added to a Simulation object.  The
          * default implementation does nothing.  This method is typically used to record a
-         * dependency in the simulation.
+         * dependency in the simulation, but can also do initial setup.
          */
         virtual void added();
 
