@@ -159,7 +159,8 @@ class Firm : public Agent {
 
         /** This method is called by supplyAny() if the current assets are insufficient to supply
          * the requested bundle.  By default this method just calls produce(), returning 1.0 if it
-         * succeeds, 0.0 if it throws a production_constraint, and passing through any other exception.
+         * succeeds, 0.0 if it throws a production_constraint (or subclass thereof), and passing
+         * through any other exception.
          */
         virtual double produceAny(const Bundle &b);
 };
