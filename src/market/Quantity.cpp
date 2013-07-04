@@ -18,7 +18,7 @@ double Quantity::quantity(double p) const {
     return q;
 }
 
-void Quantity::buy(double q, BundleNegative &assets, double p_max) {
+void Quantity::buy(double q, Bundle &assets, double p_max) {
     if (q > quantity_)
         throw output_infeasible();
     if (q * price_ > p_max)
@@ -33,7 +33,7 @@ void Quantity::buy(double q, BundleNegative &assets, double p_max) {
     // FIXME: send payment to firms
 }
 
-double Quantity::buy(BundleNegative &assets) {
+double Quantity::buy(Bundle &assets) {
     if (quantity_ <= 0)
         throw output_infeasible();
 

@@ -74,7 +74,7 @@ bool MUPD::optimize() {
     auto sim = simulation();
     SharedMember<Consumer::Differentiable> consumer = sim->agent(con_id);
 
-    Bundle &a = consumer->assetsB();
+    Bundle &a = consumer->assets();
 
     Bundle a_no_money = a;
     double cash = a_no_money.remove(money);

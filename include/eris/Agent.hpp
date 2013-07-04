@@ -7,25 +7,11 @@ namespace eris {
 /** Base class for Agent objects. */
 class Agent : public Member {
     public:
-        /** Returns a BundleNegative reference to the agent's current assets.  Note that the assets
-         * variable may actually be a Bundle, rather than BundleNegative.  The default
-         * implementation returns a Bundle, though subclasses could override this.
-         */
-        virtual BundleNegative& assets() noexcept { return assets_; }
+        /// Returns a Bundle reference to the agent's current assets.
+        virtual Bundle& assets() noexcept { return assets_; }
 
         /// `const` access to the agent's current assets.
-        virtual const BundleNegative& assets() const noexcept { return assets_; }
-
-        /** Returns a Bundle reference to the agent's current assets.  This is simply a wrapper
-         * around assets() plus a recast to a Bundle, and will fail if the BundleNegative returned
-         * by assets() is not actually a Bundle.
-         *
-         * \throws std::bad_cast if the assets() BundleNegative cannot be cast to a Bundle.
-         */
-        Bundle& assetsB() { return dynamic_cast<Bundle&>(assets()); }
-
-        /// `const` version of assetsB()
-        const Bundle& assetsB() const { return dynamic_cast<const Bundle&>(assets()); }
+        virtual const Bundle& assets() const noexcept { return assets_; }
 
         /** Called when advancing a period.  Subclasses are intended to override (or enhance) as
          * required.  This could, for example, reset costs, reset costs, discard perishable output,

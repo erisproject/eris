@@ -35,18 +35,18 @@ double Firm::produceAny(const Bundle &b) {
 }
 
 bool Firm::supplies(const Bundle &b) const noexcept {
-    Bundle checkProduce;
-    const BundleNegative &a = assets();
+    Bundle check_produce;
+    const Bundle &a = assets();
     for (auto item : b) {
         eris_id_t g = item.first;
         if (a[g] <= 0)
-            checkProduce.set(g, 1);
+            check_produce.set(g, 1);
     }
 
-    if (checkProduce.empty()) // Assets has positive quantities of everything requested
+    if (check_produce.empty()) // Assets has positive quantities of everything requested
         return true;
 
-    return produces(checkProduce);
+    return produces(check_produce);
 }
 
 double Firm::canSupplyAny(const Bundle &b) const noexcept {
@@ -102,7 +102,7 @@ double Firm::supplyAny(const Bundle &b) {
             throw e;
         }
         // Otherwise ignore the exception: it isn't actually a supply mismatch since we have
-        // some positive supply from surplus.
+        // some positive supply in assets.
     }
 
     if (c > 0) {
@@ -115,6 +115,18 @@ double Firm::supplyAny(const Bundle &b) {
     // Add any onhand surplus back into assets
     assets() -= onhand % b;
     return c >= 1.0 ? 1.0 : onhand / b;
+}
+
+void FirmNoProd::produce(const Bundle &b) {
+    throw production_unavailable();
+}
+
+bool FirmNoProd::supplies(const Bundle &b) const noexcept {
+    return assets().covers(b);
+}
+
+double FirmNoProd::canSupplyAny(const Bundle &b) const noexcept {
+    return assets() / b;
 }
 
 }

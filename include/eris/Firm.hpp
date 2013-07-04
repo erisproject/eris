@@ -165,4 +165,31 @@ class Firm : public Agent {
         virtual double produceAny(const Bundle &b);
 };
 
+/** Abstract specialization of Firm intended for firms with no instantaneous production capacity.
+ * This has optimized versions of some of Firm's methods, plus an abstract produceNext method
+ * intended for inter-period production.
+ */
+class FirmNoProd : public Firm {
+    public:
+        /** Throws a Firm::production_unavailable exception if called.  FirmNoProd have no
+         * instantaneous production capabilities.
+         */
+        virtual void produce(const Bundle &b) override;
+        /// Overridden to optimize by avoiding production checks.
+        virtual bool supplies(const Bundle &b) const noexcept override;
+        /** Overridden to optimized by skipping production method calculations and calls.  Note that
+         * unlike the Firm version of this method, this will return values greater than 1 (when
+         * appropriate).
+         */
+        virtual double canSupplyAny(const Bundle &b) const noexcept override;
+
+        /** Virtual method intended to be used to perform inter-period production, typically called
+         * either within advance() or from an inter-period InterOpt optimizer.
+         *
+         * \param b the (minimum) Bundle to be made available for the next period, whether from
+         * existing assets or new production (or both).
+         */
+        virtual void produceNext(const Bundle &b) = 0;
+};
+
 }

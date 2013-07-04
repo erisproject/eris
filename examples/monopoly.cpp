@@ -62,7 +62,7 @@ int main() {
 
         double Q = 0;
         for (auto c : consumers) {
-            Q += c->assetsB()[x];
+            Q += c->assets()[x];
         }
         std::cout << "    Q[x]: " << Q << "\n";
         std::cout << "    Profit: " << Q*firm->price()[m] << "\n";
@@ -70,7 +70,7 @@ int main() {
 
     std::cout << "Final quantities:\n";
     for (auto c: consumers) {
-        std::cout << "  q[" << c->id() << "] = " << c->assetsB()[x] << "\n";
+        std::cout << "  q[" << c->id() << "] = " << c->assets()[x] << "\n";
     }
 
 }

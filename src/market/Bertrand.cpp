@@ -204,7 +204,7 @@ Bertrand::allocation Bertrand::allocate(double q) const {
     return a;
 }
 
-void Bertrand::buy(double q, BundleNegative &assets, double p_max) {
+void Bertrand::buy(double q, Bundle &assets, double p_max) {
     // FIXME: need to lock the economy until this transaction completes; otherwise supply() could
     // fail.
     allocation a = allocate(q);
@@ -230,7 +230,7 @@ void Bertrand::buy(double q, BundleNegative &assets, double p_max) {
     assets += q*output_unit;
 }
 
-double Bertrand::buy(BundleNegative &assets) {
+double Bertrand::buy(Bundle &assets) {
     Bundle assets_pos;
     Bundle *a = dynamic_cast<Bundle*>(&assets);
     if (!a) {

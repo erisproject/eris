@@ -41,10 +41,10 @@ class Quantity : public Market {
         virtual double quantity(double p) const override;
 
         /// Buys q units, paying at most p_max for them.
-        virtual void buy(double q, BundleNegative &assets, double p_max = std::numeric_limits<double>::infinity()) override;
+        virtual void buy(double q, Bundle &assets, double p_max = std::numeric_limits<double>::infinity()) override;
 
         /// Buys as much as possible with the provided assets bundle
-        virtual double buy(BundleNegative &assets) override;
+        virtual double buy(Bundle &assets) override;
 
         /** The ID of the automatically-created QMStepper inter-period optimizer attached to this
          * market.  Will be 0 if no such optimizer has been created.

@@ -27,7 +27,7 @@ double PriceFirm::canSupplyAny(const Bundle &b) const noexcept {
 
     // Otherwise get the supply maximum by adding assets on hand to the maximum production, then
     // dividing into the requested bundle
-    return (s*b + assetsB()) / b;
+    return (s*b + assets()) / b;
 }
 
 double PriceFirm::canProduceAny(const Bundle &b) const noexcept {

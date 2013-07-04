@@ -36,7 +36,7 @@ bool IncrementalBuyer::optimize() {
     auto sim = simulation();
     SharedMember<Consumer> consumer = sim->agent(con_id);
 
-    BundleNegative &a = consumer->assets();
+    Bundle &a = consumer->assets();
 
     double cash = a[money];
     if (cash <= 0) {
@@ -48,7 +48,7 @@ bool IncrementalBuyer::optimize() {
 
     // The amount of money to spend for this increment:
     const Bundle spending = (cash / (rounds-round+1)) * money_unit;
-    BundleNegative remaining = a - spending;
+    Bundle remaining = a - spending;
 
     // Stores the utility changes for each market
     std::map<eris_id_t, double> delta_u;
@@ -119,7 +119,7 @@ bool IncrementalBuyer::optimize() {
         // Ignore 0- or 1-element combinations (we already checked those above)
         if (comb_size < 2) return;
 
-        BundleNegative comb = remaining;
+        Bundle comb = remaining;
         for (auto mkt_id : combination) {
             auto market = sim->market(mkt_id);
 

@@ -217,7 +217,7 @@ TEST(Case02_Linear, Px6_Py6) {
     while (opt->optimize()) { ++rounds; }
 
     EXPECT_EQ(100, rounds);
-    Bundle a = con->assetsB();
+    Bundle a = con->assets();
     EXPECT_NEAR(100.0/6.0, a.remove(x), 1e-13);
     EXPECT_EQ(0, a);
     EXPECT_NEAR(100.0/3.0, con->currUtility(), 1e-13);
@@ -239,7 +239,7 @@ TEST(Case03_CobbDouglas, Px1_Py1_Pz1__a1_b1_c1) {
     while (opt->optimize()) { ++rounds; }
 
     EXPECT_EQ(600, rounds);
-    Bundle a = con->assetsB();
+    Bundle a = con->assets();
     EXPECT_NEAR(100, a.remove(x), 1e-12);
     EXPECT_NEAR(100, a.remove(y), 1e-12);
     EXPECT_NEAR(100, a.remove(z), 1e-12);
@@ -263,7 +263,7 @@ TEST(Case03_CobbDouglas, Px6_Py1_Pz1__a1_b1_c2) {
     while (opt->optimize()) { ++rounds; }
 
     EXPECT_EQ(600, rounds);
-    Bundle a = con->assetsB();
+    Bundle a = con->assets();
     // These can be off by quite a bit, since the algorithm typically works by
     // alternating between them at each step.  In the above, this won't happen
     // because it's crafted the exactly and equally split the purchase on every
@@ -291,7 +291,7 @@ TEST(Case03_CobbDouglas, Px1_Py1_Pz6__a0_b1_c3) {
     while (opt->optimize()) { ++rounds; }
 
     EXPECT_EQ(600, rounds);
-    Bundle a = con->assetsB();
+    Bundle a = con->assets();
     // Should get 1/4 of spending on y, 3/4 on z, none on x
     EXPECT_EQ(0, a[x]);
     EXPECT_NEAR(75,   a.remove(y), 1e-13);
@@ -316,7 +316,7 @@ TEST(Case03_CobbDouglas, Px1_Py6_Pz6__a1_b23_c13) {
     while (opt->optimize()) { ++rounds; }
 
     EXPECT_EQ(600, rounds);
-    Bundle a = con->assetsB();
+    Bundle a = con->assets();
     // Should get 1/2 of spending on x, 1/3 on y, 1/6 on z
     double goodX, goodY, goodZ;
     EXPECT_NEAR(goodX = 300.0*(1.0/2.0),     a.remove(x), 1e-12);
@@ -411,7 +411,7 @@ TEST(Case05_Leontief, Px1_Py6) {
     while (opt->optimize()) ++rounds;
 
     EXPECT_EQ(1000, rounds);
-    Bundle a = con->assetsB();
+    Bundle a = con->assets();
     EXPECT_NEAR(3.50, a.remove(x), 1e-13);
     EXPECT_NEAR(1.75, a.remove(y), 1e-13);
     EXPECT_EQ(0, a);
@@ -437,7 +437,7 @@ TEST(Case05_Leontief, Px1_Py1_Pz1) {
     while (opt->optimize()) ++rounds;
 
     EXPECT_EQ(100, rounds);
-    Bundle a = con->assetsB();
+    Bundle a = con->assets();
     EXPECT_NEAR(14, a.remove(z), 1e-13);
     EXPECT_EQ(0, a);
     EXPECT_NEAR(14, con->currUtility(), 1e-13);
@@ -465,7 +465,7 @@ TEST(Case06_Numeraire, Px1_Py6) {
     while (opt->optimize()) ++rounds;
 
     EXPECT_EQ(4, rounds);
-    Bundle a = con->assetsB();
+    Bundle a = con->assets();
     EXPECT_NEAR(4, a.remove(x), 1e-13);
     EXPECT_NEAR(96, a.remove(m), 1e-13);
     EXPECT_EQ(0, a);
@@ -482,7 +482,7 @@ TEST(Case06_Numeraire, Px6_Py1) {
     while (opt->optimize()) ++rounds;
 
     EXPECT_EQ(3, rounds);
-    Bundle a = con->assetsB();
+    Bundle a = con->assets();
     EXPECT_NEAR(3, a.remove(y), 1e-13);
     EXPECT_NEAR(97, a.remove(m), 1e-13);
     EXPECT_EQ(0, a);
@@ -499,7 +499,7 @@ TEST(Case06_Numeraire, Px1_Py1) {
     while (opt->optimize()) ++rounds;
 
     EXPECT_EQ(7, rounds);
-    Bundle a = con->assetsB();
+    Bundle a = con->assets();
     EXPECT_NEAR(4, a.remove(x), 1e-13);
     EXPECT_NEAR(3, a.remove(y), 1e-13);
     EXPECT_NEAR(93, a.remove(m), 13-13);
@@ -517,7 +517,7 @@ TEST(Case06_Numeraire, Px6_Py6) {
     while (opt->optimize()) ++rounds;
 
     EXPECT_EQ(0, rounds);
-    EXPECT_EQ(100*m1, con->assetsB());
+    EXPECT_EQ(100*m1, con->assets());
     EXPECT_EQ(107.5, con->currUtility());
 }
 TEST(Case06_Numeraire, Px1_Py1_I2) {
@@ -531,7 +531,7 @@ TEST(Case06_Numeraire, Px1_Py1_I2) {
     while (opt->optimize()) ++rounds;
 
     EXPECT_EQ(100, rounds);
-    Bundle a = con->assetsB();
+    Bundle a = con->assets();
     EXPECT_NEAR(1.5, a.remove(x), 1e-14);
     EXPECT_NEAR(0.5, a.remove(y), 1e-14);
     EXPECT_EQ(0, a);
@@ -551,7 +551,7 @@ TEST(Case06_Numeraire, Px1_Py1_I69) {
     while (opt->optimize()) ++rounds;
 
     EXPECT_EQ(100, rounds);
-    Bundle a = con->assetsB();
+    Bundle a = con->assets();
     const double expX = 0.57*6.9, expY = 0.43*6.9;
     EXPECT_NEAR(expX, a.remove(x), 1e-13);
     EXPECT_NEAR(expY, a.remove(y), 1e-13);
@@ -567,7 +567,7 @@ TEST(Case06_Numeraire, Px1_Py1_I69) {
     while (opt2->optimize()) ++rounds2;
 
     EXPECT_EQ(138, rounds2);
-    Bundle b = con->assetsB();
+    Bundle b = con->assets();
     EXPECT_NEAR(3.95, b.remove(x), 1e-13);
     EXPECT_NEAR(2.95, b.remove(y), 1e-13);
     EXPECT_EQ(0, b);
@@ -606,7 +606,7 @@ TEST(Case07_UBB, Test1) {
     double denom1 = (beta + 2*gamma) * (beta - gamma);
 
     EXPECT_EQ(999, rounds);
-    Bundle b = con->assetsB();
+    Bundle b = con->assets();
     EXPECT_NEAR(b.remove(x), alpha/(beta+2*gamma) - (beta+gamma) / denom1 * 1
             + gamma / denom1 * (1 + 1), 1e-11);
     EXPECT_NEAR(b.remove(y), alpha/(beta+2*gamma) - (beta+gamma) / denom1 * 1
@@ -676,7 +676,7 @@ TEST(Case07_UBB, Test2) {
     double simpM = 300 - 1*simpX - 6*simpY - 1*simpZ;
 
     EXPECT_EQ(1509, rounds);
-    Bundle b = con->assetsB();
+    Bundle b = con->assets();
     EXPECT_NEAR(simpX, b.remove(x), 1e-11);
     EXPECT_NEAR(simpY, b.remove(y), 1e-11);
     EXPECT_NEAR(simpZ, b.remove(z), 1e-11);
