@@ -25,7 +25,7 @@ class QMStepper : public Stepper {
              );
 
     protected:
-        /** Calculates whether or not the market price should be increase or decreased based on
+        /** Calculates whether or not the market price should be increased or decreased based on
          * whether the market sold out in the previous period.
          *
          * If it sold out, price is increased; if there was a surplus, price decreases.
