@@ -263,8 +263,21 @@ class Bundle final : public BundleNegative {
          * \sa covers
          */
         Bundle operator % (const Bundle &b) const;
-        /** Returns true iff the passed-in Bundle b has positive quantities for every
-         * positive-quantity good in the current bundle.
+        /** Returns true iff the current Bundle has positive quantities for every positive-quantity
+         * good in the passed-in Bundle b.
+         *
+         * Example:
+         *
+         *     Bundle a {{1,3}, {2, 4}};
+         *     Bundle b {{1,1}, {2, 1}, {3,1}};
+         *     Bundle c {{1,0}, {2, 100}, {3, 1000}};
+         *
+         *     a.covers(b); // FALSE: a has no quantity of good 3
+         *     a.covers(c); // FALSE: no quantity of 3
+         *     b.covers(a); // TRUE: b has positive quantities of every good in a
+         *     b.covers(c); // TRUE: same
+         *     c.covers(a); // FALSE: a has no (positive) quantity of good 1
+         *     c.covers(b); // FALSE: c does not have positive quantities of good 1, but b does
          */
         bool covers(const Bundle &b) const noexcept;
 
