@@ -19,7 +19,7 @@ class FixedIncome : public InterOptimizer {
         virtual void optimize() const override;
 
         /** Adds the income bundle to the agent's assets. */
-        virtual void apply() override;
+        virtual void postAdvance() override;
 
         /** The bundle that is added at the beginning of each period. */
         Bundle income;

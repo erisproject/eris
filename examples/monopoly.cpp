@@ -65,7 +65,7 @@ int main() {
             Q += c->assets()[x];
         }
         std::cout << "    Q[x]: " << Q << "\n";
-        std::cout << "    Profit: " << Q*firm->price()[m] << "\n";
+        std::cout << "    Profit: " << Q*firm->price()[m] << ", direct: " << firm->assets()[m] << "\n";
     }
 
     std::cout << "Final quantities:\n";

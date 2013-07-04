@@ -107,7 +107,7 @@ const Simulation::DepMap& Simulation::deps() { return depends_on_; }
 void Simulation::run() {
     if (++iteration_ > 1) {
         // Skip all this on the first iteration
-        
+
         for (auto inter : interOpts()) {
             inter.second->optimize();
         }
@@ -118,6 +118,10 @@ void Simulation::run() {
 
         for (auto agent : agents()) {
             agent.second->advance();
+        }
+
+        for (auto inter : interOpts()) {
+            inter.second->postAdvance();
         }
     }
 

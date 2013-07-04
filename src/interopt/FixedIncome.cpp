@@ -7,7 +7,7 @@ FixedIncome::FixedIncome(const Agent &agent, Bundle income) : income(income), ag
 
 void FixedIncome::optimize() const {}
 
-void FixedIncome::apply() {
+void FixedIncome::postAdvance() {
     simulation()->agent(agent_id_)->assets() += income;
 }
 

@@ -59,6 +59,9 @@ class PriceStepper : public Stepper {
 
     private:
         const eris_id_t firm_;
+        // We need a fixed Bundle telling us what money is so that we can compare profits.  Thus
+        // this stores the *initial* firm price, since that will be denominated in money.  We can't
+        // use the current firm price since the whole point of this InterOpt is to change that.
         const Bundle price_;
 
         double prev_profit_ = 0;
