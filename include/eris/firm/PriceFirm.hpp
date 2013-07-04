@@ -52,8 +52,8 @@ class PriceFirm : public Firm {
         virtual void advance();
 
     protected:
-        Bundle _price, _output;
-        double capacity, capacityUsed = 0;
+        Bundle price_, output_;
+        double capacity_, capacity_used_ = 0;
 
         /** Returns the multiple, potentially infinity, of Bundle b that this firm is able to
          * produce before hitting its capacity constraint.  Returns 0 if the firm has already hit

@@ -4,20 +4,20 @@
 namespace eris { namespace firm {
 
 PriceFirm::PriceFirm(Bundle output, Bundle price, double capacity) :
-    _price(price), _output(output), capacity(capacity) {}
+    price_(price), output_(output), capacity_(capacity) {}
 
 
 void PriceFirm::setPrice(Bundle price) noexcept {
-    _price = price;
+    price_ = price;
 }
 const Bundle& PriceFirm::price() const noexcept {
-    return _price;
+    return price_;
 }
 void PriceFirm::setOutput(Bundle output) noexcept {
-    _output = output;
+    output_ = output;
 }
 const Bundle& PriceFirm::output() const noexcept {
-    return _output;
+    return output_;
 }
 
 double PriceFirm::canSupplyAny(const Bundle &b) const noexcept {
@@ -31,64 +31,64 @@ double PriceFirm::canSupplyAny(const Bundle &b) const noexcept {
 }
 
 double PriceFirm::canProduceAny(const Bundle &b) const noexcept {
-    if (!_output.covers(b) || capacityUsed >= capacity) return 0.0;
+    if (!output_.covers(b) || capacity_used_ >= capacity_) return 0.0;
 
     // Return the maximum that we can produce, divided by the desired bundle.  Note that this could
     // well be infinity!
-    return ((capacity - capacityUsed) * _output) / b;
+    return ((capacity_ - capacity_used_) * output_) / b;
 }
 
 void PriceFirm::produce(const Bundle &b) {
-    if (!_output.covers(b))
+    if (!output_.covers(b))
         throw supply_mismatch();
-    else if (capacityUsed >= capacity)
+    else if (capacity_used_ >= capacity_)
         throw production_constraint();
 
-    double produce = b / _output;
+    double produce = b / output_;
 
-    if (capacityUsed + produce > capacity) {
+    if (capacity_used_ + produce > capacity_) {
         // We can't produce enough, so error out
         throw production_constraint();
     }
     else {
         // Produce the needed amount
-        capacityUsed += produce;
+        capacity_used_ += produce;
 
         // Record any new surplus as a result of production:
-        assets() += b % _output;
+        assets() += b % output_;
     }
 }
 
 double PriceFirm::produceAny(const Bundle &b) {
-    if (!_output.covers(b))
+    if (!output_.covers(b))
         throw supply_mismatch();
-    else if (capacityUsed >= capacity)
+    else if (capacity_used_ >= capacity_)
         return 0.0;
 
     // We want to produce this much in total:
-    double want = b / _output;
+    double want = b / output_;
     double produce = want;
 
-    bool constrained = capacityUsed + produce > capacity;
+    bool constrained = capacity_used_ + produce > capacity_;
     if (constrained) {
         // We can't produced the full amount desired; produce as much as possible
         // (the max is just here as a sanity check, to avoid numerical imprecision errors)
-        produce = std::max<double>(capacity - capacityUsed, 0.0);
-        capacityUsed = capacity;
+        produce = std::max<double>(capacity_ - capacity_used_, 0.0);
+        capacity_used_ = capacity_;
     }
-    else capacityUsed += produce;
+    else capacity_used_ += produce;
 
     // Production might have resulted in excess of some goods (for example, when we want (4,1)
     // but produce in ratios of (1,1), we'll have an excess of (0,3)), so skim off any excess
     // that may have resulted and add it to the surplus assets
-    assets() += (produce * _output) % b;
+    assets() += (produce * output_) % b;
 
     return constrained ? produce / want : 1.0;
 }
 
 void PriceFirm::advance() {
     Firm::advance();
-    capacityUsed = 0;
+    capacity_used_ = 0;
 }
 
 } }
