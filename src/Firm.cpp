@@ -129,4 +129,9 @@ double FirmNoProd::canSupplyAny(const Bundle &b) const noexcept {
     return assets() / b;
 }
 
+void FirmNoProd::ensureNext(const Bundle &b) {
+    if (!(assets() >= b))
+        produceNext(b - Bundle::common(assets(), b));
+}
+
 }
