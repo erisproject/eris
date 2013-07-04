@@ -183,11 +183,22 @@ class FirmNoProd : public Firm {
          */
         virtual double canSupplyAny(const Bundle &b) const noexcept override;
 
-        /** Virtual method intended to be used to perform inter-period production, typically called
-         * either within advance() or from an inter-period InterOpt optimizer.
+        /** Calls to ensure that there is at least the given Bundle available in assets for the next
+         * period.  If current assets are sufficient, this does nothing; otherwise it calls
+         * produceNext with the Bundle of quantities required to hit the target Bundle.
          *
-         * \param b the (minimum) Bundle to be made available for the next period, whether from
-         * existing assets or new production (or both).
+         * \param b the Bundle of quantities needed in assets() next period.
+         */
+        virtual void ensureNext(const Bundle &b);
+
+        /** Called to produce at least b for next period.  This is typically called indirectly
+         * through ensureNext(), which takes into account current (undepreciated) assets to hit a
+         * target capacity, which is typically updated by an optimizer such as QFStepper.
+         *
+         * \param b the (minimum) Bundle to be produced and added to current assets().
+         *
+         * \sa QFirm
+         * \sa QFStepper
          */
         virtual void produceNext(const Bundle &b) = 0;
 };
