@@ -64,6 +64,24 @@ Bundle Bundle::operator % (const Bundle &b) const {
     return ret;
 }
 
+double Bundle::multiples(const Bundle &b) const noexcept {
+    double mult = std::numeric_limits<double>::infinity();
+    for (auto g : b) {
+        if (g.second > 0) {
+            double mine = (*this)[g.first];
+            if (mine == 0) return 0.0;
+            double m = mine / g.second;
+            if (m < mult) mult = m;
+        }
+    }
+
+    if (mult == std::numeric_limits<double>::infinity() and *this == 0)
+        // Both are 0 bundles
+        return std::numeric_limits<double>::quiet_NaN();
+
+    return mult;
+}
+
 Bundle Bundle::common(const BundleNegative &a, const BundleNegative &b) noexcept {
     Bundle result;
     for (auto ag : a) {

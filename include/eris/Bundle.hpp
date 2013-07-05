@@ -250,6 +250,7 @@ class Bundle final : public BundleNegative {
          * For example, if \f$a = (2,3,1), b = (1,2,2.5)\f$ then \f$a / b = 2\f$
          *
          * \sa operator%
+         * \sa multiples
          * \sa covers
          */
         double operator / (const Bundle &b) const noexcept;
@@ -266,6 +267,35 @@ class Bundle final : public BundleNegative {
          * \sa covers
          */
         Bundle operator % (const Bundle &b) const;
+
+        /** Returns the number of multiples of b that are contained in the current Bundle.
+         * Mathematically, `a.multiples(b)` returns the largest value \f$m\f$ such that \f$a \gtreq
+         * mb\f$.  If both are zero bundles, returns (quiet) NaN.
+         *
+         * This is intended to answer the question "How many multiples of b can be created from a?",
+         * while Bundle division answers "How many multiples of b does it take to have a Bundle at
+         * least as large as a?"
+         *
+         * Note: this is equivalent to the numerical inverse of reversed Bundle division, i.e.
+         * `a.multiples(b) == 1.0 / (b / a)`, but is slightly more efficient, particularly when b
+         * contains substantially fewer goods than a.
+         *
+         * Example:
+         *
+         *     Bundle a {{1,100}, {2,10}};
+         *     Bundle b {         {2,1}};
+         *     Bundle c {{1,5}};
+         *     a / b;          // Infinity
+         *     b / a;          // 0.1
+         *     a.multiples(b); // 10
+         *     b.multiples(a); // 0
+         *     a / c;          // Infinity
+         *     c / a;          // 0.05
+         *     a.multiples(c); // 20
+         *     c.multiples(a); // 0
+         */
+
+        double multiples(const Bundle &b) const noexcept;
         /** Returns true iff the current Bundle has positive quantities for every positive-quantity
          * good in the passed-in Bundle b.
          *
