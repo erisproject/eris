@@ -787,6 +787,52 @@ TEST(AdvancedAlgebra, BundleModulusBundle) {
     EXPECT_EQ(0, bb[6] % bb[7]);
     EXPECT_EQ(0, bb[7] % bb[6]);
 }
+TEST(AdvancedAlgebra, multiples) {
+    Bundle a  {{1,100}, {2,10}};
+    Bundle b  {         {2,1}};
+    Bundle b0 {{1,0},   {2,1}};
+    Bundle c  {{1,5}};
+    Bundle c0 {{1,5},   {2,0}};
+    Bundle z;
+    Bundle z0 {{1,0},   {2,0}};
+
+    EXPECT_EQ(numeric_limits<double>::infinity(), a/b);
+    EXPECT_EQ(numeric_limits<double>::infinity(), a/b0);
+    EXPECT_EQ(0.1, b/a);
+    EXPECT_EQ(0.1, b0/a);
+    EXPECT_EQ(10, a.multiples(b));
+    EXPECT_EQ(10, a.multiples(b0));
+    EXPECT_EQ(0, b.multiples(a));
+    EXPECT_EQ(0, b0.multiples(a));
+
+    EXPECT_EQ(numeric_limits<double>::infinity(), a/c);
+    EXPECT_EQ(numeric_limits<double>::infinity(), a/c0);
+    EXPECT_EQ(0.05, c/a);
+    EXPECT_EQ(0.05, c0/a);
+    EXPECT_EQ(20, a.multiples(c));
+    EXPECT_EQ(20, a.multiples(c0));
+    EXPECT_EQ(0, c.multiples(a));
+    EXPECT_EQ(0, c0.multiples(a));
+
+    EXPECT_EQ(numeric_limits<double>::infinity(), a/z);
+    EXPECT_EQ(numeric_limits<double>::infinity(), a/z0);
+    EXPECT_EQ(0, z/a);
+    EXPECT_EQ(0, z0/a);
+    EXPECT_EQ(0, z.multiples(a));
+    EXPECT_EQ(0, z0.multiples(a));
+    EXPECT_EQ(numeric_limits<double>::infinity(), a.multiples(z));
+    EXPECT_EQ(numeric_limits<double>::infinity(), a.multiples(z0));
+
+    EXPECT_TRUE(isnan(z / z));
+    EXPECT_TRUE(isnan(z0 / z));
+    EXPECT_TRUE(isnan(z / z0));
+    EXPECT_TRUE(isnan(z0 / z0));
+    EXPECT_TRUE(isnan(z.multiples(z)));
+    EXPECT_TRUE(isnan(z0.multiples(z)));
+    EXPECT_TRUE(isnan(z.multiples(z0)));
+    EXPECT_TRUE(isnan(z0.multiples(z0)));
+}
+
 TEST(AdvancedAlgebra, covers) {
     COMPARE_BUNDLES;
 
