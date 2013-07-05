@@ -50,7 +50,8 @@ int main() {
         sim->createIntraOpt<MUPD>(c, m);
 
         // Give them some income:
-        sim->createInterOpt<FixedIncome>(c, 100*m1)->apply();
+        c->assets() += 100*m1;
+        sim->createInterOpt<FixedIncome>(c, 100*m1);
     }
 
     for (int i = 0; i < 100; i++) {
