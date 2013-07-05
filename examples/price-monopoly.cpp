@@ -1,4 +1,4 @@
-/// Simple example of a monopolist.
+/// Simple example of a price-setting monopolist
 
 #include <eris/Eris.hpp>
 #include <eris/Simulation.hpp>
