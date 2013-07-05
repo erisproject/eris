@@ -44,9 +44,9 @@ class QFirm : public FirmNoProd {
         /** Called to depreciate any current on-hand stock according to the depreciation parameter
          * given during construction.  Only good quantities that are in the output unit given during
          * construction will be changed.  Note that zero-quantity goods in the output bundle *are*
-         * depreciated as well.
+         * depreciated as well.  Returns the post-depreciation quantities.
          */
-        virtual void depreciate();
+        virtual Bundle depreciate() const;
 
         /** Called to produce at least b for next period.  This is typically called indirectly via
          * ensureNext().  The default implementation produces multiples of output() at no cost;

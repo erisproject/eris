@@ -6,11 +6,16 @@ QFirm::QFirm(Bundle out, double initial_capacity, double depr) : capacity(initia
     depreciation(depr);
 }
 
-void QFirm::depreciate() {
-    Bundle &a = assets();
-    for (auto g : output()) {
-        a.set(g.first, a[g.first] * depreciation_);
+Bundle QFirm::depreciate() const {
+    const Bundle &a = assets();
+    Bundle remaining;
+    double left_mult = 1 - depreciation();
+    if (left_mult > 0) {
+        for (auto g : output()) {
+            remaining.set(g.first, a[g.first] * left_mult);
+        }
     }
+    return remaining;
 }
 
 double QFirm::depreciation() const noexcept {
@@ -26,7 +31,9 @@ const Bundle& QFirm::output() const noexcept {
 }
 
 void QFirm::advance() {
-    depreciate();
+    Bundle leftover = depreciate();
+    FirmNoProd::advance(); // Clears assets
+    assets() += leftover;
     ensureNext(capacity * output());
 }
 
