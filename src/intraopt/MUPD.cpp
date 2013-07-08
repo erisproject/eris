@@ -26,16 +26,23 @@ MUPD::allocation MUPD::spending_allocation(const unordered_map<eris_id_t, double
             if (m.first == 0) {
                 // Holding cash
                 a.bundle += money_unit * m.second;
-                a.quantity[m.first] = m.second;
+                a.quantity[m.first] += m.second;
             }
             else {
                 // Otherwise query the market for the resulting quantity
                 auto mkt = sim->market(m.first);
 
-                // FIXME: feasible?
-                a.quantity[m.first] = mkt->quantity(m.second * price_ratio(mkt));
+                auto q = mkt->quantity(m.second * price_ratio(mkt));
 
-                a.bundle += mkt->output_unit * a.quantity[m.first];
+                a.quantity[m.first] = q.quantity;
+                a.bundle += mkt->output_unit * q.quantity;
+
+                if (q.constrained) {
+                    // The market is constrained, so add any leftover (unspent) money back into the
+                    // bundle
+                    a.bundle += mkt->price_unit * q.unspent;
+                    a.quantity[0] += q.unspent / price_ratio(mkt);
+                }
             }
         }
     }

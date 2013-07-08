@@ -36,9 +36,10 @@ class Quantity : public Market {
         /// Returns the pricing information for purchasing q units in this market.
         virtual price_info price(double q) const override;
 
-        /// Returns the quantity (in terms of multiples of the output Bundle) that p units of the
-        /// price Bundle will purchase.
-        virtual double quantity(double p) const override;
+        /** Returns the quantity (in terms of multiples of the output Bundle) that p units of the
+         * price Bundle will purchase.
+         */
+        virtual Market::quantity_info quantity(double p) const override;
 
         /// Buys q units, paying at most p_max for them.
         virtual void buy(double q, Bundle &assets, double p_max = std::numeric_limits<double>::infinity()) override;

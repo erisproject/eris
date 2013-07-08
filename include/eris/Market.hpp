@@ -50,6 +50,27 @@ class Market : public Member {
             double marginalFirst;
         };
 
+        /** Represents the "quantity" that a given price can buy.  In addition to the quantity of
+         * output, this carries information on whether the requested spending amount can actually be
+         * spent, or whether a market capacity constraint would be hit.
+         *
+         * \sa quantity(double)
+         */
+        struct quantity_info {
+            /// The quantity purchasable
+            double quantity;
+            /// True if the purchase would hit a market constraint
+            bool constrained;
+            /** The price amount that would be actually spent.  This is simply the provided spending
+             * amount when .contrained is false, but will be less when a constraint would be hit.
+             */
+            double spent;
+            /** The amount (in multiples of the market's price Bundle) of unspent income.  Exactly
+             * equal to .price - input_price.  Will be 0 when .constrained is false.
+             */
+            double unspent;
+        };
+
         /** Returns the price information for buying the given multiple of the output bundle.
          * Returned is a price_info struct with .feasible set to true iff the quantity can be
          * produced in this market.  If feasible, .total, .marginal, and .marginalFirst are set to
@@ -74,10 +95,18 @@ class Market : public Member {
          */
         virtual price_info price(double q) const = 0;
 
-        /** Returns the quantity (in terms of multiples of the output Bundle) that p units of the
-         * price Bundle will purchase.
+        /** Returns the quantity that (in terms of multiples of the output Bundle) that p units of the
+         * price Bundle will purchase.  The information is returned in a quantity_info struct, which
+         * has two important fields:
+         * - .quantity the quantity that can be bought for the given price
+         * - .constrained will be true if the provided price would hit a supply constraint in this
+         *   market.  In such a case .quantity is the constrained amount and .spend contains the
+         *   actual amount spend (which will be less than the input price).
+         * - .price equals the multiple of the price Bundle required to buy .quantity units of the
+         *   market's output Bundle.  This simply equals the input price when .constrained is false;
+         *   when .constrained is true this will be a value less than the provided price.
          */
-        virtual double quantity(double p) const = 0;
+        virtual quantity_info quantity(double p) const = 0;
 
         /** Buys q times the output Bundle for price at most p_max * price Bundle.  Removes the
          * actual purchase price (which could be less than p_max * price) from the provided assets

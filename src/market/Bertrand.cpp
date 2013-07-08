@@ -10,7 +10,7 @@ Market::price_info Bertrand::price(double q) const {
     return allocate(q).p;
 }
 
-double Bertrand::quantity(double price) const {
+Market::quantity_info Bertrand::quantity(double price) const {
     // Keys are prices, values are aggregate quantities available
     std::map<double, double> price_quantity;
 
@@ -24,22 +24,24 @@ double Bertrand::quantity(double price) const {
     }
 
     double quantity = 0;
+    double unspent = price;
     for (auto pf : price_quantity) {
         double p = pf.first;
         double q = pf.second;
-        if (price > p*q) {
+        if (unspent > p*q) {
             // Buying everything at this price level doesn't exhaust income
             quantity += q;
-            price -= p*q;
+            unspent -= p*q;
         }
         else {
             // Otherwise buy as much as possible at this price level, and we're done.
-            quantity += price/p;
+            quantity += unspent/p;
+            unspent = 0;
             break;
         }
     }
 
-    return quantity;
+    return { .quantity=quantity, .constrained=(price > 0), .spent=(price-unspent), .unspent=unspent };
 }
 
 Bertrand::allocation Bertrand::allocate(double q) const {
@@ -231,21 +233,11 @@ void Bertrand::buy(double q, Bundle &assets, double p_max) {
 }
 
 double Bertrand::buy(Bundle &assets) {
-    Bundle assets_pos;
-    Bundle *a = dynamic_cast<Bundle*>(&assets);
-    if (!a) {
-        a = &assets_pos;
-        for (auto g : assets) {
-            if (g.second > 0)
-                assets_pos.set(g.first, g.second);
-        }
-    }
-
     // FIXME: need to lock the market between the quantity call and the end of the buy() call
-    double p_max = *a / price_unit;
-    double q = quantity(p_max);
-    buy(q, assets, p_max);
-    return q;
+    double p_max = assets.multiples(price_unit);
+    auto q = quantity(p_max);
+    buy(q.quantity, assets, p_max);
+    return q.quantity;
 }
 
 void Bertrand::addFirm(SharedMember<Firm> f) {

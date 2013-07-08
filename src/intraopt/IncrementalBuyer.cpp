@@ -62,7 +62,7 @@ bool IncrementalBuyer::optimize() {
     // market->quantity() can be a relatively expensive operation, so cache its
     // results.  This stores the market m quantity for price spending/n in
     // q_cache[m][n]
-    std::unordered_map<eris_id_t, std::unordered_map<int, double>> q_cache;
+    std::unordered_map<eris_id_t, std::unordered_map<int, Market::quantity_info>> q_cache;
 
     for (auto mkt : sim->markets()) {
         auto mkt_id = mkt.first;
@@ -79,12 +79,24 @@ bool IncrementalBuyer::optimize() {
         }
 
         // Figure out how much `spending' buys in this market:
-        double q = market->quantity(spending / market->price_unit);
+        double spend = spending / market->price_unit;
+        auto qinfo = market->quantity(spend);
+
+        if (qinfo.quantity == 0) {
+            // Don't consider a market that doesn't give any output (e.g. an exhausted market).
+            continue;
+        }
 
         // Cache the value, as we may need it again and ->quantity can be expensive
-        q_cache[mkt_id].emplace(1, q);
+        q_cache[mkt_id].emplace(1, qinfo);
 
-        double mkt_delta_u = consumer->utility(remaining + q*market->output_unit) - current_utility;
+        Bundle cons = remaining + qinfo.quantity * market->output_unit;
+        // If spending hit a constraint, we need to add the unused spending back in (as cash)
+        if (qinfo.constrained) {
+            cons += qinfo.unspent * market->price_unit;
+        }
+
+        double mkt_delta_u = consumer->utility(cons) - current_utility;
         delta_u[market] = mkt_delta_u;
         if (mkt_delta_u > best_delta_u) {
             best[0] = market;
@@ -128,7 +140,13 @@ bool IncrementalBuyer::optimize() {
             if (!q_cache[mkt_id].count(comb_size))
                 q_cache[mkt_id].emplace(comb_size, market->quantity(spend_each / market->price_unit));
 
-            comb += q_cache[mkt_id][comb_size] * market->output_unit;
+            auto qinfo = q_cache[mkt_id][comb_size];
+
+            comb += qinfo.quantity * market->output_unit;
+
+            // Re-add any unspent income due to market constraints
+            if (qinfo.constrained)
+                comb += qinfo.unspent * market->price_unit;
         }
 
         double mkt_delta_u = consumer->utility(comb) - current_utility;
@@ -154,8 +172,8 @@ bool IncrementalBuyer::optimize() {
     a += tiny_extra;
     for (auto mkt_id : best) {
         auto market = sim->market(mkt_id);
-        double q = q_cache.at(mkt_id).at(comb_size);
-        market->buy(q, a);
+        auto q = q_cache.at(mkt_id).at(comb_size);
+        market->buy(q.quantity, a);
     }
 
     // If leftover money isn't at least "2 epsilons" above 0, assume it's a numerical error and
