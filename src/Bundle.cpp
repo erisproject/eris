@@ -103,14 +103,20 @@ Bundle Bundle::reduce(BundleNegative &a, BundleNegative &b) {
 
 Bundle BundleNegative::positive() const noexcept {
     Bundle b;
-    for (auto g : *this) {
-        if (g.second >= 0) b.set(g.first, g.second);
-    }
+    for (auto g : *this) { if (g.second > 0) b.set(g.first, g.second); }
     return b;
 }
 
-Bundle Bundle::positive() const noexcept {
-    return *this;
+Bundle BundleNegative::negative() const noexcept {
+    Bundle b;
+    for (auto g : *this) { if (g.second < 0) b.set(g.first, -g.second); }
+    return b;
+}
+
+Bundle BundleNegative::zeros() const noexcept {
+    Bundle b;
+    for (auto g : *this) { if (g.second == 0) b.set(g.first, g.second); }
+    return b;
 }
 
 // All of the ==/</<=/>/>= methods are exactly the same, aside from the operator; this macro handles

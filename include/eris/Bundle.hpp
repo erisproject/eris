@@ -124,8 +124,26 @@ class BundleNegative {
         /** Removes all goods/quantities from the Bundle. */
         void clear();
 
-        /** Constructs a new Bundle consisting of all the non-negative quantities of this Bundle. */
-        virtual Bundle positive() const noexcept;
+        /** Constructs a new Bundle consisting of all the strictly positive quantities of this
+         * BundleNegative.  Note that goods with a quantity of 0 are not included. */
+        Bundle positive() const noexcept;
+
+        /** Constructs a new Bundle consisting of all the strictly negative quantities on this
+         * BundleNegative, converted to positive values.  Note that goods with a quantity of 0 are
+         * not included.
+         *
+         * For example:
+         *
+         *     BundleNegative new {{1, -2}, {2, 1}, {3, 0}};
+         *     new.negative() == Bundle {{1, 2}, {3, 0}};
+         *
+         * This is equivalent to (-bundle).positive(), but more efficient.
+         */
+        Bundle negative() const noexcept;
+
+        /** Returns all goods with quantities of 0.  Complementary to positive() and negative().
+         */
+        Bundle zeros() const noexcept;
 
         BundleNegative& operator += (const BundleNegative &b);
         BundleNegative& operator -= (const BundleNegative &b);
@@ -313,11 +331,6 @@ class Bundle final : public BundleNegative {
          *     c.covers(b); // FALSE: c does not have positive quantities of good 1, but b does
          */
         bool covers(const Bundle &b) const noexcept;
-
-        /** Returns a copy of this Bundle.  This overrides BundleNegative::positive() since the
-         * current object is already a non-negative Bundle.
-         */
-        Bundle positive() const noexcept override;
 
         /** Returns a maximum common bundle between one bundle and another.  The resulting bundle
          * will contain all goods that are in both bundles (though quantities may be zero), and will
