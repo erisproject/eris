@@ -37,7 +37,7 @@ namespace eris {
  * is also overloaded, but different from the above: a != b is equivalent to !(a == b).  Goods that
  * are missing from one bundle or the other are implicitly assumed to have value 0.  Comparison can
  * also be done against a constant in which case the quantity of each good must satisfy the relation
- * against the provided constant.
+ * against the provided constant (again except for !=, which is the negation of ==).
  *
  * Some implications of this behaviour:
  * - a >= b is *not* equivalent to (a > b || a == b).  e.g. a=(2,2), b=(2,1).
