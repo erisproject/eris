@@ -8,11 +8,7 @@
 namespace eris { namespace intraopt {
 
 IncrementalBuyer::IncrementalBuyer(const Consumer &consumer, eris_id_t money, int rounds) :
-    con_id(consumer), money(money), rounds(rounds) {}
-
-void IncrementalBuyer::reset() {
-    round = 0;
-}
+    con_id(consumer), money(money), money_unit(Bundle {{ money, 1 }}), rounds(rounds) {}
 
 void IncrementalBuyer::permuteThreshold(const double &thresh) noexcept {
     threshold = (isnan(thresh) or thresh > 1.0) ? 1.0 : thresh;
@@ -28,9 +24,21 @@ void IncrementalBuyer::permuteZeros(const bool &pz) noexcept {
 
 /** \todo need to worry about locking the markets until we decide which one to buy from.
  */
-bool IncrementalBuyer::optimize() {
-    if (round < 0) throw std::runtime_error("optimized() called before reset()!");
+void IncrementalBuyer::optimize() {
+    round = 0;
+    while (oneRound()) {}
+}
 
+void IncrementalBuyer::apply() {
+    for (auto &res : reservations)
+        res->buy();
+}
+
+void IncrementalBuyer::reset() {
+    reservations.clear();
+}
+
+bool IncrementalBuyer::oneRound() {
     ++round;
 
     auto sim = simulation();
@@ -43,8 +51,6 @@ bool IncrementalBuyer::optimize() {
         // All out of money
         return false;
     }
-
-    const Bundle money_unit {{ money, 1 }};
 
     // The amount of money to spend for this increment:
     const Bundle spending = (cash / (rounds-round+1)) * money_unit;
@@ -156,31 +162,34 @@ bool IncrementalBuyer::optimize() {
         }
     });
 
-    // Finished: best contains the best set of market combinations, so buy it and then we're done.
-    
+    // Finished: best contains the best set of market combinations, so reserve it and then we're done.
+
     int comb_size = best.size();
     if (comb_size == 1 and best[0] == 0) {
         // None or the markets, nor any combination of the markets, gave any positive utility
-        // change, so don't buy anything; returning false indicates that nothing changed.
+        // change, so don't buy anything; returning false indicates that nothing changed.  This also
+        // bypasses any remaining steps, since they would just find the same thing.
         return false;
     }
 
-    // Add a tiny fraction of the increment to assets, just in case numerical precision would
-    // possibly push assets negative (which raises an exception).  We'll subtract this off again (if
-    // possible) after buying.
-    const Bundle tiny_extra = 1e-10 * spending;
+    // Add a tiny extra bit of cash just to make sure we don't hit a negativity constraint when
+    // reserving the quantity.  We subtract it off again after reserving (and add again during
+    // apply()).
+    const Bundle tiny_extra = 1e-13 * spending;
     a += tiny_extra;
+
     for (auto mkt_id : best) {
         auto market = sim->market(mkt_id);
         auto q = q_cache.at(mkt_id).at(comb_size);
-        market->buy(q.quantity, a);
+        reservations.push_front(market->reserve(q.quantity, &(consumer->assets())));
     }
 
-    // If leftover money isn't at least "2 epsilons" above 0, assume it's a numerical error and
-    // reset it to zero.  Otherwise subtract off the tiny amount we added, above.
-    if (a[money] < 2*tiny_extra)
+    if (a[money] < 2*tiny_extra[money])
+        // If leftover money isn't at least "2 epsilons" above 0, assume it's a numerical error and
+        // reset it to zero (thus allowing up to epsilon of error in either direction).
         a.set(money, 0);
     else
+        // Otherwise subtract off the tiny amount we added, above.
         a -= tiny_extra;
 
     return true;

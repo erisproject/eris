@@ -24,7 +24,8 @@ namespace eris { namespace firm {
 class PriceFirm : public Firm {
     public:
         /** Constructs a PriceFirm that produces any multiple of Bundle out for Bundle price, up to
-         * a maximum (cumulative) capacity of capacity*out.
+         * a maximum (cumulative) capacity of capacity*out.  If omitted, capacity defaults to
+         * infinity.
          */
         PriceFirm(Bundle out, Bundle price, double capacity = std::numeric_limits<double>::infinity());
 
@@ -60,17 +61,20 @@ class PriceFirm : public Firm {
          * its capacity constraint, or the requested Bundle cannot be produced with the firm's
          * output Bundle.
          */
-        virtual double canProduceAny(const Bundle &b) const noexcept;
+        virtual double canProduceAny(const Bundle &b) const noexcept override;
 
-        /** Produces the requested Bundle.  If this succeeded without throwing an exception, the
+        /** Produces the requested Bundle and adds it to assets.  If this succeeded without throwing an exception, the
          * firm's available capacity will be appropriately lowered.
          */
-        virtual void produce(const Bundle &b);
-        /** Produces the requested Bundle, or if not possible, the largest multiple of the Bundle
-         * that is available.  Returns the multiple of the Bundle actually produced, which is always
-         * a value between 0 and 1.
+        virtual Bundle produce(const Bundle &b) override;
+
+        /** Reserves production of the given Bundle.
+         * \sa Firm::reserveProduction
          */
-        virtual double produceAny(Bundle const &b);
+        virtual void reserveProduction(const Bundle &reserve) override;
+
+        /// Checks current excess production to see if production levels can be decreased.
+        virtual void reduceExcessProduction() override;
 };
 
 } }

@@ -206,7 +206,7 @@ Bertrand::allocation Bertrand::allocate(double q) const {
     return a;
 }
 
-void Bertrand::buy(double q, Bundle &assets, double p_max) {
+Market::Reservation Bertrand::reserve(double q, Bundle *assets, double p_max) {
     // FIXME: need to lock the economy until this transaction completes; otherwise supply() could
     // fail.
     allocation a = allocate(q);
@@ -215,29 +215,28 @@ void Bertrand::buy(double q, Bundle &assets, double p_max) {
     if (a.p.total > p_max) throw low_price();
 
     Bundle cost = a.p.total*price_unit;
-    if (!(assets >= cost)) throw insufficient_assets();
+    if (!(*assets >= cost)) throw insufficient_assets();
 
-    // Remove the customer's payment:
-    assets -= cost;
+    double total_q = 0, total_p = 0;
 
-    // Get the firms to produce:
-    for (auto firm_share : a.shares) {
+    std::unordered_map<eris_id_t, BundleNegative> firm_transfers;
+
+    // Figure out how much each firm contributes to the reservation
+    for (auto &firm_share : a.shares) {
         auto firm = suppliers.at(firm_share.first);
-        auto sh = firm_share.second;
-        firm->supply(sh.q*output_unit);
-        firm->assets() += price_unit*sh.p;
+        auto share = firm_share.second;
+
+        total_q += share.q;
+        total_p += share.p;
+        firm_transfers[firm] += share.p * -price_unit + share.q * output_unit;
     }
 
-    // Transfer the production to the customer
-    assets += q*output_unit;
-}
+    Reservation res = createReservation(total_q, total_p, assets);
+    for (auto &ft : firm_transfers) {
+        res->firmReserve(ft.first, ft.second);
+    }
 
-double Bertrand::buy(Bundle &assets) {
-    // FIXME: need to lock the market between the quantity call and the end of the buy() call
-    double p_max = assets.multiples(price_unit);
-    auto q = quantity(p_max);
-    buy(q.quantity, assets, p_max);
-    return q.quantity;
+    return res;
 }
 
 void Bertrand::addFirm(SharedMember<Firm> f) {

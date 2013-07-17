@@ -2,6 +2,7 @@
 #include <eris/Consumer.hpp>
 #include <eris/Optimizer.hpp>
 #include <eris/Simulation.hpp>
+#include <forward_list>
 
 namespace eris { namespace intraopt {
 
@@ -33,6 +34,9 @@ namespace eris { namespace intraopt {
  * spending may not, of course, be optimal (e.g. consider \f$u(x,y)=min(x,2y)\f$), but as long as
  * spending_chunks is reasonably high, this will get close to an optimal solution.
  *
+ * \todo This optimizer should now be able to back-track by cancelling reservations, which should
+ * allow working around the failure of this class to handle substitute goods properly.
+ *
  * \todo This optimizer doesn't currently consider Good::Discrete goods (i.e. goods with an
  * increment not equal to 0).  Here's how, I think, they could be handled:
  * - Pick one of the discrete goods.
@@ -62,6 +66,10 @@ class IncrementalBuyer : public IntraOptimizer {
                 eris_id_t money,
                 int rounds = 100
                 );
+
+        /// No default constructor
+        IncrementalBuyer() = delete;
+
         /** Specifies the threshold for considering buying from a combination of markets, as a
          * proportion of the largest utility gain.  Thus 1.0 means to only consider combinations
          * when there are multiple individual options tied for highest utility gain; 0.9 considers
@@ -86,27 +94,36 @@ class IncrementalBuyer : public IntraOptimizer {
          */
         void permuteZeros(const bool &pz) noexcept;
 
-        /** Performs one round of optimization.  Each time this is called, the consumer spends a
-         * fraction of its income on whichever goods yield the highest utility gain.
+        /** Performs optimization.  When this is called the consumer takes the number of steps
+         * specified in the constructor, purchasing whichever goods yields the highest utility gain
+         * at each step.
          */
-        virtual bool optimize() override;
+        virtual void optimize() override;
 
-        /** Resets the optimization for a new round.  This will always be called before the first
-         * call to optimize() in an optimization period (including the first period).
-         *
-         * \todo Consumer needs to call this somehow when advancing, which probably means
-         * eris::Firm->advanced needs to move to eris::Agent, or possibly even eris::Member.
+        /** Completes any purchases calculated and reserved in optimize(). */
+        virtual void apply() override;
+
+        /** Resets any optimization, discarding reservations previously calculated in optimize(), if
+         * any.
          */
         virtual void reset() override;
+
     protected:
         const eris_id_t con_id;
         const eris_id_t money;
+        const Bundle money_unit;
         const int rounds = 100;
         int round = -1;
         double threshold = 1.0 - 1e-8;
         bool permute_zeros = false;
+        std::forward_list<Market::Reservation> reservations;
 
         virtual void added() override;
+
+        /** Performance one step of optimization, spending (approximately) 1/rounds of income each
+         * time.  This is called repeatedly by optimize().
+         */
+        virtual bool oneRound();
 };
 
 }}

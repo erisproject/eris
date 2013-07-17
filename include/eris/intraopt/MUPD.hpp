@@ -3,6 +3,9 @@
 #include <eris/Consumer.hpp>
 #include <eris/Optimizer.hpp>
 #include <eris/Simulation.hpp>
+#include <unordered_map>
+#include <unordered_set>
+#include <forward_list>
 
 namespace eris { namespace intraopt {
 
@@ -30,7 +33,13 @@ class MUPD : public IntraOptimizer {
          * typically, with no other changes to the economy between calls, optimize() will return
          * false on the second call.
          */
-        virtual bool optimize() override;
+        virtual void optimize() override;
+
+        /// Resets optimization, discarding any reservations previously calculated in optimize().
+        virtual void reset() override;
+
+        /// Applies spending calculated and reserved in optimize().
+        virtual void apply() override;
 
         /** The relative tolerance level at which optimization stops. */
         double tolerance;
@@ -48,6 +57,8 @@ class MUPD : public IntraOptimizer {
             Bundle bundle;
             /// A map of market -> quantities purchased
             std::unordered_map<eris_id_t, double> quantity;
+            /// A set of constrained markets (i.e. where we can't increase quantity any more)
+            std::unordered_set<eris_id_t> constrained;
         };
 
         /** Calculates the Bundle that the given spending allocation will buy.  A market id of 0 is
@@ -75,6 +86,9 @@ class MUPD : public IntraOptimizer {
 
         /// Declares a dependency on the consumer when added to a simulation
         virtual void added() override;
+
+        /// Reservations populated during optimize(), applied during apply().
+        std::forward_list<Market::Reservation> reservations;
 };
 
 } }

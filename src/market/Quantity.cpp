@@ -1,52 +1,96 @@
 #include <eris/market/Quantity.hpp>
 #include <eris/interopt/QMStepper.hpp>
 #include <eris/Simulation.hpp>
+#include <unordered_map>
 
 namespace eris { namespace market {
 
-Quantity::Quantity(Bundle output_unit, Bundle price_unit, bool add_qmstepper) :
-    Market(output_unit, price_unit), add_qmstepper_(add_qmstepper) {}
+Quantity::Quantity(Bundle output_unit, Bundle price_unit, double initial_price, bool add_qmstepper) :
+    Market(output_unit, price_unit), add_qmstepper_(add_qmstepper) {
+    price_ = initial_price <= 0 ? 1 : initial_price;
+}
 
 Market::price_info Quantity::price(double q) const {
-    if (q > quantity_ or (q == 0 and quantity_ <= 0)) return { .feasible=false };
+    double available = firmQuantities(q);
+    if (q > available or (q == 0 and available <= 0)) return { .feasible=false };
     else return { .feasible=true, .total=q*price_, .marginal=price_, .marginalFirst=price_ };
 }
 
-double Quantity::quantity(double p) const {
-    double q = p / price_;
-    if (q > quantity_) q = quantity_;
+double Quantity::price() const {
+    return price_;
+}
+
+double Quantity::firmQuantities(double max) const {
+    double q = 0;
+    for (auto f : suppliers) {
+        q += f.second->assets().multiples(output_unit);
+        if (q >= max) return q;
+    }
     return q;
 }
 
-void Quantity::buy(double q, Bundle &assets, double p_max) {
-    if (q > quantity_)
+Market::quantity_info Quantity::quantity(double p) const {
+    double q = p / price_;
+    double available = firmQuantities(q);
+    bool constrained = q > available;
+    if (constrained) q = available;
+    double spent = constrained ? price_*q : p;
+    return { .constrained=constrained, .quantity=q, .spent=spent, .unspent=p-spent };
+}
+
+Market::Reservation Quantity::reserve(double q, Bundle *assets, double p_max) {
+    double available = firmQuantities(q);
+    if (q > available)
         throw output_infeasible();
     if (q * price_ > p_max)
         throw low_price();
     Bundle payment = q * price_ * price_unit;
-    if (not(assets >= payment))
+    if (not(*assets >= payment))
         throw insufficient_assets();
 
-    assets -= payment;
-    assets += q * output_unit;
-    quantity_ -= q;
-    // FIXME: send payment to firms
-}
+    // Attempt to divide the purchase across all firms.  This might take more than one round,
+    // however, if an equal share would exhaust one or more firms' assets.
+    std::unordered_set<eris_id_t> qfirm;
 
-double Quantity::buy(Bundle &assets) {
-    if (quantity_ <= 0)
-        throw output_infeasible();
+    Reservation res = createReservation(q, q*price_, assets);
 
-    double q = assets.positive() / price_unit;
-    if (q > quantity_) q = quantity_;
+    std::unordered_map<eris_id_t, BundleNegative> firm_transfers;
 
-    Bundle payment = q * price_ * price_unit;
-    assets -= payment;
-    assets += q * output_unit;
-    quantity_ -= q;
-    // FIXME: send payment to firms
+    while (q > 0) {
+        qfirm.clear();
+        double qmin = 0; // Will store the maximum quantity that all firms can supply
+        for (auto f : suppliers) {
+            double qi = f.second->assets().multiples(output_unit);
+            if (qi > 0) {
+                if (qi < qmin or qfirm.empty())
+                    qmin = qi;
+                qfirm.insert(f.first);
+            }
+        }
 
-    return q;
+        if (qfirm.empty()) {
+            // This shouldn't happen, since firmQuantities said we had enough aggregate capacity!
+            throw output_infeasible();
+        }
+
+        double qeach = qmin;
+        if (qeach*qfirm.size() > q) {
+            // No firm is constrained, so just divide everything still to be supplied evenly
+            qeach = q / qfirm.size();
+        }
+        // else one or more firm is constrained, so supply qmin then repeat the loop
+
+        BundleNegative transfer = qeach * (price_ * -price_unit + output_unit);
+        for (auto f : qfirm) {
+            firm_transfers[f] += transfer;
+            q -= qeach;
+        }
+    }
+
+    for (auto &ft : firm_transfers)
+        res->firmReserve(ft.first, ft.second);
+
+    return res;
 }
 
 void Quantity::added() {

@@ -181,21 +181,31 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         const DepMap& deps();
 
         /** Runs one period of period of the simulation.  The following happens, in order (except on
-         * the first run, when the first 3 are skipped):
+         * the first run, when the inter-period optimizer calls are skipped):
          *
-         * - All inter-period optimizers have their optimize() methods invoked.
-         * - All inter-period optimizers have apply() invoked.
-         * - All agents have their advance() method called.
-         * - All inter-period optimizers have postAdvance() called.
-         * - All intra-period optimizers have reset() called.
-         * - All intra-period optimizers have their optimize() methods called until all optimizers
-         *   return false.  If *any* optimizer returns true, all optimizers will be called again.
-         *   The specific pattern and order of these calls is not guaranteed.
+         * - Inter-period optimization (except on first run):
+         *   - All inter-period optimizers have their optimize() methods invoked.
+         *   - All inter-period optimizers have apply() invoked.
+         *   - All agents have their advance() method called.
+         *   - All inter-period optimizers have postAdvance() called.
+         * - Intra-period optimization:
+         *   - All intra-period optimizers have reset() called.
+         *   - All intra-period optimizers have their optimize() methods called to calculate an
+         *     optimal strategy (to be applied in apply()).
+         *   - All intra-period optimizers have their postOptimize() methods called.
+         *     - If one or more of the postOptimize() methods returns true, intra-period
+         *       optimization is restarted.
+         *   - All intra-period optimizers have their apply() method called.
          */
         void run();
 
-        /// Accesses the number of run throughs of the intra-period optimizers in the previous run() call.
-        int intraopt_loops = -1;
+        /** Contains the number of rounds of the intra-period optimizers in the previous run() call.
+         * A round is defined by a reset() call, a set of optimize() calls, and a set of
+         * postOptimize() calls.  A multi-round optimization will only occur when there are
+         * postOptimize()-implementing intraopt optimizers.
+         *
+         */
+        int intraopt_count = -1;
 
     private:
         void insertAgent(const SharedMember<Agent> &agent);

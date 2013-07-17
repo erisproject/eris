@@ -38,27 +38,16 @@ double PriceFirm::canProduceAny(const Bundle &b) const noexcept {
     return ((capacity_ - capacity_used_) * output_) / b;
 }
 
-void PriceFirm::produce(const Bundle &b) {
+Bundle PriceFirm::produce(const Bundle &b) {
     if (!output_.covers(b))
         throw supply_mismatch();
-    else if (capacity_used_ >= capacity_)
-        throw production_constraint();
 
-    double produce = b / output_;
-
-    if (capacity_used_ + produce > capacity_) {
-        // We can't produce enough, so error out
-        throw production_constraint();
-    }
-    else {
-        // Produce the needed amount
-        capacity_used_ += produce;
-
-        // Record any new surplus as a result of production:
-        assets() += b % output_;
-    }
+    // Produce the smallest multiple of output_ required to cover b.  e.g. if b is (3,3) and output_
+    // is (1,3), we produce (3,9).
+    return (b / output_) * output_;
 }
 
+/*
 double PriceFirm::produceAny(const Bundle &b) {
     if (!output_.covers(b))
         throw supply_mismatch();
@@ -84,6 +73,31 @@ double PriceFirm::produceAny(const Bundle &b) {
     assets() += (produce * output_) % b;
 
     return constrained ? produce / want : 1.0;
+}*/
+
+void PriceFirm::reserveProduction(const Bundle &reserve) {
+    if (!output_.covers(reserve))
+        throw supply_mismatch();
+
+    double need = reserve / output_;
+    if (need + capacity_used_ > capacity_)
+        throw production_constraint();
+
+    Bundle to_produce = need * output_;
+    Bundle extra = to_produce - reserve;
+
+    capacity_used_ += need;
+    reserved_production_ += reserve;
+    if (extra != 0)
+        excess_production_ += extra;
+}
+
+void PriceFirm::reduceExcessProduction() {
+    double excess = excess_production_.multiples(output_);
+    if (excess > 0) {
+        capacity_used_ -= excess;
+        excess_production_ -= excess*output_;
+    }
 }
 
 void PriceFirm::advance() {

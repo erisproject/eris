@@ -125,21 +125,34 @@ void Simulation::run() {
         }
     }
 
-    for (auto intra : intraOpts()) {
-        intra.second->reset();
-    }
-
-    intraopt_loops = 0;
+    intraopt_count = 0;
     bool done = false;
     while (!done) {
         done = true;
-        ++intraopt_loops;
+        ++intraopt_count;
 
         for (auto intra : intraOpts()) {
-            if (intra.second->optimize())
+            intra.second->reset();
+        }
+
+        for (auto intra : intraOpts()) {
+            intra.second->optimize();
+        }
+
+        for (auto intra : intraOpts()) {
+            if (intra.second->postOptimize()) {
                 done = false;
+                // Short circuit the rest of the postOptimize() calls, since we're redoing
+                // everything anyway:
+                break;
+            }
         }
     }
+
+    // We got through optimize() and postOptimize() with false returns (i.e. nothing changed), so
+    // now let them apply whatever they calculated
+    for (auto intra : intraOpts())
+        intra.second->apply();
 }
 
 }

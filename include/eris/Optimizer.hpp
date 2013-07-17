@@ -18,20 +18,40 @@ namespace intraopt {}
  */
 class IntraOptimizer : public Member {
     public:
-        /** Perform optimization.  Returns true if anything changed, false otherwise.  This will be
-         * called repeatedly, across all simulation optimizers, until every optimizer returns false.
-         * Any IntraOptimizer implementation that can return true indefinitely *without outside
-         * state changes* is broken and will cause the simulation to fail.
-         */
-        virtual bool optimize() = 0;
-
-        /** Called at the beginning of a period before any optimizations in that period.  By default
-         * does nothing.  This will always be called before optimize()---even for the very first
-         * optimization period---and so can do any pre-optimization initialization required.
+        /** Perform optimization, calculating (but not applying) any actions of an agent.  This will
+         * be called once, but may be called again if some optimizers indicate changes in their
+         * postOptimize() methods.
          *
-         * This method is not intended for inter-period optimization changes; you should use an
-         * InterOptimizer instance for that.  This method is intended simply to reset things like
-         * assets, consumption bundles, etc. when a new period begins.
+         * \sa Simulation::run()
+         */
+        virtual void optimize() = 0;
+
+        /** Performs an optimization run after all agents have had their optimize() methods called.
+         * This should return true if it changes any state that requires any agent to optimize,
+         * false if nothing needs to be changed.  This is typically used by Markets that require
+         * price adjustments to induce market clearing.  A default implementation is provided which
+         * does nothing and returns false.
+         *
+         * \sa Simulation::run()
+         */
+        virtual bool postOptimize() { return false; }
+
+        /** Applies changes calculated by optimize() (and possibly postOptimize()) calls.  This will
+         * always be called exactly once per simulation run.
+         *
+         * \sa Simulation::run()
+         */
+        virtual void apply() = 0;
+
+        /** Called at the beginning of an optimization round before optimize() calls.  By default
+         * does nothing.  This will always be called before optimize()---even for the very first
+         * optimization period---and so can do any pre-optimization initialization required.  Note,
+         * however, that this may be called multiple times in the same simulation round if some
+         * optimizer has a postOptimize().
+         *
+         * This method is not suitable for inter-period optimization changes; you should use an
+         * InterOptimizer instance for that.  This method is intended simply to reset calculated
+         * assets, purchases, etc. when a new optimization calculation begins.
          *
          * The default implementation does nothing.
          */

@@ -5,6 +5,8 @@
 #include <eris/Good.hpp>
 #include <eris/Bundle.hpp>
 #include <map>
+#include <memory>
+#include <forward_list>
 
 namespace eris {
 
@@ -25,7 +27,6 @@ namespace eris {
  * Subclasses must, at a minimum, define the price(q), quantity(p), and (both) buy(...) methods:
  * this abstract class has no allocation implementation.
  */
-
 class Market : public Member {
     public:
         virtual ~Market() = default;
@@ -71,6 +72,73 @@ class Market : public Member {
             double unspent;
         };
 
+        /** Contains a reservation of market purchase.  The market will consider the reserved
+         * quantity unavailable until a call of either buy() (which completes the transfer) or
+         * release() (which cancels the transfer) is called.
+         *
+         * If the object is destroyed before being passed to buy() or release(), release() will be
+         * called automatically.
+         *
+         * This object is not intended to be used directly, but rather through the Reservation
+         * unique_ptr typedef.
+         */
+        class Reservation_ final {
+            private:
+                Reservation_(SharedMember<Market> market, double quantity, double price, Bundle *assets);
+                friend class Market;
+
+                // Disable empty and copy constructors
+                Reservation_() = delete;
+                Reservation_(const Reservation_ &res) = delete;
+
+                std::forward_list<Firm::Reservation> firm_reservations_;
+
+                Bundle b_;
+
+                Bundle *assets;
+
+            public:
+                /** Destructor.  If this Reservation is destroyed without having been completed or aborted
+                 * (via buy() or release()), it will be aborted (by calling release() on its Market).
+                 */
+                ~Reservation_();
+                /// True if the Reservation has not yet been completed or aborted.
+                bool active = true;
+                /** If active is false, this value will be true if the Reservation was completed, false if
+                 * aborted.  The value is not defined if active is true.
+                 */
+                bool completed = false;
+                /// The quantity (as a multiple of the Market's output Bundle) that this reservation is for.
+                const double quantity;
+                /// The price (as a multiple of the Market's price Bundle) of this reservation.
+                const double price;
+                /// The market to which this Reservation applies.
+                const SharedMember<Market> market;
+                /** Reserves the given BundleNegative transfer from the given firm and stores the
+                 * result, to be transferred if buy() is called, and aborted if release() is called.
+                 * Positive amounts are to be transferred from the firm, negative amounts are to be
+                 * transferred to the firm.  This is intended to be called only by Market subclasses.
+                 */
+                void firmReserve(const eris_id_t &firm_id, BundleNegative transfer);
+                /** Calls buy() on the market.  Calling obj->buy() is a shortcut for calling
+                 * `obj->market->buy(obj)`.
+                 */
+                void buy();
+                /** Calls release() on the market.  This is equivalent to calling
+                 * `obj->market->release(obj)`.
+                 */
+                void release();
+
+                /** Exception class thrown if attempting to buy or release a Reservation that has
+                 * already been bought or released.
+                 */
+                class inactive_exception : public std::exception {
+                    public: const char* what() const noexcept override { return "Attempt to buy/release an inactive market Reservation"; }
+                };
+        };
+
+        typedef std::unique_ptr<Reservation_> Reservation;
+
         /** Returns the price information for buying the given multiple of the output bundle.
          * Returned is a price_info struct with .feasible set to true iff the quantity can be
          * produced in this market.  If feasible, .total, .marginal, and .marginalFirst are set to
@@ -108,10 +176,32 @@ class Market : public Member {
          */
         virtual quantity_info quantity(double p) const = 0;
 
-        /** Buys q times the output Bundle for price at most p_max * price Bundle.  Removes the
-         * actual purchase price (which could be less than p_max * price) from the provided assets
-         * bundle, transferring it to the seller(s), and adds the purchased amount into the assets
-         * Bundle.
+        /** Reserves q times the output Bundle for price at most p_max * price Bundle.  Removes
+         * the purchase price (which could be less than p_max * price) from the provided assets
+         * Bundle.  When the reservation is completed, the amount is transfered to the firm; if
+         * aborted, the amount is returned to the assets Bundle.  Returns a Reservation object that
+         * should be passed in to buy() to complete the transfer, or release() to abort the sale.
+         *
+         * \param q the quantity to reserve, as a multiple of the market's output_unit.
+         * \param assets a pointer to the agent's assets Bundle from which to transfer payment.
+         * This pointer will be stored and reused to complete or cancel the reservation when buy()
+         * or release() is called.
+         * \param p_max the maximum price to pay, as a multiple of the market's price_unit.
+         * Optional; if omitted, defaults to infinity (i.e. no limit).
+         *
+         * This method is intended to be called in the optimize() method of an IntraOptimizer
+         * instance, stored, and completed via buy() in the Optimizer's apply() method.
+         *
+         * The following shows the intended code design:
+         *
+         *     class ... : IntraOptimizer {
+         *         public:
+         *             void optimize() { ...; reservation = market->reserve(q, &assets(); }
+         *             void apply() { ...; reservation->buy(); }
+         *         private:
+         *             Market::Reservation &reservation;
+         *     }
+         *
          * \throws Market::output_infeasible if q*output is not available in this market
          * \throws Market::low_price if q*output is available, but its cost would exceed p_max
          * \throws Market::insufficient_assets if q and p_max are acceptable, but the assets Bundle
@@ -119,17 +209,46 @@ class Market : public Member {
          * when assets are less than p_max*price: the actual transaction price could be low enough
          * that assets is sufficient.
          */
-        virtual void buy(double q, Bundle &assets, double p_max = std::numeric_limits<double>::infinity()) = 0;
+        virtual Reservation reserve(double q, Bundle *assets, double p_max = std::numeric_limits<double>::infinity()) = 0;
 
-        /** Buys as much quantity as can be purchased with the given assets.  Returns the multiple
-         * of the output() Bundle purchased.  The assets Bundle will be reduced by the price of the
-         * purchased quantity, and increased by the purchased Bundle.
+        /** Completes a reservation made with reserve().  Transfers the reserved assets into the
+         * assets Bundle supplied when creating the reservation, and transfers the reserved payment
+         * to the firm(s) supplying the output.
          *
-         * \throws Market::output_infeasible if no market output is available at all (the same
-         * condition as price(0) returning .feasible=false).
+         * The provided Reservation object is updated to record that it has been purchased.
+         *
+         * \throws Market::already_completed if the given reservation has already been completed or
+         * cancelled.
+         *
+         * Subclasses looking to override this method should override buy_() instead, which this
+         * method calls.
          */
-        virtual double buy(Bundle &assets) = 0;
+        void buy(Reservation &res);
 
+        /** Aborts a reservation made with reserve().
+         *
+         * Subclasses looking to override this method should override release_() instead, which this
+         * method calls.
+         */
+        void release(Reservation &res);
+
+    protected:
+        /** Completes a reservation made with reserve().  Transfers the reserved assets into the
+         * provided Bundle, and transfers the reserved payment out of the provided Bundle.
+         *
+         * The provided Reservation object is updated to record that it has been purchased.
+         *
+         * \throws Market::already_completed if the given reservation has already been bought.
+         */
+        virtual void buy_(Reservation_ &res);
+
+        /** Aborts a reservation made with reserve().  This is called by both the public release()
+         * method and by the destructor of Reservation objects that go out of scope without being
+         * completed.
+         */
+        virtual void release_(Reservation_ &res);
+
+    public:
         /** Adds f to the firms supplying in this market. */
         virtual void addFirm(SharedMember<Firm> f);
 
@@ -155,6 +274,7 @@ class Market : public Member {
             public: const char* what() const noexcept override { return "Assets insufficient for purchasing requested output"; }
         };
 
+
         /** The base unit of this market's output; quantities produced/purchased are in terms of
          * multiples of this Bundle.  Subclasses are not required to make use of this bundle.
          */
@@ -165,8 +285,16 @@ class Market : public Member {
         const Bundle price_unit;
 
     protected:
+        /// Firms participating in this market
         std::unordered_map<eris_id_t, SharedMember<Firm>> suppliers;
+
+        /** Creates a Reservation and returns it.  For use by subclasses only.  The reserved payment
+         * (i.e. p*price_unit) will be transferred out of the assets Bundle and held in the
+         * Reservation until completed or cancelled.
+         */
+        Reservation createReservation(double q, double p, Bundle *assets);
 };
+
 
 
 }

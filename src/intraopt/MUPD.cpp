@@ -40,6 +40,7 @@ MUPD::allocation MUPD::spending_allocation(const unordered_map<eris_id_t, double
                 if (q.constrained) {
                     // The market is constrained, so add any leftover (unspent) money back into the
                     // bundle
+                    a.constrained.insert(mkt);
                     a.bundle += mkt->price_unit * q.unspent;
                     a.quantity[0] += q.unspent / price_ratio(mkt);
                 }
@@ -69,15 +70,15 @@ double MUPD::calc_mu_per_d(
         mu += g.second * con->d(b, g.first);
 
     double q = a.quantity.count(mkt) ? a.quantity.at(mkt) : 0;
-    // FIXME: make sure market->price(0) actually gives back a marginal price.
     auto pricing = mkt->price(q);
-    // FIXME: check feasible?
+
+    // FIXME: check feasible
+    if (!pricing.feasible) throw "FIXME: check feasible";
 
     return mu / pricing.marginal * price_ratio(mkt);
 }
 
-bool MUPD::optimize() {
-    
+void MUPD::optimize() {
     auto sim = simulation();
     SharedMember<Consumer::Differentiable> consumer = sim->agent(con_id);
 
@@ -86,10 +87,9 @@ bool MUPD::optimize() {
     Bundle a_no_money = a;
     double cash = a_no_money.remove(money);
     if (cash <= 0) {
-        // All out of money
-        return false;
+        // No money, nothing to do.
+        return;
     }
-
 
     unordered_map<eris_id_t, double> spending;
 
@@ -109,6 +109,11 @@ bool MUPD::optimize() {
             continue;
         }
 
+        if (!market->price(0).feasible) {
+            // The market cannot produce any output (i.e. it is exhausted/constrained).
+            continue;
+        }
+
         // We assign an exact value later, once we know how many eligible markets there are.
         spending[mkt_id] = 0.0;
     }
@@ -116,7 +121,7 @@ bool MUPD::optimize() {
     unsigned int markets = spending.size()-1; // -1 to account for the cash non-market (id=0)
 
     // If there are no viable markets, there's nothing to do.
-    if (markets == 0) return false;
+    if (markets == 0) return;
 
     // Start out with equal spending in every market, no spending in the 0 (don't spend)
     // pseudo-market
@@ -140,7 +145,10 @@ bool MUPD::optimize() {
         eris_id_t highest = 0, lowest = 0;
         double highest_u = mu_per_d[0], lowest_u = std::numeric_limits<double>::infinity();
         for (auto m : mu_per_d) {
-            // Consider all markets (even ones we aren't currently spending in) for best return
+            // Consider all markets (even eligible ones that we aren't currently spending in) for
+            // best return, but exclude markets that are constrained (since we can't spend any more
+            // in them).
+            // FIXME: do this last bit?
             if (m.second > highest_u) {
                 highest = m.first;
                 highest_u = m.second;
@@ -183,9 +191,6 @@ bool MUPD::optimize() {
             // We need to transfer less than everything, so use a binary search to figure out the
             // optimum transfer.
             //
-            // FIXME: is 10 here the best choice?  Perhaps 5 or 15 or some other number would be
-            // better?  This should probably be configurable.
-            //
             // Take 10 binary steps (which means we get granularity of 1/1024).  However, since
             // we'll probably come in here again (comparing this good to other goods) before
             // optimize() finishes, this gets amplified.
@@ -199,7 +204,6 @@ bool MUPD::optimize() {
             double transfer = 0.5;
 
             int debugiters = 0;
-            // 0.25^-100 == 3.9e-31, so this 3e-31 corresponds to 100 iterations
             for (int i = 0; transfer != last_transfer and i < 100; ++i) {
                 debugiters++;
                 last_transfer = transfer;
@@ -228,38 +232,54 @@ bool MUPD::optimize() {
         final_alloc = alloc;
     }
 
-    // Safety check: make sure we're actually increasing utility.
+    // Safety check: make sure we're actually increasing utility; if not, don't do anything.
     if (consumer->utility(a_no_money + final_alloc.bundle) <= consumer->currUtility()) {
-        return false;
+        return;
     }
 
-    // If we haven't held back on any spending, add a tiny fraction of the amount of cash we are
-    // spending to assets (to prevent numerical errors causing insufficient assets exceptions), then
-    // subtract it off after purchasing.
+    // If we haven't held back on any spending (i.e. we're spending everything, probably because
+    // this is the last round), add a tiny fraction of the amount of cash we are spending to assets
+    // (to prevent numerical errors causing insufficient assets exceptions), then subtract it off
+    // (if possible) after reserving.
     double extra = 0;
     if (spending[0] == 0.0) {
-        extra = cash * 1e-10;
+        extra = cash * 1e-13;
         a += extra * money_unit;
     }
 
-    bool purchased = false;
     for (auto m : final_alloc.quantity) {
         if (m.first != 0 and m.second > 0) {
-            sim->market(m.first)->buy(m.second, a);
-            purchased = true;
+            reservations.push_front(sim->market(m.first)->reserve(m.second, &(consumer->assets())));
         }
     }
 
-    // If we added an extra bit (which means we didn't mean to hold back any money), take it off
-    // now, setting money to exactly 0 if taking it off would leave us within extra (again) of 0.
-    if (purchased and extra > 0) {
-        if (a[money] < 2*extra)
-            a.set(money, 0);
-        else
-            a -= extra * money_unit;
+    if (extra > 0) {
+        a -= extra * money_unit;
+    }
+}
+
+void MUPD::reset() {
+    reservations.clear();
+}
+
+void MUPD::apply() {
+    auto con = simulation()->agent(con_id);
+    Bundle &a = con->assets();
+    // Add a tiny bit to cash (to prevent numerical errors causing insufficient assets exceptions),
+    // then subtract it off after purchasing.
+    const Bundle tiny_extra = 1e-12 * a[money] * money_unit;
+    a += tiny_extra;
+    for (auto &res: reservations) {
+        res->buy();
     }
 
-    return purchased;
+    if (a[money] < 2*tiny_extra[money])
+        // If leftover money isn't at least "2 epsilons" above 0, assume it's a numerical error and
+        // reset it to zero.
+        a.set(money, 0);
+    else
+        // Otherwise subtract off the tiny amount we added, above.
+        a -= tiny_extra;
 }
 
 void MUPD::added() {
