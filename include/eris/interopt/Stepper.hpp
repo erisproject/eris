@@ -15,6 +15,7 @@ namespace eris { namespace interopt {
  * \sa eris::Stepper the class handling the step adjustment logic
  * \sa PriceStepper a Stepper implementation adapted to PriceFirms
  */
+class JumpStepper;
 class Stepper : public InterOptimizer {
     public:
         /** Constructs a new Stepper optimization object.
@@ -33,8 +34,11 @@ class Stepper : public InterOptimizer {
          * takes only two additional steps in the same direction before increasing the step size
          * again.  With a value of 6, it would take 6 changes for the first increase, then 3 for
          * subsequent increases, etc.
+         *
+         * \param period is how often a step should take place.  The default, 1, means we should
+         * take a step every period; 2 would mean every second period, etc.
          */
-        Stepper(double step = 1.0/32.0, int increase_count = 4);
+        Stepper(double step = 1.0/32.0, int increase_count = 4, int period = 1);
 
         /** Determines whether the value should go up or down, and by how much.  Calls
          * (unimplemented) method should_increase() to determine the direction of change.
@@ -63,6 +67,52 @@ class Stepper : public InterOptimizer {
 
         /// Whether we are going to step up.  Calculated in optimize(), given to stepper_ in apply()
         mutable bool curr_up_ = false;
+        /// The period; we only try to take a step every `period_` times.  1 means always.
+        const int period_;
+        /// Tracks how many steps we've taken since the last step, used for periodic stepping.
+        mutable int last_step_ = 0;
+        /// True if we're going to step this round.  Will be always true if `period_ == 1`.
+        mutable bool stepping_ = false;
+
+        friend class JumpStepper;
+};
+
+/** This class extends Stepper with the ability to take jumps instead of relative steps in
+ * exceptional circumstances, and stepping via Stepper the rest of the time.
+ */
+class JumpStepper : public Stepper {
+    public:
+        /** Creates a new JumpStepper.  Arguments are passed to Stepper constructor.
+         *
+         * \sa Stepper::Stepper
+         */
+        JumpStepper(double step = 1.0/32.0, int increase_count = 4, int period = 1);
+
+        /** Wraps Stepper::optimize() to check for should_jump().  If it returns false, calls
+         * Stepper::optimize().
+         */
+        virtual void optimize() const override;
+
+        /** Wraps Stepper::optimize(); if should_jump() returned false, Stepper::optimize() is
+         * called; otherwise the eris::Stepper `same` parameter is reset and take_jump() is called.
+         */
+        virtual void apply() override;
+
+    protected:
+        /** Called to determine whether the value next period should jump instead of taking a step.
+         * Typically this is used to identify when a custom jump is needed instead of the usual
+         * step.  If this returns true, take_jump() will be called instead of take_step().  If this
+         * returns false, the usual Stepper procedure occurs.
+         *
+         * If a jump occurs, the Stepper `same` parameter is reset to 0.
+         */
+        virtual bool should_jump() const = 0;
+
+        /** Called when should_jump() returned true when applying the interopt change. */
+        virtual void take_jump() = 0;
+
+    private:
+        mutable bool jump_ = false;
 };
 
 } }
