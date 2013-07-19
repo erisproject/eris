@@ -82,7 +82,7 @@ all_combinations(
  * which returns just such a pair.  This class is typically invoked via the range() function.
  */
 template <class Iter>
-class range_ : public std::pair<Iter, Iter> {
+class range_ final : public std::pair<Iter, Iter> {
     public:
         range_(std::pair<Iter, Iter> const &pair) : std::pair<Iter, Iter>(pair) {}
         Iter begin() const { return this->first;  }
