@@ -31,7 +31,10 @@ class Bertrand : public Market {
         /// price Bundle will purchase.
         virtual quantity_info quantity(double p) const override;
         /// Reserves q units, paying at most p_max for them.
-        virtual Reservation reserve(double q, Bundle *assets, double p_max = std::numeric_limits<double>::infinity()) override;
+        virtual Reservation reserve(
+                double q,
+                Bundle *assets,
+                double p_max = std::numeric_limits<double>::infinity()) override;
         /// Adds a firm to this market.
         virtual void addFirm(SharedMember<Firm> f) override;
 
