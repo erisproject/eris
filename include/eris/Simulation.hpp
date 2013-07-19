@@ -38,16 +38,28 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         /// typedef for the map of id's to the set of dependent members
         typedef std::unordered_map<eris_id_t, std::unordered_set<eris_id_t>> DepMap;
 
-        /// Accesses an agent given the agent's eris_id_t
-        SharedMember<Agent> agent(eris_id_t aid);
-        /// Accesses a good given the good's eris_id_t
-        SharedMember<Good> good(eris_id_t gid);
-        /// Accesses a market given the market's eris_id_t
-        SharedMember<Market> market(eris_id_t mid);
-        /// Accesses an intra-period optimization object given the object's eris_id_t
-        SharedMember<IntraOptimizer> intraOpt(eris_id_t oid);
-        /// Accesses an inter-period optimization object given the object's eris_id_t
-        SharedMember<InterOptimizer> interOpt(eris_id_t oid);
+        /** Accesses an agent given the agent's eris_id_t.  Templated to allow conversion to
+         * a SharedMember of the given Agent subclass; defaults to Agent.
+         */
+        template <class A = Agent> SharedMember<A> agent(eris_id_t aid);
+        /** Accesses a good given the good's eris_id_t.  Templated to allow conversion to a
+         * SharedMember of the given Good subclass; defaults to Good.
+         */
+        template <class G = Good> SharedMember<G> good(eris_id_t gid);
+        /** Accesses a market given the market's eris_id_t.  Templated to allow conversion to a
+         * SharedMember of the given Market subclass; defaults to Market.
+         */
+        template <class M = Market> SharedMember<M> market(eris_id_t mid);
+        /** Accesses an intra-period optimization object given the object's eris_id_t.  Templated to
+         * allow conversion to a SharedMember of the given IntraOptimizer subclass; defaults to
+         * IntraOptimizer.
+         */
+        template <class I = IntraOptimizer> SharedMember<I> intraOpt(eris_id_t oid);
+        /** Accesses an inter-period optimization object given the object's eris_id_t.  Templated to
+         * allow conversion to a SharedMember of the given InterOptimizer subclass; defaults to
+         * InterOptimizer.
+         */
+        template <class I = InterOptimizer> SharedMember<I> interOpt(eris_id_t oid);
 
         /** Constructs a new A object using the given constructor arguments Args, adds it as an
          * agent, and returns a SharedMember<A> referencing it.
@@ -294,6 +306,26 @@ template <class O> SharedMember<O> Simulation::cloneInterOpt(const O &o) {
     SharedMember<InterOptimizer> opt(new O(o));
     insertInterOpt(opt);
     return market; // Implicit recast back to SharedMember<O>
+}
+
+template <class A> SharedMember<A> Simulation::agent(eris_id_t aid) {
+    return agents_.at(aid);
+}
+
+template <class G> SharedMember<G> Simulation::good(eris_id_t gid) {
+    return goods_.at(gid);
+}
+
+template <class M> SharedMember<M> Simulation::market(eris_id_t mid) {
+    return markets_.at(mid);
+}
+
+template <class I> SharedMember<I> Simulation::intraOpt(eris_id_t oid) {
+    return intraopts_.at(oid);
+}
+
+template <class I> SharedMember<I> Simulation::interOpt(eris_id_t oid) {
+    return interopts_.at(oid);
 }
 
 

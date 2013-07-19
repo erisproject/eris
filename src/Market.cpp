@@ -59,7 +59,7 @@ Market::Reservation_::~Reservation_() {
 }
 
 void Market::Reservation_::firmReserve(const eris_id_t &firm_id, BundleNegative transfer) {
-    SharedMember<Firm> firm = market->simulation()->agent(firm_id);
+    auto firm = market->simulation()->agent<Firm>(firm_id);
     firm_reservations_.push_front(firm->reserve(transfer));
 }
 

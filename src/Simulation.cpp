@@ -2,26 +2,6 @@
 
 namespace eris {
 
-SharedMember<Agent> Simulation::agent(eris_id_t aid) {
-    return agents_.at(aid);
-}
-
-SharedMember<Good> Simulation::good(eris_id_t gid) {
-    return goods_.at(gid);
-}
-
-SharedMember<Market> Simulation::market(eris_id_t mid) {
-    return markets_.at(mid);
-}
-
-SharedMember<IntraOptimizer> Simulation::intraOpt(eris_id_t oid) {
-    return intraopts_.at(oid);
-}
-
-SharedMember<InterOptimizer> Simulation::interOpt(eris_id_t oid) {
-    return interopts_.at(oid);
-}
-
 // Assign an ID, set it, store the simulator, and insert into the agent map
 void Simulation::insertAgent(const SharedMember<Agent> &a) {
     a->simulation(shared_from_this(), id_next_++);

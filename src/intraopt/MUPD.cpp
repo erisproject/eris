@@ -80,7 +80,7 @@ double MUPD::calc_mu_per_d(
 
 void MUPD::optimize() {
     auto sim = simulation();
-    SharedMember<Consumer::Differentiable> consumer = sim->agent(con_id);
+    auto consumer = sim->agent<Consumer::Differentiable>(con_id);
 
     Bundle &a = consumer->assets();
 
