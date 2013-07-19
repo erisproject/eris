@@ -120,7 +120,7 @@ class IncrementalBuyer : public IntraOptimizer {
 
         virtual void added() override;
 
-        /** Performance one step of optimization, spending (approximately) 1/rounds of income each
+        /** Performance one step of optimization, reserving (approximately) 1/rounds of income each
          * time.  This is called repeatedly by optimize().
          */
         virtual bool oneRound();
