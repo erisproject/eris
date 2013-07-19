@@ -1,12 +1,12 @@
 #include <eris/market/Quantity.hpp>
-#include <eris/interopt/QMStepper.hpp>
+#include <eris/intraopt/QMPricer.hpp>
 #include <eris/Simulation.hpp>
 #include <unordered_map>
 
 namespace eris { namespace market {
 
-Quantity::Quantity(Bundle output_unit, Bundle price_unit, double initial_price, bool add_qmstepper) :
-    Market(output_unit, price_unit), add_qmstepper_(add_qmstepper) {
+Quantity::Quantity(Bundle output_unit, Bundle price_unit, double initial_price, int qmpricer_rounds) :
+    Market(output_unit, price_unit), qmpricer_rounds_(qmpricer_rounds) {
     price_ = initial_price <= 0 ? 1 : initial_price;
 }
 
@@ -93,9 +93,13 @@ Market::Reservation Quantity::reserve(double q, Bundle *assets, double p_max) {
     return res;
 }
 
+void Quantity::setPrice(double p) {
+    price_ = p;
+}
+
 void Quantity::added() {
-    if (add_qmstepper_)
-        optimizer = simulation()->createInterOpt<eris::interopt::QMStepper>(*this);
+    if (qmpricer_rounds_ > 0)
+        optimizer = simulation()->createIntraOpt<eris::intraopt::QMPricer>(*this);
 }
 
 } }

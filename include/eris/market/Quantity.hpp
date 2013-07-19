@@ -4,15 +4,15 @@
 #include <limits>
 
 namespace eris {
-namespace interopt { class QMStepper; }
+namespace intraopt { class QMPricer; }
 namespace market {
 
 /** This class handles a "quantity" market, where at the beginning of the period firms provide a
  * fixed quantity.  In each period, the price changes based on whether there was a surplus or
  * shortage in the previous period.
  *
- * Price adjustments occur through the QMStepper inter-period optimizer class, which is
- * automatically added to a simulation when the Quantity market object is added.
+ * Price adjustments occur through the QMPricer intra-period optimizer class, which is automatically
+ * added to a simulation when the Quantity market object is added.
  */
 class Quantity : public Market {
     public:
@@ -29,12 +29,12 @@ class Quantity : public Market {
          * this market.  Defaults to 1; must be > 0.  This is typically adjusted up or down by QMStepper (or a
          * similar inter-period optimizer) between periods.
          *
-         * \param add_qmstepper if false, suppresses automatic creation of a QMStepper inter-period
-         * optimizer object.  By default such an object is created when this market is added to the
-         * simulation.  If overriding this, a QMStepper (or equivalent) optimizer must be added
-         * separately to govern the market's price changes across periods.
+         * \param qmpricer_rounds if greater than 0, this specifies the number of rounds given to
+         * the automatically-created QMPricer intra-period optimizer.  If 0 (or negative), the
+         * QMPricer is not automatically created, in which case a QMPricer (or equivalent) optimizer
+         * must be added separately to govern the market's price changes.
          */
-        Quantity(Bundle output_unit, Bundle price_unit, double initial_price = 1.0, bool add_qmstepper = true);
+        Quantity(Bundle output_unit, Bundle price_unit, double initial_price = 1.0, int qmpricer_rounds = 4);
 
         /// Returns the pricing information for purchasing q units in this market.
         virtual price_info price(double q) const override;
@@ -69,7 +69,7 @@ class Quantity : public Market {
          */
         double firmQuantities(double max = std::numeric_limits<double>::infinity()) const;
 
-        /** The ID of the automatically-created QMStepper inter-period optimizer attached to this
+        /** The ID of the automatically-created QMPricer intra-period optimizer attached to this
          * market.  Will be 0 if no such optimizer has been created.
          */
         eris_id_t optimizer = 0;
@@ -77,20 +77,23 @@ class Quantity : public Market {
         /// Reserves q units, paying at most p_max for them.
         virtual Reservation reserve(double q, Bundle *assets, double p_max = std::numeric_limits<double>::infinity()) override;
 
+        /** Intended to be used by QMPricer (or other price-governing optimizer) to update this
+         * market's price.
+         */
+        virtual void setPrice(double p);
     protected:
         /// The current price of the good as a multiple of price_unit
         double price_;
 
-        friend class eris::interopt::QMStepper;
-
-        /** When added to a simulation, this market automatically also adds a QMStepper inter-period
+        /** When added to a simulation, this market automatically also adds a QMPricer intra-period
          * optimizer to handle pricing adjustments.  This can be skipped by specifying
-         * add_qmstepper=false in the constructor.
+         * qmpricer_rounds=0 in the constructor, but in such a case care must be taken to add a
+         * QMPricer (or equivalent) optimizer to control price in this market.
          */
         virtual void added() override;
 
     private:
-        bool add_qmstepper_ = true;
+        int qmpricer_rounds_ = 0;
 
 };
 
