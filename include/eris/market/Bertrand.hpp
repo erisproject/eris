@@ -1,7 +1,6 @@
 #pragma once
 #include <eris/Market.hpp>
 #include <eris/firm/PriceFirm.hpp>
-#include <eris/Random.hpp>
 #include <vector>
 #include <random>
 
@@ -14,7 +13,7 @@ namespace eris { namespace market {
  * price, the quantity can either be split equally across firms (the default), or a firm can be
  * chosen randomly.
  */
-class Bertrand : public Market, private Random {
+class Bertrand : public Market {
     public:
         /** Constructs the market.
          *

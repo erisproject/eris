@@ -1,4 +1,5 @@
 #include <eris/market/Bertrand.hpp>
+#include <eris/Random.hpp>
 #include <limits>
 
 namespace eris { namespace market {
@@ -126,7 +127,7 @@ Bertrand::allocation Bertrand::allocate(double q) const {
                     // its capacity and them randomly select from the remaining firms until we have the
                     // needed capacity.
                     std::uniform_int_distribution<unsigned int> randFirmDist(0, nFirms-1);
-                    int luckyFirm = randFirmDist(rng());
+                    int luckyFirm = randFirmDist(Random::rng());
                     auto f = firms[luckyFirm];
                     if (f.second >= need_q) {
                         a.shares[f.first].q += need_q;
