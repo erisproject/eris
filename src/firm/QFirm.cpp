@@ -35,15 +35,21 @@ void QFirm::advance() {
     FirmNoProd::advance(); // Clears assets
     assets() += leftover;
     ensureNext(capacity * output());
+    updateStarted();
 }
 
 void QFirm::added() {
     ensureNext(capacity * output());
+    updateStarted();
 }
 
 void QFirm::produceNext(const Bundle &b) {
     Bundle need = b - Bundle::common(b, assets());
     assets() += (need / output()) * output();
+}
+
+void QFirm::updateStarted() {
+    started = assets().multiples(output());
 }
 
 } }

@@ -64,6 +64,12 @@ class QFirm : public FirmNoProd {
          */
         double capacity;
 
+        /** The stock (as a multiple of the output bundle) that the firm started with in the current
+         * period, which may be larger than capacity (i.e. when leftover undepreciated goods exceed
+         * capacity).  This is used to track sales to help determine capacity changes.
+         */
+        double started = 0;
+
         /** Returns the Bundle that this QFirm produces (when producing before the beginning of a
          * period).
          */
@@ -81,6 +87,8 @@ class QFirm : public FirmNoProd {
     private:
         const Bundle output_unit_;
         double depreciation_ = 1;
+
+        void updateStarted();
 };
 
 } }

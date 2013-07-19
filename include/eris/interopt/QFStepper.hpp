@@ -11,11 +11,15 @@ using eris::firm::QFirm;
  * whether or not the firm had a surplus or not in the previous period.  This class does *not* make
  * the firm actually carry out production; that occurs in QFirm's advance() method.
  *
+ * There are two kinds of steps that occur: a natural, relative step (as handled by the Stepper
+ * superclass), and a jump that occurs when the quantity sold in a period was far greater than the
+ * capacity.
+ *
  * \sa eris::market::QFirm
  * \sa eris::market::Quantity
  * \sa eris::interopt::QMStepper
  */
-class QFStepper : public Stepper {
+class QFStepper : public JumpStepper {
     public:
         /** Creates a new QFirm capacity stepper.
          *
@@ -45,8 +49,19 @@ class QFStepper : public Stepper {
         /// Declares the handled market as a member this optimizer depends on
         virtual void added() override;
 
+        /** If quantity sold in the previous period was half of the firm's capacity or less (but
+         * greater than 0), we cut capacity in half.
+         */
+        virtual bool should_jump() const override;
+
+        /** Sets the capacity to whatever we sold in the previous period.
+         * \sa should_jump()
+         */
+        virtual void take_jump() override;
+
     private:
         eris_id_t firm_;
+        mutable double jump_cap_;
 };
 
 } }
