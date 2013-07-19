@@ -4,6 +4,7 @@
 #include <stack>
 #include <type_traits>
 #include <vector>
+#include <limits>
 
 namespace eris {
 
@@ -101,5 +102,69 @@ template <class Iter>
 range_<Iter> range(std::pair<Iter, Iter> const &pair) {
     return range_<Iter>(pair);
 }
+
+/** Generic class for a stepping a value up or down by a certain amount, increasing or decreasing
+ * the step size based on the previous steps.  This is often used in optimizers to find an optimal
+ * output/price level.
+ */
+class Stepper final {
+    public:
+        /** Constructs a new Stepper object.
+         *
+         * \param step the initial size of a step, relative to the current value.  Defaults to 1/32
+         * (about 3.1%).  Over time the step size will change based on the following options.  When
+         * increasing, the new value is \f$(1 + step)\f$ times the current value; when decreasing
+         * the value is \f$\frac{1}{1 + step}\f$ times the current value.  This ensures that an
+         * increase followed by a decrease will result in the same value (at least within numerical
+         * precision).
+         *
+         * \param increase_count if the value moves consistently in one direction this many times,
+         * the step size will be doubled.  Defaults to 4 (i.e. the 4th step will be doubled).  Must
+         * be at least 2, though values less than 4 aren't recommended in practice.  When
+         * increasing, the previous increase count is halved; thus, with the default value of 4, it
+         * takes only two additional steps in the same direction before increasing the step size
+         * again.  With a value of 6, it would take 6 changes for the first increase, then 3 for
+         * subsequent increases, etc.
+         *
+         * \param min_step is the minimum step size that can be taken.  The default is equal to
+         * machine epsilon (i.e. the smallest value v such that 1 + v is a value distinct from 1),
+         * which is the smallest value possible for a step.
+         */
+        Stepper(double step = 1.0/32.0, int increase_count = 4, double min_step = std::numeric_limits<double>::epsilon());
+
+        /** Called to signal that a step increase (`up=true`) or decrease (`up=false`) should be
+         * taken.  Returns the relative step value, where 1 indicates no change, 1.2 indicates a 20%
+         * increase, etc.
+         *
+         * The returned multiple will always be a strictly positive value.  If \f$s\f$ is the
+         * current step size, the returned value will be either \f$1+s\f$ for an upward step or
+         * \f$\frac{1}{1+s}\f$ for a downward step.
+         *
+         * When called, this first checks whether the step size should be changed: if at least
+         * `increase` steps in the same direction have occured, the step size is doubled (and the
+         * count of previous steps in this direction is halved); if the last step was in the
+         * opposite direction, the step size is halved.
+         */
+        double step(bool up);
+
+        /// The number of steps in the same direction required to double the step size
+        const int increase;
+
+        /// The minimum (relative) step size allowed, specified in the constructor.
+        const double min_step;
+
+        /// The most recent relative step size
+        double step_size;
+
+        /// The most recent step direction: true if the last step was positive, false if negative.
+        bool prev_up = true;
+
+        /** The number of steps that have occurred in the same direction.  When a step size doubling
+         * occurs, this value is halved (since the previous steps are only half the size of current
+         * steps).
+         */
+        int same = 0;
+};
+
 
 }

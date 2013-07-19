@@ -10,12 +10,12 @@ bool PriceStepper::should_increase() const {
     SharedMember<PriceFirm> firm = simulation()->agent(firm_);
     curr_profit_ = firm->assets() / price_;
 
-    if (same == 0) // First time, no history to give us an informed decision; might as well increase.
+    if (stepper_.same == 0) // First time, no history to give us an informed decision; might as well increase.
         return true;
     else if (curr_profit_ > prev_profit_) // The last changed increased profit; keep going
-        return prev_up;
+        return stepper_.prev_up;
     else if (curr_profit_ < prev_profit_) // The last change decreased profit; turn around
-        return !prev_up;
+        return !stepper_.prev_up;
     else // The last change did not change profit at all; lower price (this might help with some
          // perfect Bertrand cases)
         return false;

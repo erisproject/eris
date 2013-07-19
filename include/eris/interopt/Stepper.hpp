@@ -1,5 +1,6 @@
 #pragma once
 #include <eris/Optimizer.hpp>
+#include <eris/algorithms.hpp>
 
 namespace eris { namespace interopt {
 
@@ -11,8 +12,8 @@ namespace eris { namespace interopt {
  * This is an abstract base class and requires an implementation of the should_increase() and
  * take_step() methods.
  *
+ * \sa eris::Stepper the class handling the step adjustment logic
  * \sa PriceStepper a Stepper implementation adapted to PriceFirms
- * \sa QMOpt a Stepper implementation adapted to the price of Quantity markets
  */
 class Stepper : public InterOptimizer {
     public:
@@ -35,57 +36,32 @@ class Stepper : public InterOptimizer {
          */
         Stepper(double step = 1.0/32.0, int increase_count = 4);
 
-        /** Determines whether the price should go up or down, and by how much.  Calls
+        /** Determines whether the value should go up or down, and by how much.  Calls
          * (unimplemented) method should_increase() to determine the direction of change.
          */
         virtual void optimize() const override;
 
-        /** Applies the price change calculated in optimize().  This will call take_step() with the
-         * relative price change (e.g. 1.25 to increase price by 25%).
+        /** Applies the value change calculated in optimize().  This will call take_step() with the
+         * relative value change (e.g. 1.25 to increase value by 25%).
          */
         virtual void apply() override;
 
     protected:
-        /** Called to determine whether the price next period should go up or down.  A true return
-         * value indicates that a price increase should be tried, false indicates a decrease.  This
+        /// The eris::Stepper object used to handle step adjustment logic
+        eris::Stepper stepper_;
+
+        /** Called to determine whether the value next period should go up or down.  A true return
+         * value indicates that a value increase should be tried, false indicates a decrease.  This
          * typically makes use of the prev_up and same members as required.
          */
         virtual bool should_increase() const = 0;
 
-        /** Called to change the price to the given multiple of the current price.  This is called
+        /** Called to change the value to the given multiple of the current value.  This is called
          * by apply().  The relative value will always be a positive value not equal to 1.
          */
         virtual void take_step(double relative) = 0;
 
-        /** Called to check whether the step needs to be updated, and updates it (and related
-         * variables) if so.  Note that the step will never be smaller than min_step.
-         *
-         * The step size is cut in half when the step direction is reversed; it is doubled if there
-         * have been 
-         */
-        virtual void update_step();
-
-        /** The minimum (relative) step size allowed: this is equal to machine epsilon (i.e. the
-         * smallest value v such that 1 + v is a value distinct from 1.
-         */
-        const double min_step = std::numeric_limits<double>::epsilon();
-
-    protected:
-        /** Will be true when calling should_increase() if the previous step was an increase, false
-         * otherwise.  Should not be used when step equals 0 (in other words, for the first step).
-         */
-        bool prev_up = true;
-        /** When should_increase() is called, this contains the number of times of consecutive times
-         * that the quantity has moved taken a step in the same direction.  The value is
-         * approximate, however, as it is divided by 2 (rounding down) each time the step size is
-         * doubled.  This will always be equal to at least 1 except for the very first optimization,
-         * when it will equal 0.
-         */
-        int same = 0;
-
-    private:
-        double step_;
-        const int increase_;
+        /// Whether we are going to step up.  Calculated in optimize(), given to stepper_ in apply()
         mutable bool curr_up_ = false;
 };
 
