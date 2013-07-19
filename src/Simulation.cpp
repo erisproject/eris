@@ -88,44 +88,52 @@ void Simulation::run() {
     if (++iteration_ > 1) {
         // Skip all this on the first iteration
 
-        for (auto inter : interOpts()) {
+        for (auto &inter : interOpts()) {
             inter.second->optimize();
         }
 
-        for (auto inter : interOpts()) {
+        for (auto &inter : interOpts()) {
             inter.second->apply();
         }
 
-        for (auto agent : agents()) {
+        for (auto &agent : agents()) {
             agent.second->advance();
         }
 
-        for (auto inter : interOpts()) {
+        for (auto &inter : interOpts()) {
             inter.second->postAdvance();
         }
     }
 
     intraopt_count = 0;
+
+    for (auto &intra : intraOpts()) {
+        intra.second->initialize();
+    }
+
     bool done = false;
     while (!done) {
         done = true;
         ++intraopt_count;
 
-        for (auto intra : intraOpts()) {
+        for (auto &intra : intraOpts()) {
             intra.second->reset();
         }
 
-        for (auto intra : intraOpts()) {
+        for (auto &intra : intraOpts()) {
             intra.second->optimize();
         }
 
-        for (auto intra : intraOpts()) {
-            if (intra.second->postOptimize()) {
+        for (auto &intra : intraOpts()) {
+            if (intra.second->postOptimize())
                 done = false;
-                // Short circuit the rest of the postOptimize() calls, since we're redoing
-                // everything anyway:
-                break;
-            }
+            // Deliberately do *not* short-circuit here, because we want intraopt optimizers to work
+            // in parallel, e.g. if there are 10 markets, each taking ~10 postOptimize steps, we
+            // want them happening in parallel: otherwise we could get 10^10 operations (since each
+            // later optimization might require another 10 steps of the already-optimized ones).
+            //
+            // Realistically, optimization also should not assume to be operating in a vacuum, and
+            // intraopt optimizers should be aware of that.
         }
     }
 

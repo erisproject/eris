@@ -1,7 +1,7 @@
 #pragma once
 
 #include <eris/Consumer.hpp>
-#include <eris/Optimizer.hpp>
+#include <eris/IntraOptimizer.hpp>
 #include <eris/Simulation.hpp>
 #include <unordered_map>
 #include <unordered_set>

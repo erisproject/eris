@@ -1,6 +1,6 @@
 #pragma once
 #include <eris/Consumer.hpp>
-#include <eris/Optimizer.hpp>
+#include <eris/IntraOptimizer.hpp>
 #include <eris/Simulation.hpp>
 #include <forward_list>
 

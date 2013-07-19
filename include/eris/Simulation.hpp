@@ -4,7 +4,8 @@
 #include <eris/Agent.hpp>
 #include <eris/Good.hpp>
 #include <eris/Market.hpp>
-#include <eris/Optimizer.hpp>
+#include <eris/IntraOptimizer.hpp>
+#include <eris/InterOptimizer.hpp>
 #include <unordered_map>
 #include <unordered_set>
 #include <memory>
@@ -201,12 +202,15 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
          *   - All agents have their advance() method called.
          *   - All inter-period optimizers have postAdvance() called.
          * - Intra-period optimization:
+         *   - All intra-period optimizers have initialize() called.
          *   - All intra-period optimizers have reset() called.
          *   - All intra-period optimizers have their optimize() methods called to calculate an
          *     optimal strategy (to be applied in apply()).
          *   - All intra-period optimizers have their postOptimize() methods called.
          *     - If one or more of the postOptimize() methods returns true, intra-period
-         *       optimization is restarted.
+         *       optimization restarts at the `reset()` stage..  Short-circuiting does *not* occur:
+         *       all intra-period optimizers will run, even if some have already indicated a state
+         *       change.
          *   - All intra-period optimizers have their apply() method called.
          */
         void run();

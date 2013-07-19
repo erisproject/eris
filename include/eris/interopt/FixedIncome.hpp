@@ -1,6 +1,6 @@
 #pragma once
 #include <eris/Bundle.hpp>
-#include <eris/Optimizer.hpp>
+#include <eris/InterOptimizer.hpp>
 #include <eris/Simulation.hpp>
 
 namespace eris { namespace interopt {

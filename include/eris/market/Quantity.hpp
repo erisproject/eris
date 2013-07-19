@@ -1,7 +1,6 @@
 #pragma once
 #include <eris/types.hpp>
 #include <eris/Market.hpp>
-#include <eris/Optimizer.hpp>
 #include <limits>
 
 namespace eris {
