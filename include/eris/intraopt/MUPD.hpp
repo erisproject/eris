@@ -65,7 +65,7 @@ class MUPD : public IntraOptimizer {
          * interpreted as a pseudomarket for holding onto cash, i.e. the "spending" is just held as
          * cash.
          */
-        allocation spending_allocation(const std::unordered_map<eris_id_t, double> &spending);
+        allocation spending_allocation(const std::unordered_map<eris_id_t, double> &spending) const;
 
         /** Calculates the marginal utility per money unit evaluated at the given Bundle.
          * \param con the shared consumer object
@@ -77,18 +77,22 @@ class MUPD : public IntraOptimizer {
                 const SharedMember<Consumer::Differentiable> &con,
                 const eris_id_t &mkt_id,
                 const allocation &a,
-                const Bundle &b);
+                const Bundle &b) const;
 
-        std::unordered_map<eris_id_t, double> price_ratio_cache;
         /// Returns the ratio between the market's output price and the optimizer's money unit.
         /// Results are cached for performance.
-        double price_ratio(const SharedMember<Market> &m);
+        double price_ratio(const SharedMember<Market> &m) const;
 
         /// Declares a dependency on the consumer when added to a simulation
         virtual void added() override;
 
         /// Reservations populated during optimize(), applied during apply().
         std::forward_list<Market::Reservation> reservations;
+
+    private:
+        /// Stores cached price ratios
+        mutable std::unordered_map<eris_id_t, double> price_ratio_cache;
+
 };
 
 } }

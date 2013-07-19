@@ -9,14 +9,14 @@ MUPD::MUPD(const Consumer::Differentiable &consumer, const eris_id_t &money, dou
     tolerance(tolerance), con_id(consumer), money(money), money_unit(Bundle {{ money, 1 }})
     {}
 
-double MUPD::price_ratio(const SharedMember<Market> &m) {
+double MUPD::price_ratio(const SharedMember<Market> &m) const {
     if (!price_ratio_cache.count(m))
         price_ratio_cache[m] = money_unit / m->price_unit;
 
     return price_ratio_cache[m];
 }
 
-MUPD::allocation MUPD::spending_allocation(const unordered_map<eris_id_t, double> &spending) {
+MUPD::allocation MUPD::spending_allocation(const unordered_map<eris_id_t, double> &spending) const {
     allocation a = {};
 
     auto sim = simulation();
@@ -55,7 +55,7 @@ double MUPD::calc_mu_per_d(
         const SharedMember<Consumer::Differentiable> &con,
         const eris_id_t &mkt_id,
         const allocation &a,
-        const Bundle &b) {
+        const Bundle &b) const {
 
     if (mkt_id == 0)
         return con->d(b, money);
