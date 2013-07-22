@@ -756,6 +756,43 @@ TEST(AlgebraicModifiers, DivEqualConstant) {
     BundleNegative *a2n = dynamic_cast<BundleNegative *>(&a2);
     EXPECT_THROW(*a2n /= -3, Bundle::negativity_error);
 }
+TEST(AlgebraicModifiers, TransferApprox) {
+    Bundle a {{1,  999}, {2,  9999}, {3, 100000}};
+    Bundle c {{1, 5000}, {2, 40000}};
+
+    // goods 1 and 2 should trigger the epsilon-rounding (for epsilon ~ 1e-3), 3 should not:
+    BundleNegative transfer {{1, 1000}, {2,  9998}, {3, 95000}};
+
+    Bundle aa = a;
+    Bundle cc = c;
+    aa.transferApprox(transfer, cc, 1.5e-3);
+    EXPECT_EQ(Bundle({{1, 0}, {2, 0}, {3, 5000}}), aa);
+    EXPECT_EQ(Bundle({{1, 5999}, {2,49999}, {3,95000}}), cc);
+
+    // Try the same thing with a negative transfer
+    Bundle ar = a;
+    Bundle cr = c;
+    cr.transferApprox(-transfer, ar, 1.5e-3);
+    EXPECT_EQ(Bundle({{1, 0}, {2, 0}, {3, 5000}}), ar);
+    EXPECT_EQ(Bundle({{1, 5999}, {2,49999}, {3,95000}}), cr);
+
+    // Now test out the destination epsilon-rounding (which applies when the destination ends up
+    // close to 0, which can only happen when the destination starts negative).
+    BundleNegative an = -a;
+    BundleNegative cn = c;
+    cn.transferApprox(transfer, an, 1.5e-3);
+    EXPECT_EQ(BundleNegative({{1, 0}, {2, 0}, {3, -5000}}), an);
+    EXPECT_EQ(BundleNegative({{1, 4001}, {2,30001}, {3,-95000}}), cn);
+
+    // Test both at once
+    BundleNegative ab {{1,  999}, {2, -9999}, {3, 100000}, {4, 500}};
+    BundleNegative cb {{1, 5000}, {2, 40000},              {4, 500.5}};
+
+    cb.transferApprox(BundleNegative({{1,-1000}, {2, 10000}, {3, -95001}, {4,500}}), ab, 1.5e-3);
+
+    EXPECT_EQ(Bundle({{1, 0}, {2, 0}, {3, 4999}, {4, 1000.5}}), ab);
+    EXPECT_EQ(Bundle({{1, 5999}, {2, 30001}, {3, 95001}, {4, 0}}), cb);
+}
 
 TEST(AdvancedAlgebra, BundleDividedbyBundle) {
     COMPARE_BUNDLES;

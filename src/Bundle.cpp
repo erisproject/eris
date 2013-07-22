@@ -4,6 +4,7 @@
 #include <eris/Bundle.hpp>
 #include <unordered_set>
 #include <set>
+#include <cmath>
 
 namespace eris {
 
@@ -158,6 +159,31 @@ bool BundleNegative::operator != (const double &q) const noexcept {
 }
 bool operator != (const double &q, const BundleNegative &b) noexcept {
     return b != q;
+}
+
+void BundleNegative::transferApprox(const BundleNegative &amount, BundleNegative &to, double epsilon) {
+    for (auto g : amount) {
+        double abs_transfer = fabs(g.second);
+        if (abs_transfer == 0) continue;
+        bool transfer_to = g.second > 0;
+
+        double q_src  = transfer_to ? operator[](g.first) : to[g.first];
+        double q_dest = transfer_to ? to[g.first] : operator[](g.first);
+
+        if (fabs(q_src - abs_transfer) < fabs(epsilon*q_src))
+            abs_transfer = q_src;
+        else if (q_dest < 0 and fabs(q_dest + abs_transfer) < fabs(epsilon*q_dest))
+            abs_transfer = -q_dest;
+
+        if (transfer_to) {
+            set(g.first, q_src - abs_transfer);
+            to.set(g.first, q_dest + abs_transfer);
+        }
+        else {
+            to.set(g.first, q_src - abs_transfer);
+            set(g.first, q_dest + abs_transfer);
+        }
+    }
 }
 
 // Prints everything *after* the "Bundle" or "BundleNegative" tag, i.e. starting from "(".

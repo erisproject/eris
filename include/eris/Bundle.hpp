@@ -150,6 +150,38 @@ class BundleNegative {
         BundleNegative& operator *= (const double &m);
         BundleNegative& operator /= (const double &d);
 
+        /** Transfers (approximately) the given amount between two Bundles.  Positive quantities in
+         * `amount` are transferred from the invoked object to the `to` Bundle; negative quantities
+         * are transferred from the `to` Bundle to the invoked object.  The error parameter is a
+         * relative amount that defines how close values should get before treating them as zero
+         * quantities.
+         *
+         * Calling
+         *
+         *     from.transfer(amount, to);
+         *
+         * is roughly equivalent to
+         *
+         *     from -= amount;
+         *     to += amount;
+         *
+         * except for the error tolerance handling.
+         *
+         * The error handling is particularly useful to avoid problems with numerical imprecision
+         * resulting in potentially negative quantities in Bundles.  In particular it specially
+         * does two things:
+         *
+         * - If a transfer would result in a good in the source Bundle having a quantity with
+         *   absolute value less than `epsilon` times the pre-transfer quantity, the transferred
+         *   quantity of that good will instead be the total quantity in the source Bundle.
+         * - Otherwise, if a transfer would results in a good in the destination Bundle having a quantity with
+         *   absolute value less than `epsilon` times the pre-transfer quantity, the transferred
+         *   quantity will be the amount required to reach exactly 0.  (Note that this case is only
+         *   possible when the destination is a BundleNegative with a negative quantity, since the
+         *   destination bundle is always the one being added to).
+         */
+        void transferApprox(const BundleNegative &amount, BundleNegative &to, double epsilon = 1e-14);
+
         BundleNegative operator + (const BundleNegative &b) const noexcept;
         BundleNegative operator - (const BundleNegative &b) const noexcept;
         BundleNegative operator - () const noexcept;
