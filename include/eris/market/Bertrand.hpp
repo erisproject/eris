@@ -35,7 +35,7 @@ class Bertrand : public Market {
                 double q,
                 Bundle *assets,
                 double p_max = std::numeric_limits<double>::infinity()) override;
-        /// Adds a firm to this market.
+        /// Adds a firm to this market.  The Firm must be a PriceFirm object (or subclass)
         virtual void addFirm(SharedMember<Firm> f) override;
 
     protected:

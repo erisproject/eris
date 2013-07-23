@@ -242,8 +242,7 @@ Market::Reservation Bertrand::reserve(double q, Bundle *assets, double p_max) {
 }
 
 void Bertrand::addFirm(SharedMember<Firm> f) {
-    if (!dynamic_cast<firm::PriceFirm*>(f.ptr.get()))
-        throw std::invalid_argument("Firm passed to Bertrand.addFirm(...) is not a PriceFirm instance");
+    requireInstanceOf<firm::PriceFirm>(f, "Firm passed to Bertrand.addFirm(...) is not a PriceFirm instance");
     Market::addFirm(f);
 }
 

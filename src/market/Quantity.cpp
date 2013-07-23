@@ -94,6 +94,11 @@ Market::Reservation Quantity::reserve(double q, Bundle *assets, double p_max) {
     return res;
 }
 
+void Quantity::addFirm(SharedMember<Firm> f) {
+    requireInstanceOf<firm::QFirm>(f, "Firm passed to Quantity.addFirm(...) is not a QFirm instance");
+    Market::addFirm(f);
+}
+
 void Quantity::setPrice(double p) {
     price_ = p;
 }

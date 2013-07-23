@@ -64,6 +64,15 @@ class Member {
          *     shared_member->simulation()->registerDependency(shared_member, other_member);
          */
         void dependsOn(const eris_id_t &id);
+
+        /** Helper method to ensure that the passed-in SharedMember is a subclass of the templated
+         * class.  If not, this throws an invalid_argument exception with the given message.
+         */
+        template<class B, class C>
+        void requireInstanceOf(const SharedMember<C> &obj, const std::string &error) {
+            if (!dynamic_cast<B*>(obj.ptr.get())) throw std::invalid_argument(error);
+        }
+
     private:
         eris_id_t id_ = 0;
         /** Stores a weak pointer to the simulation this Member belongs to. */

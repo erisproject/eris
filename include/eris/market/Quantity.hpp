@@ -1,6 +1,7 @@
 #pragma once
 #include <eris/types.hpp>
 #include <eris/Market.hpp>
+#include <eris/firm/QFirm.hpp>
 #include <limits>
 
 namespace eris {
@@ -76,6 +77,10 @@ class Quantity : public Market {
 
         /// Reserves q units, paying at most p_max for them.
         virtual Reservation reserve(double q, Bundle *assets, double p_max = std::numeric_limits<double>::infinity()) override;
+
+
+        /// Adds a firm to this market.  The Firm must be a QFirm object (or subclass)
+        virtual void addFirm(SharedMember<Firm> f) override;
 
         /** Intended to be used by QMPricer (or other price-governing optimizer) to update this
          * market's price.
