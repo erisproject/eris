@@ -6,11 +6,11 @@ namespace eris {
 Market::Market(Bundle output_unit, Bundle price_unit) : output_unit(output_unit), price_unit(price_unit) {}
 
 void Market::addFirm(SharedMember<Firm> f) {
-    suppliers.insert(std::make_pair(f->id(), f));
+    suppliers_.insert(f);
 }
 
 void Market::removeFirm(eris_id_t fid) {
-    suppliers.erase(fid);
+    suppliers_.erase(fid);
 }
 
 void Market::buy(Reservation &res) {

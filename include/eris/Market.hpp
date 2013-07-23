@@ -4,7 +4,7 @@
 #include <eris/Firm.hpp>
 #include <eris/Good.hpp>
 #include <eris/Bundle.hpp>
-#include <map>
+#include <unordered_set>
 #include <memory>
 #include <forward_list>
 
@@ -286,7 +286,7 @@ class Market : public Member {
 
     protected:
         /// Firms participating in this market
-        std::unordered_map<eris_id_t, SharedMember<Firm>> suppliers;
+        std::unordered_set<eris_id_t> suppliers_;
 
         /** Creates a Reservation and returns it.  For use by subclasses only.  The reserved payment
          * (i.e. p*price_unit) will be transferred out of the assets Bundle and held in the
