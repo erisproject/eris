@@ -1,7 +1,7 @@
 #pragma once
+#include <eris/Agent.hpp>
 #include <eris/Bundle.hpp>
 #include <eris/InterOptimizer.hpp>
-#include <eris/Simulation.hpp>
 
 namespace eris { namespace interopt {
 

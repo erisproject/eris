@@ -17,7 +17,7 @@ Market::quantity_info Bertrand::quantity(double price) const {
     std::unordered_map<double, double> price_quantity;
 
     for (auto f : suppliers_) {
-        SharedMember<firm::PriceFirm> firm = simulation()->agent<firm::PriceFirm>(f);
+        auto firm = simAgent<firm::PriceFirm>(f);
         double s = firm->canSupplyAny(output_unit);
         if (s > 0) {
             double firm_price = (output_unit / firm->output()) * (firm->price() / price_unit);
@@ -56,7 +56,7 @@ Bertrand::allocation Bertrand::allocate(double q) const {
     Bundle q_bundle = q * output_unit;
 
     for (auto f : suppliers_) {
-        auto firm = simulation()->agent<firm::PriceFirm>(f);
+        auto firm = simAgent<firm::PriceFirm>(f);
         // Make sure the "price" object in this market can pay for the units the firm wants
         if (price_unit.covers(firm->price())) {
             double productivity = firm->canSupplyAny(q_bundle);
@@ -225,7 +225,7 @@ Market::Reservation Bertrand::reserve(double q, Bundle *assets, double p_max) {
 
     // Figure out how much each firm contributes to the reservation
     for (auto &firm_share : a.shares) {
-        auto firm = simulation()->agent<firm::PriceFirm>(firm_share.first);
+        auto firm = simAgent<firm::PriceFirm>(firm_share.first);
         auto share = firm_share.second;
 
         total_q += share.q;

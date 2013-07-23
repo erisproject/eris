@@ -59,7 +59,7 @@ Market::Reservation_::~Reservation_() {
 }
 
 void Market::Reservation_::firmReserve(const eris_id_t &firm_id, BundleNegative transfer) {
-    auto firm = market->simulation()->agent<Firm>(firm_id);
+    auto firm = market->simAgent<Firm>(firm_id);
     firm_reservations_.push_front(firm->reserve(transfer));
 }
 
@@ -72,7 +72,7 @@ void Market::Reservation_::release() {
 }
 
 Market::Reservation Market::createReservation(double q, double p, Bundle *assets) {
-    return Reservation(new Reservation_(simulation()->market(*this), q, p, assets));
+    return Reservation(new Reservation_(simMarket(*this), q, p, assets));
 }
 
 }

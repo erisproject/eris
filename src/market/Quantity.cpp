@@ -24,7 +24,7 @@ double Quantity::firmQuantities(double max) const {
     double q = 0;
 
     for (auto f : suppliers_) {
-        q += simulation()->agent<firm::QFirm>(f)->assets().multiples(output_unit);
+        q += simAgent<firm::QFirm>(f)->assets().multiples(output_unit);
         if (q >= max) return q;
     }
     return q;
@@ -61,7 +61,7 @@ Market::Reservation Quantity::reserve(double q, Bundle *assets, double p_max) {
         qfirm.clear();
         double qmin = 0; // Will store the maximum quantity that all firms can supply
         for (auto f : suppliers_) {
-            double qi = simulation()->agent<firm::QFirm>(f)->assets().multiples(output_unit);
+            double qi = simAgent<firm::QFirm>(f)->assets().multiples(output_unit);
             if (qi > 0) {
                 if (qi < qmin or qfirm.empty())
                     qmin = qi;

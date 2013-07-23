@@ -196,9 +196,9 @@ void MUPD::optimize() {
             // optimize() finishes, this gets amplified.
             //
             // FIXME: this is a very good target for optimization; typically this loop will run
-            // around 53 times (which makes perfect sense, as that's when step_size runs off the end
-            // of the least precise double bit--sometimes a bit more, if the transfer ratio is a
-            // very small number).
+            // around 53 times (which makes perfect sense, as that's about where step_size runs off
+            // the end of the least precise double bit--sometimes a bit more, if the transfer ratio
+            // is a very small number).
             double step_size = 0.25;
             double last_transfer = 1.0;
             double transfer = 0.5;
@@ -263,7 +263,7 @@ void MUPD::reset() {
 }
 
 void MUPD::apply() {
-    auto con = simulation()->agent(con_id);
+    auto con = simAgent(con_id);
     Bundle &a = con->assets();
     // Add a tiny bit to cash (to prevent numerical errors causing insufficient assets exceptions),
     // then subtract it off after purchasing.

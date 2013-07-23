@@ -56,7 +56,7 @@ class QMPricer : public IntraOptimizer {
 
     protected:
         /// The market id this optimizer operates on.
-        eris_id_t firm_id_;
+        eris_id_t market_id_;
         /// The Stepper object used for calculating price steps
         Stepper stepper_;
         /// The number of times we adjust price each period

@@ -7,7 +7,7 @@ PriceStepper::PriceStepper(const PriceFirm &firm, double step, int increase_coun
     : Stepper(step, increase_count), firm_(firm), price_(firm.price()) {}
 
 bool PriceStepper::should_increase() const {
-    SharedMember<PriceFirm> firm = simulation()->agent(firm_);
+    auto firm = simAgent<PriceFirm>(firm_);
     curr_profit_ = firm->assets() / price_;
 
     if (stepper_.same == 0) // First time, no history to give us an informed decision; might as well increase.
@@ -22,7 +22,7 @@ bool PriceStepper::should_increase() const {
 }
 
 void PriceStepper::take_step(double relative) {
-    SharedMember<PriceFirm> firm = simulation()->agent(firm_);
+    auto firm = simAgent<PriceFirm>(firm_);
 
     firm->setPrice(relative * firm->price());
 

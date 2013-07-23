@@ -1,7 +1,7 @@
 #pragma once
 #include <eris/Consumer.hpp>
 #include <eris/IntraOptimizer.hpp>
-#include <eris/Simulation.hpp>
+#include <eris/Market.hpp>
 #include <forward_list>
 
 namespace eris { namespace intraopt {

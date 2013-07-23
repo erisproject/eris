@@ -4,7 +4,13 @@
 
 namespace eris {
 
+template <class T> class SharedMember;
 class Simulation;
+class Agent;
+class Good;
+class Market;
+class IntraOptimizer;
+class InterOptimizer;
 
 /** Base class for "members" of a simulation: goods, agents, markets, and optimizers.  This class
  * provides an id, a weak reference to the owning simulation object, and a < operator comparing ids
@@ -26,6 +32,18 @@ class Member {
          * null shared_ptr if there is no (current) simulation.
          */
         virtual std::shared_ptr<Simulation> simulation() const;
+
+        /** Shortcut for `member.simulation()->agent<A>()` */
+        template <class A = Agent> SharedMember<A> simAgent(eris_id_t aid) const;
+        /** Shortcut for `member.simulation()->good<G>()` */
+        template <class G = Good> SharedMember<G> simGood(eris_id_t gid) const;
+        /** Shortcut for `member.simulation()->market<M>()` */
+        template <class M = Market> SharedMember<M> simMarket(eris_id_t mid) const;
+        /** Shortcut for `member.simulation()->intraOpt<I>()` */
+        template <class I = IntraOptimizer> SharedMember<I> simIntraOpt(eris_id_t oid) const;
+        /** Shortcut for `member.simulation()->interOpt<I>()` */
+        template <class I = InterOptimizer> SharedMember<I> simInterOpt(eris_id_t oid) const;
+
 
     protected:
         /** Called (by Simulation) to store a weak pointer to the simulation this member belongs to
@@ -141,5 +159,26 @@ class SharedMember final {
         SharedMember(T *m) : ptr(m) {}
         friend class Simulation;
 };
+}
 
+// This has to be down here because there is a circular dependency between Simulation and Member:
+// each has templated methods requiring the definition of the other.
+#include <eris/Simulation.hpp>
+
+namespace eris {
+template <class A> SharedMember<A> Member::simAgent(eris_id_t aid) const {
+    return simulation()->agent<A>(aid);
+}
+template <class G> SharedMember<G> Member::simGood(eris_id_t gid) const {
+    return simulation()->good<G>(gid);
+}
+template <class M> SharedMember<M> Member::simMarket(eris_id_t mid) const {
+    return simulation()->market<M>(mid);
+}
+template <class I> SharedMember<I> Member::simIntraOpt(eris_id_t oid) const {
+    return simulation()->intraOpt<I>(oid);
+}
+template <class I> SharedMember<I> Member::simInterOpt(eris_id_t oid) const {
+    return simulation()->interOpt<I>(oid);
+}
 }

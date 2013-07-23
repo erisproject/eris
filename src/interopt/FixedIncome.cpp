@@ -1,5 +1,4 @@
 #include <eris/interopt/FixedIncome.hpp>
-#include <iostream>
 
 namespace eris { namespace interopt {
 
@@ -8,7 +7,7 @@ FixedIncome::FixedIncome(const Agent &agent, Bundle income) : income(income), ag
 void FixedIncome::optimize() const {}
 
 void FixedIncome::postAdvance() {
-    simulation()->agent(agent_id_)->assets() += income;
+    simAgent(agent_id_)->assets() += income;
 }
 
 } }

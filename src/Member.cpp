@@ -1,5 +1,4 @@
 #include <eris/Member.hpp>
-#include <eris/Simulation.hpp>
 
 namespace eris {
 
@@ -22,5 +21,6 @@ std::shared_ptr<Simulation> Member::simulation() const {
 
 void Member::added() {}
 void Member::removed() {}
+
 
 }

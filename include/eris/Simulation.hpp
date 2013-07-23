@@ -1,16 +1,19 @@
 #pragma once
 #include <eris/types.hpp>
-#include <eris/Member.hpp>
-#include <eris/Agent.hpp>
-#include <eris/Good.hpp>
-#include <eris/Market.hpp>
-#include <eris/IntraOptimizer.hpp>
-#include <eris/InterOptimizer.hpp>
 #include <unordered_map>
 #include <unordered_set>
 #include <memory>
 
 namespace eris {
+
+// Forward declarations
+class Member;
+template <class T> class SharedMember;
+class Agent;
+class Good;
+class Market;
+class IntraOptimizer;
+class InterOptimizer;
 
 /** This class is at the centre of an Eris economy model; it keeps track of all of the agents
  * currently in the economy, all of the goods currently available in the economy, and the
@@ -23,8 +26,9 @@ namespace eris {
  */
 class Simulation : public std::enable_shared_from_this<Simulation> {
     public:
-        //Simulation();
+        Simulation();
         virtual ~Simulation() = default;
+        Simulation(const Simulation &) = delete;
 
         /// typedef for the map of id's to shared goods
         typedef std::unordered_map<eris_id_t, SharedMember<Good>> GoodMap;
@@ -42,25 +46,25 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         /** Accesses an agent given the agent's eris_id_t.  Templated to allow conversion to
          * a SharedMember of the given Agent subclass; defaults to Agent.
          */
-        template <class A = Agent> SharedMember<A> agent(eris_id_t aid);
+        template <class A = Agent> SharedMember<A> agent(eris_id_t aid) const;
         /** Accesses a good given the good's eris_id_t.  Templated to allow conversion to a
          * SharedMember of the given Good subclass; defaults to Good.
          */
-        template <class G = Good> SharedMember<G> good(eris_id_t gid);
+        template <class G = Good> SharedMember<G> good(eris_id_t gid) const;
         /** Accesses a market given the market's eris_id_t.  Templated to allow conversion to a
          * SharedMember of the given Market subclass; defaults to Market.
          */
-        template <class M = Market> SharedMember<M> market(eris_id_t mid);
+        template <class M = Market> SharedMember<M> market(eris_id_t mid) const;
         /** Accesses an intra-period optimization object given the object's eris_id_t.  Templated to
          * allow conversion to a SharedMember of the given IntraOptimizer subclass; defaults to
          * IntraOptimizer.
          */
-        template <class I = IntraOptimizer> SharedMember<I> intraOpt(eris_id_t oid);
+        template <class I = IntraOptimizer> SharedMember<I> intraOpt(eris_id_t oid) const;
         /** Accesses an inter-period optimization object given the object's eris_id_t.  Templated to
          * allow conversion to a SharedMember of the given InterOptimizer subclass; defaults to
          * InterOptimizer.
          */
-        template <class I = InterOptimizer> SharedMember<I> interOpt(eris_id_t oid);
+        template <class I = InterOptimizer> SharedMember<I> interOpt(eris_id_t oid) const;
 
         /** Constructs a new A object using the given constructor arguments Args, adds it as an
          * agent, and returns a SharedMember<A> referencing it.
@@ -230,11 +234,11 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         void insertIntraOpt(const SharedMember<IntraOptimizer> &opt);
         void insertInterOpt(const SharedMember<InterOptimizer> &opt);
         eris_id_t id_next_ = 1;
-        AgentMap agents_;
-        GoodMap goods_;
-        MarketMap markets_;
-        IntraOptMap intraopts_;
-        InterOptMap interopts_;
+        std::unique_ptr<AgentMap> agents_;
+        std::unique_ptr<GoodMap> goods_;
+        std::unique_ptr<MarketMap> markets_;
+        std::unique_ptr<IntraOptMap> intraopts_;
+        std::unique_ptr<InterOptMap> interopts_;
 
         DepMap depends_on_;
         void removeDeps(const eris_id_t &member);
@@ -242,6 +246,12 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         int iteration_ = 0;
 };
 
+}
+
+// This has to be included here, because its templated methods require the Simulation class.
+#include <eris/Member.hpp>
+
+namespace eris {
 template <class A, typename... Args> SharedMember<A> Simulation::createAgent(const Args&... args) {
     // NB: Stored in a SM<Agent> rather than SM<A> ensures that A is an Agent subclass
     SharedMember<Agent> agent(new A(args...));
@@ -312,25 +322,23 @@ template <class O> SharedMember<O> Simulation::cloneInterOpt(const O &o) {
     return market; // Implicit recast back to SharedMember<O>
 }
 
-template <class A> SharedMember<A> Simulation::agent(eris_id_t aid) {
-    return agents_.at(aid);
+template <class A> SharedMember<A> Simulation::agent(eris_id_t aid) const {
+    return agents_->at(aid);
 }
 
-template <class G> SharedMember<G> Simulation::good(eris_id_t gid) {
-    return goods_.at(gid);
+template <class G> SharedMember<G> Simulation::good(eris_id_t gid) const {
+    return goods_->at(gid);
 }
 
-template <class M> SharedMember<M> Simulation::market(eris_id_t mid) {
-    return markets_.at(mid);
+template <class M> SharedMember<M> Simulation::market(eris_id_t mid) const {
+    return markets_->at(mid);
 }
 
-template <class I> SharedMember<I> Simulation::intraOpt(eris_id_t oid) {
-    return intraopts_.at(oid);
+template <class I> SharedMember<I> Simulation::intraOpt(eris_id_t oid) const {
+    return intraopts_->at(oid);
 }
 
-template <class I> SharedMember<I> Simulation::interOpt(eris_id_t oid) {
-    return interopts_.at(oid);
+template <class I> SharedMember<I> Simulation::interOpt(eris_id_t oid) const {
+    return interopts_->at(oid);
 }
-
-
 }

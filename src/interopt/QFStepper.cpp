@@ -7,20 +7,20 @@ QFStepper::QFStepper(const QFirm &qf, double step, int increase_count) :
     JumpStepper(step, increase_count, 1), firm_(qf) {}
 
 bool QFStepper::should_increase() const {
-    auto firm = simulation()->agent<QFirm>(firm_);
+    auto firm = simAgent<QFirm>(firm_);
 
     // If we can't still supply any part of the output bundle, we should increase
     return !firm->supplies(firm->output());
 }
 
 void QFStepper::take_step(double relative) {
-    auto firm = simulation()->agent<QFirm>(firm_);
+    auto firm = simAgent<QFirm>(firm_);
 
     firm->capacity *= relative;
 }
 
 bool QFStepper::should_jump() const {
-    auto firm = simulation()->agent<QFirm>(firm_);
+    auto firm = simAgent<QFirm>(firm_);
 
     double sales = firm->started - firm->assets().multiples(firm->output());
     if (sales <= firm->capacity / 2) {
@@ -31,6 +31,7 @@ bool QFStepper::should_jump() const {
 }
 
 void QFStepper::take_jump() {
+    auto firm = simAgent<QFirm>(firm_);
     firm->capacity = jump_cap_;
 }
 

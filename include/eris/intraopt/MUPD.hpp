@@ -2,7 +2,7 @@
 
 #include <eris/Consumer.hpp>
 #include <eris/IntraOptimizer.hpp>
-#include <eris/Simulation.hpp>
+#include <eris/Market.hpp>
 #include <unordered_map>
 #include <unordered_set>
 #include <forward_list>
