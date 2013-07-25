@@ -109,9 +109,13 @@ range_<Iter> range(std::pair<Iter, Iter> const &pair) {
  */
 class Stepper final {
     public:
+        static constexpr double default_initial_step = 1.0/32.0;
+        static constexpr int    default_increase_count = 4;
+        static constexpr double default_min_step = std::numeric_limits<double>::epsilon();
+
         /** Constructs a new Stepper object.
          *
-         * \param step the initial size of a step, relative to the current value.  Defaults to 1/32
+         * \param initial_step the initial size of a step, relative to the current value.  Defaults to 1/32
          * (about 3.1%).  Over time the step size will change based on the following options.  When
          * increasing, the new value is \f$(1 + step)\f$ times the current value; when decreasing
          * the value is \f$\frac{1}{1 + step}\f$ times the current value.  This ensures that an
@@ -130,7 +134,9 @@ class Stepper final {
          * machine epsilon (i.e. the smallest value v such that 1 + v is a value distinct from 1),
          * which is the smallest value possible for a step.
          */
-        Stepper(double step = 1.0/32.0, int increase_count = 4, double min_step = std::numeric_limits<double>::epsilon());
+        Stepper(double initial_step = default_initial_step,
+                int increase_count = default_increase_count,
+                double min_step = default_min_step);
 
         /** Called to signal that a step increase (`up=true`) or decrease (`up=false`) should be
          * taken.  Returns the relative step value, where 1 indicates no change, 1.2 indicates a 20%

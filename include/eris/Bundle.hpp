@@ -150,6 +150,9 @@ class BundleNegative {
         BundleNegative& operator *= (const double &m);
         BundleNegative& operator /= (const double &d);
 
+        /// The default epsilon for transferApprox(), if not specified.
+        static constexpr double default_transfer_epsilon = 1.0e-14;
+
         /** Transfers (approximately) the given amount between two Bundles.  Positive quantities in
          * `amount` are transferred from the invoked object to the `to` Bundle; negative quantities
          * are transferred from the `to` Bundle to the invoked object.  The error parameter is a
@@ -158,7 +161,7 @@ class BundleNegative {
          *
          * Calling
          *
-         *     from.transfer(amount, to);
+         *     from.transferApprox(amount, to);
          *
          * is roughly equivalent to
          *
@@ -180,7 +183,7 @@ class BundleNegative {
          *   possible when the destination is a BundleNegative with a negative quantity, since the
          *   destination bundle is always the one being added to).
          */
-        void transferApprox(const BundleNegative &amount, BundleNegative &to, double epsilon = 1e-14);
+        void transferApprox(const BundleNegative &amount, BundleNegative &to, double epsilon = default_transfer_epsilon);
 
         BundleNegative operator + (const BundleNegative &b) const noexcept;
         BundleNegative operator - (const BundleNegative &b) const noexcept;

@@ -15,6 +15,9 @@ namespace eris { namespace market {
  */
 class Bertrand : public Market {
     public:
+        /// The default value of the constructor's randomize parameter
+        static constexpr bool default_randomize = false;
+
         /** Constructs the market.
          *
          * \param output the output Bundle for the firm
@@ -24,7 +27,7 @@ class Bertrand : public Market {
          * \param randomize if true, randomly selects a lowest-price firm in the event of ties; the
          * default, false, evenly divides among lowest-price firms in the event of ties.
          */
-        Bertrand(Bundle output, Bundle price_unit, bool randomize = false);
+        Bertrand(Bundle output, Bundle price_unit, bool randomize = default_randomize);
         /// Returns the pricing information for purchasing q units in this market.
         virtual price_info price(double q) const override;
         /// Returns the quantity (in terms of multiples of the output Bundle) that p units of the
@@ -45,7 +48,7 @@ class Bertrand : public Market {
         /** Allocation information. */
         struct allocation {
             price_info p;
-            std::map<eris_id_t, share> shares;
+            std::unordered_map<eris_id_t, share> shares;
         };
         /** Calculates the allocations across firms for a purchase of q units of the good.
          * Lower-priced firms get priority, with ties as decided by the randomize parameter

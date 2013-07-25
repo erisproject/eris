@@ -21,13 +21,16 @@ namespace eris { namespace intraopt {
  */
 class MUPD : public IntraOptimizer {
     public:
+        /// The default value of the constructor's tolerance parameter
+        static constexpr double default_tolerance = 1.0e-10;
+
         /** Constructors a MUPD optimizer given a differentiable consumer instance and a money good.
          *
          * \param tolerance the relative tolerance of the algorithm; optimization will stop when the
          * difference between highest and lowest MU/$ values (calculated as \f$ \frac{highest -
          * lowest}{highest} \f$ is smaller than this value.  Defaults to 1.0e-10.
          */
-        MUPD(const Consumer::Differentiable &consumer, const eris_id_t &money, double tolerance = 1.0e-10);
+        MUPD(const Consumer::Differentiable &consumer, const eris_id_t &money, double tolerance = default_tolerance);
 
         /** Attempts to spend any available money optimally.  Returns false is no money was spent;
          * typically, with no other changes to the economy between calls, optimize() will return
