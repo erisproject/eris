@@ -45,7 +45,7 @@ void QFirm::added() {
 
 void QFirm::produceNext(const Bundle &b) {
     Bundle need = b - Bundle::common(b, assets());
-    assets() += (need / output()) * output();
+    assets() += need.coverage(output()) * output();
 }
 
 void QFirm::updateStarted() {

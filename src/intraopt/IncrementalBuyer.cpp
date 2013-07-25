@@ -85,7 +85,7 @@ bool IncrementalBuyer::oneRound() {
         }
 
         // Figure out how much `spending' buys in this market:
-        double spend = spending / market->price_unit;
+        double spend = market->price_unit.multiples(spending);
         auto qinfo = market->quantity(spend);
 
         if (qinfo.quantity == 0) {
@@ -144,7 +144,7 @@ bool IncrementalBuyer::oneRound() {
             // Get the market quantity we can afford (if we haven't already), spending an equal
             // share of the spending chunk on each good in the combination
             if (!q_cache[mkt_id].count(comb_size))
-                q_cache[mkt_id].emplace(comb_size, market->quantity(spend_each / market->price_unit));
+                q_cache[mkt_id].emplace(comb_size, market->quantity(market->price_unit.multiples(spend_each)));
 
             auto qinfo = q_cache[mkt_id][comb_size];
 

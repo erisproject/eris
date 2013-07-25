@@ -11,7 +11,7 @@ MUPD::MUPD(const Consumer::Differentiable &consumer, const eris_id_t &money, dou
 
 double MUPD::price_ratio(const SharedMember<Market> &m) const {
     if (!price_ratio_cache.count(m))
-        price_ratio_cache[m] = money_unit / m->price_unit;
+        price_ratio_cache[m] = money_unit.coverage(m->price_unit);
 
     return price_ratio_cache[m];
 }

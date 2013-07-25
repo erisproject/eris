@@ -43,7 +43,7 @@ bool Bundle::covers(const Bundle &b) const noexcept {
         if (g.second > 0 and (*this)[g.first] <= 0) return false;
     return true;
 }
-double Bundle::operator / (const Bundle &b) const noexcept {
+double Bundle::coverage(const Bundle &b) const noexcept {
     double mult = 0;
     for (auto g : goods_) {
         if (g.second > 0) {
@@ -58,8 +58,8 @@ double Bundle::operator / (const Bundle &b) const noexcept {
 
     return mult;
 }
-Bundle Bundle::operator % (const Bundle &b) const {
-    Bundle ret = (*this / b) * b;
+Bundle Bundle::coverageExcess(const Bundle &b) const {
+    Bundle ret = coverage(b) * b;
     ret -= *this;
     ret.clearZeros();
     return ret;

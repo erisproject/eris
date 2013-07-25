@@ -794,35 +794,35 @@ TEST(AlgebraicModifiers, TransferApprox) {
     EXPECT_EQ(Bundle({{1, 5999}, {2, 30001}, {3, 95001}, {4, 0}}), cb);
 }
 
-TEST(AdvancedAlgebra, BundleDividedbyBundle) {
+TEST(AdvancedAlgebra, BundleCoverage) {
     COMPARE_BUNDLES;
 
-    EXPECT_EQ(numeric_limits<double>::infinity(), bb[5] / bb[6]);
-    EXPECT_EQ(1, bb[6] / bb[5]);
-    EXPECT_EQ(numeric_limits<double>::infinity(), bb[4] / bb[0]);
-    EXPECT_EQ(1, bb[0] / bb[4]);
-    EXPECT_EQ(numeric_limits<double>::infinity(), bb[4] / bb[1]);
-    EXPECT_EQ(1, bb[1] / bb[4]);
-    EXPECT_EQ(8, bb[4] / bb[5]);
-    EXPECT_EQ(0.75, bb[5] / bb[4]);
-    EXPECT_EQ(1, bb[6] / bb[7]);
-    EXPECT_EQ(1, bb[7] / bb[6]);
+    EXPECT_EQ(numeric_limits<double>::infinity(), bb[5].coverage(bb[6]));
+    EXPECT_EQ(1, bb[6].coverage(bb[5]));
+    EXPECT_EQ(numeric_limits<double>::infinity(), bb[4].coverage(bb[0]));
+    EXPECT_EQ(1, bb[0].coverage(bb[4]));
+    EXPECT_EQ(numeric_limits<double>::infinity(), bb[4].coverage(bb[1]));
+    EXPECT_EQ(1, bb[1].coverage(bb[4]));
+    EXPECT_EQ(8, bb[4].coverage(bb[5]));
+    EXPECT_EQ(0.75, bb[5].coverage(bb[4]));
+    EXPECT_EQ(1, bb[6].coverage(bb[7]));
+    EXPECT_EQ(1, bb[7].coverage(bb[6]));
 
-    EXPECT_TRUE(isnan((Bundle {}) / (Bundle {})));
+    EXPECT_TRUE(isnan((Bundle {}).coverage(Bundle {})));
 }
-TEST(AdvancedAlgebra, BundleModulusBundle) {
+TEST(AdvancedAlgebra, BundleConverageExcess) {
     COMPARE_BUNDLES;
 
-    EXPECT_THROW(bb[5] % bb[6], Bundle::negativity_error);
-    EXPECT_EQ(Bundle({{3,0.125}}), bb[6] % bb[5]);
-    EXPECT_THROW(bb[4] % bb[0], Bundle::negativity_error);
-    EXPECT_EQ(Bundle({{1,5}, {3,1}}), bb[0] % bb[4]);
-    EXPECT_THROW(bb[4] % bb[1], Bundle::negativity_error);
-    EXPECT_EQ(Bundle({{1,3}, {2,12}}), bb[1] % bb[4]);
-    EXPECT_EQ(Bundle({{1,40}, {2,36}}), bb[4] % bb[5]);
-    EXPECT_EQ(Bundle({{2,3}, {3,0.625}}), bb[5] % bb[4]);
-    EXPECT_EQ(0, bb[6] % bb[7]);
-    EXPECT_EQ(0, bb[7] % bb[6]);
+    EXPECT_THROW(bb[5].coverageExcess(bb[6]), Bundle::negativity_error);
+    EXPECT_EQ(Bundle({{3,0.125}}), bb[6].coverageExcess(bb[5]));
+    EXPECT_THROW(bb[4].coverageExcess(bb[0]), Bundle::negativity_error);
+    EXPECT_EQ(Bundle({{1,5}, {3,1}}), bb[0].coverageExcess(bb[4]));
+    EXPECT_THROW(bb[4].coverageExcess(bb[1]), Bundle::negativity_error);
+    EXPECT_EQ(Bundle({{1,3}, {2,12}}), bb[1].coverageExcess(bb[4]));
+    EXPECT_EQ(Bundle({{1,40}, {2,36}}), bb[4].coverageExcess(bb[5]));
+    EXPECT_EQ(Bundle({{2,3}, {3,0.625}}), bb[5].coverageExcess(bb[4]));
+    EXPECT_EQ(0, bb[6].coverageExcess(bb[7]));
+    EXPECT_EQ(0, bb[7].coverageExcess(bb[6]));
 }
 TEST(AdvancedAlgebra, multiples) {
     Bundle a  {{1,100}, {2,10}};
@@ -833,37 +833,37 @@ TEST(AdvancedAlgebra, multiples) {
     Bundle z;
     Bundle z0 {{1,0},   {2,0}};
 
-    EXPECT_EQ(numeric_limits<double>::infinity(), a/b);
-    EXPECT_EQ(numeric_limits<double>::infinity(), a/b0);
-    EXPECT_EQ(0.1, b/a);
-    EXPECT_EQ(0.1, b0/a);
+    EXPECT_EQ(numeric_limits<double>::infinity(), a.coverage(b));
+    EXPECT_EQ(numeric_limits<double>::infinity(), a.coverage(b0));
+    EXPECT_EQ(0.1, b.coverage(a));
+    EXPECT_EQ(0.1, b0.coverage(a));
     EXPECT_EQ(10, a.multiples(b));
     EXPECT_EQ(10, a.multiples(b0));
     EXPECT_EQ(0, b.multiples(a));
     EXPECT_EQ(0, b0.multiples(a));
 
-    EXPECT_EQ(numeric_limits<double>::infinity(), a/c);
-    EXPECT_EQ(numeric_limits<double>::infinity(), a/c0);
-    EXPECT_EQ(0.05, c/a);
-    EXPECT_EQ(0.05, c0/a);
+    EXPECT_EQ(numeric_limits<double>::infinity(), a.coverage(c));
+    EXPECT_EQ(numeric_limits<double>::infinity(), a.coverage(c0));
+    EXPECT_EQ(0.05, c.coverage(a));
+    EXPECT_EQ(0.05, c0.coverage(a));
     EXPECT_EQ(20, a.multiples(c));
     EXPECT_EQ(20, a.multiples(c0));
     EXPECT_EQ(0, c.multiples(a));
     EXPECT_EQ(0, c0.multiples(a));
 
-    EXPECT_EQ(numeric_limits<double>::infinity(), a/z);
-    EXPECT_EQ(numeric_limits<double>::infinity(), a/z0);
-    EXPECT_EQ(0, z/a);
-    EXPECT_EQ(0, z0/a);
+    EXPECT_EQ(numeric_limits<double>::infinity(), a.coverage(z));
+    EXPECT_EQ(numeric_limits<double>::infinity(), a.coverage(z0));
+    EXPECT_EQ(0, z.coverage(a));
+    EXPECT_EQ(0, z0.coverage(a));
     EXPECT_EQ(0, z.multiples(a));
     EXPECT_EQ(0, z0.multiples(a));
     EXPECT_EQ(numeric_limits<double>::infinity(), a.multiples(z));
     EXPECT_EQ(numeric_limits<double>::infinity(), a.multiples(z0));
 
-    EXPECT_TRUE(isnan(z / z));
-    EXPECT_TRUE(isnan(z0 / z));
-    EXPECT_TRUE(isnan(z / z0));
-    EXPECT_TRUE(isnan(z0 / z0));
+    EXPECT_TRUE(isnan(z.coverage(z)));
+    EXPECT_TRUE(isnan(z0.coverage(z)));
+    EXPECT_TRUE(isnan(z.coverage(z0)));
+    EXPECT_TRUE(isnan(z0.coverage(z0)));
     EXPECT_TRUE(isnan(z.multiples(z)));
     EXPECT_TRUE(isnan(z0.multiples(z)));
     EXPECT_TRUE(isnan(z.multiples(z0)));

@@ -20,7 +20,7 @@ Market::quantity_info Bertrand::quantity(double price) const {
         auto firm = simAgent<firm::PriceFirm>(f);
         double s = firm->canSupplyAny(output_unit);
         if (s > 0) {
-            double firm_price = (output_unit / firm->output()) * (firm->price() / price_unit);
+            double firm_price = output_unit.coverage(firm->output()) * firm->price().coverage(price_unit);
             price_quantity[firm_price] += s;
         }
     }
@@ -72,7 +72,7 @@ Bertrand::allocation Bertrand::allocate(double q) const {
                 //     (market.outout/firm.output) * (firm.price / market.price)
                 // because those divisions are lossy when Bundles aren't scaled versions of each
                 // other (see Bundle.hpp's description of Bundle division)
-                double firm_price = (output_unit / firm->output()) * (firm->price() / price_unit);
+                double firm_price = output_unit.coverage(firm->output()) * firm->price().coverage(price_unit);
                 price_agg_q[firm_price] += productivity;
                 price_firm[firm_price].push_back(std::pair<eris_id_t,double>(firm, productivity));
             }

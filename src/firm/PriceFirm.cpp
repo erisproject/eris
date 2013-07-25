@@ -27,7 +27,7 @@ double PriceFirm::canSupplyAny(const Bundle &b) const noexcept {
 
     // Otherwise get the supply maximum by adding assets on hand to the maximum production, then
     // dividing into the requested bundle
-    return (s*b + assets()) / b;
+    return (s*b + assets()).multiples(b);
 }
 
 double PriceFirm::canProduceAny(const Bundle &b) const noexcept {
@@ -35,7 +35,7 @@ double PriceFirm::canProduceAny(const Bundle &b) const noexcept {
 
     // Return the maximum that we can produce, divided by the desired bundle.  Note that this could
     // well be infinity!
-    return ((capacity_ - capacity_used_) * output_) / b;
+    return ((capacity_ - capacity_used_) * output_).multiples(b);
 }
 
 Bundle PriceFirm::produce(const Bundle &b) {
@@ -44,7 +44,7 @@ Bundle PriceFirm::produce(const Bundle &b) {
 
     // Produce the smallest multiple of output_ required to cover b.  e.g. if b is (3,3) and output_
     // is (1,3), we produce (3,9).
-    return (b / output_) * output_;
+    return b.coverage(output_) * output_;
 }
 
 /*
@@ -79,7 +79,7 @@ void PriceFirm::reserveProduction(const Bundle &reserve) {
     if (!output_.covers(reserve))
         throw supply_mismatch();
 
-    double need = reserve / output_;
+    double need = reserve.coverage(output_);
     if (need + capacity_used_ > capacity_)
         throw production_constraint();
 

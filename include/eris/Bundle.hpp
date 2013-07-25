@@ -289,63 +289,45 @@ class Bundle final : public BundleNegative {
          */
         Bundle operator / (const double &d) const;
 
-        /** Performs "bundle division."  Division of one Bundle (but *not* BundleNegative) by
-         * another is also defined as follows:  `a/b` returns the minimum value \f$m\f$ such that
+        /** Performs "bundle coverage," returning the multiples of the provided bundle needed to
+         * cover the called-upon Bundle.  Coverage of a Bundle (but *not* BundleNegative) by another
+         * is also defined as follows:  `a.coverage(b)` returns the minimum value \f$m\f$ such that
          * \f$mb \gtreq a\f$.
          *
-         * Division of a zero-bundle by another zero-bundle return a (quiet) NaN.  Division of a
+         * Coverage of a zero-bundle by another zero-bundle return a (quiet) NaN.  Coverage of a
          * Bundle with a positive quantity in one or more goods by a Bundle with a quantity of 0 for
-         * those goods returns infinity.  covers() can be used to detect this case.
+         * any of those goods returns infinity.
          *
-         * For example, if \f$a = (2,3,1), b = (1,2,2.5)\f$ then \f$a / b = 2\f$
+         * For example, if \f$a = (2,3,1), b = (1,2,2.5)\f$ then `a.coverage(b)` returns 2.
          *
-         * \sa operator%
+         * multiples() is a related operator that returns the largest multiple of b doesn't exceed a.
+         *
+         * \sa coverageExcess
          * \sa multiples
          * \sa covers
          */
-        double operator / (const Bundle &b) const noexcept;
-        /** Returns the modulus (i.e. remainder) of bundle division.  Modulus is defined in terms of
-         * bundle division: `a % b` equals Bundle c such that c = (a / b) * b - a.
+        double coverage(const Bundle &b) const noexcept;
+        /** Returns the Bundle of "leftover", excess quantities that would result from a coverage()
+         * call.  Mathematically, these two quantities are equal:
          *
-         * Taking the modulus of a Bundle with positive quantity in one or more goods by a Bundle
-         * with quantity 0 for those goods throws a negativity_error exception.  covers() can be
-         * used to detect this case.
+         *     b * a.coverage(b);
+         *     a + a.coverageExcess(b);
+         *
+         * Conceptually, this returns the excess of using multiples of Bundle b to produce Bundle a.
+         *
+         * Calling this in cases where coverage() returns infinity will throw a negativity_error
+         * exception.  covers() can be used to detect this case.
+         *
+         * Assuming an exception is not thrown, this method is equivalent to `b * a.coverage(b) -
+         * a`, but also clears zero values from the resulting Bundle.
          *
          * For example, if \f$a = (2,3,1), b = (1,2,2.5)\f$ then \f$a \% b = (0,1,4)\f$
          *
-         * \sa operator/
+         * \sa coverage
          * \sa covers
+         * \sa multiples
          */
-        Bundle operator % (const Bundle &b) const;
-
-        /** Returns the number of multiples of b that are contained in the current Bundle.
-         * Mathematically, `a.multiples(b)` returns the largest value \f$m\f$ such that \f$a \gtreq
-         * mb\f$.  If both are zero bundles, returns (quiet) NaN.
-         *
-         * This is intended to answer the question "How many multiples of b can be created from a?",
-         * while Bundle division answers "How many multiples of b does it take to have a Bundle at
-         * least as large as a?"
-         *
-         * Note: this is equivalent to the numerical inverse of reversed Bundle division, i.e.
-         * `a.multiples(b) == 1.0 / (b / a)`, but is slightly more efficient, particularly when b
-         * contains substantially fewer goods than a.
-         *
-         * Example:
-         *
-         *     Bundle a {{1,100}, {2,10}};
-         *     Bundle b {         {2,1}};
-         *     Bundle c {{1,5}};
-         *     a / b;          // Infinity
-         *     b / a;          // 0.1
-         *     a.multiples(b); // 10
-         *     b.multiples(a); // 0
-         *     a / c;          // Infinity
-         *     c / a;          // 0.05
-         *     a.multiples(c); // 20
-         *     c.multiples(a); // 0
-         */
-
-        double multiples(const Bundle &b) const noexcept;
+        Bundle coverageExcess(const Bundle &b) const;
         /** Returns true iff the current Bundle has positive quantities for every positive-quantity
          * good in the passed-in Bundle b.
          *
@@ -363,6 +345,35 @@ class Bundle final : public BundleNegative {
          *     c.covers(b); // FALSE: c does not have positive quantities of good 1, but b does
          */
         bool covers(const Bundle &b) const noexcept;
+
+        /** Returns the number of multiples of b that are contained in the current Bundle.
+         * Mathematically, `a.multiples(b)` returns the largest value \f$m\f$ such that \f$a \gtreq
+         * mb\f$.  If both are zero bundles, returns (quiet) NaN.
+         *
+         * This is intended to answer the question "How many multiples of b can be created from a?",
+         * while Bundle coverage answers "How many multiples of b does it take to have a Bundle at
+         * least as large as a?"
+         *
+         * Note: this is equivalent to the numerical inverse of reversed Bundle coverage, i.e.
+         * `a.multiples(b) == 1.0 / (b.coverage(a))`, but is slightly more efficient, particularly
+         * when b contains substantially fewer goods than a.
+         *
+         * Example:
+         *
+         *     Bundle a {{1,100}, {2,10}};
+         *     Bundle b {         {2,1}};
+         *     Bundle c {{1,5}};
+         *     a.coverage(b);  // Infinity
+         *     b.coverage(a);  // 0.1
+         *     a.multiples(b); // 10
+         *     b.multiples(a); // 0
+         *     a.coverage(c);  // Infinity
+         *     c.coverage(a);  // 0.05
+         *     a.multiples(c); // 20
+         *     c.multiples(a); // 0
+         */
+
+        double multiples(const Bundle &b) const noexcept;
 
         /** Returns a maximum common bundle between one bundle and another.  The resulting bundle
          * will contain all goods that are in both bundles (though quantities may be zero), and will

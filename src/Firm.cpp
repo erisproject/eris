@@ -47,11 +47,11 @@ double Firm::canSupplyAny(const Bundle &b) const noexcept {
     Bundle need = b - onhand;
     double c = canProduceAny(need);
     if (c >= 1.0) return 1.0;
-    if (c <= 0.0) return onhand / b;
+    if (c <= 0.0) return onhand.multiples(b);
 
     // We can produce some, but not enough; figure out how much we can supply in total:
     need *= c;
-    return (need + onhand) / b;
+    return (need + onhand).multiples(b);
 }
 
 bool Firm::supplies(const Bundle &b) const noexcept {
@@ -109,8 +109,7 @@ Firm::Reservation Firm::reserve(const BundleNegative &reserve) {
 
     // Transfer any assets we matched above into reserves
     if (common != 0) {
-        assets() -= common;
-        reserves_ += common;
+        assets().transferApprox(common, reserves_);
     }
 
     return createReservation(reserve);
@@ -201,8 +200,7 @@ void Firm::release_(Reservation_ &res) {
 
     // Anything left should be transferrable from reserves to assets.  This could throw a negativity
     // exception if something got screwed up.
-    reserves_ -= res_pos;
-    assets() += res_pos;
+    reserves_.transferApprox(res_pos, assets());
 
     reduceProduction();
 }
@@ -231,7 +229,7 @@ bool FirmNoProd::supplies(const Bundle &b) const noexcept {
 }
 
 double FirmNoProd::canSupplyAny(const Bundle &b) const noexcept {
-    return assets() / b;
+    return assets().multiples(b);
 }
 
 void FirmNoProd::ensureNext(const Bundle &b) {
