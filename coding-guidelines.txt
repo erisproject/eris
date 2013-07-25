@@ -138,11 +138,23 @@ General code guidelines
     obvious and natural to users of the class.  Bundle uses it extensively,
     since operations like adding two bundles together makes immediate sense.
     Most classes don't have such a natural interpretation.
+  - Default method parameters are acceptable, however the default value for
+    public or protected methods should be stored in a static constexpr
+    variable with at least as much scope as the method it is used in (i.e.
+    public for public methods, public or protected for protected methods).
+    name starting with `default_`.  For example:
+
+        public:
+            static constexpr double default_foo = 3.0;
+            virtual void doSomething(double foo = default_foo);
+
 
 - C++ language features:
   - Eris is C++11 code; any standard c++11 features are acceptable.
   - use `auto` to avoid pointlessly cluttered type names (especially for
     templated type names).
+  - Avoid direct use of pointers as much as possible, preferring
+    std::shared_ptr, std::unique_ptr, etc.
 
 
 Code formatting
