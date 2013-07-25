@@ -3,8 +3,7 @@
 #include <eris/Eris.hpp>
 #include <eris/Simulation.hpp>
 #include <eris/firm/QFirm.hpp>
-#include <eris/market/Quantity.hpp>
-#include <eris/interopt/QMStepper.hpp>
+#include <eris/market/QMarket.hpp>
 #include <eris/interopt/QFStepper.hpp>
 #include <eris/consumer/Quadratic.hpp>
 #include <eris/intraopt/MUPD.hpp>
@@ -32,10 +31,12 @@ int main() {
     // Set up a quantity-setting firm that produces x, with initial quantity of 100,
     // and complete depreciation.
     auto firm = sim->createAgent<QFirm>(x1, 100);
-    sim->createInterOpt<QFStepper>(firm);
+    sim->createInterOpt<QFStepper>(firm, m1);
 
-    auto qmkt = sim->createMarket<Quantity>(x1, m1);
+    auto qmkt = sim->createMarket<QMarket>(x1, m1, 1.0, 7);
     qmkt->addFirm(firm);
+
+    std::cout << "qmkt->optimizer=" << qmkt->optimizer << "\n";
 
     std::list<SharedMember<Quadratic>> consumers;
 
@@ -49,17 +50,20 @@ int main() {
         consumers.push_back(c);
 
         // Use MUPD for optimization
-        sim->createIntraOpt<MUPD>(c, m);
+        eris_id_t z = sim->createIntraOpt<MUPD>(c, m);
+        std::cout << "MUPD: " << z << "\n";
 
         // Give them some income:
         c->assets() += 100*m1;
-        sim->createInterOpt<FixedIncome>(c, 100*m1);
+        z = sim->createInterOpt<FixedIncome>(c, 100*m1);
+        std::cout << "FixedIncome: " << z << "\n";
     }
 
     for (int i = 0; i < 100; i++) {
+        std::cout << "Running iteration " << i << "...\n";
         sim->run();
 
-        std::cout << "Ran iteration " << i << ".  (" << sim->intraopt_count << " intraopt loops)\n";
+        std::cout << "done. (" << sim->intraopt_count << " intraopt loops)\n";
 
         std::cout << "    P[x]: " << qmkt->price() << "\n";
 

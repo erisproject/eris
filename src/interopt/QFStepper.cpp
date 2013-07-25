@@ -1,17 +1,9 @@
 #include <eris/interopt/QFStepper.hpp>
-#include <eris/Simulation.hpp>
 
 namespace eris { namespace interopt {
 
-QFStepper::QFStepper(const QFirm &qf, double step, int increase_count) :
-    JumpStepper(step, increase_count, 1), firm_(qf) {}
-
-bool QFStepper::should_increase() const {
-    auto firm = simAgent<QFirm>(firm_);
-
-    // If we can't still supply any part of the output bundle, we should increase
-    return !firm->supplies(firm->output());
-}
+QFStepper::QFStepper(const QFirm &qf, const Bundle &profit_basis, double step, int increase_count) :
+    ProfitStepper(qf, profit_basis, step, increase_count, 1), firm_(qf) {}
 
 void QFStepper::take_step(double relative) {
     auto firm = simAgent<QFirm>(firm_);
@@ -24,19 +16,15 @@ bool QFStepper::should_jump() const {
 
     double sales = firm->started - firm->assets().multiples(firm->output());
     if (sales <= firm->capacity / 2) {
-        jump_cap_ = firm->capacity / 2;
+        jump_cap_ = sales;
         return true;
     }
     return false;
 }
 
 void QFStepper::take_jump() {
-    auto firm = simAgent<QFirm>(firm_);
+auto firm = simAgent<QFirm>(firm_);
     firm->capacity = jump_cap_;
-}
-
-void QFStepper::added() {
-    dependsOn(firm_);
 }
 
 } }

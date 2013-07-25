@@ -208,8 +208,15 @@ void MUPD::optimize() {
                 debugiters++;
                 last_transfer = transfer;
 
+                double pre_try_h = try_spending[highest], pre_try_l = try_spending[lowest];
+
                 try_spending[highest] = spending[highest] + transfer * spending[lowest];
                 try_spending[lowest] = (1-transfer) * spending[lowest];
+
+                if (try_spending[highest] == pre_try_h and try_spending[lowest] == pre_try_l) {
+                    // The transfer is too small to numerically affect things, so we're done.
+                    break;
+                }
 
                 alloc = spending_allocation(try_spending);
                 tryout = a_no_money + alloc.bundle;
@@ -227,9 +234,17 @@ void MUPD::optimize() {
                 step_size /= 2;
             }
         }
+
+        final_alloc = alloc;
+
+        if (spending[highest] == try_spending[highest] or spending[lowest] == try_spending[lowest]) {
+            // What we just identified isn't actually a change, probably because we're hitting the
+            // boundaries of storable double values, so end.
+            break;
+        }
+
         spending[highest] = try_spending[highest];
         spending[lowest] = try_spending[lowest];
-        final_alloc = alloc;
     }
 
     // Safety check: make sure we're actually increasing utility; if not, don't do anything.
@@ -247,7 +262,7 @@ void MUPD::optimize() {
         a += extra * money_unit;
     }
 
-    for (auto m : final_alloc.quantity) {
+    for (auto &m : final_alloc.quantity) {
         if (m.first != 0 and m.second > 0) {
             reservations.push_front(sim->market(m.first)->reserve(m.second, &(consumer->assets())));
         }

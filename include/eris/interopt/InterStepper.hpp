@@ -12,15 +12,25 @@ namespace eris { namespace interopt {
  * This is an abstract base class and requires an implementation of the should_increase() and
  * take_step() methods.
  *
- * \sa eris::Stepper the class handling the step adjustment logic
+ * This class also supports jumping (instead of stepping) by overriding its should_jump() and
+ * take_jump() methods.  Jumps are checked *every* period, even when the period parameter is such
+ * that steps don't occur every period.
+ *
+ * \sa Stepper the class handling the step adjustment logic
  * \sa PriceStepper a Stepper implementation adapted to PriceFirms
  */
-class JumpStepper;
-class Stepper : public InterOptimizer {
+class InterStepper : public InterOptimizer {
     public:
-        /** Constructs a new Stepper optimization object.
+        /// The default initial step, if not given in the constructor
+        static constexpr double default_initial_step = Stepper::default_initial_step;
+        /// The default increase count, if not given in the constructor
+        static constexpr int default_increase_count = Stepper::default_increase_count;
+        /// The default period, if not given in the constructor
+        static constexpr int default_period = 1;
+
+        /** Constructs a new InterStepper optimization object.
          *
-         * \param step the initial size of a step, relative to the current value.  Defaults to 1/32
+         * \param initial_step the initial size of a step, relative to the current value.  Defaults to 1/32
          * (about 3.1%).  Over time the step size will change based on the following options.  When
          * increasing, the new value is \f$(1 + step)\f$ times the current value; when decreasing
          * the value is \f$\frac{1}{1 + step}\f$ times the current value.  This ensures that an
@@ -36,9 +46,14 @@ class Stepper : public InterOptimizer {
          * subsequent increases, etc.
          *
          * \param period is how often a step should take place.  The default, 1, means we should
-         * take a step every period; 2 would mean every second period, etc.
+         * take a step every period; 2 would mean every second period, etc.  Note that jumping is
+         * checked and can occur in every period, regardless of this value, and that a jump occuring
+         * resets the period counter.
          */
-        Stepper(double step = 1.0/32.0, int increase_count = 4, int period = 1);
+        InterStepper(
+                double initial_step = default_initial_step,
+                int increase_count = default_increase_count,
+                int period = default_period);
 
         /** Determines whether the value should go up or down, and by how much.  Calls
          * (unimplemented) method should_increase() to determine the direction of change.
@@ -51,8 +66,8 @@ class Stepper : public InterOptimizer {
         virtual void apply() override;
 
     protected:
-        /// The eris::Stepper object used to handle step adjustment logic
-        eris::Stepper stepper_;
+        /// The Stepper object used to handle step adjustment logic
+        Stepper stepper_;
 
         /** Called to determine whether the value next period should go up or down.  A true return
          * value indicates that a value increase should be tried, false indicates a decrease.  This
@@ -65,54 +80,35 @@ class Stepper : public InterOptimizer {
          */
         virtual void take_step(double relative) = 0;
 
+        /** Called to determine whether the value next period should jump instead of taking a step.
+         * Typically this is used to identify when a custom jump is needed instead of the usual
+         * step.  If this returns true, take_jump() will be called instead of take_step().  If this
+         * returns false, the usual stepping procedure occurs.
+         *
+         * The default implementation of this method always returns false.
+         *
+         * If a jump occurs, the Stepper `same` parameter is reset to 0, and the period counter (for
+         * stepping that doesn't occur in every period) is reset.
+         */
+        virtual bool should_jump() const;
+
+        /** Called when should_jump() returned true when applying the interopt change.
+         *
+         * The default implementation does nothing.
+         */
+        virtual void take_jump();
+
         /// Whether we are going to step up.  Calculated in optimize(), given to stepper_ in apply()
         mutable bool curr_up_ = false;
         /// The period; we only try to take a step every `period_` times.  1 means always.
         const int period_;
-        /// Tracks how many steps we've taken since the last step, used for periodic stepping.
+        /// Tracks how many steps we've taken since the last step or jump, used for periodic stepping.
         mutable int last_step_ = 0;
         /// True if we're going to step this round.  Will be always true if `period_ == 1`.
         mutable bool stepping_ = false;
-
-        friend class JumpStepper;
-};
-
-/** This class extends Stepper with the ability to take jumps instead of relative steps in
- * exceptional circumstances, and stepping via Stepper the rest of the time.
- */
-class JumpStepper : public Stepper {
-    public:
-        /** Creates a new JumpStepper.  Arguments are passed to Stepper constructor.
-         *
-         * \sa Stepper::Stepper
-         */
-        JumpStepper(double step = 1.0/32.0, int increase_count = 4, int period = 1);
-
-        /** Wraps Stepper::optimize() to check for should_jump().  If it returns false, calls
-         * Stepper::optimize().
-         */
-        virtual void optimize() const override;
-
-        /** Wraps Stepper::optimize(); if should_jump() returned false, Stepper::optimize() is
-         * called; otherwise the eris::Stepper `same` parameter is reset and take_jump() is called.
-         */
-        virtual void apply() override;
-
-    protected:
-        /** Called to determine whether the value next period should jump instead of taking a step.
-         * Typically this is used to identify when a custom jump is needed instead of the usual
-         * step.  If this returns true, take_jump() will be called instead of take_step().  If this
-         * returns false, the usual Stepper procedure occurs.
-         *
-         * If a jump occurs, the Stepper `same` parameter is reset to 0.
-         */
-        virtual bool should_jump() const = 0;
-
-        /** Called when should_jump() returned true when applying the interopt change. */
-        virtual void take_jump() = 0;
-
-    private:
+        /// True if we're going to jump this round instead of stepping.
         mutable bool jump_ = false;
 };
+
 
 } }

@@ -2,22 +2,26 @@
 #include <eris/types.hpp>
 #include <eris/Market.hpp>
 #include <eris/firm/QFirm.hpp>
+#include <eris/intraopt/QMPricer.hpp>
 #include <limits>
 
-namespace eris {
-namespace intraopt { class QMPricer; }
-namespace market {
+namespace eris { namespace market {
 
 /** This class handles a "quantity" market, where at the beginning of the period firms provide a
  * fixed quantity.  In each period, the price changes based on whether there was a surplus or
  * shortage in the previous period.
  *
  * Price adjustments occur through the QMPricer intra-period optimizer class, which is automatically
- * added to a simulation when the Quantity market object is added.
+ * added to a simulation when the quantity market object is added.
  */
-class Quantity : public Market {
+class QMarket : public Market {
     public:
-        /** Constructs a new Quantity market, with a specified unit of output and unit of input
+        /// Default initial price, if not given in constructor
+        static constexpr double default_initial_price = 1.0;
+        /// Default QMPricer tries, if not given in constructor
+        static constexpr int default_qmpricer_tries = intraopt::QMPricer::default_tries;
+
+        /** Constructs a new quantity market, with a specified unit of output and unit of input
          * (price) per unit of output.
          *
          * \param output_unit the Bundle making up a single unit of output.  Quantities calculated
@@ -30,12 +34,15 @@ class Quantity : public Market {
          * this market.  Defaults to 1; must be > 0.  This is typically adjusted up or down by QMStepper (or a
          * similar inter-period optimizer) between periods.
          *
-         * \param qmpricer_rounds if greater than 0, this specifies the number of rounds given to
+         * \param qmpricer_tries if greater than 0, this specifies the number of tries given to
          * the automatically-created QMPricer intra-period optimizer.  If 0 (or negative), the
          * QMPricer is not automatically created, in which case a QMPricer (or equivalent) optimizer
          * must be added separately to govern the market's price changes.
          */
-        Quantity(Bundle output_unit, Bundle price_unit, double initial_price = 1.0, int qmpricer_rounds = 4);
+        QMarket(Bundle output_unit,
+                Bundle price_unit,
+                double initial_price = default_initial_price,
+                int qmpricer_tries = default_qmpricer_tries);
 
         /// Returns the pricing information for purchasing q units in this market.
         virtual price_info price(double q) const override;
@@ -92,13 +99,13 @@ class Quantity : public Market {
 
         /** When added to a simulation, this market automatically also adds a QMPricer intra-period
          * optimizer to handle pricing adjustments.  This can be skipped by specifying
-         * qmpricer_rounds=0 in the constructor, but in such a case care must be taken to add a
+         * qmpricer_tries=0 in the constructor, but in such a case care must be taken to add a
          * QMPricer (or equivalent) optimizer to control price in this market.
          */
         virtual void added() override;
 
     private:
-        int qmpricer_rounds_ = 0;
+        int qmpricer_tries_ = 0;
 
 };
 

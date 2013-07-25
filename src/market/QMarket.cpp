@@ -1,26 +1,26 @@
-#include <eris/market/Quantity.hpp>
+#include <eris/market/QMarket.hpp>
 #include <eris/intraopt/QMPricer.hpp>
 #include <eris/Simulation.hpp>
 #include <unordered_map>
 
 namespace eris { namespace market {
 
-Quantity::Quantity(Bundle output_unit, Bundle price_unit, double initial_price, int qmpricer_rounds) :
-    Market(output_unit, price_unit), qmpricer_rounds_(qmpricer_rounds) {
+QMarket::QMarket(Bundle output_unit, Bundle price_unit, double initial_price, int qmpricer_tries) :
+    Market(output_unit, price_unit), qmpricer_tries_(qmpricer_tries) {
     price_ = initial_price <= 0 ? 1 : initial_price;
 }
 
-Market::price_info Quantity::price(double q) const {
+Market::price_info QMarket::price(double q) const {
     double available = firmQuantities(q);
     if (q > available or (q == 0 and available <= 0)) return { .feasible=false };
     else return { .feasible=true, .total=q*price_, .marginal=price_, .marginalFirst=price_ };
 }
 
-double Quantity::price() const {
+double QMarket::price() const {
     return price_;
 }
 
-double Quantity::firmQuantities(double max) const {
+double QMarket::firmQuantities(double max) const {
     double q = 0;
 
     for (auto f : suppliers_) {
@@ -30,7 +30,7 @@ double Quantity::firmQuantities(double max) const {
     return q;
 }
 
-Market::quantity_info Quantity::quantity(double p) const {
+Market::quantity_info QMarket::quantity(double p) const {
     double q = p / price_;
     double available = firmQuantities(q);
     bool constrained = q > available;
@@ -39,7 +39,7 @@ Market::quantity_info Quantity::quantity(double p) const {
     return { .constrained=constrained, .quantity=q, .spent=spent, .unspent=p-spent };
 }
 
-Market::Reservation Quantity::reserve(double q, Bundle *assets, double p_max) {
+Market::Reservation QMarket::reserve(double q, Bundle *assets, double p_max) {
     double available = firmQuantities(q);
     if (q > available)
         throw output_infeasible();
@@ -94,18 +94,18 @@ Market::Reservation Quantity::reserve(double q, Bundle *assets, double p_max) {
     return res;
 }
 
-void Quantity::addFirm(SharedMember<Firm> f) {
-    requireInstanceOf<firm::QFirm>(f, "Firm passed to Quantity.addFirm(...) is not a QFirm instance");
+void QMarket::addFirm(SharedMember<Firm> f) {
+    requireInstanceOf<firm::QFirm>(f, "Firm passed to QMarket.addFirm(...) is not a QFirm instance");
     Market::addFirm(f);
 }
 
-void Quantity::setPrice(double p) {
+void QMarket::setPrice(double p) {
     price_ = p;
 }
 
-void Quantity::added() {
-    if (qmpricer_rounds_ > 0)
-        optimizer = simulation()->createIntraOpt<eris::intraopt::QMPricer>(*this);
+void QMarket::added() {
+    if (qmpricer_tries_ > 0)
+        optimizer = simulation()->createIntraOpt<eris::intraopt::QMPricer>(*this, qmpricer_tries_);
 }
 
 } }

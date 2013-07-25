@@ -249,7 +249,10 @@ class Market : public Member {
         virtual void release_(Reservation_ &res);
 
     public:
-        /** Adds f to the firms supplying in this market. */
+        /** Adds f to the firms supplying in this market.  Subclasses that require a particular type
+         * of firm should override this method, calling `requireInstanceOf<Base>(f, "...")` followed by
+         * `Market::addFirm(f)`; see eris::market::Bertrand as an example.
+         */
         virtual void addFirm(SharedMember<Firm> f);
 
         /** Removes f from the firms supplying in this market. */
