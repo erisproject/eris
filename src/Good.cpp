@@ -3,21 +3,21 @@
 #include <string>
 namespace eris {
 
-Good::Good(std::string good_name) : name(good_name) {}
+Good::Good(std::string name) : name(name) {}
 
 Good::Continuous::Continuous(std::string name) : Good(name) {}
 
 double Good::Continuous::increment() { return 0.0; }
 
-Good::Discrete::Discrete(std::string name, double increment) : Good(name) {
+Good::Discrete::Discrete(double increment, std::string name) : Good(name) {
     setIncrement(increment);
 }
 
 void Good::Discrete::setIncrement(double increment) {
     if (increment <= 0) throw std::invalid_argument(std::to_string(increment));
-    incr = increment;
+    incr_ = increment;
 }
 
-double Good::Discrete::increment() { return incr; }
+double Good::Discrete::increment() { return incr_; }
 
 }
