@@ -5,6 +5,7 @@
 #include <limits>
 #include <ostream>
 #include <unordered_map>
+#include <forward_list>
 
 namespace eris {
 
@@ -80,6 +81,19 @@ class BundleNegative {
          * purposes.
          */
         BundleNegative(const init_list &init);
+        /** Creates a new Bundle by copying quantities from another Bundle.  If the other Bundle is
+         * currently in a transaction, only the current values are copied; the transactions and
+         * pre-transactions values are not.
+         */
+        BundleNegative(const BundleNegative &b);
+
+        /** Assigns the values of the given Bundle to the current Bundle.
+         *
+         * If the source Bundle is in a transaction, only the currently-visible values are copied;
+         * the transaction state and underlying values are not.  If the current Bundle is in a
+         * transaction, the assigned values become part of the transaction values.
+         */
+        BundleNegative& operator = (const BundleNegative &b);
 
         virtual ~BundleNegative() = default;
 
@@ -87,7 +101,13 @@ class BundleNegative {
         double operator[] (const eris_id_t &gid) const;
         /** Sets the quantity of the given good id to the given value. */
         virtual void set(const eris_id_t &gid, const double &quantity);
+        /** This method is is provided to be able to use a Bundle in a range for loop; it is, however, a
+         * const_iterator, mapped internally to the underlying std::unordered_map's cbegin() method.
+         */
         std::unordered_map<eris_id_t, double>::const_iterator begin() const;
+        /** This method is is provided to be able to use a Bundle in a range for loop; it is, however, a
+         * const_iterator, mapped internally to the underlying std::unordered_map's cend() method.
+         */
         std::unordered_map<eris_id_t, double>::const_iterator end() const;
 
         /** Returns the number of goods in the bundle.  Note that values that have not been
@@ -151,13 +171,13 @@ class BundleNegative {
         BundleNegative& operator /= (const double &d);
 
         /// The default epsilon for transferApprox(), if not specified.
-        static constexpr double default_transfer_epsilon = 1.0e-14;
+        static constexpr double default_transfer_epsilon = 1.0e-12;
 
         /** Transfers (approximately) the given amount between two Bundles.  Positive quantities in
          * `amount` are transferred from the invoked object to the `to` Bundle; negative quantities
-         * are transferred from the `to` Bundle to the invoked object.  The error parameter is a
-         * relative amount that defines how close values should get before treating them as zero
-         * quantities.
+         * are transferred from the `to` Bundle to the invoked object.  The epsilon parameter is the
+         * relative amount that the transfer quantities may be adjusted in order to transfer the
+         * entire quantity away from a Bundle.
          *
          * Calling
          *
@@ -171,8 +191,8 @@ class BundleNegative {
          * except for the error tolerance handling.
          *
          * The error handling is particularly useful to avoid problems with numerical imprecision
-         * resulting in potentially negative quantities in Bundles.  In particular it specially
-         * does two things:
+         * resulting in small negative quantities in Bundles.  In particular it specially does two
+         * things:
          *
          * - If a transfer would result in a good in the source Bundle having a quantity with
          *   absolute value less than `epsilon` times the pre-transfer quantity, the transferred
@@ -182,15 +202,20 @@ class BundleNegative {
          *   quantity will be the amount required to reach exactly 0.  (Note that this case is only
          *   possible when the destination is a BundleNegative with a negative quantity, since the
          *   destination bundle is always the one being added to).
+         *
+         * If a transfer cannot be completed this class throws a negativity_error.  The transfer is
+         * performed in a single transaction, however, so that it either completes entirely, or
+         * doesn't complete at all.  In other words, in the case of an exception, a partial transfer
+         * will not have occurred.
          */
         void transferApprox(const BundleNegative &amount, BundleNegative &to, double epsilon = default_transfer_epsilon);
 
-        BundleNegative operator + (const BundleNegative &b) const noexcept;
-        BundleNegative operator - (const BundleNegative &b) const noexcept;
-        BundleNegative operator - () const noexcept;
-        BundleNegative operator * (const double &m) const noexcept;
-        BundleNegative operator / (const double &d) const noexcept;
-        friend BundleNegative operator * (const double &m, const BundleNegative &b) noexcept;
+        BundleNegative operator + (const BundleNegative &b) const;
+        BundleNegative operator - (const BundleNegative &b) const;
+        BundleNegative operator - () const;
+        BundleNegative operator * (const double &m) const;
+        BundleNegative operator / (const double &d) const;
+        friend BundleNegative operator * (const double &m, const BundleNegative &b);
 
         // Bundle <-> Bundle comparisons:
         bool operator >  (const BundleNegative &b) const noexcept;
@@ -216,6 +241,86 @@ class BundleNegative {
         friend bool operator <  (const double &q, const BundleNegative &b) noexcept;
         friend bool operator <= (const double &q, const BundleNegative &b) noexcept;
 
+        /** Begins a transaction for this bundle.  When a transaction is in progress, all Bundle
+         * arithmetic is stored separately from the underlying Bundle results and can be reverted to
+         * the point at which the transaction began by calling abortTransaction(), or committed to
+         * the underlying Bundle by calling commitTransaction().
+         *
+         * Nested transactions are supported: when a nested transaction is completed, all changes
+         * are propagated to the previous transaction instead of the base Bundle.  If a nested
+         * transaction is aborted, Bundle quantities revert to the values present at the point the
+         * nested transaction began.
+         *
+         * Code using transactions should catch exceptions that Bundle methods or operators might
+         * throw, and be sure to abortTransaction() if such an exception occurs.
+         *
+         * \param encompassing if true (default to false), starts an "encompassing transaction": any
+         * transactions that are started before this transaction ends will be absorbed into this one
+         * rather than starting a nested transaction.  Note that this does not absolve nested
+         * transactions from their responsibility to call abortTransaction() or commitTransaction():
+         * those must still be called to distinguish where the encompassed transaction ends.
+         */
+        void beginTransaction(const bool &encompassing = false) noexcept;
+
+        /** Cancels a transaction previously started with beginTransaction(), restoring the Bundle's
+         * quantities to the values before the transaction started.
+         *
+         * Does nothing (except noting that the transaction is over) if the current transaction was
+         * started inside an encompassing transaction (or fake transaction started by
+         * beginEncompassing()).
+         *
+         * \throws no_transaction_exception if no transaction is currently active on this object.
+         */
+        void abortTransaction();
+
+        /** Commits a tranaction previously started with beginTransaction().  Any changed quantities
+         * will be propagated to the base Bundle quantities (or, in the case of nested transactions,
+         * to the previous transaction quantities).
+         *
+         * Does nothing (except noting that the transaction is over) if the current transaction was
+         * started inside an encompassing transaction (or fake transaction started by
+         * beginEncompassing()).
+         *
+         * \throws no_transaction_exception if no transaction is currently active on this object.
+         */
+        void commitTransaction();
+
+        /** Starts a fake "transaction" that encompasses all transactions until endEncompassing() is
+         * called to terminate the fake transaction.  This can be used on a bundle with no current
+         * transaction to avoid any transactions for a section of code.
+         *
+         * Any transactions started after this call will be handled just like in
+         * beginTransaction(true): transaction starting and ending will be a non-operation (but
+         * tracked so that commitTransaction()/abortTransaction() calls can be matched up).
+         *
+         * This is used in cases where an exception would result in destruction of the object, and
+         * so the usual transaction applied by various mutator methods are pointless and wasteful.
+         * For example, Bundle subtraction creates a new Bundle, copying the left-hand-side Bundle,
+         * then uses the `-=` operator to subtract the right-hand-side Bundle.  If the -= operator
+         * throws an exception, the temporary Bundle is destroyed anyway, so transaction safety is
+         * not needed.
+         */
+        void beginEncompassing() noexcept;
+
+        /** Ends a fake encompassing transaction started by beginEncompassing().
+         *
+         * \throws no_transaction_exception if there is still an outstanding (encompassed)
+         * transaction that hasn't been committed or aborted, or if beginEncompassing() wasn't
+         * called.
+         */
+        void endEncompassing();
+
+        /** Exception thrown if attempting to abort or commit a transaction when no transaction has
+         * been started.
+         *
+         * \sa beginTransaction()
+         */
+        class no_transaction_exception : public std::logic_error {
+            public:
+                no_transaction_exception(std::string what) : std::logic_error(what) {}
+                no_transaction_exception() = delete;
+        };
+
         /** Overloaded so that a Bundle can be printed nicely with `std::cout << bundle`.
          *
          * Example outputs:
@@ -231,16 +336,33 @@ class BundleNegative {
     protected:
         /// Internal method used for bundle printing.
         void _print(std::ostream &os) const;
+
     private:
-        friend class Bundle;
-        std::unordered_map<eris_id_t, double> goods_;
+        // The stack of quantity maps; the front of q_stack_ is the currently visible quantities;
+        // remainder items are the pre-transaction values.
+        std::forward_list<std::unordered_map<eris_id_t, double>> q_stack_ = {std::unordered_map<eris_id_t, double>()};
+
+        // If non-empty, we're inside an encompassing transaction or fake transaction.  The value at
+        // the beginning of the list tells us whether it's a encompassing transaction (started by
+        // beginTransaction()), if true, or a encompassing non-transaction (started by
+        // beginEncompassing()), if false.
+        std::forward_list<bool> encompassed_;
 };
 
 class Bundle final : public BundleNegative {
     public:
+        /// Creates a new, empty Bundle.
         Bundle();
+        /// Creates a new Bundle containing a single good of the given quantity.
         Bundle(const eris_id_t &g, const double &q);
+        /// Creates a new Bundle from an initializer list of goods and quantities.
         Bundle(const init_list &init);
+        /** Creates a new Bundle by copying quantities from another Bundle.  If the other Bundle is
+         * currently in a transaction, only the current values are copied; the transactions and
+         * pre-transactions values are not.
+         */
+        Bundle(const Bundle &b);
+
         using BundleNegative::set;
         void set(const eris_id_t &gid, const double &quantity) override;
 
@@ -259,7 +381,7 @@ class Bundle final : public BundleNegative {
          *     auto c = a + b;
          *     auto d = a + (BundleNegative) b;
          */
-        Bundle operator + (const Bundle &b) const noexcept;
+        Bundle operator + (const Bundle &b) const;
         /** Subtracting two Bundle objects returns a Bundle object.  Note that this can throw an
          * exception if the quantity any good in b is greater than in a.  If you want to allow for
          * the quantity to be negative, you should cast one of the objects to a BundleNegative or
@@ -429,15 +551,22 @@ class Bundle final : public BundleNegative {
 // in src/Bundle.cpp
 inline BundleNegative::BundleNegative() {}
 inline BundleNegative::BundleNegative(const eris_id_t &g, const double &q) { set(g, q); }
-inline Bundle::Bundle() {}
-inline Bundle::Bundle(const eris_id_t &g, const double &q) { set(g, q); }
+inline BundleNegative::BundleNegative(const BundleNegative &b) {
+    for (auto &g : b) set(g.first, g.second);
+}
+
+inline Bundle::Bundle() : BundleNegative() {}
+inline Bundle::Bundle(const eris_id_t &g, const double &q) : BundleNegative() { set(g, q); }
+inline Bundle::Bundle(const Bundle &b) : BundleNegative() {
+    for (auto &g : b) set(g.first, g.second);
+}
 
 inline double BundleNegative::operator[] (const eris_id_t &gid) const {
     // Don't want to invoke map's [] operator, because it auto-vivifies the element
-    return count(gid) ? goods_.at(gid) : 0.0;
+    return count(gid) ? q_stack_.front().at(gid) : 0.0;
 }
 inline void BundleNegative::set(const eris_id_t &gid, const double &quantity) {
-    goods_[gid] = quantity;
+    q_stack_.front()[gid] = quantity;
 }
 
 inline void Bundle::set(const eris_id_t &gid, const double &quantity) {
@@ -446,29 +575,44 @@ inline void Bundle::set(const eris_id_t &gid, const double &quantity) {
 }
 
 inline bool BundleNegative::empty() const {
-    return goods_.empty();
+    return q_stack_.front().empty();
 }
 inline std::unordered_map<eris_id_t, double>::size_type BundleNegative::size() const {
-    return goods_.size();
+    return q_stack_.front().size();
 }
 inline int BundleNegative::count(const eris_id_t &gid) const {
-    return goods_.count(gid);
+    return q_stack_.front().count(gid);
 }
 inline std::unordered_map<eris_id_t, double>::const_iterator BundleNegative::begin() const {
-    return goods_.cbegin();
+    return q_stack_.front().cbegin();
 }
 inline std::unordered_map<eris_id_t, double>::const_iterator BundleNegative::end() const {
-    return goods_.cend();
+    return q_stack_.front().cend();
+}
+inline BundleNegative& BundleNegative::operator = (const BundleNegative &b) {
+    beginTransaction();
+    try {
+        clear();
+        for (auto &g : b) set(g.first, g.second);
+    }
+    catch (...) { abortTransaction(); throw; }
+    commitTransaction();
+    return *this;
 }
 
 #define _ERIS_BUNDLE_HPP_ADDSUB(OP, OPEQ)\
 inline BundleNegative& BundleNegative::operator OPEQ (const BundleNegative &b) {\
-    for (auto g : b.goods_) set(g.first, (*this)[g.first] OP g.second);\
+    beginTransaction();\
+    try { for (auto &g : b) set(g.first, operator[](g.first) OP g.second); }\
+    catch (...) { abortTransaction(); throw; }\
+    commitTransaction();\
     return *this;\
 }\
-inline BundleNegative BundleNegative::operator OP (const BundleNegative &b) const noexcept {\
+inline BundleNegative BundleNegative::operator OP (const BundleNegative &b) const {\
     BundleNegative ret(*this);\
+    ret.beginEncompassing();\
     ret OPEQ b;\
+    ret.endEncompassing();\
     return ret;\
 }
 
@@ -477,20 +621,26 @@ _ERIS_BUNDLE_HPP_ADDSUB(-, -=)
 
 #undef _ERIS_BUNDLE_HPP_ADDSUB
 
-inline Bundle Bundle::operator + (const Bundle &b) const noexcept {
+inline Bundle Bundle::operator + (const Bundle &b) const {
     Bundle ret(*this);
+    ret.beginEncompassing();
     ret += b;
+    ret.endEncompassing();
     return ret;
 }
 inline Bundle Bundle::operator - (const Bundle &b) const {
     Bundle ret(*this);
+    ret.beginEncompassing();
     ret -= b;
+    ret.endEncompassing();
     return ret;
 }
 
-
 inline BundleNegative& BundleNegative::operator *= (const double &m) {
-    for (auto g : goods_) set(g.first, g.second * m);
+    beginTransaction();
+    try { for (auto &g : *this) set(g.first, g.second * m); }
+    catch (...) { abortTransaction(); throw; }
+    commitTransaction();
     return *this;
 }
 inline Bundle& Bundle::operator *= (const double &m) {
@@ -506,30 +656,94 @@ inline Bundle& Bundle::operator /= (const double &d) {
     BundleNegative::operator/=(d);
     return *this;
 }
-inline BundleNegative BundleNegative::operator - () const noexcept {
-    return operator*(-1.0);
+inline BundleNegative BundleNegative::operator - () const {
+    return *this * -1.0;
 }
-inline BundleNegative BundleNegative::operator * (const double &m) const noexcept {
+inline BundleNegative BundleNegative::operator * (const double &m) const {
     BundleNegative ret(*this);
+    ret.beginEncompassing();
     ret *= m;
+    ret.endEncompassing();
     return ret;
 }
-inline BundleNegative operator * (const double &m, const BundleNegative &b) noexcept {
+inline BundleNegative operator * (const double &m, const BundleNegative &b) {
     return b * m;
 }
 inline Bundle Bundle::operator * (const double &m) const {
     Bundle ret(*this);
+    ret.beginEncompassing();
     ret *= m;
+    ret.endEncompassing();
     return ret;
 }
 inline Bundle operator * (const double &m, const Bundle &b) {
     return b * m;
 }
-inline BundleNegative BundleNegative::operator / (const double &d) const noexcept {
+inline BundleNegative BundleNegative::operator / (const double &d) const {
     return *this * (1.0/d);
 }
 inline Bundle Bundle::operator / (const double &d) const {
     return *this * (1.0/d);
+}
+
+inline void BundleNegative::beginTransaction(const bool &encompassing) noexcept {
+    if (not encompassed_.empty()) {
+        encompassed_.push_front(true);
+        return;
+    }
+
+    // Duplicate the most recent Bundle, make it the new front of the stack.
+    q_stack_.push_front(q_stack_.front());
+
+    if (encompassing) encompassed_.push_front(true);
+}
+
+inline void BundleNegative::commitTransaction() {
+    if (not encompassed_.empty()) {
+        if (not encompassed_.front())
+            throw no_transaction_exception("commitTransaction() called to terminate beginEncompassing()");
+
+        encompassed_.pop_front();
+        if (not encompassed_.empty()) return; // Still encompassed
+    }
+    // If we get here, we're not (or no longer) encompassed
+
+    // Make sure there is actually a transaction to commit
+    if (++(q_stack_.cbegin()) == q_stack_.cend()) throw no_transaction_exception("commitTransaction() called with no transaction in effect");
+
+    // Remove the *second* element from the stack: the first one is taking it over.
+    q_stack_.erase_after(q_stack_.begin());
+}
+
+inline void BundleNegative::abortTransaction() {
+    if (not encompassed_.empty()) {
+        if (not encompassed_.front())
+            throw no_transaction_exception("abortTransaction() called to terminate beginEncompassing()");
+
+        encompassed_.pop_front();
+        if (not encompassed_.empty()) return; // Still encompassed
+    }
+    // If we get here, we're not (or not longer) encompassed
+
+    // Make sure there is actually a transaction to abort
+    if (++(q_stack_.cbegin()) == q_stack_.cend()) throw no_transaction_exception("abortTransaction() called with no transaction in effect");
+
+    // Remove the first element from the stack: it's been aborted.
+    q_stack_.pop_front();
+}
+
+inline void BundleNegative::beginEncompassing() noexcept {
+    encompassed_.push_front(false);
+}
+
+inline void BundleNegative::endEncompassing() {
+    if (encompassed_.empty())
+        throw no_transaction_exception("endEncompassing() called with no encompassing in effect");
+
+    if (encompassed_.front())
+        throw no_transaction_exception("endEncompassing() called to terminate beginTransaction()");
+
+    encompassed_.pop_front();
 }
 
 }

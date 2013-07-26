@@ -478,6 +478,128 @@ TEST(Relations, ConstantGTEqBundle) {
     E_F(-1 >= bb[7]);
 }
 
+TEST(Transactions, Basic) {
+    Bundle b1 {{1, 3}, {2, 4}};
+
+    EXPECT_THROW(b1.commitTransaction(), BundleNegative::no_transaction_exception);
+    EXPECT_THROW(b1.abortTransaction(), BundleNegative::no_transaction_exception);
+
+    b1.beginTransaction();
+    b1.set(1, 7);
+    EXPECT_EQ(Bundle({{1, 7}, {2, 4}}), b1);
+    b1.abortTransaction();
+    EXPECT_EQ(Bundle({{1, 3}, {2, 4}}), b1);
+
+    b1.beginTransaction();
+    b1.set(1, 7);
+    EXPECT_EQ(Bundle({{1, 7}, {2, 4}}), b1);
+    b1.commitTransaction();
+    EXPECT_EQ(Bundle({{1, 7}, {2, 4}}), b1);
+
+    EXPECT_THROW(b1.commitTransaction(), BundleNegative::no_transaction_exception);
+    EXPECT_THROW(b1.abortTransaction(), BundleNegative::no_transaction_exception);
+}
+TEST(Transactions, Nested) {
+    Bundle b1 {{1, 3}, {2, 4}};
+
+    b1.beginTransaction();
+    b1.set(1, 7);
+    b1.beginTransaction();
+    b1.set(2, 88);
+    b1.beginTransaction();
+    b1.set(3, 12);
+
+    EXPECT_EQ(Bundle({{1, 7}, {2, 88}, {3, 12}}), b1);
+
+    b1.commitTransaction();
+
+    EXPECT_EQ(Bundle({{1, 7}, {2, 88}, {3, 12}}), b1);
+
+    b1.abortTransaction();
+
+    EXPECT_EQ(Bundle({{1, 7}, {2, 4}}), b1);
+    EXPECT_EQ(0, b1.count(3));
+
+    b1.abortTransaction();
+
+    EXPECT_EQ(Bundle({{1, 3}, {2, 4}}), b1);
+    EXPECT_EQ(0, b1.count(3));
+}
+TEST(Transactions, Encompassing) {
+    Bundle b1 {{1, 3}, {2, 4}};
+
+    b1.beginTransaction();
+    b1.set(1, 7);
+    b1.beginTransaction(true);
+    b1.set(2, 88);
+    b1.beginTransaction();
+    b1.set(3, 12);
+
+    EXPECT_EQ(Bundle({{1, 7}, {2, 88}, {3, 12}}), b1);
+
+    b1.abortTransaction(); // Shouldn't have any effect, since inside an encompassing transaction
+
+    EXPECT_EQ(Bundle({{1, 7}, {2, 88}, {3, 12}}), b1);
+
+    b1.abortTransaction(); // This ends the encompassing transaction
+
+    EXPECT_EQ(Bundle({{1, 7}, {2, 4}}), b1);
+    EXPECT_EQ(0, b1.count(3));
+
+    b1.abortTransaction();
+
+    EXPECT_EQ(Bundle({{1, 3}, {2, 4}}), b1);
+    EXPECT_EQ(0, b1.count(3));
+
+    b1.beginEncompassing(); // Ignore transactions until endEncompassing()
+    EXPECT_THROW(b1.commitTransaction(), BundleNegative::no_transaction_exception);
+    b1.beginTransaction();
+    b1.set(1, 7);
+    b1.beginTransaction();
+    b1.set(2, 88);
+    b1.beginTransaction();
+    b1.set(3, 12);
+    EXPECT_THROW(b1.endEncompassing(), BundleNegative::no_transaction_exception);
+    EXPECT_EQ(Bundle({{1, 7}, {2, 88}, {3, 12}}), b1);
+    b1.abortTransaction();
+    EXPECT_THROW(b1.endEncompassing(), BundleNegative::no_transaction_exception);
+    EXPECT_EQ(Bundle({{1, 7}, {2, 88}, {3, 12}}), b1);
+    b1.abortTransaction();
+    EXPECT_THROW(b1.endEncompassing(), BundleNegative::no_transaction_exception);
+    EXPECT_EQ(Bundle({{1, 7}, {2, 88}, {3, 12}}), b1);
+    b1.abortTransaction();
+    b1.endEncompassing();
+    EXPECT_EQ(Bundle({{1, 7}, {2, 88}, {3, 12}}), b1);
+
+    EXPECT_THROW(b1.endEncompassing(), BundleNegative::no_transaction_exception);
+    EXPECT_THROW(b1.abortTransaction(), BundleNegative::no_transaction_exception);
+    EXPECT_THROW(b1.commitTransaction(), BundleNegative::no_transaction_exception);
+}
+TEST(Transactions, Automatic) {
+    Bundle b1 {{1, 3}, {2, 4}};
+    Bundle b1_orig = b1;
+
+    // Have to try subtracting both of these from b1 because the unordered_map means we don't know
+    // which one will happen first, and we want to be sure nothing changes if the exception gets
+    // thrown.
+    Bundle b2 {{1, 2}, {2, 5}};
+    Bundle b3 {{1, 4}, {2, 3}};
+
+    // First turn off transactions, and make sure we actually get the partially-subtracted result
+    b1.beginEncompassing();
+    EXPECT_THROW(b1 -= b2, Bundle::negativity_error);
+    EXPECT_THROW(b1 -= b3, Bundle::negativity_error);
+    EXPECT_TRUE((b1 == Bundle({{1, 1}, {2, 4}})) or (b1 == Bundle({{1, 3}, {2, 1}})));
+    b1.endEncompassing();
+
+    b1 = b1_orig;
+    // Now encompassing is off, so the following should throw an error but *not* change b1
+    EXPECT_THROW(b1 -= b2, Bundle::negativity_error);
+    EXPECT_EQ(b1_orig, b1);
+    EXPECT_THROW(b1 -= b3, Bundle::negativity_error);
+    EXPECT_EQ(b1_orig, b1);
+}
+
 TEST(Modification, setSingle) {
     GIMME_BUNDLES;
 
@@ -936,6 +1058,7 @@ TEST(AdvancedAlgebra, reduce) {
 
     EXPECT_THROW(Bundle::reduce(bb[6], bb[6]), std::invalid_argument);
 }
+
 
 int main(int argc, char **argv) {
     testing::InitGoogleTest(&argc, argv);

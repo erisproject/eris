@@ -6,30 +6,32 @@
 #include <set>
 #include <cmath>
 
+#include <iostream>
+
 namespace eris {
 
 BundleNegative::BundleNegative(const init_list &init) {
-    for (auto g : init) set(g.first, g.second);
+    for (auto &g : init) set(g.first, g.second);
 }
 Bundle::Bundle(const init_list &init) {
-    for (auto g : init) set(g.first, g.second);
+    for (auto &g : init) set(g.first, g.second);
 }
 void BundleNegative::clearZeros() {
-    for (auto it = goods_.begin(); it != goods_.end(); ) {
+    auto &goods = q_stack_.front();
+    for (auto it = goods.begin(); it != goods.end(); ) {
         if (it->second == 0)
-            it = goods_.erase(it);
+            it = goods.erase(it);
         else
             ++it;
     }
 }
 
 void BundleNegative::clear() {
-    for (auto it = goods_.begin(); it != goods_.end(); )
-        it = goods_.erase(it);
+    q_stack_.front().clear();
 }
 
 int BundleNegative::erase(const eris_id_t &gid) {
-    return goods_.erase(gid);
+    return q_stack_.front().erase(gid);
 }
 
 double BundleNegative::remove(const eris_id_t &gid) {
@@ -39,13 +41,13 @@ double BundleNegative::remove(const eris_id_t &gid) {
 }
 
 bool Bundle::covers(const Bundle &b) const noexcept {
-    for (auto g : b)
-        if (g.second > 0 and (*this)[g.first] <= 0) return false;
+    for (auto &g : b)
+        if (g.second > 0 and operator[](g.first) <= 0) return false;
     return true;
 }
 double Bundle::coverage(const Bundle &b) const noexcept {
     double mult = 0;
-    for (auto g : goods_) {
+    for (auto &g : *this) {
         if (g.second > 0) {
             double theirs = b[g.first];
             if (theirs == 0) return std::numeric_limits<double>::infinity();
@@ -60,14 +62,16 @@ double Bundle::coverage(const Bundle &b) const noexcept {
 }
 Bundle Bundle::coverageExcess(const Bundle &b) const {
     Bundle ret = coverage(b) * b;
+    ret.beginEncompassing();
     ret -= *this;
     ret.clearZeros();
+    ret.endEncompassing();
     return ret;
 }
 
 double Bundle::multiples(const Bundle &b) const noexcept {
     double mult = std::numeric_limits<double>::infinity();
-    for (auto g : b) {
+    for (auto &g : b) {
         if (g.second > 0) {
             double mine = (*this)[g.first];
             if (mine == 0) return 0.0;
@@ -85,7 +89,7 @@ double Bundle::multiples(const Bundle &b) const noexcept {
 
 Bundle Bundle::common(const BundleNegative &a, const BundleNegative &b) noexcept {
     Bundle result;
-    for (auto ag : a) {
+    for (auto &ag : a) {
         if (ag.second >= 0 and b.count(ag.first)) {
             double bq = b[ag.first];
             if (bq >= 0) result.set(ag.first, std::min<double>(ag.second, bq));
@@ -97,44 +101,55 @@ Bundle Bundle::common(const BundleNegative &a, const BundleNegative &b) noexcept
 Bundle Bundle::reduce(BundleNegative &a, BundleNegative &b) {
     if (&a == &b) throw std::invalid_argument("Bundle::reduce(a, b) called with &a == &b; a and b must be distinct objects");
     Bundle result = common(a, b);
-    a -= result;
-    b -= result;
+    a.beginTransaction(true);
+    b.beginTransaction(true);
+    try {
+        a -= result;
+        b -= result;
+    }
+    catch (...) {
+        a.abortTransaction();
+        b.abortTransaction();
+        throw;
+    }
+    a.commitTransaction();
+    b.commitTransaction();
     return result;
 }
 
 Bundle BundleNegative::positive() const noexcept {
     Bundle b;
-    for (auto g : *this) { if (g.second > 0) b.set(g.first, g.second); }
+    for (auto &g : *this) { if (g.second > 0) b.set(g.first, g.second); }
     return b;
 }
 
 Bundle BundleNegative::negative() const noexcept {
     Bundle b;
-    for (auto g : *this) { if (g.second < 0) b.set(g.first, -g.second); }
+    for (auto &g : *this) { if (g.second < 0) b.set(g.first, -g.second); }
     return b;
 }
 
 Bundle BundleNegative::zeros() const noexcept {
     Bundle b;
-    for (auto g : *this) { if (g.second == 0) b.set(g.first, g.second); }
+    for (auto &g : *this) { if (g.second == 0) b.set(g.first, 0); }
     return b;
 }
 
-// All of the ==/</<=/>/>= methods are exactly the same, aside from the operator; this macro handles
-// that.  REVOP is the reverse order version of the operator, needed for the static (e.g. 3 >= b)
-// operator, as it just translate this into (b <= 3)
+// All of the overloaded ==/</<=/>/>= methods are exactly the same, aside from the algebraic
+// operator; this macro handles that.  REVOP is the reverse order version of the operator, needed
+// for the static (e.g. 3 >= b) operator, as it just translate this into (b <= 3)
 #define _ERIS_BUNDLE_CPP_COMPARE(OP, REVOP) \
 bool BundleNegative::operator OP (const BundleNegative &b) const noexcept {\
     std::unordered_set<eris_id_t> goods;\
-    for (auto g : goods_) goods.insert(goods.end(), g.first);\
-    for (auto g : b.goods_) goods.insert(g.first);\
+    for (auto &g : *this) goods.insert(g.first);\
+    for (auto &g : b) goods.insert(g.first);\
 \
-    for (auto g : goods)\
-        if (!((*this)[g] OP b[g])) return false;\
+    for (auto &g : goods)\
+        if (!(operator[](g) OP b[g])) return false;\
     return true;\
 }\
 bool BundleNegative::operator OP (const double &q) const noexcept {\
-    for (auto g : goods_)\
+    for (auto &g : *this)\
         if (!(g.second OP q)) return false;\
     return true;\
 }\
@@ -162,28 +177,41 @@ bool operator != (const double &q, const BundleNegative &b) noexcept {
 }
 
 void BundleNegative::transferApprox(const BundleNegative &amount, BundleNegative &to, double epsilon) {
-    for (auto g : amount) {
-        double abs_transfer = fabs(g.second);
-        if (abs_transfer == 0) continue;
-        bool transfer_to = g.second > 0;
+    beginTransaction(true);
+    to.beginTransaction(true);
+    try {
+        for (auto &g : amount) {
+            double abs_transfer = fabs(g.second);
+            if (abs_transfer == 0) continue;
+            bool transfer_to = g.second > 0;
 
-        double q_src  = transfer_to ? operator[](g.first) : to[g.first];
-        double q_dest = transfer_to ? to[g.first] : operator[](g.first);
+            auto &src  = transfer_to ? *this : to;
+            auto &dest = transfer_to ? to : *this;
+            double q_src  = src[g.first];
+            double q_dest = dest[g.first];
 
-        if (fabs(q_src - abs_transfer) < fabs(epsilon*q_src))
-            abs_transfer = q_src;
-        else if (q_dest < 0 and fabs(q_dest + abs_transfer) < fabs(epsilon*q_dest))
-            abs_transfer = -q_dest;
+            if (fabs(q_src - abs_transfer) < fabs(epsilon*q_src))
+                abs_transfer = q_src;
+            else if (q_dest < 0 and fabs(q_dest + abs_transfer) < fabs(epsilon*q_dest))
+                abs_transfer = -q_dest;
 
-        if (transfer_to) {
-            set(g.first, q_src - abs_transfer);
-            to.set(g.first, q_dest + abs_transfer);
-        }
-        else {
-            to.set(g.first, q_src - abs_transfer);
-            set(g.first, q_dest + abs_transfer);
+            if (transfer_to) {
+                set(g.first, q_src - abs_transfer);
+                to.set(g.first, q_dest + abs_transfer);
+            }
+            else {
+                to.set(g.first, q_src - abs_transfer);
+                set(g.first, q_dest + abs_transfer);
+            }
         }
     }
+    catch (...) {
+        abortTransaction();
+        to.abortTransaction();
+        throw;
+    }
+    commitTransaction();
+    to.commitTransaction();
 }
 
 // Prints everything *after* the "Bundle" or "BundleNegative" tag, i.e. starting from "(".
@@ -192,15 +220,15 @@ void BundleNegative::_print(std::ostream &os) const {
 
     // Sort the keys:
     std::set<eris_id_t> keys;
-    for (auto g : goods_)
+    for (auto &g : *this)
         keys.insert(g.first);
 
     bool first = true;
-    for (auto k : keys) {
+    for (auto &k : keys) {
         if (!first) os << ", ";
         else first = false;
 
-        os << "[" << k << "]=" << goods_.at(k);
+        os << "[" << k << "]=" << operator[](k);
     }
 
     os << ")";
