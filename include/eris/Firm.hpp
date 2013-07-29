@@ -15,6 +15,38 @@ namespace firm {}
  */
 class Firm : public Agent {
     public:
+        /** Returns true if the firm is able to supply the given Bundle.  Returning false thus 
+         * indicates that the firm either cannot supply some of the items in the Bundle, or else
+         * that producing the given quantities exceeds some production limit.  By default, this
+         * checks whether assets has enough to supply the request; if not, it calls canProduce with
+         * the extra amount needed to fulfill the request.  simply calls canSupplyAny, and returns
+         * true of false depending on whether canSupplyAny returned a value >= 1.
+        */
+        virtual bool canSupply(const Bundle &b) const noexcept;
+
+        /** Returns a non-negative double indicating whether the firm is able to supply the given
+         * Bundle.  Values of 1 (or greater) indicate that the firm can supply the entire Bundle
+         * (and corresponds to a true return from canSupply); 0 indicates the firm cannot supply any
+         * fraction of the bundle at all; something in between indicates that the firm can supply
+         * that multiple of the bundle.
+         *
+         * The default implementation of this method calculates checks current assets and (if
+         * insufficient) calls canProduceAny() to determine the value between 0 and 1.
+         *
+         * Subclasses may, but are not required to, return values larger than 1.0 to indicate that
+         * capacity beyond the Bundle quantities can be supplied.  Note, however, that a return
+         * value of exactly 1.0 DOES NOT indicate that no further amount can be supplied (though
+         * specific subclasses may add that interpretation).
+         */
+        virtual double canSupplyAny(const Bundle &b) const noexcept;
+
+        /** This is similar to canSupplyAny(), but only returns a true/false value indicating
+         * whether the firm can supply any positive multiple of the given Bundle.  This is identical
+         * in functionality to (canSupplyAny(b) > 0), but more efficient (as the calculations to
+         * figure out the precise multiple that can be supplied are skipped).
+         */
+        virtual bool supplies(const Bundle &b) const noexcept;
+
         /** Contains a reservation of a BundleNegative net transfer from a firm.  The firm will
          * consider the reserved quantity unavailable until a call of either transfer() (which
          * completes the transfer) or release() (which cancels the transfer) is called.
@@ -67,39 +99,8 @@ class Firm : public Agent {
                 };
         };
 
+        /// Reservation is a unique_ptr to an underlying Reservation_
         typedef std::unique_ptr<Reservation_> Reservation;
-
-        /** Returns true if the firm is able to supply the given Bundle.  Returning false thus 
-         * indicates that the firm either cannot supply some of the items in the Bundle, or else
-         * that producing the given quantities exceeds some production limit.  By default, this
-         * checks whether assets has enough to supply the request; if not, it calls canProduce with
-         * the extra amount needed to fulfill the request.  simply calls canSupplyAny, and returns
-         * true of false depending on whether canSupplyAny returned a value >= 1.
-        */
-        virtual bool canSupply(const Bundle &b) const noexcept;
-
-        /** Returns a non-negative double indicating whether the firm is able to supply the given
-         * Bundle.  Values of 1 (or greater) indicate that the firm can supply the entire Bundle
-         * (and corresponds to a true return from canSupply); 0 indicates the firm cannot supply any
-         * fraction of the bundle at all; something in between indicates that the firm can supply
-         * that multiple of the bundle.
-         *
-         * The default implementation of this method calculates checks current assets and (if
-         * insufficient) calls canProduceAny() to determine the value between 0 and 1.
-         *
-         * Subclasses may, but are not required to, return values larger than 1.0 to indicate that
-         * capacity beyond the Bundle quantities can be supplied.  Note, however, that a return
-         * value of exactly 1.0 DOES NOT indicate that no further amount can be supplied (though
-         * specific subclasses may add that interpretation).
-         */
-        virtual double canSupplyAny(const Bundle &b) const noexcept;
-
-        /** This is similar to canSupplyAny(), but only returns a true/false value indicating
-         * whether the firm can supply any positive multiple of the given Bundle.  This is identical
-         * in functionality to (canSupplyAny(b) > 0), but more efficient (as the calculations to
-         * figure out the precise multiple that can be supplied are skipped).
-         */
-        virtual bool supplies(const Bundle &b) const noexcept;
 
         /** Tells the firm to supply the given Bundle and transfer it to the given assets bundle.
          * This method is simply a wrapper around reserve() and transfer(); see those methods for
@@ -220,6 +221,13 @@ class Firm : public Agent {
          * instead, which this method calls.
          */
         virtual void release(Reservation &res);
+
+        /** Controls the relative tolerance for handling invalid requests such as being asked to
+         * produce more than is available.  Requested amounts can be changed by up to this amount to
+         * avoid a constraint or to use up all of a resource (rather than leaving a miniscule amount
+         * behind).  Defaults to 1e-10.
+         */
+        double epsilon = 1e-10;
 
     protected:
         // The following are internal methods that subclasses should provide, but should only be

@@ -116,30 +116,43 @@ Firm::Reservation Firm::reserve(const BundleNegative &reserve) {
 }
 
 void Firm::produceReserved(const Bundle &b) {
-    if (!(b <= reserved_production_)) {
-        // We might just be hitting a numerical precision problem, so let's try taking off a
-        // miniscule amount to see if that helps.  If it does, we're just dealing with a numerical
-        // error.
-        double epsilon = 1e-14;
-        if ((1-epsilon) * b <= reserved_production_) {
-            // Figure out which values reserved_production_ is short of and "fix" them
-            for (auto g : b) {
-                if (reserved_production_[g.first] < g.second)
-                    reserved_production_.set(g.first, g.second);
-            }
-        }
-        else {
-            throw production_unreserved();
-        }
+    reserved_production_.beginTransaction();
+
+    Bundle to_produce;
+    try {
+        to_produce = reserved_production_.transferApprox(b, epsilon);
+    }
+    catch (Bundle::negativity_error& e) {
+        // If the transfer throws a negativity error, we attempted to transfer more than
+        // reserved_production_ actually has
+        reserved_production_.abortTransaction();
+        throw production_unreserved();
+    }
+    catch (...) {
+        reserved_production_.abortTransaction();
+        throw;
     }
 
-    Bundle produced = produce(b);
-    reserved_production_ -= b;
+    excess_production_.beginTransaction();
+    assets().beginTransaction();
 
-    if (produced != b)
-        excess_production_ -= (produced - b);
+    try {
+        Bundle produced = produce(to_produce);
 
-    assets() += produced;
+        if (produced != to_produce) // Reduce planned excess production appropriately
+            excess_production_.transferApprox(produced - to_produce, epsilon);
+
+        assets() += produced;
+    }
+    catch (...) {
+        reserved_production_.abortTransaction();
+        excess_production_.abortTransaction();
+        assets().abortTransaction();
+    }
+
+    reserved_production_.commitTransaction();
+    excess_production_.commitTransaction();
+    assets().commitTransaction();
 }
 
 void Firm::transfer_(Reservation_ &res, Bundle &to) {
@@ -149,28 +162,40 @@ void Firm::transfer_(Reservation_ &res, Bundle &to) {
     res.active = false;
     res.completed = true;
 
-    // Take payment:
-    Bundle in = res.bundle.negative();
-    to -= in;
-    assets() += in;
+    to.beginTransaction();
+    assets().beginTransaction();
 
-    // Now transfer and/or produce output
-    Bundle out = res.bundle.positive();
-    Bundle epsilon = 1e-14 * out;
+    try {
+        // Take payment:
+        Bundle in = res.bundle.negative();
+        to.transferApprox(res.bundle.negative(), assets(), epsilon);
 
-    Bundle common = Bundle::reduce(reserves_, out);
-    to += common;
+        // Now transfer and/or produce output
+        Bundle out = res.bundle.positive();
+        out.beginEncompassing();
+        Bundle from_reserves = Bundle::common(reserves_, out);
 
-    if (!(out < epsilon)) {
-        // Need to produce the rest
-        produceReserved(out);
-        assets() -= out;
-        to += out;
+        Bundle done = reserves_.transferApprox(from_reserves, to, epsilon);
+        out.transferApprox(done, epsilon);
+
+        if (out > 0) {
+            // Need to produce the rest
+            produceReserved(out);
+            assets().transferApprox(out, to, epsilon);
+        }
+
+        // Call this in case any of the excess production and/or payment assets allow us to reduce
+        // reserved production by transferring some assets to reserves.
+        reduceProduction();
+    }
+    catch (...) {
+        to.abortTransaction();
+        assets().abortTransaction();
+        throw;
     }
 
-    // Call this in case any of the excess production and/or payment assets allow us to reduce
-    // reserved production by transferring some assets to reserves.
-    reduceProduction();
+    to.commitTransaction();
+    assets().commitTransaction();
 }
 
 void Firm::release_(Reservation_ &res) {
