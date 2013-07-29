@@ -188,7 +188,8 @@ class BundleNegative {
          *     from -= amount;
          *     to += amount;
          *
-         * except for the error tolerance handling.
+         * except for the error tolerance handling, and that the transfer is atomic (i.e. either
+         * both transfers happen, or neither do).
          *
          * The error handling is particularly useful to avoid problems with numerical imprecision
          * resulting in small negative quantities in Bundles.  In particular it specially does two
@@ -203,12 +204,22 @@ class BundleNegative {
          *   possible when the destination is a BundleNegative with a negative quantity, since the
          *   destination bundle is always the one being added to).
          *
-         * If a transfer cannot be completed this class throws a negativity_error.  The transfer is
-         * performed in a single transaction, however, so that it either completes entirely, or
-         * doesn't complete at all.  In other words, in the case of an exception, a partial transfer
-         * will not have occurred.
+         * \param amount the amount to transfer.  Goods with positive quantities are transferred
+         * from the object into `to`; negative quantities are transferred frin `to` into the object.
+         * \param to the Bundle (or BundleNegative) to transfer positive amounts to, and negative
+         * amounts from.
+         * \returns the exact amount transferred, which may be slightly different from `amount`.
+         * \throws Bundle::negativity_error if either the caller or `to` are actually Bundle objects
+         * with insufficient quantities to approximately satisfy the transfer.
          */
-        void transferApprox(const BundleNegative &amount, BundleNegative &to, double epsilon = default_transfer_epsilon);
+        BundleNegative transferApprox(const BundleNegative &amount, BundleNegative &to, double epsilon = default_transfer_epsilon);
+
+        /** Transfers approximately the given amount from the caller object and returns it.  This is
+         * like the above 3-argument transferApprox(const BundleNegative&, BundleNegative&, double)
+         * except that the amount is not transferred into a target Bundle.  Like the 3-argument
+         * version, negative transfer amounts are added to the object.
+         */
+        BundleNegative transferApprox(const BundleNegative &amount, double epsilon = default_transfer_epsilon);
 
         BundleNegative operator + (const BundleNegative &b) const;
         BundleNegative operator - (const BundleNegative &b) const;
@@ -357,11 +368,13 @@ class Bundle final : public BundleNegative {
         Bundle(const eris_id_t &g, const double &q);
         /// Creates a new Bundle from an initializer list of goods and quantities.
         Bundle(const init_list &init);
-        /** Creates a new Bundle by copying quantities from another Bundle.  If the other Bundle is
-         * currently in a transaction, only the current values are copied; the transactions and
-         * pre-transactions values are not.
+        /** Creates a new Bundle by copying quantities from another Bundle (or BundleNegative).  If
+         * the other Bundle is currently in a transaction, only the current values are copied; the
+         * transactions and pre-transactions values are not.
+         *
+         * \throws Bundle::negativity_error if the given BundleNegative has negative quantities.
          */
-        Bundle(const Bundle &b);
+        Bundle(const BundleNegative &b);
 
         using BundleNegative::set;
         void set(const eris_id_t &gid, const double &quantity) override;
@@ -557,7 +570,7 @@ inline BundleNegative::BundleNegative(const BundleNegative &b) {
 
 inline Bundle::Bundle() : BundleNegative() {}
 inline Bundle::Bundle(const eris_id_t &g, const double &q) : BundleNegative() { set(g, q); }
-inline Bundle::Bundle(const Bundle &b) : BundleNegative() {
+inline Bundle::Bundle(const BundleNegative &b) : BundleNegative() {
     for (auto &g : b) set(g.first, g.second);
 }
 
@@ -709,7 +722,8 @@ inline void BundleNegative::commitTransaction() {
     // If we get here, we're not (or no longer) encompassed
 
     // Make sure there is actually a transaction to commit
-    if (++(q_stack_.cbegin()) == q_stack_.cend()) throw no_transaction_exception("commitTransaction() called with no transaction in effect");
+    if (++(q_stack_.cbegin()) == q_stack_.cend())
+        throw no_transaction_exception("commitTransaction() called with no transaction in effect");
 
     // Remove the *second* element from the stack: the first one is taking it over.
     q_stack_.erase_after(q_stack_.begin());

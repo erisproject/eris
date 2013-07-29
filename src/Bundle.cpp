@@ -176,9 +176,10 @@ bool operator != (const double &q, const BundleNegative &b) noexcept {
     return b != q;
 }
 
-void BundleNegative::transferApprox(const BundleNegative &amount, BundleNegative &to, double epsilon) {
+BundleNegative BundleNegative::transferApprox(const BundleNegative &amount, BundleNegative &to, double epsilon) {
     beginTransaction(true);
     to.beginTransaction(true);
+    BundleNegative actual;
     try {
         for (auto &g : amount) {
             double abs_transfer = fabs(g.second);
@@ -198,10 +199,12 @@ void BundleNegative::transferApprox(const BundleNegative &amount, BundleNegative
             if (transfer_to) {
                 set(g.first, q_src - abs_transfer);
                 to.set(g.first, q_dest + abs_transfer);
+                actual.set(g.first, abs_transfer);
             }
             else {
                 to.set(g.first, q_src - abs_transfer);
                 set(g.first, q_dest + abs_transfer);
+                actual.set(g.first, -abs_transfer);
             }
         }
     }
@@ -212,6 +215,42 @@ void BundleNegative::transferApprox(const BundleNegative &amount, BundleNegative
     }
     commitTransaction();
     to.commitTransaction();
+    return actual;
+}
+
+BundleNegative BundleNegative::transferApprox(const BundleNegative &amount, double epsilon) {
+    beginTransaction(true);
+    BundleNegative actual;
+    actual.beginEncompassing();
+    try {
+        for (auto &g : amount) {
+            double abs_transfer = fabs(g.second);
+            if (abs_transfer == 0) continue;
+            bool transfer_to = g.second > 0;
+
+            double q = (*this)[g.first];
+            if (transfer_to and fabs(q - abs_transfer) < fabs(epsilon * q))
+                abs_transfer = q;
+            else if (not transfer_to and q < 0 and fabs(q + abs_transfer) < fabs(epsilon * q))
+                abs_transfer = -q;
+
+            if (transfer_to) {
+                set(g.first, q - abs_transfer);
+                actual.set(g.first, abs_transfer);
+            }
+            else {
+                set(g.first, q + abs_transfer);
+                actual.set(g.first, -abs_transfer);
+            }
+        }
+    }
+    catch (...) {
+        abortTransaction();
+        throw;
+    }
+    commitTransaction();
+    actual.endEncompassing();
+    return actual;
 }
 
 // Prints everything *after* the "Bundle" or "BundleNegative" tag, i.e. starting from "(".
