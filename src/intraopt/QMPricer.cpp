@@ -6,6 +6,9 @@ namespace eris { namespace intraopt {
 QMPricer::QMPricer(const QMarket &qm, int tries, double initial_step, int increase_count)
     : market_id_(qm), stepper_(Stepper(initial_step, increase_count)), tries_(tries) {}
 
+QMPricer::QMPricer(const QMarket &qm, Stepper stepper, int tries)
+    : market_id_(qm), stepper_(stepper), tries_(tries) {}
+
 void QMPricer::initialize() {
     tried_ = 0;
 }

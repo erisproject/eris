@@ -43,6 +43,14 @@ class QMPricer : public IntraOptimizer {
                 int increase_count = default_increase_count
                 );
 
+        /** Creates a new QMarket market pricer using the given Stepper object for moving the price.
+         */
+        QMPricer(
+                const QMarket &qm,
+                Stepper stepper,
+                int tries = default_tries
+                );
+
         /// Resets the number of tries used up for this period to 0.
         virtual void initialize() override;
 
