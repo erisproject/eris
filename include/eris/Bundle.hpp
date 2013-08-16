@@ -342,7 +342,7 @@ class BundleNegative {
          *
          * The value in brackets is the eris_id_t of the good.
          */
-        friend std::ostream& operator << (std::ostream &os, const BundleNegative& b);
+        friend std::ostream& operator << (std::ostream &os, const BundleNegative &b);
 
     protected:
         /// Internal method used for bundle printing.
