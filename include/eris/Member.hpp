@@ -113,14 +113,19 @@ class Member {
 template<class T>
 class SharedMember final {
     public:
+        /** Default constructor; creates a SharedMember around a null shared_ptr. This shouldn't be
+         * used, but is needed so that, for example, a SharedMember<T> can be the type of values in
+         * a std::map (and similar classes).
+         */
+        SharedMember() {}
         /** Using as a T gives you the underlying T object */
-        virtual operator T& () const { return *ptr; }
+        operator T& () const { return *ptr; }
         /** Using as an eris_id_t gives you the object's id */
-        virtual operator eris_id_t () const { return ptr->id(); }
+        operator eris_id_t () const { return ptr->id(); }
         /** Dereferencing gives you the underlying T */
-        virtual T& operator * () const { return *ptr; }
+        T& operator * () const { return *ptr; }
         /** Dereferencing member access works on the underlying T */
-        virtual T* operator -> () const { return ptr.get(); }
+        T* operator -> () const { return ptr.get(); }
 
         /** The underlying shared_ptr */
         const std::shared_ptr<T> ptr;
@@ -154,6 +159,8 @@ class SharedMember final {
             // class instance.
             if (!ptr) throw std::bad_cast();
         }
+
+        SharedMember<T>& operator=(const SharedMember<T> &t) = delete;
 
     private:
         SharedMember(T *m) : ptr(m) {}
