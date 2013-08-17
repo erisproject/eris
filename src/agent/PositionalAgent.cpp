@@ -1,0 +1,80 @@
+#include <eris/agent/PositionalAgent.hpp>
+#include <algorithm>
+#include <limits>
+
+namespace eris { namespace agent {
+
+PositionalAgent::PositionalAgent(const Position &p, const Position &boundary1, const Position &boundary2)
+    : position_(p), bounded_(true), lower_bound_(p.dimensions()), upper_bound_(p.dimensions()) {
+    if (p.dimensions() != boundary1.dimensions() or p.dimensions() != boundary2.dimensions())
+        throw std::length_error("position and boundary points have different dimensions");
+
+    for (int d = 0; d < p.dimensions(); d++) {
+        lower_bound_[d] = std::min(boundary1[d], boundary2[d]);
+        upper_bound_[d] = std::max(boundary1[d], boundary2[d]);
+    }
+}
+
+PositionalAgent::PositionalAgent(const Position &p)
+    : position_(p), bounded_(false), lower_bound_(p.dimensions()), upper_bound_(p.dimensions()) {
+
+    for (int d = 0; d < p.dimensions(); d++) {
+        lower_bound_[d] = -std::numeric_limits<double>::infinity();
+        upper_bound_[d] = std::numeric_limits<double>::infinity();
+    }
+}
+
+PositionalAgent::PositionalAgent(const std::initializer_list<double> pos)
+    : position_(pos), bounded_(false), lower_bound_(position_.dimensions()), upper_bound_(position_.dimensions()) {
+
+    for (int d = 0; d < position_.dimensions(); d++) {
+        lower_bound_[d] = -std::numeric_limits<double>::infinity();
+        upper_bound_[d] = std::numeric_limits<double>::infinity();
+    }
+}
+
+bool PositionalAgent::bounded() const noexcept {
+    return bounded_;
+}
+
+const Position& PositionalAgent::lowerBound() const noexcept {
+    return lower_bound_;
+}
+
+const Position& PositionalAgent::upperBound() const noexcept {
+    return upper_bound_;
+}
+
+bool PositionalAgent::moveTo(Position p) {
+    if (p.dimensions() != position_.dimensions())
+        throw std::length_error("position and moveTo coordinates have different dimensions");
+    bool corrected = false;
+    if (bounded_) {
+        for (int d = 0; d < p.dimensions(); d++) {
+            double &x = p[d];
+            if (x < lower_bound_[d]) {
+                x = lower_bound_[d];
+                corrected = true;
+            }
+            else if (x > upper_bound_[d]) {
+                x = upper_bound_[d];
+                corrected = true;
+            }
+
+            if (corrected and not move_to_nearest) throw boundary_error();
+        }
+    }
+
+    position_ = p;
+
+    return not corrected;
+}
+
+bool PositionalAgent::moveBy(const Position &relative) {
+    if (relative.dimensions() != position_.dimensions())
+        throw std::length_error("position and moveBy coordinates have different dimensions");
+
+    return moveTo(position_ + relative);
+}
+
+} }

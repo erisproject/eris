@@ -4,6 +4,9 @@
 
 namespace eris {
 
+/** Namespace for Agent subclasses that are neither consumers nor firms. */
+namespace agent {}
+
 /** Base class for Agent objects. */
 class Agent : public Member {
     public:
