@@ -63,7 +63,7 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
          *
          * \throws std::bad_cast if A cannot be cast to an Agent
          */
-        template <class A, typename... Args> SharedMember<A> createAgent(const Args&... args);
+        template <class A, typename... Args> SharedMember<A> createAgent(Args&&... args);
 
         /** Makes a copy of the given A object, adds the copy to the simulation, and returns a
          * SharedMember<A> referencing it.  A must be a subclass of Agent.
@@ -79,7 +79,7 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
          *
          * \throws std::bad_cast if G cannot be cast to a Good
          */
-        template <class G, typename... Args> SharedMember<G> createGood(const Args&... args);
+        template <class G, typename... Args> SharedMember<G> createGood(Args&&... args);
 
         /** Makes a copy of the given G object, adds the copy to the simulation, and returns a
          * SharedMember<G> referencing it.  G must be a subclass of Good.
@@ -95,7 +95,7 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
          *
          * \throws std::bad_cast if M cannot be cast to a Market
          */
-        template <class M, typename... Args> SharedMember<M> createMarket(const Args&... args);
+        template <class M, typename... Args> SharedMember<M> createMarket(Args&&... args);
 
         /** Makes a copy of the given M object, adds the copy to the simulation, and returns a
          * SharedMember<M> referencing it.  M must be a subclass of Market.
@@ -109,7 +109,7 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         /** Constructs a new intra-period optimizer object using the given constructor arguments
          * Args, adds it to the simulation, and returns a SharedMember<O> referencing it.
          */
-        template <class O, typename... Args> SharedMember<O> createIntraOpt(const Args&... args);
+        template <class O, typename... Args> SharedMember<O> createIntraOpt(Args&&... args);
 
         /** Makes a copy of the given O obejct, adds the copy to the simulation, and returns a
          * SharedMember<O> referencing it.  O must be a subclass of IntraOptimizer.
@@ -123,7 +123,7 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         /** Constructs a new inter-period optimizer object using the given constructor arguments
          * Args, adds it to the simulation, and returns a SharedMember<O> referencing it.
          */
-        template <class O, typename... Args> SharedMember<O> createInterOpt(const Args&... args);
+        template <class O, typename... Args> SharedMember<O> createInterOpt(Args&&... args);
 
         /** Makes a copy of the given inter-period optimizer O obejct, adds the copy to the
          * simulation, and returns a SharedMember<O> referencing it.  O must be a subclass of
@@ -288,9 +288,9 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
 #include <eris/Member.hpp>
 
 namespace eris {
-template <class A, typename... Args> SharedMember<A> Simulation::createAgent(const Args&... args) {
+template <class A, typename... Args> SharedMember<A> Simulation::createAgent(Args&&... args) {
     // NB: Stored in a SM<Agent> rather than SM<A> ensures that A is an Agent subclass
-    SharedMember<Agent> agent(new A(args...));
+    SharedMember<Agent> agent(new A(std::forward<Args>(args)...));
     insertAgent(agent);
     return agent; // Implicit recast back to SharedMember<A>
 }
@@ -302,9 +302,9 @@ template <class A> SharedMember<A> Simulation::cloneAgent(const A &a) {
     return agent; // Implicit recast back to SharedMember<A>
 }
 
-template <class G, typename... Args> SharedMember<G> Simulation::createGood(const Args&... args) {
+template <class G, typename... Args> SharedMember<G> Simulation::createGood(Args&&... args) {
     // NB: Stored in a SM<Good> rather than SM<G> ensures that G is an Good subclass
-    SharedMember<Good> good(new G(args...));
+    SharedMember<Good> good(new G(std::forward<Args>(args)...));
     insertGood(good);
     return good; // Implicit recast back to SharedMember<G>
 }
@@ -316,9 +316,9 @@ template <class G> SharedMember<G> Simulation::cloneGood(const G &g) {
     return good; // Implicit recast back to SharedMember<G>
 }
 
-template <class M, typename... Args> SharedMember<M> Simulation::createMarket(const Args&... args) {
+template <class M, typename... Args> SharedMember<M> Simulation::createMarket(Args&&... args) {
     // NB: Stored in a SM<Market> rather than SM<M> ensures that M is an Market subclass
-    SharedMember<Market> market(new M(args...));
+    SharedMember<Market> market(new M(std::forward<Args>(args)...));
     insertMarket(market);
     return market; // Implicit recast back to SharedMember<M>
 }
@@ -330,9 +330,9 @@ template <class M> SharedMember<M> Simulation::cloneMarket(const M &m) {
     return market; // Implicit recast back to SharedMember<M>
 }
 
-template <class O, typename... Args> SharedMember<O> Simulation::createIntraOpt(const Args&... args) {
+template <class O, typename... Args> SharedMember<O> Simulation::createIntraOpt(Args&&... args) {
     // NB: Stored in a SM<IntraOpt> rather than SM<O> ensures that O is an IntraOptimizer subclass
-    SharedMember<IntraOptimizer> opt(new O(args...));
+    SharedMember<IntraOptimizer> opt(new O(std::forward<Args>(args)...));
     insertIntraOpt(opt);
     return opt; // Implicit recast back to SharedMember<O>
 }
@@ -344,9 +344,9 @@ template <class O> SharedMember<O> Simulation::cloneIntraOpt(const O &o) {
     return market; // Implicit recast back to SharedMember<O>
 }
 
-template <class O, typename... Args> SharedMember<O> Simulation::createInterOpt(const Args&... args) {
+template <class O, typename... Args> SharedMember<O> Simulation::createInterOpt(Args&&... args) {
     // NB: Stored in a SM<InterOpt> rather than SM<O> ensures that O is an InterOptimizer subclass
-    SharedMember<InterOptimizer> opt(new O(args...));
+    SharedMember<InterOptimizer> opt(new O(std::forward<Args>(args)...));
     insertInterOpt(opt);
     return opt; // Implicit recast back to SharedMember<O>
 }
