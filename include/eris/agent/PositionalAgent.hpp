@@ -28,6 +28,24 @@ class PositionalAgent : public Agent {
         /** Constructs an unbounded PositionalAgent at the given coordinates. */
         PositionalAgent(const std::initializer_list<double> pos);
 
+        /** Constructs an unbounded PositionalAgent at the given coordinates with the given boundary
+         * coordinates. */
+        PositionalAgent(
+                const std::initializer_list<double> pos,
+                const std::initializer_list<double> boundary1,
+                const std::initializer_list<double> boundary2);
+
+        /** One-dimensional constructor takes a single position, no bounds. */
+        PositionalAgent(double p);
+        /** One-dimensional constructor takes a single position and two bounds. */
+        PositionalAgent(double p, double b1, double b2);
+        /** Two-dimensional constructor takes a pair of 2d positions, no bounds. */
+        PositionalAgent(double px, double py);
+        /** Two-dimensional constructor takes 6 double values: the first two are the 2d positions,
+         * the second two are the first bounding box vertex, the last two are the second bounding
+         * box vertex. */
+        PositionalAgent(double px, double py, double b1x, double b1y, double b2x, double b2y);
+
         /** Returns the current position. */
         const Position& position() const noexcept;
 

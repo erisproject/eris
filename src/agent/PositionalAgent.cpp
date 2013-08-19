@@ -33,6 +33,21 @@ PositionalAgent::PositionalAgent(const std::initializer_list<double> pos)
     }
 }
 
+PositionalAgent::PositionalAgent(
+        const std::initializer_list<double> pos,
+        const std::initializer_list<double> boundary1,
+        const std::initializer_list<double> boundary2)
+    : PositionalAgent(Position(pos), Position(boundary1), Position(boundary2)) {}
+
+PositionalAgent::PositionalAgent(double p)
+    : PositionalAgent(Position({p})) {}
+PositionalAgent::PositionalAgent(double p, double b1, double b2)
+    : PositionalAgent(Position({p}), Position({b1}), Position({b2})) {}
+PositionalAgent::PositionalAgent(double px, double py)
+    : PositionalAgent(Position({px, py})) {}
+PositionalAgent::PositionalAgent(double px, double py, double b1x, double b1y, double b2x, double b2y)
+    : PositionalAgent(Position({px, py}), Position({b1x, b1y}), Position({b2x, b2y})) {}
+
 bool PositionalAgent::bounded() const noexcept {
     return bounded_;
 }
