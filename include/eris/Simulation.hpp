@@ -30,16 +30,8 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         virtual ~Simulation() = default;
         Simulation(const Simulation &) = delete;
 
-        /// typedef for the map of id's to shared goods
-        typedef std::unordered_map<eris_id_t, SharedMember<Good>> GoodMap;
-        /// typedef for the map of id's to shared agents
-        typedef std::unordered_map<eris_id_t, SharedMember<Agent>> AgentMap;
-        /// typedef for the map of id's to shared markets
-        typedef std::unordered_map<eris_id_t, SharedMember<Market>> MarketMap;
-        /// typedef for the map of id's to shared intraperiod optimizations
-        typedef std::unordered_map<eris_id_t, SharedMember<IntraOptimizer>> IntraOptMap;
-        /// typedef for the map of id's to shared interperiod optimizations
-        typedef std::unordered_map<eris_id_t, SharedMember<InterOptimizer>> InterOptMap;
+        /// Alias for a map of eris_id_t to SharedMember<A> of arbitrary type A
+        template <class T> using MemberMap = std::unordered_map<eris_id_t, SharedMember<T>>;
         /// typedef for the map of id's to the set of dependent members
         typedef std::unordered_map<eris_id_t, std::unordered_set<eris_id_t>> DepMap;
 
@@ -173,18 +165,59 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
          */
         void removeInterOpt(const eris_id_t &oid);
 
-        /** Provides read-only access to the map of the simulation's agents. */
-        const AgentMap& agents();
+        /** Provides read-only access to the map of all of the simulation's agents. */
+        const MemberMap<Agent>& agents();
         /** Provides read-only access to the map of the simulation's goods. */
-        const GoodMap& goods();
+        const MemberMap<Good>& goods();
         /** Provides read-only access to the map of the simulation's markets. */
-        const MarketMap& markets();
+        const MemberMap<Market>& markets();
         /** Provides read-only access to the map of the simulation's intra-period optimization
          * objects. */
-        const IntraOptMap& intraOpts();
+        const MemberMap<IntraOptimizer>& intraOpts();
         /** Provides read-only access to the map of the simulation's inter-period optimization
          * objects. */
-        const InterOptMap& interOpts();
+        const MemberMap<InterOptimizer>& interOpts();
+
+        /** Provides a const map of eris_id_t to SharedMember<A>, filtered to only include
+         * SharedMember<A> agents that induce a true return from the provided filter function.
+         *
+         * If the template parameter, A, is provided, it must be Agent or a subclass thereof: only
+         * Agents that are instances of A will be considered and returned.
+         *
+         * If filter is null (the default if omitted), it will be treated as a filter that always
+         * returns true; thus agentFilter<SomeAgentClass>() is a useful way to filter on just the
+         * agent class type.
+         */
+        template <class A = Agent>
+        const MemberMap<A> agentFilter(bool filter(SharedMember<A> agent) = nullptr);
+        /** Provides a filtered map of simulation goods.  This works just like agentFilter, but for
+         * goods.
+         *
+         * \sa agentFilter
+         */
+        template <class G = Good>
+        const MemberMap<G> goodFilter(bool filter(SharedMember<G> good) = nullptr);
+        /** Provides a filtered map of simulation markets.  This works just like agentFilter, but
+         * for markets.
+         *
+         * \sa agentFilter
+         */
+        template <class M = Market>
+        const MemberMap<M> marketFilter(bool filter(SharedMember<M> market) = nullptr);
+        /** Provides a filtered map of simulation intra-period optimizers.  This works just like
+         * agentFilter, but for intra-period optimizers.
+         *
+         * \sa agentFilter
+         */
+        template <class I = IntraOptimizer>
+        const MemberMap<I> intraOptFilter(bool filter(SharedMember<I> intraopt) = nullptr);
+        /** Provides a filtered map of simulation inter-period optimizers.  This works just like
+         * agentFilter, but for inter-period optimizers.
+         *
+         * \sa agentFilter
+         */
+        template <class I = InterOptimizer>
+        const MemberMap<I> interOptFilter(bool filter(SharedMember<I> interopt) = nullptr);
 
         /** Records already-stored member `depends_on' as a dependency of `member'.  If `depends_on'
          * is removed from the simulation, `member' will be automatically removed as well.
@@ -234,11 +267,14 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         void insertIntraOpt(const SharedMember<IntraOptimizer> &opt);
         void insertInterOpt(const SharedMember<InterOptimizer> &opt);
         eris_id_t id_next_ = 1;
-        std::unique_ptr<AgentMap> agents_;
-        std::unique_ptr<GoodMap> goods_;
-        std::unique_ptr<MarketMap> markets_;
-        std::unique_ptr<IntraOptMap> intraopts_;
-        std::unique_ptr<InterOptMap> interopts_;
+        std::unique_ptr<MemberMap<Agent>> agents_;
+        std::unique_ptr<MemberMap<Good>> goods_;
+        std::unique_ptr<MemberMap<Market>> markets_;
+        std::unique_ptr<MemberMap<IntraOptimizer>> intraopts_;
+        std::unique_ptr<MemberMap<InterOptimizer>> interopts_;
+
+        template <class T, class B> const MemberMap<T>
+        genericFilter(const MemberMap<B> &map, bool filter(SharedMember<T> member));
 
         DepMap depends_on_;
         void removeDeps(const eris_id_t &member);
@@ -320,6 +356,46 @@ template <class O> SharedMember<O> Simulation::cloneInterOpt(const O &o) {
     SharedMember<InterOptimizer> opt(new O(o));
     insertInterOpt(opt);
     return market; // Implicit recast back to SharedMember<O>
+}
+
+// Generic version of the various public ...Filter() methods that does the actual work.
+template <class T, class B>
+const Simulation::MemberMap<T> Simulation::genericFilter(const MemberMap<B>& map, bool filter(SharedMember<T> member)) {
+    MemberMap<T> matched;
+    for (auto &m : map) {
+        bool cast_success = false;
+        try {
+            SharedMember<T> recast(m.second);
+            cast_success = true;
+
+            if (filter == nullptr or filter(recast))
+                matched.insert(std::make_pair(recast->id(), recast));
+        }
+        catch (std::bad_cast &e) {
+            if (cast_success) {
+                // The bad_cast is *not* from the recast, so rethrow it
+                throw;
+            }
+            // Otherwise the agent isn't catable to T, so just move on.
+        }
+    }
+    return matched;
+}
+
+template <class A> const Simulation::MemberMap<A> Simulation::agentFilter(bool filter(SharedMember<A> agent)) {
+    return genericFilter(*agents_, filter);
+}
+template <class G> const Simulation::MemberMap<G> Simulation::goodFilter(bool filter(SharedMember<G> good)) {
+    return genericFilter(*goods_, filter);
+}
+template <class M> const Simulation::MemberMap<M> Simulation::marketFilter(bool filter(SharedMember<M> market)) {
+    return genericFilter(*markets_, filter);
+}
+template <class I> const Simulation::MemberMap<I> Simulation::interOptFilter(bool filter(SharedMember<I> interopt)) {
+    return genericFilter(*interopts_, filter);
+}
+template <class I> const Simulation::MemberMap<I> Simulation::intraOptFilter(bool filter(SharedMember<I> intraopt)) {
+    return genericFilter(*intraopts_, filter);
 }
 
 template <class A> SharedMember<A> Simulation::agent(eris_id_t aid) const {

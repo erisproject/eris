@@ -8,11 +8,11 @@
 namespace eris {
 
 Simulation::Simulation() :
-    agents_(new AgentMap()),
-    goods_(new GoodMap()),
-    markets_(new MarketMap()),
-    intraopts_(new IntraOptMap()),
-    interopts_(new InterOptMap())
+    agents_(new MemberMap<Agent>()),
+    goods_(new MemberMap<Good>()),
+    markets_(new MemberMap<Market>()),
+    intraopts_(new MemberMap<IntraOptimizer>()),
+    interopts_(new MemberMap<InterOptimizer>())
     {}
 
 // Assign an ID, set it, store the simulator, and insert into the agent map
@@ -89,11 +89,11 @@ void Simulation::removeDeps(const eris_id_t &member) {
     }
 }
 
-const Simulation::AgentMap& Simulation::agents()       { return *agents_;    }
-const Simulation::GoodMap& Simulation::goods()         { return *goods_;     }
-const Simulation::MarketMap& Simulation::markets()     { return *markets_;   }
-const Simulation::IntraOptMap& Simulation::intraOpts() { return *intraopts_; }
-const Simulation::InterOptMap& Simulation::interOpts() { return *interopts_; }
+const Simulation::MemberMap<Agent>& Simulation::agents()   { return *agents_;  }
+const Simulation::MemberMap<Good>& Simulation::goods()     { return *goods_;   }
+const Simulation::MemberMap<Market>& Simulation::markets() { return *markets_; }
+const Simulation::MemberMap<IntraOptimizer>& Simulation::intraOpts() { return *intraopts_; }
+const Simulation::MemberMap<InterOptimizer>& Simulation::interOpts() { return *interopts_; }
 
 const Simulation::DepMap& Simulation::deps() { return depends_on_; }
 
