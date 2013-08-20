@@ -5,6 +5,9 @@ namespace eris { namespace interopt {
 InterStepper::InterStepper(double step, int increase_count, int period)
     : stepper_(Stepper(step, increase_count)), period_(period) {}
 
+InterStepper::InterStepper(Stepper stepper, int period)
+    : stepper_(stepper), period_(period) {}
+
 void InterStepper::optimize() const {
     jump_ = should_jump();
 

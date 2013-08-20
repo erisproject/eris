@@ -55,6 +55,15 @@ class InterStepper : public InterOptimizer {
                 int increase_count = default_increase_count,
                 int period = default_period);
 
+        /** Constructs a new InterStepper optimization object using the given Stepper object instead
+         * of creating a new one.
+         *
+         * \param stepper Stepper object controlling the steps.
+         *
+         * \param period same as in InterStepper(double, int, int) constructor.
+         */
+        InterStepper(Stepper stepper, int period = default_period);
+
         /** Determines whether the value should go up or down, and by how much.  Calls
          * (unimplemented) method should_increase() to determine the direction of change.
          */
@@ -75,10 +84,12 @@ class InterStepper : public InterOptimizer {
          */
         virtual bool should_increase() const = 0;
 
-        /** Called to change the value to the given multiple of the current value.  This is called
-         * by apply().  The relative value will always be a positive value not equal to 1.
+        /** Called to change the value to the given multiple of the current value, or to change the
+         * value by the given amount (see the `rel_steps` parameter for Stepper).  This is called by
+         * apply().  The relative value will always be a positive value not equal to 1; an absolute
+         * value can be any value.
          */
-        virtual void take_step(double relative) = 0;
+        virtual void take_step(double step) = 0;
 
         /** Called to determine whether the value next period should jump instead of taking a step.
          * Typically this is used to identify when a custom jump is needed instead of the usual
