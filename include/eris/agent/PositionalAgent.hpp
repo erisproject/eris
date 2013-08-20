@@ -53,6 +53,26 @@ class PositionalAgent : public Agent {
          */
         bool bounded() const noexcept;
 
+        /** Returns true if the agent's position is currently on one of the boundaries, false
+         * otherwise. */
+        bool binding() const noexcept;
+
+        /** Returns true if the agent's position is currently on the lower boundary in any
+         * dimension, false otherwise.
+         *
+         * Note that it is possible for an agent's position to be on both a lower bound and upper
+         * bound simultaneously.
+         */
+        bool bindingLower() const noexcept;
+
+        /** Returns true if the agent's position is currently on the upper boundary in any
+         * dimension, false otherwise.
+         *
+         * Note that it is possible for an agent's position to be on both a lower bound and upper
+         * bound simultaneously.
+         */
+        bool bindingUpper() const noexcept;
+
         /** Returns the lowest-coordinates vertex of the bounding box.  For example, if bounding box
          * vertices of (1,-1,5) and (0,2,3) are given, this method returns the position (0,-1,3).
          * If the agent is not bounded, this returns negative infinity for each dimension.

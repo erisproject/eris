@@ -52,6 +52,37 @@ bool PositionalAgent::bounded() const noexcept {
     return bounded_;
 }
 
+bool PositionalAgent::binding() const noexcept {
+    if (not bounded_) return false;
+
+    for (int d = 0; d < position_.dimensions; d++) {
+        const double &p = position_[d];
+        if (p == lower_bound_[d] or p == upper_bound_[d]) return true;
+    }
+
+    return false;
+}
+
+bool PositionalAgent::bindingLower() const noexcept {
+    if (not bounded_) return false;
+
+    for (int d = 0; d < position_.dimensions; d++) {
+        if (position_[d] == lower_bound_[d]) return true;
+    }
+
+    return false;
+}
+
+bool PositionalAgent::bindingUpper() const noexcept {
+    if (not bounded_) return false;
+
+    for (int d = 0; d < position_.dimensions; d++) {
+        if (position_[d] == upper_bound_[d]) return true;
+    }
+
+    return false;
+}
+
 const Position& PositionalAgent::lowerBound() const noexcept {
     return lower_bound_;
 }
