@@ -112,6 +112,7 @@ class Stepper final {
         static constexpr double default_initial_step = 1.0/32.0;
         static constexpr int    default_increase_count = 4;
         static constexpr double default_min_step = std::numeric_limits<double>::epsilon();
+        static constexpr bool   default_relative_steps = true;
 
         /** Constructs a new Stepper object.
          *
@@ -133,18 +134,31 @@ class Stepper final {
          * \param min_step is the minimum step size that can be taken.  The default is equal to
          * machine epsilon (i.e. the smallest value v such that 1 + v is a value distinct from 1),
          * which is the smallest value possible for a step.
+         *
+         * \param rel_steps specifies whether the steps taken are relative to the current value, or
+         * absolute changes.  The default (relative steps) is suitable for things like prices and
+         * quantities, when relative changes are more important than absolute values; specifying
+         * false here is suitable for spatial models, when movement shouldn't be affected by the
+         * current variable value.  Note that the default min_step is too small to numerically
+         * affect values much below -1.0 or above +1.0, so choosing a more appropriate min_step is
+         * advised.
          */
         Stepper(double initial_step = default_initial_step,
                 int increase_count = default_increase_count,
-                double min_step = default_min_step);
+                double min_step = default_min_step,
+                bool rel_steps = default_relative_steps);
 
         /** Called to signal that a step increase (`up=true`) or decrease (`up=false`) should be
-         * taken.  Returns the relative step value, where 1 indicates no change, 1.2 indicates a 20%
-         * increase, etc.
+         * taken.
          *
-         * The returned multiple will always be a strictly positive value.  If \f$s\f$ is the
-         * current step size, the returned value will be either \f$1+s\f$ for an upward step or
-         * \f$\frac{1}{1+s}\f$ for a downward step.
+         * If relative_steps is true, this returns the relative step value, where 1 indicates no
+         * change, 1.2 indicates a 20% increase, etc.  The relative step multiple will always be a
+         * strictly positive value.  If \f$s\f$ is the current step size, the returned value will be
+         * either \f$1+s\f$ for an upward step or \f$\frac{1}{1+s}\f$ for a downward step.
+         *
+         * If relative_steps is false, this returns the absolute change in the current value, which
+         * could be any positive or negative value; the returned value is the amount by which the
+         * variable should be changed.
          *
          * When called, this first checks whether the step size should be changed: if at least
          * `increase` steps in the same direction have occured, the step size is doubled (and the
@@ -159,7 +173,23 @@ class Stepper final {
         /// The minimum (relative) step size allowed, specified in the constructor.
         const double min_step;
 
-        /// The most recent relative step size
+        /** If true, steps are relative; if false, steps are absolute.
+         *
+         * For example, a relative step size of 1/10 results in a step to either 11/10 or 10/11 for
+         * an upward or downward step, respectively.  Thus consecutive downward steps approach but
+         * never reach zero.  For variables that have a positive domain (e.g. prices and
+         * quantities), this is exactly what is wanted, because typically relative changes are more
+         * important than absolute changes.
+         *
+         * For some problems, however, steps should be considered as absolute.  For example, in
+         * a linear spatial problem, a step of 0.1 should be +0.1 or -0.1; it makes no sense to
+         * scale steps by the current position (since that is mathematically arbitrary).  Thus,
+         * when this value is false, the value passed to take_step will be the absolute change,
+         * *not* a multiple of the current value.
+         */
+        const bool relative_steps;
+
+        /// The most recent step size
         double step_size;
 
         /// The most recent step direction: true if the last step was positive, false if negative.
@@ -170,6 +200,7 @@ class Stepper final {
          * steps).
          */
         int same = 0;
+
 };
 
 
