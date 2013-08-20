@@ -46,7 +46,7 @@ class Position final {
 
         /** Accesses the Position's `d`th coordinate, where `d=0` is the first dimension, etc.
          *
-         * \throws std::out_of_range exception for `d >= dimensions()`.
+         * \throws std::out_of_range exception for `d >= dimensions`.
          */
         double& operator[](int d);
 
@@ -85,11 +85,6 @@ class Position final {
         /// Mutator version of division scaling.
         Position& operator/=(const double &inv_scale) noexcept;
 
-        /** Returns the number of dimensions of this Position object.  This will always be at least
-         * 1.
-         */
-        int dimensions() const noexcept;
-
         /** Overloaded so that a Position can be sent to an output stream, resulting in output such
          * as `Position[0.25, 0, -44.3272]`.
          */
@@ -101,14 +96,18 @@ class Position final {
 
         /// Throws an exception if the current object and `other` have different dimensions.
         void requireSameDimensions(const Position &other, const std::string &method) const;
+
+    public:
+        /** Accesses the number of dimensions of this Position object.  This will always be at least
+         * 1, and cannot be changed.
+         */
+        // (Declared here because it depends on pos_.)
+        const int dimensions = pos_.size();
+
 };
 
-inline int Position::dimensions() const noexcept {
-    return pos_.size();
-}
-
 inline void Position::requireSameDimensions(const Position &other, const std::string &method) const {
-    if (dimensions() != other.dimensions())
+    if (dimensions != other.dimensions)
         throw std::length_error(method + "() called with objects of differing dimensions");
 }
 

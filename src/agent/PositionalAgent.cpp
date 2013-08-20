@@ -5,29 +5,29 @@
 namespace eris { namespace agent {
 
 PositionalAgent::PositionalAgent(const Position &p, const Position &boundary1, const Position &boundary2)
-    : position_(p), bounded_(true), lower_bound_(p.dimensions()), upper_bound_(p.dimensions()) {
-    if (p.dimensions() != boundary1.dimensions() or p.dimensions() != boundary2.dimensions())
+    : position_(p), bounded_(true), lower_bound_(p.dimensions), upper_bound_(p.dimensions) {
+    if (p.dimensions != boundary1.dimensions or p.dimensions != boundary2.dimensions)
         throw std::length_error("position and boundary points have different dimensions");
 
-    for (int d = 0; d < p.dimensions(); d++) {
+    for (int d = 0; d < p.dimensions; d++) {
         lower_bound_[d] = std::min(boundary1[d], boundary2[d]);
         upper_bound_[d] = std::max(boundary1[d], boundary2[d]);
     }
 }
 
 PositionalAgent::PositionalAgent(const Position &p)
-    : position_(p), bounded_(false), lower_bound_(p.dimensions()), upper_bound_(p.dimensions()) {
+    : position_(p), bounded_(false), lower_bound_(p.dimensions), upper_bound_(p.dimensions) {
 
-    for (int d = 0; d < p.dimensions(); d++) {
+    for (int d = 0; d < p.dimensions; d++) {
         lower_bound_[d] = -std::numeric_limits<double>::infinity();
         upper_bound_[d] = std::numeric_limits<double>::infinity();
     }
 }
 
 PositionalAgent::PositionalAgent(const std::initializer_list<double> pos)
-    : position_(pos), bounded_(false), lower_bound_(position_.dimensions()), upper_bound_(position_.dimensions()) {
+    : position_(pos), bounded_(false), lower_bound_(position_.dimensions), upper_bound_(position_.dimensions) {
 
-    for (int d = 0; d < position_.dimensions(); d++) {
+    for (int d = 0; d < position_.dimensions; d++) {
         lower_bound_[d] = -std::numeric_limits<double>::infinity();
         upper_bound_[d] = std::numeric_limits<double>::infinity();
     }
@@ -61,11 +61,11 @@ const Position& PositionalAgent::upperBound() const noexcept {
 }
 
 bool PositionalAgent::moveTo(Position p) {
-    if (p.dimensions() != position_.dimensions())
+    if (p.dimensions != position_.dimensions)
         throw std::length_error("position and moveTo coordinates have different dimensions");
     bool corrected = false;
     if (bounded_) {
-        for (int d = 0; d < p.dimensions(); d++) {
+        for (int d = 0; d < p.dimensions; d++) {
             double &x = p[d];
             if (x < lower_bound_[d]) {
                 x = lower_bound_[d];
@@ -86,7 +86,7 @@ bool PositionalAgent::moveTo(Position p) {
 }
 
 bool PositionalAgent::moveBy(const Position &relative) {
-    if (relative.dimensions() != position_.dimensions())
+    if (relative.dimensions != position_.dimensions)
         throw std::length_error("position and moveBy coordinates have different dimensions");
 
     return moveTo(position_ + relative);
