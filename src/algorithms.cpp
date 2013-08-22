@@ -26,7 +26,7 @@ double Stepper::step(bool up) {
 
     prev_up = up;
 
-    if (not relative_steps) return step_size;
+    if (not relative_steps) return up ? step_size : -step_size;
     else if (up) return 1 + step_size;
     else return 1.0 / (1 + step_size);
 }
