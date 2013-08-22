@@ -27,6 +27,8 @@ class InterStepper : public InterOptimizer {
         static constexpr int default_increase_count = Stepper::default_increase_count;
         /// The default period, if not given in the constructor
         static constexpr int default_period = 1;
+        /// The period offset, which must be less than the period.
+        static constexpr int default_period_offset = 0;
 
         /** Constructs a new InterStepper optimization object.
          *
@@ -49,11 +51,19 @@ class InterStepper : public InterOptimizer {
          * take a step every period; 2 would mean every second period, etc.  Note that jumping is
          * checked and can occur in every period, regardless of this value, and that a jump occuring
          * resets the period counter.
+         *
+         * \param period_offset If period is greater than 1, this allows control over which periods
+         * optimization happens in.  Specifically, optimization happens in periods \f$n + o, 2n + o,
+         * 3n + o, \hdots\f$ (where n is the period and o is the offset).  For example, if offset is
+         * 0 (the default) and period is 3, optimization occurs in the 3rd, 6th, 9th, etc. periods;
+         * if offset was instead 1, optimization would happen in 1st, 4th, 7th, etc. periods.  The
+         * given value must be less than the period.
          */
         InterStepper(
                 double initial_step = default_initial_step,
                 int increase_count = default_increase_count,
-                int period = default_period);
+                int period = default_period,
+                int period_offset = default_period_offset);
 
         /** Constructs a new InterStepper optimization object using the given Stepper object instead
          * of creating a new one.
@@ -62,7 +72,7 @@ class InterStepper : public InterOptimizer {
          *
          * \param period same as in InterStepper(double, int, int) constructor.
          */
-        InterStepper(Stepper stepper, int period = default_period);
+        InterStepper(Stepper stepper, int period = default_period, int period_offset = default_period_offset);
 
         /** Determines whether the value should go up or down, and by how much.  Calls
          * (unimplemented) method should_increase() to determine the direction of change.
@@ -113,8 +123,9 @@ class InterStepper : public InterOptimizer {
         mutable bool curr_up_ = false;
         /// The period; we only try to take a step every `period_` times.  1 means always.
         const int period_;
-        /// Tracks how many steps we've taken since the last step or jump, used for periodic stepping.
-        mutable int last_step_ = 0;
+        /// The offset; we take a step in periods in which `last_step_ % period_ == period_offset_`
+        const int period_offset_;
+        mutable long last_step_ = 0;
         /// True if we're going to step this round.  Will be always true if `period_ == 1`.
         mutable bool stepping_ = false;
         /// True if we're going to jump this round instead of stepping.

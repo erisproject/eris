@@ -2,11 +2,11 @@
 
 namespace eris { namespace interopt {
 
-InterStepper::InterStepper(double step, int increase_count, int period)
-    : stepper_(Stepper(step, increase_count)), period_(period) {}
+InterStepper::InterStepper(double step, int increase_count, int period, int period_offset)
+    : stepper_(Stepper(step, increase_count)), period_(period), period_offset_(period_offset) {}
 
-InterStepper::InterStepper(Stepper stepper, int period)
-    : stepper_(stepper), period_(period) {}
+InterStepper::InterStepper(Stepper stepper, int period, int period_offset)
+    : stepper_(stepper), period_(period), period_offset_(period_offset) {}
 
 void InterStepper::optimize() const {
     jump_ = should_jump();
@@ -15,12 +15,10 @@ void InterStepper::optimize() const {
 
     if (jump_) {
         stepping_ = false;
-        last_step_ = 0;
     }
     else {
-        stepping_ = last_step_ >= period_;
+        stepping_ = last_step_ % period_ == period_offset_;
         if (stepping_) {
-            last_step_ = 0;
             curr_up_ = should_increase();
         }
     }
