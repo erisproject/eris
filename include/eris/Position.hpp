@@ -50,8 +50,20 @@ class Position final {
          */
         double& operator[](int d);
 
+        /// Alias for `obj[d]`
+        double& at(int d);
+
         /// Const access to Position coordinates.
         const double& operator[](int d) const;
+
+        /// Alias for `const obj[d]`
+        const double& at(int d) const;
+
+        /// Equality; true iff all coordinates have the same value.
+        bool operator==(const Position &other);
+
+        /// Inequality; true iff equality is false.
+        bool operator!=(const Position &other);
 
         /** Sets the position to that of the provided position.  The dimensions of the current and
          * new position must be identical.
@@ -112,6 +124,8 @@ inline void Position::requireSameDimensions(const Position &other, const std::st
 }
 
 inline double& Position::operator[](int d) { return pos_.at(d); }
+inline double& Position::at(int d)         { return pos_.at(d); }
 inline const double& Position::operator[](int d) const { return pos_.at(d); }
+inline const double& Position::at(int d)         const { return pos_.at(d); }
 
 }
