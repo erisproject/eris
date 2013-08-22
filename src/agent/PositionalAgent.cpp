@@ -96,19 +96,7 @@ bool PositionalAgent::moveTo(Position p) {
         throw std::length_error("position and moveTo coordinates have different dimensions");
     bool corrected = false;
     if (bounded_) {
-        for (int d = 0; d < p.dimensions; d++) {
-            double &x = p[d];
-            if (x < lower_bound_[d]) {
-                x = lower_bound_[d];
-                corrected = true;
-            }
-            else if (x > upper_bound_[d]) {
-                x = upper_bound_[d];
-                corrected = true;
-            }
-
-            if (corrected and not move_to_nearest) throw boundary_error();
-        }
+        corrected = truncate(p, not moveToBoundary());
     }
 
     position_ = p;
@@ -116,11 +104,53 @@ bool PositionalAgent::moveTo(Position p) {
     return not corrected;
 }
 
+bool PositionalAgent::moveTo(const double &x) {
+    return moveTo(Position({x}));
+}
+
+bool PositionalAgent::moveTo(const double &x, const double &y) {
+    return moveTo(Position({x, y}));
+}
+
 bool PositionalAgent::moveBy(const Position &relative) {
     if (relative.dimensions != position_.dimensions)
         throw std::length_error("position and moveBy coordinates have different dimensions");
 
     return moveTo(position_ + relative);
+}
+
+bool PositionalAgent::moveBy(const double &x) {
+    return moveBy(Position({x}));
+}
+
+bool PositionalAgent::moveBy(const double &x, const double &y) {
+    return moveBy(Position({x, y}));
+}
+
+Position PositionalAgent::toBoundary(Position pos) const {
+    truncate(pos);
+    return pos;
+}
+
+bool PositionalAgent::truncate(Position &pos, bool throw_on_truncation) const {
+    if (!bounded_) return false;
+
+    bool truncated = false;
+    for (int d = 0; d < pos.dimensions; d++) {
+        double &x = pos[d];
+        if (x < lower_bound_[d]) {
+            if (throw_on_truncation) throw boundary_error();
+            x = lower_bound_[d];
+            truncated = true;
+        }
+        else if (x > upper_bound_[d]) {
+            if (throw_on_truncation) throw boundary_error();
+            x = upper_bound_[d];
+            truncated = true;
+        }
+    }
+
+    return truncated;
 }
 
 } }

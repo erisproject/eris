@@ -85,31 +85,52 @@ class PositionalAgent : public Agent {
          */
         const Position& upperBound() const noexcept;
 
-        /** If true, attempting to move to a position outside the agent's bounding box will instead
-         * move to the nearest point on the boundary.  If false (the default) attempting to move
-         * outside the bounding box will throw an exception.
+        /** Returns true if attempting to move to a position outside the agent's bounding box should
+         * instead move to the nearest point on the boundary.  The default always returns false;
+         * subclasses should override if desired.
          */
-        bool move_to_nearest = false;
+        virtual bool moveToBoundary() const noexcept { return false; }
 
         /** Moves to the given position.  If the position is outside the bounding box,
-         * `move_to_nearest` is checked: if true, the agent moves to boundary point closest to the
+         * `moveToBoundary()` is checked: if true, the agent moves to boundary point closest to the
          * destination; if false, a boundary_error exception is thrown.
          *
          * \returns true if the move was completed as requested, false if the move was corrected to
          * the nearest boundary point.
-         * \throws PositionalAgent::boundary_error if move_to_nearest was false and the destination
+         * \throws PositionalAgent::boundary_error if moveToBoundary() was false and the destination
          * was outside the boundary.
          * \throws std::length_error if p does not have the same dimensions as the agent's position.
          */
         bool moveTo(Position p);
 
+        /// Just like moveTo(Position), but takes a single coordinate for a 1-d Position object
+        bool moveTo(const double &x);
+
+        /// Just like moveTo(Position), but takes a pair of coordinates for a 2-d Position object
+        bool moveTo(const double &x, const double &y);
+
         /** Moves by the given relative amounts.  `a.moveBy(relative) is simply a shortcut for
          * `a.moveTo(a.position() + relative)`.
          *
-         * \throws std::length_error if relative does not have the same dimensions as the agent's position.
+         * \throws std::length_error if relative does not have the same dimensions as the agent's
+         * position.
          */
         bool moveBy(const Position &relative);
 
+        /// Just like moveBy(Position), but takes a single coordinate for a 1-d Position object
+        bool moveBy(const double &dx);
+
+        /// Just like moveBy(Position), but takes a pair of coordinates for a 2-d Position object
+        bool moveBy(const double &dx, const double &dy);
+
+        /** Returns a Position that is as close as the given Position as possible, but within the
+         * agent's boundary.  If the agent is unbounded, or the given point is not outside the
+         * boundary, this is the same coordinate as given; if the point is outside the boundary, the
+         * returned point will be on the boundary.
+         */
+        Position toBoundary(Position pos) const;
+
+        /// Exception class thrown if attempting to move to a point outside the bounding box.
         class boundary_error : public std::range_error {
             public:
                 boundary_error() : std::range_error("Cannot move outside bounding box") {}
@@ -124,8 +145,17 @@ class PositionalAgent : public Agent {
         Position lower_bound_;
         /// The upper vertex of the bounding box, defined by the greater value in each dimension.
         Position upper_bound_;
+
+        /** Truncates the given Position object, updating (or throwing an exception) if required.
+         * Returns true if truncation was necessary and allowed, false if no changes were needed,
+         * and throws a boundary_error exception if throw_on_truncation is true if changes are
+         * needed but not allowed.
+         */
+        bool truncate(Position &pos, bool throw_on_truncation = false) const;
 };
 
 inline const Position& PositionalAgent::position() const noexcept { return position_; }
 
 } }
+
+// vim:tw=100
