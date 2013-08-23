@@ -127,7 +127,7 @@ bool IncrementalBuyer::oneRound() {
     // From everything added into permute, above, we need to build all possible multi-element
     // combinations; e.g. if permute = {1,2,3} we have 4 possibilities: {1,2}, {1,3}, {2,3}, {1,2,3}
 
-    eris::all_combinations(permute.cbegin(), permute.cend(),
+    eris::all_combinations<eris_id_t>(permute.cbegin(), permute.cend(),
             [&](const std::vector<eris_id_t> &combination) -> void {
 
         int comb_size = combination.size();

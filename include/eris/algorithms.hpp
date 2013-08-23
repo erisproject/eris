@@ -34,17 +34,24 @@ namespace eris {
  *        combination of parameters.  The argument is a new unique list of elements of the input
  *        set.  Despite being in a vector, these values should really be treated as a set.  Values
  *        will be in the same order as encountered in the input iterator.
+ *
+ * \param T the underlying data type template parameter is required, unfortunately.  This shouldn't
+ *        be necessary at all, since it is obtainable from the class of the given iterator, but gcc
+ *        (as of 4.8.1) chokes on that, hence the additional (required) template parameter.
  */
-template <typename It>
+// FIXME: this first 'T' template parameter shouldn't be needed (and isn't, if using clang++), but
+// g++ needs it, so everything has to deal with it.  Try again, eventually, to remove it, changing
+// the 'T' types below to 'typename It::value_type'.
+template <typename T, typename It>
 typename std::enable_if<std::is_base_of<std::forward_iterator_tag, typename std::iterator_traits<It>::iterator_category>::value>::type
 all_combinations(
             const It &begin,
             const It &end,
-            std::function<void(const std::vector<typename It::value_type> &)> func
+            std::function<void(const std::vector<T> &)> func
             ) {
 
     // Store the current combination being considered
-    std::vector<typename It::value_type> combination; // Will store the current combination being considered
+    std::vector<T> combination; // Will store the current combination being considered
  
     // The first combination is always the empty set; call with it:
     func(combination);
