@@ -31,6 +31,11 @@ class Position final {
          */
         double distance(const Position &other) const;
 
+        /** Returns the (Euclidean) distance between this position and the origin.  The value
+         * returned will always be non-negative.
+         */
+        double length() const;
+
         /** Returns the weighted-mean of this Position object and another Position object.
          *
          * \param other the other Position
@@ -60,10 +65,10 @@ class Position final {
         const double& at(int d) const;
 
         /// Equality; true iff all coordinates have the same value.
-        bool operator==(const Position &other);
+        bool operator==(const Position &other) const;
 
         /// Inequality; true iff equality is false.
-        bool operator!=(const Position &other);
+        bool operator!=(const Position &other) const;
 
         /** Sets the position to that of the provided position.  The dimensions of the current and
          * new position must be identical.
