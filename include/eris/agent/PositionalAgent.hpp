@@ -112,7 +112,11 @@ class PositionalAgent : public Agent {
         /** Moves by the given relative amounts.  `a.moveBy(relative) is simply a shortcut for
          * `a.moveTo(a.position() + relative)`.
          *
-         * \throws std::length_error if relative does not have the same dimensions as the agent's
+         * \returns true if the move was completed as requested, false if the move was corrected to
+         * the nearest boundary point.
+         * \throws PositionalAgent::boundary_error if moveToBoundary() was false and the destination
+         * was outside the boundary.
+         * \throws std::length_error if `relative` does not have the same dimensions as the agent's
          * position.
          */
         bool moveBy(const Position &relative);
