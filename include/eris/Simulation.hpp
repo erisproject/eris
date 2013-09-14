@@ -190,35 +190,35 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
          * agent class type.
          */
         template <class A = Agent>
-        const MemberMap<A> agentFilter(std::function<bool(SharedMember<A> agent)> filter = nullptr);
+        const MemberMap<A> agentFilter(std::function<bool(SharedMember<A> agent)> filter = nullptr) const;
         /** Provides a filtered map of simulation goods.  This works just like agentFilter, but for
          * goods.
          *
          * \sa agentFilter
          */
         template <class G = Good>
-        const MemberMap<G> goodFilter(std::function<bool(SharedMember<G> good)> filter = nullptr);
+        const MemberMap<G> goodFilter(std::function<bool(SharedMember<G> good)> filter = nullptr) const;
         /** Provides a filtered map of simulation markets.  This works just like agentFilter, but
          * for markets.
          *
          * \sa agentFilter
          */
         template <class M = Market>
-        const MemberMap<M> marketFilter(std::function<bool(SharedMember<M> market)> filter = nullptr);
+        const MemberMap<M> marketFilter(std::function<bool(SharedMember<M> market)> filter = nullptr) const;
         /** Provides a filtered map of simulation intra-period optimizers.  This works just like
          * agentFilter, but for intra-period optimizers.
          *
          * \sa agentFilter
          */
         template <class I = IntraOptimizer>
-        const MemberMap<I> intraOptFilter(std::function<bool(SharedMember<I> intraopt)> filter = nullptr);
+        const MemberMap<I> intraOptFilter(std::function<bool(SharedMember<I> intraopt)> filter = nullptr) const;
         /** Provides a filtered map of simulation inter-period optimizers.  This works just like
          * agentFilter, but for inter-period optimizers.
          *
          * \sa agentFilter
          */
         template <class I = InterOptimizer>
-        const MemberMap<I> interOptFilter(std::function<bool(SharedMember<I> interopt)> filter = nullptr);
+        const MemberMap<I> interOptFilter(std::function<bool(SharedMember<I> interopt)> filter = nullptr) const;
 
         /** Records already-stored member `depends_on' as a dependency of `member'.  If `depends_on'
          * is removed from the simulation, `member' will be automatically removed as well.
@@ -275,7 +275,7 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         std::unique_ptr<MemberMap<InterOptimizer>> interopts_;
 
         template <class T, class B> const MemberMap<T>
-        genericFilter(const MemberMap<B> &map, std::function<bool(SharedMember<T> member)> &filter);
+        genericFilter(const MemberMap<B> &map, std::function<bool(SharedMember<T> member)> &filter) const;
 
         DepMap depends_on_;
         void removeDeps(const eris_id_t &member);
@@ -363,7 +363,7 @@ template <class O> SharedMember<O> Simulation::cloneInterOpt(const O &o) {
 template <class T, class B>
 const Simulation::MemberMap<T> Simulation::genericFilter(
         const MemberMap<B>& map,
-        std::function<bool(SharedMember<T> member)> &filter) {
+        std::function<bool(SharedMember<T> member)> &filter) const {
     MemberMap<T> matched;
     for (auto &m : map) {
         bool cast_success = false;
@@ -386,23 +386,23 @@ const Simulation::MemberMap<T> Simulation::genericFilter(
 }
 
 template <class A>
-const Simulation::MemberMap<A> Simulation::agentFilter(std::function<bool(SharedMember<A> agent)> filter) {
+const Simulation::MemberMap<A> Simulation::agentFilter(std::function<bool(SharedMember<A> agent)> filter) const {
     return genericFilter(*agents_, filter);
 }
 template <class G>
-const Simulation::MemberMap<G> Simulation::goodFilter(std::function<bool(SharedMember<G> good)> filter) {
+const Simulation::MemberMap<G> Simulation::goodFilter(std::function<bool(SharedMember<G> good)> filter) const {
     return genericFilter(*goods_, filter);
 }
 template <class M>
-const Simulation::MemberMap<M> Simulation::marketFilter(std::function<bool(SharedMember<M> market)> filter) {
+const Simulation::MemberMap<M> Simulation::marketFilter(std::function<bool(SharedMember<M> market)> filter) const {
     return genericFilter(*markets_, filter);
 }
 template <class I>
-const Simulation::MemberMap<I> Simulation::interOptFilter(std::function<bool(SharedMember<I> interopt)> filter) {
+const Simulation::MemberMap<I> Simulation::interOptFilter(std::function<bool(SharedMember<I> interopt)> filter) const {
     return genericFilter(*interopts_, filter);
 }
 template <class I>
-const Simulation::MemberMap<I> Simulation::intraOptFilter(std::function<bool(SharedMember<I> intraopt)> filter) {
+const Simulation::MemberMap<I> Simulation::intraOptFilter(std::function<bool(SharedMember<I> intraopt)> filter) const {
     return genericFilter(*intraopts_, filter);
 }
 
