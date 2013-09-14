@@ -26,10 +26,24 @@ double Position::distance(const Position &other) const {
     if (dimensions == 2)
         return hypot(at(0) - other[0], at(1) - other[1]);
 
+    // NB: could protect this against underflow/overflow by adapting the hypot algorithm to 3+
+    // dimensions; see http://en.wikipedia.org/wiki/Hypot
     double dsq = 0;
     for (int i = 0; i < dimensions; ++i)
         dsq += pow(at(i) - other[i], 2);
     return sqrt(dsq);
+}
+
+double Position::length() const {
+    if (dimensions == 1) return fabs(at(0));
+    if (dimensions == 2) return hypot(at(0), at(1));
+
+    // NB: could protect this against underflow/overflow by adapting the hypot algorithm to 3+
+    // dimensions; see http://en.wikipedia.org/wiki/Hypot
+    double lsq = 0.0;
+    for (auto &d : pos_)
+        lsq += d*d;
+    return sqrt(lsq);
 }
 
 Position Position::mean(const Position &other, const double &weight) const {
@@ -53,7 +67,7 @@ Position& Position::operator=(const Position &new_pos) {
     return *this;
 }
 
-bool Position::operator==(const Position &other) {
+bool Position::operator==(const Position &other) const {
     requireSameDimensions(other, "Position::operator==");
 
     for (int i = 0; i < dimensions; i++)
@@ -62,7 +76,7 @@ bool Position::operator==(const Position &other) {
     return true;
 }
 
-bool Position::operator!=(const Position &other) {
+bool Position::operator!=(const Position &other) const {
     requireSameDimensions(other, "Position::operator!=");
     return !(*this == other);
 }
