@@ -34,11 +34,19 @@ class Eris {
 
         virtual ~Eris() = default;
 
-        /** Deferenced member access gets redirected through the Simulation object */
+        /** Dereferenced member access gets redirected through the Simulation object. */
         T* operator ->() { return sim_.get(); }
 
+        /** Const dereferenced member access gets redirected through a const cast of the Simulation
+         * object.
+         */
+        const T* operator ->() const { return sim_.get(); };
+
         /** Returns the shared pointer to the simulation */
-        operator std::shared_ptr<T> () { return sim_; }
+        operator std::shared_ptr<T>() { return sim_; };
+
+        /** Returns a const shared pointer to a const cast of the simulation */
+        operator std::shared_ptr<const T>() const { return sim_; };
     private:
         std::shared_ptr<T> sim_;
 };
