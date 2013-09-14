@@ -4,6 +4,8 @@
 #include <memory>
 #include <unordered_map>
 #include <unordered_set>
+#include <typeinfo>
+#include <list>
 
 namespace eris {
 
@@ -188,6 +190,12 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
          * If filter is null (the default if omitted), it will be treated as a filter that always
          * returns true; thus agentFilter<SomeAgentClass>() is a useful way to filter on just the
          * agent class type.
+         *
+         * The results of filtering on the class are cached so long as the template filter class is
+         * not the default, `Agent`, so that subsequent calls don't need to search through all
+         * agents for matching classes, but only check agents of the requested type.  This helps
+         * considerably when searching for agents that are only a small subset of the overall set of
+         * agents.  The cache is invalidated if any agent (of any type) is added or removed.
          */
         template <class A = Agent>
         const MemberMap<A> agentFilter(std::function<bool(SharedMember<A> agent)> filter = nullptr) const;
@@ -277,6 +285,22 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         template <class T, class B> const MemberMap<T>
         genericFilter(const MemberMap<B> &map, std::function<bool(SharedMember<T> member)> &filter) const;
 
+        mutable std::unique_ptr<std::unordered_map<size_t, std::unordered_map<size_t, std::list<SharedMember<Member>>>>> filter_cache_;
+
+        // Invalidate the filter cache for objects of type B, which should be one of the base Agent,
+        // Good, Market, etc. member classes.  The default, Member, invalidates the cache for all
+        // types.
+
+        template <class B = Member,
+                 class = typename std::enable_if<
+                     std::is_same<B, Agent>::value or
+                     std::is_same<B, Good>::value or
+                     std::is_same<B, Market>::value or
+                     std::is_same<B, IntraOptimizer>::value or
+                     std::is_same<B, InterOptimizer>::value
+                  >::type>
+        void invalidateCache();
+
         DepMap depends_on_;
         void removeDeps(const eris_id_t &member);
 
@@ -365,24 +389,72 @@ const Simulation::MemberMap<T> Simulation::genericFilter(
         const MemberMap<B>& map,
         std::function<bool(SharedMember<T> member)> &filter) const {
     MemberMap<T> matched;
-    for (auto &m : map) {
-        bool cast_success = false;
-        try {
-            SharedMember<T> recast(m.second);
-            cast_success = true;
+    auto &B_t = typeid(B), &T_t = typeid(T);
+    size_t B_h = B_t.hash_code(), T_h = T_t.hash_code();
+    bool class_filtering = B_t != T_t;
+    std::list<SharedMember<Member>> cache;
+    bool cache_miss = false;
+    if (class_filtering) {
+        // Initiliaze the cache, if necessary
+        if (!filter_cache_)
+            filter_cache_ = std::unique_ptr<
+                      std::unordered_map<size_t, std::unordered_map<size_t, std::list<SharedMember<Member>>>>
+                >(new std::unordered_map<size_t, std::unordered_map<size_t, std::list<SharedMember<Member>>>>());
 
+        // Initialize the B-specific part of the cache, if necessary:
+        if (filter_cache_->count(B_h) == 0)
+            filter_cache_->insert(std::pair<size_t, std::unordered_map<size_t, std::list<SharedMember<Member>>>>(
+                        B_h, std::unordered_map<size_t, std::list<SharedMember<Member>>>()));
+
+        auto &filter_cache_B_ = filter_cache_->at(B_h);
+
+        // Look to see if there's a cache for T already; if there isn't, we'll build one in `cache`
+        if (filter_cache_B_.count(T_h) == 0) {
+            cache_miss = true;
+        }
+    }
+
+    if (class_filtering and not cache_miss) {
+        for (auto &member : filter_cache_->at(B_h).at(T_h)) {
+            SharedMember<T> recast(member);
             if (not filter or filter(recast))
                 matched.insert(std::make_pair(recast->id(), recast));
         }
-        catch (std::bad_cast &e) {
-            if (cast_success) {
-                // The bad_cast is *not* from the recast, so rethrow it
-                throw;
+    }
+    else {
+        for (auto &m : map) {
+            bool cast_success = false;
+            try {
+                SharedMember<T> recast(m.second);
+                cast_success = true;
+                if (cache_miss)
+                    cache.push_back(recast);
+
+                if (not filter or filter(recast))
+                    matched.insert(std::make_pair(recast->id(), recast));
             }
-            // Otherwise the agent isn't catable to T, so just move on.
+            catch (std::bad_cast &e) {
+                if (cast_success) {
+                    // The bad_cast is *not* from the recast, so rethrow it
+                    throw;
+                }
+                // Otherwise the agent isn't castable to T, so just move on.
+            }
         }
+
+        if (cache_miss) filter_cache_->at(B_h).insert(std::make_pair(T_h, cache));
     }
     return matched;
+}
+
+template <class B, class>
+void Simulation::invalidateCache() {
+    if (filter_cache_) {
+        if (typeid(B) == typeid(Member))
+            filter_cache_->clear();
+        else
+            filter_cache_->erase(typeid(B).hash_code());
+    }
 }
 
 template <class A>
@@ -426,3 +498,5 @@ template <class I> SharedMember<I> Simulation::interOpt(eris_id_t oid) const {
     return interopts_->at(oid);
 }
 }
+
+// vim:tw=100

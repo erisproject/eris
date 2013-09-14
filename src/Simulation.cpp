@@ -16,59 +16,75 @@ Simulation::Simulation() :
     {}
 
 // Assign an ID, set it, store the simulator, and insert into the agent map
+// This should be the *ONLY* place anything is ever added into agents_
 void Simulation::insertAgent(const SharedMember<Agent> &a) {
     a->simulation(shared_from_this(), id_next_++);
     agents_->insert(std::make_pair(a->id(), a));
+    invalidateCache<Agent>();
 }
 // Assign an ID, set it, store the simulator, and insert into the good map
+// This should be the *ONLY* place anything is ever added into goods_
 void Simulation::insertGood(const SharedMember<Good> &g) {
     g->simulation(shared_from_this(), id_next_++);
     goods_->insert(std::make_pair(g->id(), g));
+    invalidateCache<Good>();
 }
 // Assign an ID, set it, store the simulator, and insert into the market map
+// This should be the *ONLY* place anything is ever added into markets_
 void Simulation::insertMarket(const SharedMember<Market> &m) {
     m->simulation(shared_from_this(), id_next_++);
     markets_->insert(std::make_pair(m->id(), m));
+    invalidateCache<Market>();
 }
 // Assign an ID, set it, store the optimizer, and insert into the intraopt map
+// This should be the *ONLY* place anything is ever added into intraopts_
 void Simulation::insertIntraOpt(const SharedMember<IntraOptimizer> &o) {
     o->simulation(shared_from_this(), id_next_++);
     intraopts_->insert(std::make_pair(o->id(), o));
+    invalidateCache<IntraOptimizer>();
 }
 // Assign an ID, set it, store the optimizer, and insert into the interopt map
+// This should be the *ONLY* place anything is ever added into interopts_
 void Simulation::insertInterOpt(const SharedMember<InterOptimizer> &o) {
     o->simulation(shared_from_this(), id_next_++);
     interopts_->insert(std::make_pair(o->id(), o));
+    invalidateCache<InterOptimizer>();
 }
 
 void Simulation::registerDependency(const eris_id_t &member, const eris_id_t &depends_on) {
     depends_on_[depends_on].insert(member);
 }
 
+// This should be the *ONLY* place anything is ever removed from agents_
 void Simulation::removeAgent(const eris_id_t &aid) {
     agents_->at(aid)->simulation(nullptr, 0);
     agents_->erase(aid);
     removeDeps(aid);
+    invalidateCache<Agent>();
 }
 void Simulation::removeGood(const eris_id_t &gid) {
     goods_->at(gid)->simulation(nullptr, 0);
     goods_->erase(gid);
     removeDeps(gid);
+    invalidateCache<Good>();
 }
 void Simulation::removeMarket(const eris_id_t &mid) {
     markets_->at(mid)->simulation(nullptr, 0);
     markets_->erase(mid);
     removeDeps(mid);
+    invalidateCache<Market>();
 }
 void Simulation::removeIntraOpt(const eris_id_t &oid) {
     intraopts_->at(oid)->simulation(nullptr, 0);
     intraopts_->erase(oid);
     removeDeps(oid);
+    invalidateCache<IntraOptimizer>();
 }
 void Simulation::removeInterOpt(const eris_id_t &oid) {
     interopts_->at(oid)->simulation(nullptr, 0);
     interopts_->erase(oid);
     removeDeps(oid);
+    invalidateCache<InterOptimizer>();
 }
 
 void Simulation::removeDeps(const eris_id_t &member) {
