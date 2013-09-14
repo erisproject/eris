@@ -12,6 +12,10 @@ namespace eris {
  */
 class Random final {
     public:
+        /** typedef for the RNG type used by this class, currently std::mt19937_64.
+         */
+        typedef std::mt19937_64 rng_t;
+
         /** Returns a random number generator.  The first time this is called, it creates a static
          * random number generator; subsequent calls return the same RNG.  Currently this creates a
          * mt19937_64 rng, which offers a good balance of randomness and performance.
@@ -29,22 +33,22 @@ class Random final {
          *     std::student_t_distribution t30gen(30);
          *     double draw = t30gen(Random::rng());
          */
-        inline static std::mt19937_64& rng() {
-            if (!_rng) _rng = new std::mt19937_64(seed());
+        inline static rng_t& rng() {
+            if (!_rng) _rng = new rng_t(seed());
             return *_rng;
         }
         /** Returns the seed used for this RNG.  If no seed has been established yet, this uses the
          * environment variable ERIS_RNG_SEED.  If that isn't set, it attempts to generate one in a
          * unique way using the current process and/or system environment.
          */
-        inline static const std::mt19937_64::result_type seed() {
+        inline static const rng_t::result_type seed() {
             if (!_seed) _reseed();
             return _seed;
         }
     private:
-        static std::mt19937_64 *_rng;
-        static std::mt19937_64::result_type _seed;
-        static std::mt19937_64::result_type _reseed();
+        static rng_t *_rng;
+        static rng_t::result_type _seed;
+        static rng_t::result_type _reseed();
 };
 
 }
