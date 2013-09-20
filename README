@@ -1,4 +1,4 @@
-Eris - agent based economic modelling library
+Eris - agent-based economic modelling library
 
 DESCRIPTION
 -----------
@@ -17,7 +17,7 @@ Beyond the core, the library offers many specialized implementations that may
 be used as appropriate, but can equally well be replaced with alternative
 implementations.
 
-The library name, Eris, is the name of the Greek god of chaos.
+The library name, Eris, is the name of the Greek goddess of chaos.
 
 LICENCE
 -------
