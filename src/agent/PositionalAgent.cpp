@@ -48,6 +48,10 @@ PositionalAgent::PositionalAgent(double px, double py)
 PositionalAgent::PositionalAgent(double px, double py, double b1x, double b1y, double b2x, double b2y)
     : PositionalAgent(Position({px, py}), Position({b1x, b1y}), Position({b2x, b2y})) {}
 
+double PositionalAgent::distance(const PositionalAgent &other) const {
+    return position().distance(other.position());
+}
+
 bool PositionalAgent::bounded() const noexcept {
     return bounded_;
 }

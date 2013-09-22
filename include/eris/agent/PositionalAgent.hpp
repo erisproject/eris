@@ -49,6 +49,11 @@ class PositionalAgent : public Agent {
         /** Returns the current position. */
         const Position& position() const noexcept;
 
+        /** Returns to distance from this agent's position to the passed-in agent's position.  This
+         * is simply an alias for obj.position().distance(target.position()).
+         */
+        double distance(const PositionalAgent &other) const;
+
         /** Returns true if a boundary applies to the position of this agent.
          */
         bool bounded() const noexcept;
