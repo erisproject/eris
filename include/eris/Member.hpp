@@ -44,6 +44,17 @@ class Member {
         /** Shortcut for `member.simulation()->interOpt<I>()` */
         template <class I = InterOptimizer> SharedMember<I> simInterOpt(eris_id_t oid) const;
 
+        /** Records a dependency with the Simulation object.  This should not be called until after
+         * simulation() has been called, and is typically invoked in an overridden added() method.
+         *
+         * This is simply an alias for Simulation::registerDependency; the two following statements
+         * are exactly equivalent:
+         *
+         *     shared_member->dependsOn(other_member);
+         *     shared_member->simulation()->registerDependency(shared_member, other_member);
+         */
+        void dependsOn(const eris_id_t &id);
+
 
     protected:
         /** Called (by Simulation) to store a weak pointer to the simulation this member belongs to
@@ -71,17 +82,6 @@ class Member {
          * method must *not* make use of dependent objects.
          */
         virtual void removed();
-
-        /** Records a dependency with the Simulation object.  This should not be called until after
-         * simulation() has been called, and is typically invoked in an overridden added() method.
-         *
-         * This is simply an alias for Simulation::registerDependency; the two following statements
-         * are exactly equivalent:
-         *
-         *     shared_member->dependsOn(other_member);
-         *     shared_member->simulation()->registerDependency(shared_member, other_member);
-         */
-        void dependsOn(const eris_id_t &id);
 
         /** Helper method to ensure that the passed-in SharedMember is a subclass of the templated
          * class.  If not, this throws an invalid_argument exception with the given message.
