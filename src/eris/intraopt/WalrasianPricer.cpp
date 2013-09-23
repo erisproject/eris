@@ -1,21 +1,21 @@
-#include <eris/intraopt/QMPricer.hpp>
+#include <eris/intraopt/WalrasianPricer.hpp>
 #include <eris/market/QMarket.hpp>
 
 namespace eris { namespace intraopt {
 
-QMPricer::QMPricer(const QMarket &qm, int tries, double initial_step, int increase_count)
+WalrasianPricer::WalrasianPricer(const QMarket &qm, int tries, double initial_step, int increase_count)
     : market_id_(qm), stepper_(Stepper(initial_step, increase_count)), tries_(tries) {}
 
-QMPricer::QMPricer(const QMarket &qm, Stepper stepper, int tries)
+WalrasianPricer::WalrasianPricer(const QMarket &qm, Stepper stepper, int tries)
     : market_id_(qm), stepper_(stepper), tries_(tries) {}
 
-void QMPricer::initialize() {
+void WalrasianPricer::initialize() {
     tried_ = 0;
 }
 
-void QMPricer::apply() {}
+void WalrasianPricer::apply() {}
 
-bool QMPricer::postOptimize() {
+bool WalrasianPricer::postOptimize() {
     bool first_try = tried_ == 0;
 
     // If we're all out of adjustments, don't change the price

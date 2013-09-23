@@ -15,7 +15,7 @@ using eris::market::QMarket;
  *
  * \sa eris::market::QMarket
  */
-class QMPricer : public IntraOptimizer {
+class WalrasianPricer : public IntraOptimizer {
     public:
         /// Default number of tries if not specified in constructor
         static constexpr int default_tries = 5;
@@ -36,7 +36,7 @@ class QMPricer : public IntraOptimizer {
          *
          * \sa eris::Stepper
          */
-        QMPricer(
+        WalrasianPricer(
                 const QMarket &qm,
                 int tries = default_tries,
                 double initial_step = default_initial_step,
@@ -45,7 +45,7 @@ class QMPricer : public IntraOptimizer {
 
         /** Creates a new QMarket market pricer using the given Stepper object for moving the price.
          */
-        QMPricer(
+        WalrasianPricer(
                 const QMarket &qm,
                 Stepper stepper,
                 int tries = default_tries

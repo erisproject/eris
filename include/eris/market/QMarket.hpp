@@ -2,7 +2,7 @@
 #include <eris/types.hpp>
 #include <eris/Market.hpp>
 #include <eris/firm/QFirm.hpp>
-#include <eris/intraopt/QMPricer.hpp>
+#include <eris/intraopt/WalrasianPricer.hpp>
 #include <limits>
 
 namespace eris { namespace market {
@@ -11,15 +11,15 @@ namespace eris { namespace market {
  * fixed quantity.  In each period, the price changes based on whether there was a surplus or
  * shortage in the previous period.
  *
- * Price adjustments occur through the QMPricer intra-period optimizer class, which is automatically
+ * Price adjustments occur through the WalrasianPricer intra-period optimizer class, which is automatically
  * added to a simulation when the quantity market object is added.
  */
 class QMarket : public Market {
     public:
         /// Default initial price, if not given in constructor
         static constexpr double default_initial_price = 1.0;
-        /// Default QMPricer tries, if not given in constructor
-        static constexpr int default_qmpricer_tries = intraopt::QMPricer::default_tries;
+        /// Default WalrasianPricer tries, if not given in constructor
+        static constexpr int default_qmpricer_tries = intraopt::WalrasianPricer::default_tries;
 
         /** Constructs a new quantity market, with a specified unit of output and unit of input
          * (price) per unit of output.
@@ -35,8 +35,8 @@ class QMarket : public Market {
          * similar inter-period optimizer) between periods.
          *
          * \param qmpricer_tries if greater than 0, this specifies the number of tries given to
-         * the automatically-created QMPricer intra-period optimizer.  If 0 (or negative), the
-         * QMPricer is not automatically created, in which case a QMPricer (or equivalent) optimizer
+         * the automatically-created WalrasianPricer intra-period optimizer.  If 0 (or negative), the
+         * WalrasianPricer is not automatically created, in which case a WalrasianPricer (or equivalent) optimizer
          * must be added separately to govern the market's price changes.
          */
         QMarket(Bundle output_unit,
@@ -77,7 +77,7 @@ class QMarket : public Market {
          */
         double firmQuantities(double max = std::numeric_limits<double>::infinity()) const;
 
-        /** The ID of the automatically-created QMPricer intra-period optimizer attached to this
+        /** The ID of the automatically-created WalrasianPricer intra-period optimizer attached to this
          * market.  Will be 0 if no such optimizer has been created.
          */
         eris_id_t optimizer = 0;
@@ -89,7 +89,7 @@ class QMarket : public Market {
         /// Adds a firm to this market.  The Firm must be a QFirm object (or subclass)
         virtual void addFirm(SharedMember<Firm> f) override;
 
-        /** Intended to be used by QMPricer (or other price-governing optimizer) to update this
+        /** Intended to be used by WalrasianPricer (or other price-governing optimizer) to update this
          * market's price.
          */
         virtual void setPrice(double p);
@@ -97,10 +97,10 @@ class QMarket : public Market {
         /// The current price of the good as a multiple of price_unit
         double price_;
 
-        /** When added to a simulation, this market automatically also adds a QMPricer intra-period
+        /** When added to a simulation, this market automatically also adds a WalrasianPricer intra-period
          * optimizer to handle pricing adjustments.  This can be skipped by specifying
          * qmpricer_tries=0 in the constructor, but in such a case care must be taken to add a
-         * QMPricer (or equivalent) optimizer to control price in this market.
+         * WalrasianPricer (or equivalent) optimizer to control price in this market.
          */
         virtual void added() override;
 

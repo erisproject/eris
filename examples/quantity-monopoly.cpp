@@ -36,6 +36,8 @@ int main() {
     auto qmkt = sim->createMarket<QMarket>(x1, m1, 1.0, 7);
     qmkt->addFirm(firm);
 
+//    sim->createIntraOpt<WalrasianPricer>(qmkt, Stepper(Stepper::default_initial_step, Stepper::default_increase_count, 1e-6), 7);
+
     std::cout << "qmkt->optimizer=" << qmkt->optimizer << "\n";
 
     std::list<SharedMember<Quadratic>> consumers;

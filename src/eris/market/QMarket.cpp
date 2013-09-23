@@ -1,5 +1,5 @@
 #include <eris/market/QMarket.hpp>
-#include <eris/intraopt/QMPricer.hpp>
+#include <eris/intraopt/WalrasianPricer.hpp>
 #include <eris/Simulation.hpp>
 #include <unordered_map>
 
@@ -105,7 +105,7 @@ void QMarket::setPrice(double p) {
 
 void QMarket::added() {
     if (qmpricer_tries_ > 0)
-        optimizer = simulation()->createIntraOpt<eris::intraopt::QMPricer>(*this, qmpricer_tries_);
+        optimizer = simulation()->createIntraOpt<eris::intraopt::WalrasianPricer>(*this, qmpricer_tries_);
 }
 
 } }
