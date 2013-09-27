@@ -23,4 +23,5 @@ a.out
 
 # Build files
 /build/
+/build[0-9]/
 /gcc-build/
