@@ -35,12 +35,16 @@ file(GLOB_RECURSE eris_include include/*.h include/*.hpp)
 
 add_definitions(-std=c++11 -Wall -Werror)
 
+find_package(Threads)
+
 add_library(eris SHARED ${eris_src})
 
 set_target_properties(eris PROPERTIES
     VERSION "${LIBERIS_CURRENT}.${LIBERIS_AGE}.${LIBERIS_REVISION}"
     SOVERSION "${LIBERIS_CURRENT}"
 )
+
+target_link_libraries(eris ${CMAKE_THREAD_LIBS_INIT})
 
 add_subdirectory(scratch)
 
