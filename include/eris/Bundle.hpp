@@ -2,6 +2,7 @@
 #include <eris/types.hpp>
 #include <algorithm>
 #include <exception>
+#include <stdexcept>
 #include <limits>
 #include <ostream>
 #include <unordered_map>

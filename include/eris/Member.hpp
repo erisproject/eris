@@ -1,6 +1,7 @@
 #pragma once
 #include <eris/types.hpp>
 #include <memory>
+#include <stdexcept>
 
 namespace eris {
 
