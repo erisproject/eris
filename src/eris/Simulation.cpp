@@ -1,3 +1,4 @@
+#include <eris/Member.hpp>
 #include <eris/Simulation.hpp>
 #include <eris/Agent.hpp>
 #include <eris/Good.hpp>
@@ -171,5 +172,6 @@ void Simulation::run() {
     for (auto intra : intraOpts())
         intra.second->apply();
 }
+
 
 }

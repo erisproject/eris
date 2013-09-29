@@ -1,5 +1,6 @@
 #pragma once
 #include <eris/types.hpp>
+#include <eris/SharedMember.hpp>
 #include <functional>
 #include <memory>
 #include <unordered_map>
@@ -11,7 +12,6 @@ namespace eris {
 
 // Forward declarations
 class Member;
-template <class T> class SharedMember;
 class Agent;
 class Good;
 class Market;
