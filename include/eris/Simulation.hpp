@@ -7,6 +7,7 @@
 #include <unordered_set>
 #include <typeinfo>
 #include <list>
+#include <thread>
 
 namespace eris {
 
@@ -63,80 +64,74 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
 
         /** Constructs a new A object using the given constructor arguments Args, adds it as an
          * agent, and returns a SharedMember<A> referencing it.
-         *
-         * \throws std::bad_cast if A cannot be cast to an Agent
          */
-        template <class A, typename... Args> SharedMember<A> createAgent(Args&&... args);
+        template <class A, typename... Args, class = typename std::enable_if<std::is_base_of<Agent, A>::value>::type>
+        SharedMember<A> createAgent(Args&&... args);
 
         /** Makes a copy of the given A object, adds the copy to the simulation, and returns a
          * SharedMember<A> referencing it.  A must be a subclass of Agent.
          *
          * In practice, the template is typically omitted as it can be inferred from the argument.
-         *
-         * \throws std::bad_cast if A cannot be cast to an Agent
          */
-        template <class A> SharedMember<A> cloneAgent(const A &a);
+        template <class A, class = typename std::enable_if<std::is_base_of<Agent, A>::value>::type>
+        SharedMember<A> cloneAgent(const A &a);
 
         /** Constructs a new G object using the given constructor arguments Args, adds it as a good,
          * and returns a SharedMember<G> referencing it.
-         *
-         * \throws std::bad_cast if G cannot be cast to a Good
          */
-        template <class G, typename... Args> SharedMember<G> createGood(Args&&... args);
+        template <class G, typename... Args, class = typename std::enable_if<std::is_base_of<Good, G>::value>::type>
+        SharedMember<G> createGood(Args&&... args);
 
         /** Makes a copy of the given G object, adds the copy to the simulation, and returns a
          * SharedMember<G> referencing it.  G must be a subclass of Good.
          *
          * In practice, the template argument is omitted as it can be inferred from the argument.
-         *
-         * \throws std::bad_cast if G cannot be cast to a Good
          */
-        template <class G> SharedMember<G> cloneGood(const G &g);
+        template <class G, class = typename std::enable_if<std::is_base_of<Good, G>::value>::type>
+        SharedMember<G> cloneGood(const G &g);
 
         /** Constructs a new M object using the given constructor arguments Args, adds it as a
          * market, and returns a SharedMember<M> referencing it.
-         *
-         * \throws std::bad_cast if M cannot be cast to a Market
          */
-        template <class M, typename... Args> SharedMember<M> createMarket(Args&&... args);
+        template <class M, typename... Args, class = typename std::enable_if<std::is_base_of<Market, M>::value>::type>
+        SharedMember<M> createMarket(Args&&... args);
 
         /** Makes a copy of the given M object, adds the copy to the simulation, and returns a
          * SharedMember<M> referencing it.  M must be a subclass of Market.
          *
          * In practice, the template argument is omitted as it can be inferred from the argument.
-         *
-         * \throws std::bad_cast if M cannot be cast to a Market
          */
-        template <class M> SharedMember<M> cloneMarket(const M &m);
+        template <class M, class = typename std::enable_if<std::is_base_of<Market, M>::value>::type>
+        SharedMember<M> cloneMarket(const M &m);
 
         /** Constructs a new intra-period optimizer object using the given constructor arguments
          * Args, adds it to the simulation, and returns a SharedMember<O> referencing it.
          */
-        template <class O, typename... Args> SharedMember<O> createIntraOpt(Args&&... args);
+        template <class O, typename... Args, class = typename std::enable_if<std::is_base_of<IntraOptimizer, O>::value>::type>
+        SharedMember<O> createIntraOpt(Args&&... args);
 
         /** Makes a copy of the given O obejct, adds the copy to the simulation, and returns a
          * SharedMember<O> referencing it.  O must be a subclass of IntraOptimizer.
          *
          * In practice, the template argument is omitted as it can be inferred from the argument.
-         *
-         * \throws std::bad_cast if O cannot be cast to an IntraOptimizer.
          */
-        template <class O> SharedMember<O> cloneIntraOpt(const O &o);
+        template <class O, class = typename std::enable_if<std::is_base_of<IntraOptimizer, O>::value>::type>
+        SharedMember<O> cloneIntraOpt(const O &o);
 
         /** Constructs a new inter-period optimizer object using the given constructor arguments
          * Args, adds it to the simulation, and returns a SharedMember<O> referencing it.
          */
-        template <class O, typename... Args> SharedMember<O> createInterOpt(Args&&... args);
+        template <class O, typename... Args, class = typename std::enable_if<std::is_base_of<InterOptimizer, O>::value>::type>
+        SharedMember<O> createInterOpt(Args&&... args);
 
         /** Makes a copy of the given inter-period optimizer O obejct, adds the copy to the
          * simulation, and returns a SharedMember<O> referencing it.  O must be a subclass of
          * InterOptimizer.
          *
          * In practice, the template argument is omitted as it can be inferred from the argument.
-         *
-         * \throws std::bad_cast if O cannot be cast to an InterOptimizer.
          */
-        template <class O> SharedMember<O> cloneInterOpt(const O &o);
+        template <class O, class = typename std::enable_if<std::is_base_of<InterOptimizer, O>::value>::type>
+        SharedMember<O> cloneInterOpt(const O &o);
 
         /** Removes the given agent (and any dependencies) from this simulation.  Note that both
          * Agent instances and SharedMember<Agent> instances are automatically cast to eris_id_t
@@ -305,6 +300,11 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         void removeDeps(const eris_id_t &member);
 
         int iteration_ = 0;
+
+        enum class RunStage {
+            inter_optimize, inter_apply, inter_advance, inter_postAdvance,
+            intra_initialize, intra_reset, intra_optimize, intra_postOptimize, intra_apply
+        };
 };
 
 }
@@ -313,72 +313,69 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
 #include <eris/Member.hpp>
 
 namespace eris {
-template <class A, typename... Args> SharedMember<A> Simulation::createAgent(Args&&... args) {
-    // NB: Stored in a SM<Agent> rather than SM<A> ensures that A is an Agent subclass
-    SharedMember<Agent> agent(new A(std::forward<Args>(args)...));
+template <class A, typename... Args, class> SharedMember<A> Simulation::createAgent(Args&&... args) {
+    SharedMember<A> agent(std::make_shared<A>(std::forward<Args>(args)...));
     insertAgent(agent);
-    return agent; // Implicit recast back to SharedMember<A>
+    return agent;
 }
 
-template <class A> SharedMember<A> Simulation::cloneAgent(const A &a) {
-    // NB: Stored in a SM<Agent> rather than SM<A> ensures that A is an Agent subclass
-    SharedMember<Agent> agent(new A(a));
+template <class A, class> SharedMember<A> Simulation::cloneAgent(const A &a) {
+    SharedMember<A> agent(std::make_shared<A>(a));
     insertAgent(agent);
-    return agent; // Implicit recast back to SharedMember<A>
+    return agent;
 }
 
-template <class G, typename... Args> SharedMember<G> Simulation::createGood(Args&&... args) {
+template <class G, typename... Args, class> SharedMember<G> Simulation::createGood(Args&&... args) {
     // NB: Stored in a SM<Good> rather than SM<G> ensures that G is an Good subclass
-    SharedMember<Good> good(new G(std::forward<Args>(args)...));
+    SharedMember<Good> good(std::make_shared<G>(std::forward<Args>(args)...));
     insertGood(good);
     return good; // Implicit recast back to SharedMember<G>
 }
 
-template <class G> SharedMember<G> Simulation::cloneGood(const G &g) {
+template <class G, class> SharedMember<G> Simulation::cloneGood(const G &g) {
     // NB: Stored in a SM<Good> rather than SM<G> ensures that G is an Good subclass
-    SharedMember<Good> good(new G(g));
+    SharedMember<Good> good(std::make_shared<G>(g));
     insertGood(good);
     return good; // Implicit recast back to SharedMember<G>
 }
 
-template <class M, typename... Args> SharedMember<M> Simulation::createMarket(Args&&... args) {
+template <class M, typename... Args, class> SharedMember<M> Simulation::createMarket(Args&&... args) {
     // NB: Stored in a SM<Market> rather than SM<M> ensures that M is an Market subclass
-    SharedMember<Market> market(new M(std::forward<Args>(args)...));
+    SharedMember<Market> market(std::make_shared<M>(std::forward<Args>(args)...));
     insertMarket(market);
     return market; // Implicit recast back to SharedMember<M>
 }
 
-template <class M> SharedMember<M> Simulation::cloneMarket(const M &m) {
+template <class M, class> SharedMember<M> Simulation::cloneMarket(const M &m) {
     // NB: Stored in a SM<Market> rather than SM<M> ensures that M is an Market subclass
-    SharedMember<Market> market(new M(m));
+    SharedMember<Market> market(std::make_shared<M>(m));
     insertMarket(market);
     return market; // Implicit recast back to SharedMember<M>
 }
 
-template <class O, typename... Args> SharedMember<O> Simulation::createIntraOpt(Args&&... args) {
+template <class O, typename... Args, class> SharedMember<O> Simulation::createIntraOpt(Args&&... args) {
     // NB: Stored in a SM<IntraOpt> rather than SM<O> ensures that O is an IntraOptimizer subclass
-    SharedMember<IntraOptimizer> opt(new O(std::forward<Args>(args)...));
+    SharedMember<IntraOptimizer> opt(std::make_shared<O>(std::forward<Args>(args)...));
     insertIntraOpt(opt);
     return opt; // Implicit recast back to SharedMember<O>
 }
 
-template <class O> SharedMember<O> Simulation::cloneIntraOpt(const O &o) {
+template <class O, class> SharedMember<O> Simulation::cloneIntraOpt(const O &o) {
     // NB: Stored in a SM<IntraOpt> rather than SM<O> ensures that O is an IntraOptimizer subclass
-    SharedMember<IntraOptimizer> opt(new O(o));
+    SharedMember<O> opt(std::make_shared<O>(o));
     insertIntraOpt(opt);
     return market; // Implicit recast back to SharedMember<O>
 }
 
-template <class O, typename... Args> SharedMember<O> Simulation::createInterOpt(Args&&... args) {
-    // NB: Stored in a SM<InterOpt> rather than SM<O> ensures that O is an InterOptimizer subclass
-    SharedMember<InterOptimizer> opt(new O(std::forward<Args>(args)...));
+template <class O, typename... Args, class> SharedMember<O> Simulation::createInterOpt(Args&&... args) {
+    SharedMember<O> opt(std::make_shared<O>(std::forward<Args>(args)...));
     insertInterOpt(opt);
     return opt; // Implicit recast back to SharedMember<O>
 }
 
-template <class O> SharedMember<O> Simulation::cloneInterOpt(const O &o) {
+template <class O, class> SharedMember<O> Simulation::cloneInterOpt(const O &o) {
     // NB: Stored in a SM<InterOpt> rather than SM<O> ensures that O is an InterOptimizer subclass
-    SharedMember<InterOptimizer> opt(new O(o));
+    SharedMember<InterOptimizer> opt(std::make_shared<O>(o));
     insertInterOpt(opt);
     return market; // Implicit recast back to SharedMember<O>
 }

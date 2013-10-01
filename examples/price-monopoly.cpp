@@ -33,13 +33,16 @@ int main() {
 
     sim->createInterOpt<PriceStepper>(firm);
 
-    sim->createMarket<Bertrand>(x1, m1)->addFirm(firm);
+    auto berty = sim->createMarket<Bertrand>(x1, m1);
+    berty->addFirm(firm);
+
+    std::cout << "Market is id=" << sim->marketFilter().begin()->second->id() << "\n";
 
     std::list<SharedMember<Quadratic>> consumers;
 
     // Set up some agents, from 1 to 100, which agent j having utility m + x - x^2/(2j).
     // This is simple enough: the optimal price is 0.5, with agent j buying j/2 units.
-    for (int j = 1; j <= 5; j++) {
+    for (int j = 1; j <= 2; j++) {
         auto c = sim->createAgent<Quadratic>();
         c->coef(m) = 1;
         c->coef(x) = 1;

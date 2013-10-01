@@ -20,4 +20,6 @@ void Good::Discrete::setIncrement(double increment) {
 
 double Good::Discrete::increment() { return incr_; }
 
+SharedMember<Member> Good::sharedSelf() const { return simGood(id()); }
+
 }

@@ -1,6 +1,8 @@
 #include <eris/intraopt/MUPD.hpp>
 #include <unordered_map>
 
+#include <iostream>
+
 using std::unordered_map;
 
 namespace eris { namespace intraopt {
@@ -54,7 +56,7 @@ MUPD::allocation MUPD::spending_allocation(const unordered_map<eris_id_t, double
 double MUPD::calc_mu_per_d(
         const SharedMember<Consumer::Differentiable> &con,
         const eris_id_t &mkt_id,
-        const allocation &a,
+        const allocation &alloc,
         const Bundle &b) const {
 
     if (mkt_id == 0)
@@ -63,13 +65,15 @@ double MUPD::calc_mu_per_d(
     auto sim = simulation();
     auto mkt = sim->market(mkt_id);
 
+    auto mlock = mkt->readLock();
+
     double mu = 0.0;
     // Add together all of the marginal utilities weighted by the output level, since the market may
     // produce more than one good, and quantities may not equal 1.
     for (auto g : mkt->output_unit)
         mu += g.second * con->d(b, g.first);
 
-    double q = a.quantity.count(mkt) ? a.quantity.at(mkt) : 0;
+    double q = alloc.quantity.count(mkt) ? alloc.quantity.at(mkt) : 0;
     auto pricing = mkt->price(q);
 
     // FIXME: check feasible
@@ -79,8 +83,12 @@ double MUPD::calc_mu_per_d(
 }
 
 void MUPD::optimize() {
+
+    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
     auto sim = simulation();
     auto consumer = sim->agent<Consumer::Differentiable>(con_id);
+
+    std::vector<SharedMember<Member>> need_lock;
 
     Bundle &a = consumer->assets();
 
@@ -91,33 +99,51 @@ void MUPD::optimize() {
         return;
     }
 
+    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
     unordered_map<eris_id_t, double> spending;
 
     spending[0] = 0.0; // 0 is the "don't spend"/"hold cash" option
 
-    for (auto mkt : sim->markets()) {
+    for (auto &mkt : sim->markets()) {
+    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
         auto mkt_id = mkt.first;
         auto market = mkt.second;
+    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
+
+        auto mlock = market->readLock();
+    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
+
+    std::cout << money_unit << "\n" << std::flush;
+    std::cout << market->price_unit << "\n" << std::flush;
 
         if (not(market->price_unit.covers(money_unit) and money_unit.covers(market->price_unit))) {
             // price_unit is not (or not just) money; we can't handle that, so ignore this market
+    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
             continue;
         }
+    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
 
         if (market->output_unit[money] > 0) {
             // Something screwy about this market: it costs money, but also produces money.  Ignore.
+    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
             continue;
         }
+    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
 
         if (!market->price(0).feasible) {
             // The market cannot produce any output (i.e. it is exhausted/constrained).
+    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
             continue;
         }
 
         // We assign an exact value later, once we know how many eligible markets there are.
         spending[mkt_id] = 0.0;
+    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
+        need_lock.push_back(market);
+    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
     }
 
+    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
     unsigned int markets = spending.size()-1; // -1 to account for the cash non-market (id=0)
 
     // If there are no viable markets, there's nothing to do.
@@ -133,6 +159,10 @@ void MUPD::optimize() {
     unordered_map <eris_id_t, double> mu_per_d;
 
     allocation final_alloc = {};
+
+    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
+    auto big_lock = consumer->writeLockMany(need_lock);
+    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
 
     while (true) {
         allocation alloc = spending_allocation(spending);

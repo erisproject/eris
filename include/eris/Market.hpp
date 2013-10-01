@@ -248,6 +248,10 @@ class Market : public Member {
          */
         virtual void release_(Reservation_ &res);
 
+        /** Returns a SharedMember<Member> for the current object, via the simulation.
+         */
+        SharedMember<Member> sharedSelf() const override;
+
     public:
         /** Adds f to the firms supplying in this market.  Subclasses that require a particular type
          * of firm should override this method, calling `requireInstanceOf<Base>(f, "...")` followed by

@@ -11,6 +11,7 @@
 #include <iostream>
 #include <list>
 
+
 using namespace eris;
 using namespace eris::firm;
 using namespace eris::consumer;
@@ -44,7 +45,7 @@ int main() {
 
     // Set up some agents, from 1 to 100, which agent j having utility m + x - x^2/(2j).
     // This is simple enough: the optimal price is 0.5, with agent j buying j/2 units.
-    for (int j = 1; j <= 5; j++) {
+    for (int j = 1; j <= 100; j++) {
         auto c = sim->createAgent<Quadratic>();
         c->coef(m) = 1;
         c->coef(x) = 1;
@@ -61,7 +62,7 @@ int main() {
         std::cout << "FixedIncome: " << z << "\n";
     }
 
-    for (int i = 0; i < 100; i++) {
+    for (int i = 0; i < 30; i++) {
         std::cout << "Running iteration " << i << "...\n";
         sim->run();
 
@@ -80,5 +81,4 @@ int main() {
             std::cout << "    q[" << c->id() << "] = " << c->assets()[x] << "\n";
         }
     }
-
 }

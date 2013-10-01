@@ -5,6 +5,12 @@
 #include <eris/Market.hpp>
 #include <eris/IntraOptimizer.hpp>
 #include <eris/InterOptimizer.hpp>
+#include <thread>
+#include <atomic>
+#include <condition_variable>
+#include <mutex>
+
+#include <iostream>
 
 namespace eris {
 
@@ -115,62 +121,206 @@ const Simulation::MemberMap<InterOptimizer>& Simulation::interOpts() { return *i
 const Simulation::DepMap& Simulation::deps() { return depends_on_; }
 
 void Simulation::run() {
+
+    std::list<std::thread> threads;
+
+    // Set up a mutex for thread/master synchronization; this also guards stage/done_stage, below.
+    std::mutex sync_mutex;
+
+    // CVs for signalling stage finished and next stage messages
+    std::condition_variable stage_cv, cont_opt_cv, cont_ag_cv;
+
+    // The current stage, controlled by the master thread, read by the slaves
+    RunStage stage = RunStage::inter_optimize;
+
+    // The number finished the current stage, incremented by slaves, read and reset to 0 by the master
+    unsigned int done_stage = 0;
+    bool need_redo = true;
+    unsigned int opt_threads = 0, agent_threads = 0;
+
+    // FIXME: this is probably not a great threading model: creating one thread
+    // per interopt object is going to be messy and wasteful, especially when
+    // there are many more interopt objects than CPUs.
+    //
+    // Improvements to be made here:
+    // - a thread pool of a configurable size
+    // - creating threads (or a thread pool) once, instead of once per iteration
+
+
+    auto finished_until = [&done_stage, &stage, &stage_cv, &cont_opt_cv]
+        (const RunStage &need_stage, std::unique_lock<std::mutex> &lock) -> void {
+            if (not lock) lock.lock();
+            done_stage++;
+            stage_cv.notify_one();
+            cont_opt_cv.wait(lock, [&] { return stage == need_stage; });
+            lock.unlock();
+        };
+
     if (++iteration_ > 1) {
         // Skip all this on the first iteration
 
         for (auto &inter : interOpts()) {
-            inter.second->optimize();
+            auto opt = inter.second;
+            threads.push_back(std::thread([opt, &stage, &sync_mutex, &stage_cv, &cont_opt_cv, &done_stage, &finished_until]() {
+                try {
+                    opt->optimize();
+
+                    std::unique_lock<std::mutex> lock(sync_mutex);
+                    finished_until(RunStage::inter_apply, lock);
+
+                    opt->apply();
+
+                    finished_until(RunStage::inter_postAdvance, lock);
+
+                    opt->postAdvance();
+                } catch (std::exception &e) {
+                    std::cerr << "Thread exception: " << e.what() << "\n" << std::flush;
+                }
+            }));
+            opt_threads++;
         }
 
-        for (auto &inter : interOpts()) {
-            inter.second->apply();
+        for (auto &ag : agents()) {
+            auto agent = ag.second;
+            threads.push_back(std::thread([agent, &stage, &sync_mutex, &stage_cv, &cont_ag_cv, &done_stage]() {
+                try {
+                    std::unique_lock<std::mutex> lock(sync_mutex);
+                    if (stage != RunStage::inter_advance)
+                        cont_ag_cv.wait(lock, [&stage] { return stage == RunStage::inter_advance; });
+                    lock.unlock();
+
+                    agent->advance();
+
+                    lock.lock();
+                    done_stage++;
+                    lock.unlock();
+                    stage_cv.notify_one();
+                } catch (std::exception &e) {
+                    std::cerr << "Thread exception: " << e.what() << "\n" << std::flush;
+                }
+            }));
+            agent_threads++;
         }
 
-        for (auto &agent : agents()) {
-            agent.second->advance();
-        }
+        // Wait for optimizations to finish
+        std::unique_lock<std::mutex> lock(sync_mutex);
+        if (done_stage < opt_threads)
+            stage_cv.wait(lock, [&] { return done_stage == opt_threads; });
+        
+        // Start apply() stage
+        done_stage = 0;
+        stage = RunStage::inter_apply;
+        cont_opt_cv.notify_all();
+        stage_cv.wait(lock, [&] { return done_stage == opt_threads; });
 
-        for (auto &inter : interOpts()) {
-            inter.second->postAdvance();
-        }
+        // Start advance() stage
+        done_stage = 0;
+        stage = RunStage::inter_advance;
+        cont_ag_cv.notify_all();
+        stage_cv.wait(lock, [&] { return done_stage == agent_threads; });
+
+        // Start postAdvance() stage
+        done_stage = 0;
+        stage = RunStage::inter_postAdvance;
+        cont_opt_cv.notify_all();
+        lock.unlock();
+
+        // Rejoin all threads
+        for (auto &t : threads)
+            if (t.joinable()) t.join();
+
+        threads.clear();
+
     }
 
     intraopt_count = 0;
+    stage = RunStage::intra_initialize;
+    done_stage = 0;
+    opt_threads = 0;
 
     for (auto &intra : intraOpts()) {
-        intra.second->initialize();
+        std::cout << "ASDF " << opt_threads << "\n";
+        auto opt = intra.second;
+        threads.push_back(std::thread([opt, &stage, &sync_mutex, &stage_cv, &cont_opt_cv, &done_stage, &need_redo, &finished_until]() {
+
+                std::cout << "initialize\n" << std::flush;
+                opt->initialize();
+
+                std::unique_lock<std::mutex> lock(sync_mutex);
+                std::cout << "Waiting for reset\n" << std::flush;
+                finished_until(RunStage::intra_reset, lock);
+                std::cout << "reset stage starts now!\n";
+                std::cout << "need_redo=" << need_redo << "\n" << std::flush;
+                
+                bool done = false;
+                while (not done) {
+                    std::cout << "reset\n" << std::flush;
+                    opt->reset();
+
+                    std::cout << "Waiting for optimize\n" << std::flush;
+                    finished_until(RunStage::intra_optimize, lock);
+
+                    std::cout << "optimize()\n" << std::flush;
+                    opt->optimize();
+
+                    std::cout << "Waiting for postOptimize\n" << std::flush;
+                    finished_until(RunStage::intra_postOptimize, lock);
+
+                    std::cout << "postOptimize()\n" << std::flush;
+                    bool retry = opt->postOptimize();
+                    lock.lock();
+                    if (retry) need_redo = true;
+                    done_stage++;
+                    stage_cv.notify_one();
+                    std::cout << "waiting for reset or apply\n" << std::flush;
+                    cont_opt_cv.wait(lock, [&] { return stage == RunStage::intra_apply or stage == RunStage::intra_reset; });
+                    lock.unlock();
+                    std::cout << "Done waiting: " << (stage == RunStage::intra_apply ? "apply" : "reset") << "\n" << std::flush;
+                    std::cout << "need_redo: " << need_redo << "\n" << std::flush;
+                    if (stage == RunStage::intra_apply)
+                        done = true;
+                }
+
+                opt->apply();
+        }));
+        opt_threads++;
     }
 
-    bool done = false;
-    while (!done) {
-        done = true;
-        ++intraopt_count;
+    std::unique_lock<std::mutex> lock(sync_mutex);
+    // Wait for initialize
+    if (done_stage < opt_threads)
+        stage_cv.wait(lock, [&] { return done_stage == opt_threads; });
 
-        for (auto &intra : intraOpts()) {
-            intra.second->reset();
-        }
-
-        for (auto &intra : intraOpts()) {
-            intra.second->optimize();
-        }
-
-        for (auto &intra : intraOpts()) {
-            if (intra.second->postOptimize())
-                done = false;
-            // Deliberately do *not* short-circuit here, because we want intraopt optimizers to work
-            // in parallel, e.g. if there are 10 markets, each taking ~10 postOptimize steps, we
-            // want them happening in parallel: otherwise we could get 10^10 operations (since each
-            // later optimization might require another 10 steps of the already-optimized ones).
-            //
-            // Realistically, optimization also should not assume to be operating in a vacuum, and
-            // intraopt optimizers should be aware of that.
+    need_redo = true;
+    while (need_redo) {
+        for (auto stg : { RunStage::intra_reset, RunStage::intra_optimize, RunStage::intra_postOptimize }) {
+            if (stage == RunStage::intra_postOptimize) need_redo = false;
+            std::cout << "main thread starting stage " << (stg ==
+                    RunStage::intra_reset ? "reset" : stg ==
+                    RunStage::intra_optimize ? "optimize" : stg ==
+                    RunStage::intra_postOptimize ? "postOptimize" :
+                    "(unknown)") << "; need_redo=" << need_redo << "\n" << std::flush;
+            done_stage = 0;
+            stage = stg;
+            cont_opt_cv.notify_all();
+            std::cout << "Notified all, waiting for next stage to finish\n" << std::flush;
+            stage_cv.wait(lock, [&] {
+                    std::cout << "done_stage=" << done_stage << ", opt_threads=" << opt_threads << "\n" << std::flush;
+                    return done_stage == opt_threads; });
+            std::cout << "stage over.  need_redo=" << need_redo << "\n" << std::flush;
         }
     }
 
-    // We got through optimize() and postOptimize() with false returns (i.e. nothing changed), so
-    // now let them apply whatever they calculated
-    for (auto intra : intraOpts())
-        intra.second->apply();
+    done_stage = 0;
+    stage = RunStage::intra_apply;
+    cont_opt_cv.notify_all();
+    lock.unlock();
+
+    for (auto &t : threads) {
+        if (t.joinable()) t.join();
+    }
+
+    threads.clear();
 }
 
 

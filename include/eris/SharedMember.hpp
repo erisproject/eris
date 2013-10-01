@@ -5,6 +5,8 @@
 
 namespace eris {
 
+class Member;
+
 /** Wrapper around std::shared_ptr<T> that adds automatic T and eris_id_t cast conversion.  Since
  * Member references must be stored both by calling code, the Simulation object, and potentially in
  * other classes, a Simulation's members are stored in std::shared_ptr objects.  This wrapper allows
@@ -71,8 +73,10 @@ class SharedMember final {
         SharedMember<T>& operator=(const SharedMember<T> &t) = delete;
 
     private:
-        SharedMember(T *m) : ptr(m) {}
+        SharedMember(std::shared_ptr<T> ptr) : ptr(ptr) {}
+
         friend class Simulation;
+        friend class Member;
 };
 
 }

@@ -21,6 +21,12 @@ class Agent : public Member {
          * depreciate capital, etc.  By default clears the agent's assets.
          */
         virtual void advance() { assets_.clear(); }
+
+    protected:
+
+        /// Returns a SharedMember<Member> wrapped around the current object
+        SharedMember<Member> sharedSelf() const override { return simAgent(id()); }
+
     private:
         /** The current set of resources.  For a consumer, this could be the things to consume; for
          * a producer, this could be a stock of resources.

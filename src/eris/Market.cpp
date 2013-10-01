@@ -75,4 +75,6 @@ Market::Reservation Market::createReservation(double q, double p, Bundle *assets
     return Reservation(new Reservation_(simMarket(*this), q, p, assets));
 }
 
+SharedMember<Member> Market::sharedSelf() const { return simMarket(id()); }
+
 }
