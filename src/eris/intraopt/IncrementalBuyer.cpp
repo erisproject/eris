@@ -70,7 +70,7 @@ bool IncrementalBuyer::oneRound() {
     // q_cache[m][n]
     std::unordered_map<eris_id_t, std::unordered_map<int, Market::quantity_info>> q_cache;
 
-    for (auto mkt : sim->markets()) {
+    for (auto mkt : sim->marketFilter()) {
         auto mkt_id = mkt.first;
         auto market = mkt.second;
 
@@ -181,7 +181,7 @@ bool IncrementalBuyer::oneRound() {
     for (auto mkt_id : best) {
         auto market = sim->market(mkt_id);
         auto q = q_cache.at(mkt_id).at(comb_size);
-        reservations.push_front(market->reserve(q.quantity, &(consumer->assets())));
+        reservations.push_front(market->reserve(consumer, q.quantity));
     }
 
     if (a[money] < 2*tiny_extra[money])

@@ -22,27 +22,36 @@ int main() {
 
     Eris<Simulation> sim;
 
+    std::cout << __FILE__ << ":" << __LINE__ << "\n" << std::flush;
     auto m = sim->createGood<Good::Continuous>("money");
+    std::cout << __FILE__ << ":" << __LINE__ << "\n" << std::flush;
     auto x = sim->createGood<Good::Continuous>("x");
 
+    std::cout << __FILE__ << ":" << __LINE__ << "\n" << std::flush;
     auto m1 = Bundle(m, 1);
     auto x1 = Bundle(x, 1);
 
+    std::cout << __FILE__ << ":" << __LINE__ << "\n" << std::flush;
     // Set up a price setting firm that produces x, with initial price of 0.8.
     auto firm = sim->createAgent<PriceFirm>(x1, 2 * m1);
 
+    std::cout << __FILE__ << ":" << __LINE__ << "\n" << std::flush;
     sim->createInterOpt<PriceStepper>(firm);
 
+    std::cout << __FILE__ << ":" << __LINE__ << "\n" << std::flush;
     auto berty = sim->createMarket<Bertrand>(x1, m1);
     berty->addFirm(firm);
 
+    std::cout << __FILE__ << ":" << __LINE__ << "\n" << std::flush;
     std::cout << "Market is id=" << sim->marketFilter().begin()->second->id() << "\n";
 
     std::list<SharedMember<Quadratic>> consumers;
 
+    std::cout << __FILE__ << ":" << __LINE__ << "\n" << std::flush;
     // Set up some agents, from 1 to 100, which agent j having utility m + x - x^2/(2j).
     // This is simple enough: the optimal price is 0.5, with agent j buying j/2 units.
-    for (int j = 1; j <= 2; j++) {
+    for (int j = 1; j <= 5; j++) {
+    std::cout << __FILE__ << ":" << __LINE__ << "\n" << std::flush;
         auto c = sim->createAgent<Quadratic>();
         c->coef(m) = 1;
         c->coef(x) = 1;
@@ -58,7 +67,8 @@ int main() {
     }
 
     for (int i = 0; i < 100; i++) {
-        sim->run();
+        std::cout << "about to run\n" << std::flush;
+        sim->run(2);
 
         std::cout << "Ran iteration " << i << ".  (" << sim->intraopt_count << " intraopt loops)\n";
 

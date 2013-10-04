@@ -39,21 +39,21 @@ Market::quantity_info QMarket::quantity(double p) const {
     return { .quantity=q, .constrained=constrained, .spent=spent, .unspent=p-spent };
 }
 
-Market::Reservation QMarket::reserve(double q, Bundle *assets, double p_max) {
+Market::Reservation QMarket::reserve(SharedMember<Agent> agent, double q, double p_max) {
     double available = firmQuantities(q);
     if (q > available)
         throw output_infeasible();
     if (q * price_ > p_max)
         throw low_price();
     Bundle payment = q * price_ * price_unit;
-    if (not(*assets >= payment))
+    if (not(agent->assets() >= payment))
         throw insufficient_assets();
 
     // Attempt to divide the purchase across all firms.  This might take more than one round,
     // however, if an equal share would exhaust one or more firms' assets.
     std::unordered_set<eris_id_t> qfirm;
 
-    Reservation res = createReservation(q, q*price_, assets);
+    Reservation res = createReservation(agent, q, q*price_);
 
     std::unordered_map<eris_id_t, BundleNegative> firm_transfers;
 

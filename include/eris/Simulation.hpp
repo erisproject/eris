@@ -8,6 +8,9 @@
 #include <typeinfo>
 #include <list>
 #include <thread>
+#include <atomic>
+#include <condition_variable>
+#include <mutex>
 
 namespace eris {
 
@@ -31,7 +34,8 @@ class InterOptimizer;
 class Simulation : public std::enable_shared_from_this<Simulation> {
     public:
         Simulation();
-        virtual ~Simulation() = default;
+        // Destructor.  When destruction occurs, any outstanding threads are killed and rejoined.
+        virtual ~Simulation();
         Simulation(const Simulation &) = delete;
 
         /// Alias for a map of eris_id_t to SharedMember<A> of arbitrary type A
@@ -157,24 +161,11 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
          */
         void removeIntraOpt(const eris_id_t &oid);
         /** Removes the given inter-temporal optimizer object (and any dependencies) from this
-         * simulation.  Note that both InterTemporal and SharedMember<InterTemporal> instances are
+         * simulation.  Note that both InterOptimizer and SharedMember<InterOptimizer> instances are
          * automatically cast to eris_id_t when required, so calling this method with those objects
          * as arguments is acceptable (and indeed preferred).
          */
         void removeInterOpt(const eris_id_t &oid);
-
-        /** Provides read-only access to the map of all of the simulation's agents. */
-        const MemberMap<Agent>& agents();
-        /** Provides read-only access to the map of the simulation's goods. */
-        const MemberMap<Good>& goods();
-        /** Provides read-only access to the map of the simulation's markets. */
-        const MemberMap<Market>& markets();
-        /** Provides read-only access to the map of the simulation's intra-period optimization
-         * objects. */
-        const MemberMap<IntraOptimizer>& intraOpts();
-        /** Provides read-only access to the map of the simulation's inter-period optimization
-         * objects. */
-        const MemberMap<InterOptimizer>& interOpts();
 
         /** Provides a const map of eris_id_t to SharedMember<A>, filtered to only include
          * SharedMember<A> agents that induce a true return from the provided filter function.
@@ -231,9 +222,6 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
          */
         void registerDependency(const eris_id_t &member, const eris_id_t &depends_on);
 
-        /// Returns the map of dependencies.
-        const DepMap& deps();
-
         /** Runs one period of period of the simulation.  The following happens, in order (except on
          * the first run, when the inter-period optimizer calls are skipped):
          *
@@ -253,8 +241,14 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
          *       all intra-period optimizers will run, even if some have already indicated a state
          *       change.
          *   - All intra-period optimizers have their apply() method called.
+         *
+         * @param threads the maximum number of concurrent threads to allow.  The default value
+         * uses the number of hardware threads supported.  If a subsequent run call specifies a
+         * max_threads value that is lower than the current number of active threads, the excess
+         * will be stopped.  Threads will be created only if needed: `max_threads = 100` will not
+         * create 100 threads unless there are at least 100 tasks to be performed at once.
          */
-        void run();
+        void run(unsigned long max_threads = std::thread::hardware_concurrency());
 
         /** Contains the number of rounds of the intra-period optimizers in the previous run() call.
          * A round is defined by a reset() call, a set of optimize() calls, and a set of
@@ -288,6 +282,7 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
 
         template <class B = Member,
                  class = typename std::enable_if<
+                     std::is_same<B, Member>::value or
                      std::is_same<B, Agent>::value or
                      std::is_same<B, Good>::value or
                      std::is_same<B, Market>::value or
@@ -301,10 +296,76 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
 
         int iteration_ = 0;
 
+        /* Threading variables */
+
+        // Protects member access/updates
+        mutable std::recursive_mutex member_mutex_;
+
+        // Pool of threads we can use
+        std::list<std::thread> thr_pool_;
+
+        // The different stages of the simulation, for synchronizing threads
         enum class RunStage {
+            idle, // between-period/initial thread state
+            kill, // When a thread sees this, it checks thr_kill_, and if it is the current thread id, it finishes.
+            kill_all, // When a thread sees this, it finishes.
+            // Inter-period optimization stages:
             inter_optimize, inter_apply, inter_advance, inter_postAdvance,
+            // Intra-period optimization stages:
             intra_initialize, intra_reset, intra_optimize, intra_postOptimize, intra_apply
         };
+
+        // The current experiment stage
+        RunStage stage_ = RunStage::idle;
+
+        // The thread to quit when a kill stage is signalled
+        std::thread::id thr_kill_;
+
+        // Mutex controlling access to thread variables, members, and synchronization
+        std::mutex thr_sync_mutex_;
+
+        // Queue of member objects (Agents, InterOpts, or IntraOpts) still waiting to be picked up
+        // by a thread for processing in the current stage.
+        std::list<SharedMember<Member>> thr_queue_;
+
+        // The number of threads finished the current stage; when this reaches the size of
+        // thr_pool_, the stage is finished.
+        unsigned int thr_done_ = 0;
+
+        // Will be set the false at the beginning of an intraopt round.  If a postOptimize returns
+        // true (to restart the round), this will end up as true again; if still false at the end of
+        // the postOptimize stage, the intraopt stage ends, otherwise it restarts.
+        bool thr_redo_intra_ = true;
+
+        // CV for signalling a change in stage from master to workers
+        std::condition_variable_any thr_cv_stage_;
+
+        // CV for signalling the master that a thread has finished
+        std::condition_variable_any thr_cv_done_;
+
+        // Clears the current thread work member queue then copies the SharedMembers of the given
+        // MemberMap into it, starts a thread stage by creating new threads if needed (up to `max`
+        // or the queue size, whichever is smaller), setting stage_, signals threads to start, then
+        // waits for all threads to have signalled that they are finished with the current stage.
+        // thr_sync_mutex_ should be locked when calling, and will be locked when this returns.
+        template <class M>
+        void thr_run(const MemberMap<M> &mem_map, const unsigned long &max, const RunStage &stage);
+
+        // The main thread loop; runs until it sees a RunStage::kill with thr_kill_ set to the
+        // thread's id.
+        void thr_loop();
+
+        // Pulls an SharedMember<T> from the queue, calls work with it, repeats until the queue is
+        // empty.  The sync mutex must be locked before calling and will be unlocked for the
+        // duration of each work call, then locked again.
+        template <class T> void thr_work_queue(std::function<void(SharedMember<T>)> work);
+
+        // Used to signal that the stage has finished.  After signalling, this calls thr_wait() to
+        // wait until the stage changes to anything other than its current value.
+        void thr_stage_finished();
+
+        // Waits until stage changes to something other than the stage at the time of the call.
+        void thr_wait();
 };
 
 }
@@ -327,8 +388,11 @@ template <class A, class> SharedMember<A> Simulation::cloneAgent(const A &a) {
 
 template <class G, typename... Args, class> SharedMember<G> Simulation::createGood(Args&&... args) {
     // NB: Stored in a SM<Good> rather than SM<G> ensures that G is an Good subclass
+    std::cout << __FILE__ << ":" << __LINE__ << "\n" << std::flush;
     SharedMember<Good> good(std::make_shared<G>(std::forward<Args>(args)...));
+    std::cout << __FILE__ << ":" << __LINE__ << "\n" << std::flush;
     insertGood(good);
+    std::cout << __FILE__ << ":" << __LINE__ << "\n" << std::flush;
     return good; // Implicit recast back to SharedMember<G>
 }
 
@@ -385,6 +449,9 @@ template <class T, class B>
 const Simulation::MemberMap<T> Simulation::genericFilter(
         const MemberMap<B>& map,
         std::function<bool(SharedMember<T> member)> &filter) const {
+
+    std::lock_guard<std::recursive_mutex> lock(member_mutex_);
+
     MemberMap<T> matched;
     auto &B_t = typeid(B), &T_t = typeid(T);
     size_t B_h = B_t.hash_code(), T_h = T_t.hash_code();
@@ -446,6 +513,8 @@ const Simulation::MemberMap<T> Simulation::genericFilter(
 
 template <class B, class>
 void Simulation::invalidateCache() {
+    std::lock_guard<std::recursive_mutex> lock(member_mutex_);
+
     if (filter_cache_) {
         if (typeid(B) == typeid(Member))
             filter_cache_->clear();
@@ -476,24 +545,73 @@ const Simulation::MemberMap<I> Simulation::intraOptFilter(std::function<bool(Sha
 }
 
 template <class A> SharedMember<A> Simulation::agent(eris_id_t aid) const {
+    std::lock_guard<std::recursive_mutex> lock(member_mutex_);
     return agents_->at(aid);
 }
 
 template <class G> SharedMember<G> Simulation::good(eris_id_t gid) const {
+    std::lock_guard<std::recursive_mutex> lock(member_mutex_);
     return goods_->at(gid);
 }
 
 template <class M> SharedMember<M> Simulation::market(eris_id_t mid) const {
+    std::lock_guard<std::recursive_mutex> lock(member_mutex_);
     return markets_->at(mid);
 }
 
 template <class I> SharedMember<I> Simulation::intraOpt(eris_id_t oid) const {
+    std::lock_guard<std::recursive_mutex> lock(member_mutex_);
     return intraopts_->at(oid);
 }
 
 template <class I> SharedMember<I> Simulation::interOpt(eris_id_t oid) const {
+    std::lock_guard<std::recursive_mutex> lock(member_mutex_);
     return interopts_->at(oid);
 }
+
+template <class M>
+void Simulation::thr_run(const MemberMap<M> &mem_map, const unsigned long &max, const RunStage &stage) {
+    thr_queue_.clear();
+    {
+        std::lock_guard<std::recursive_mutex> lock(member_mutex_);
+        for (auto &m : mem_map)
+            thr_queue_.push_back(m.second);
+    }
+
+    stage_ = stage;
+    unsigned long max_threads = std::min(max, thr_queue_.size());
+
+    while (thr_pool_.size() < max_threads) {
+        thr_pool_.push_back(std::thread(&Simulation::thr_loop, this));
+    }
+    thr_done_ = 0;
+    thr_cv_stage_.notify_all();
+
+    thr_cv_done_.wait(thr_sync_mutex_, [this] { return thr_done_ >= thr_pool_.size(); });
 }
+
+template <class T> void Simulation::thr_work_queue(std::function<void(SharedMember<T>)> work) {
+    while (not thr_queue_.empty()) {
+        SharedMember<T> member = thr_queue_.front();
+        thr_queue_.pop_front();
+        thr_sync_mutex_.unlock();
+        work(member);
+        thr_sync_mutex_.lock();
+    }
+}
+
+inline void Simulation::thr_stage_finished() {
+    thr_done_++;
+    thr_cv_done_.notify_all();
+    thr_wait();
+}
+
+inline void Simulation::thr_wait() {
+    RunStage curr_stage = stage_;
+    thr_cv_stage_.wait(thr_sync_mutex_, [this,curr_stage] { return stage_ != curr_stage; });
+}
+
+}
+
 
 // vim:tw=100

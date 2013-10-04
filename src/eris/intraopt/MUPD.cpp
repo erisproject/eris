@@ -84,14 +84,17 @@ double MUPD::calc_mu_per_d(
 
 void MUPD::optimize() {
 
-    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
+    std::cout << __FUNCTION__ << "():" << __LINE__ << "\n" << std::flush;
     auto sim = simulation();
+    std::cout << __FUNCTION__ << "():" << __LINE__ << "\n" << std::flush;
     auto consumer = sim->agent<Consumer::Differentiable>(con_id);
+    std::cout << __FUNCTION__ << "():" << __LINE__ << "\n" << std::flush;
 
     std::vector<SharedMember<Member>> need_lock;
 
     Bundle &a = consumer->assets();
 
+    std::cout << __FUNCTION__ << "():" << __LINE__ << "\n" << std::flush;
     Bundle a_no_money = a;
     double cash = a_no_money.remove(money);
     if (cash <= 0) {
@@ -104,7 +107,7 @@ void MUPD::optimize() {
 
     spending[0] = 0.0; // 0 is the "don't spend"/"hold cash" option
 
-    for (auto &mkt : sim->markets()) {
+    for (auto &mkt : sim->marketFilter()) {
     std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
         auto mkt_id = mkt.first;
         auto market = mkt.second;
@@ -294,7 +297,7 @@ void MUPD::optimize() {
 
     for (auto &m : final_alloc.quantity) {
         if (m.first != 0 and m.second > 0) {
-            reservations.push_front(sim->market(m.first)->reserve(m.second, &(consumer->assets())));
+            reservations.push_front(sim->market(m.first)->reserve(consumer, m.second));
         }
     }
 

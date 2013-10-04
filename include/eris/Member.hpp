@@ -144,7 +144,7 @@ class Member {
          * There is no guarantee to the order of the lock, i.e. lock requests (whether read or write
          * locks) may be serviced in any order.
          */
-        Lock readLock();
+        Lock readLock() const;
 
         /** Obtains a read/write lock for the current object, returning a unique_ptr<Member::Lock>
          * object.  The write lock lasts until the returned unique_ptr goes out of scope (and thus
@@ -178,7 +178,7 @@ class Member {
          * The lock will be released when the returned object is destroyed, typically by going out
          * of scope.
          */
-        ParallelLock readLockMany(const std::vector<SharedMember<Member>> &plus);
+        ParallelLock readLockMany(const std::vector<SharedMember<Member>> &plus) const;
 
         /** Obtains a write lock for the current object *plus* all the objects passed in.  This will
          * block until a write lock can be obtained on all objects.
@@ -250,12 +250,12 @@ class Member {
 
         /** Mutex used both for a write lock and instantaneously for a read lock.  Also guards
          * access to readlocks_ */
-        std::recursive_mutex wmutex_;
+        mutable std::recursive_mutex wmutex_;
 
         /** Number of currently active read locks.  While this is > 0, no write lock will be
          * granted.
          */
-        unsigned int readlocks_{0};
+        mutable unsigned int readlocks_{0};
         /** A condition_variable that is used to notify waiting threads when a read lock is released.
          */
         std::condition_variable_any readlock_cv_;

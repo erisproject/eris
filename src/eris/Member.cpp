@@ -27,15 +27,21 @@ std::shared_ptr<Simulation> Member::simulation() const {
 void Member::added() {}
 void Member::removed() {}
 
-Member::Lock Member::readLock() {
+Member::Lock Member::readLock() const {
+    if (simulation_.expired())
+        throw std::runtime_error("Cannot obtain lock: Member has not been added to a Simulation yet");
     return Member::Lock(false, sharedSelf());
 }
 
 Member::Lock Member::writeLock() {
+    if (simulation_.expired())
+        throw std::runtime_error("Cannot obtain lock: Member has not been added to a Simulation yet");
     return Member::Lock(true, sharedSelf());
 }
 
-Member::ParallelLock Member::readLockMany(const std::vector<SharedMember<Member>> &plus) {
+Member::ParallelLock Member::readLockMany(const std::vector<SharedMember<Member>> &plus) const {
+    if (simulation_.expired())
+        throw std::runtime_error("Cannot obtain lock: Member has not been added to a Simulation yet");
 
     while (true) {
         int unwind = -2;
@@ -80,6 +86,8 @@ Member::ParallelLock Member::readLockMany(const std::vector<SharedMember<Member>
 }
 
 Member::ParallelLock Member::writeLockMany(const std::vector<SharedMember<Member>> &plus) {
+    if (simulation_.expired())
+        throw std::runtime_error("Cannot obtain lock: Member has not been added to a Simulation yet");
 
     while (true) {
         int unwind = -2;
@@ -117,14 +125,14 @@ Member::ParallelLock Member::writeLockMany(const std::vector<SharedMember<Member
         }
 
         // Now block waiting for unwind's lock, and then wait for unwind's read locks to finish
-        auto &lock = (unwind == -1) ? wmutex_ : plus.at(unwind)->wmutex_;
+        auto &mutex = (unwind == -1) ? wmutex_ : plus.at(unwind)->wmutex_;
         auto &readlocks = (unwind == -1) ? readlocks_ : plus.at(unwind)->readlocks_;
         auto &cv = (unwind == -1) ? readlock_cv_ : plus.at(unwind)->readlock_cv_;
-        lock.lock();
-        cv.wait(lock, [&] { return readlocks == 0; });
+        mutex.lock();
+        cv.wait(mutex, [&] { return readlocks == 0; });
 
         // The object giving us problems is free; unlock and repeat.
-        lock.unlock();
+        mutex.unlock();
     }
 
     // We've got all the locks, so we're done
