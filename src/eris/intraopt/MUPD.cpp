@@ -84,17 +84,17 @@ double MUPD::calc_mu_per_d(
 
 void MUPD::optimize() {
 
-    std::cout << __FUNCTION__ << "():" << __LINE__ << "\n" << std::flush;
+//    std::cout << __FUNCTION__ << "():" << __LINE__ << "\n" << std::flush;
     auto sim = simulation();
-    std::cout << __FUNCTION__ << "():" << __LINE__ << "\n" << std::flush;
+//    std::cout << __FUNCTION__ << "():" << __LINE__ << "\n" << std::flush;
     auto consumer = sim->agent<Consumer::Differentiable>(con_id);
-    std::cout << __FUNCTION__ << "():" << __LINE__ << "\n" << std::flush;
+//    std::cout << __FUNCTION__ << "():" << __LINE__ << "\n" << std::flush;
 
     std::vector<SharedMember<Member>> need_lock;
 
     Bundle &a = consumer->assets();
 
-    std::cout << __FUNCTION__ << "():" << __LINE__ << "\n" << std::flush;
+//    std::cout << __FUNCTION__ << "():" << __LINE__ << "\n" << std::flush;
     Bundle a_no_money = a;
     double cash = a_no_money.remove(money);
     if (cash <= 0) {
@@ -102,51 +102,51 @@ void MUPD::optimize() {
         return;
     }
 
-    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
+//    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
     unordered_map<eris_id_t, double> spending;
 
     spending[0] = 0.0; // 0 is the "don't spend"/"hold cash" option
 
     for (auto &mkt : sim->marketFilter()) {
-    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
+//    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
         auto mkt_id = mkt.first;
         auto market = mkt.second;
-    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
+//    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
 
         auto mlock = market->readLock();
-    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
+//    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
 
-    std::cout << money_unit << "\n" << std::flush;
-    std::cout << market->price_unit << "\n" << std::flush;
+//    std::cout << money_unit << "\n" << std::flush;
+//    std::cout << market->price_unit << "\n" << std::flush;
 
         if (not(market->price_unit.covers(money_unit) and money_unit.covers(market->price_unit))) {
             // price_unit is not (or not just) money; we can't handle that, so ignore this market
-    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
+//    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
             continue;
         }
-    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
+//    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
 
         if (market->output_unit[money] > 0) {
             // Something screwy about this market: it costs money, but also produces money.  Ignore.
-    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
+//    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
             continue;
         }
-    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
+//    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
 
         if (!market->price(0).feasible) {
             // The market cannot produce any output (i.e. it is exhausted/constrained).
-    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
+//    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
             continue;
         }
 
         // We assign an exact value later, once we know how many eligible markets there are.
         spending[mkt_id] = 0.0;
-    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
+//    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
         need_lock.push_back(market);
-    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
+//    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
     }
 
-    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
+//    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
     unsigned int markets = spending.size()-1; // -1 to account for the cash non-market (id=0)
 
     // If there are no viable markets, there's nothing to do.
@@ -163,9 +163,9 @@ void MUPD::optimize() {
 
     allocation final_alloc = {};
 
-    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
+//    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
     auto big_lock = consumer->writeLockMany(need_lock);
-    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
+//    std::cout << "optimize():" << __LINE__ << "\n" << std::flush;
 
     while (true) {
         allocation alloc = spending_allocation(spending);

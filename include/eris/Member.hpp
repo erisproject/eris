@@ -26,7 +26,7 @@ class InterOptimizer;
  */
 class Member {
     public:
-        virtual ~Member() { std::cout << "~Member\n" << std::flush; } //= default;
+        virtual ~Member() = default;
         /** Returns the eris_id_t ID of this member.  Returns 0 if this Member instance has not yet
          * been added to a Simulation.
          */
