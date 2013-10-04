@@ -36,6 +36,7 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         Simulation();
         // Destructor.  When destruction occurs, any outstanding threads are killed and rejoined.
         virtual ~Simulation();
+
         Simulation(const Simulation &) = delete;
 
         /// Alias for a map of eris_id_t to SharedMember<A> of arbitrary type A

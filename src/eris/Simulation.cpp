@@ -30,15 +30,10 @@ void Simulation::insertAgent(const SharedMember<Agent> &a) {
 // Assign an ID, set it, store the simulator, and insert into the good map
 // This should be the *ONLY* place anything is ever added into goods_
 void Simulation::insertGood(const SharedMember<Good> &g) {
-    std::cout << __FILE__ << ":" << __LINE__ << "\n" << std::flush;
     std::lock_guard<std::recursive_mutex> lock(member_mutex_);
-    std::cout << __FILE__ << ":" << __LINE__ << "\n" << std::flush;
     g->simulation(shared_from_this(), id_next_++);
-    std::cout << __FILE__ << ":" << __LINE__ << "\n" << std::flush;
     goods_->insert(std::make_pair(g->id(), g));
-    std::cout << __FILE__ << ":" << __LINE__ << "\n" << std::flush;
     invalidateCache<Good>();
-    std::cout << __FILE__ << ":" << __LINE__ << "\n" << std::flush;
 }
 // Assign an ID, set it, store the simulator, and insert into the market map
 // This should be the *ONLY* place anything is ever added into markets_
@@ -144,6 +139,7 @@ void Simulation::thr_loop() {
             // Every case should either exit the loop or wait
             case RunStage::kill:
                 if (thr_kill_ == std::this_thread::get_id()) {
+                    thr_sync_mutex_.unlock();
                     return; // Killed!
                 }
                 else {
@@ -155,6 +151,7 @@ void Simulation::thr_loop() {
                 break;
 
             case RunStage::kill_all:
+                thr_sync_mutex_.unlock();
                 return; // Killed!
                 break;
 
