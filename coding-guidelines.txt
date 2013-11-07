@@ -134,7 +134,7 @@ General code guidelines
   - Don't use private inheritance.  Usually private inheritance is better
     served by storing the private class instance as a private member object
     instead.
-  - Don't use operator overloading unless such overloading is immediately
+  - Don't use operator overloading unless such overloading is reasonably
     obvious and natural to users of the class.  Bundle uses it extensively,
     since operations like adding two bundles together makes immediate sense.
     Most classes don't have such a natural interpretation.
@@ -148,6 +148,9 @@ General code guidelines
             static constexpr double default_foo = 3.0;
             virtual void doSomething(double foo = default_foo);
 
+  - Overridden methods should have an explicit "override" identifier,
+    particularly to make it easier to update if the base class arguments need
+    to change in some way.
 
 - C++ language features:
   - Eris is C++11 code; any standard c++11 features are acceptable.

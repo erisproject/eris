@@ -7,6 +7,10 @@
 #include <unordered_set>
 #include <typeinfo>
 #include <list>
+#include <thread>
+#include <atomic>
+#include <condition_variable>
+#include <mutex>
 
 namespace eris {
 
@@ -29,8 +33,11 @@ class InterOptimizer;
  */
 class Simulation : public std::enable_shared_from_this<Simulation> {
     public:
+        /// Creates a new Simulation.
         Simulation();
-        virtual ~Simulation() = default;
+        // Destructor.  When destruction occurs, any outstanding threads are killed and rejoined.
+        virtual ~Simulation();
+
         Simulation(const Simulation &) = delete;
 
         /// Alias for a map of eris_id_t to SharedMember<A> of arbitrary type A
@@ -63,80 +70,74 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
 
         /** Constructs a new A object using the given constructor arguments Args, adds it as an
          * agent, and returns a SharedMember<A> referencing it.
-         *
-         * \throws std::bad_cast if A cannot be cast to an Agent
          */
-        template <class A, typename... Args> SharedMember<A> createAgent(Args&&... args);
+        template <class A, typename... Args, class = typename std::enable_if<std::is_base_of<Agent, A>::value>::type>
+        SharedMember<A> createAgent(Args&&... args);
 
         /** Makes a copy of the given A object, adds the copy to the simulation, and returns a
          * SharedMember<A> referencing it.  A must be a subclass of Agent.
          *
          * In practice, the template is typically omitted as it can be inferred from the argument.
-         *
-         * \throws std::bad_cast if A cannot be cast to an Agent
          */
-        template <class A> SharedMember<A> cloneAgent(const A &a);
+        template <class A, class = typename std::enable_if<std::is_base_of<Agent, A>::value>::type>
+        SharedMember<A> cloneAgent(const A &a);
 
         /** Constructs a new G object using the given constructor arguments Args, adds it as a good,
          * and returns a SharedMember<G> referencing it.
-         *
-         * \throws std::bad_cast if G cannot be cast to a Good
          */
-        template <class G, typename... Args> SharedMember<G> createGood(Args&&... args);
+        template <class G, typename... Args, class = typename std::enable_if<std::is_base_of<Good, G>::value>::type>
+        SharedMember<G> createGood(Args&&... args);
 
         /** Makes a copy of the given G object, adds the copy to the simulation, and returns a
          * SharedMember<G> referencing it.  G must be a subclass of Good.
          *
          * In practice, the template argument is omitted as it can be inferred from the argument.
-         *
-         * \throws std::bad_cast if G cannot be cast to a Good
          */
-        template <class G> SharedMember<G> cloneGood(const G &g);
+        template <class G, class = typename std::enable_if<std::is_base_of<Good, G>::value>::type>
+        SharedMember<G> cloneGood(const G &g);
 
         /** Constructs a new M object using the given constructor arguments Args, adds it as a
          * market, and returns a SharedMember<M> referencing it.
-         *
-         * \throws std::bad_cast if M cannot be cast to a Market
          */
-        template <class M, typename... Args> SharedMember<M> createMarket(Args&&... args);
+        template <class M, typename... Args, class = typename std::enable_if<std::is_base_of<Market, M>::value>::type>
+        SharedMember<M> createMarket(Args&&... args);
 
         /** Makes a copy of the given M object, adds the copy to the simulation, and returns a
          * SharedMember<M> referencing it.  M must be a subclass of Market.
          *
          * In practice, the template argument is omitted as it can be inferred from the argument.
-         *
-         * \throws std::bad_cast if M cannot be cast to a Market
          */
-        template <class M> SharedMember<M> cloneMarket(const M &m);
+        template <class M, class = typename std::enable_if<std::is_base_of<Market, M>::value>::type>
+        SharedMember<M> cloneMarket(const M &m);
 
         /** Constructs a new intra-period optimizer object using the given constructor arguments
          * Args, adds it to the simulation, and returns a SharedMember<O> referencing it.
          */
-        template <class O, typename... Args> SharedMember<O> createIntraOpt(Args&&... args);
+        template <class O, typename... Args, class = typename std::enable_if<std::is_base_of<IntraOptimizer, O>::value>::type>
+        SharedMember<O> createIntraOpt(Args&&... args);
 
         /** Makes a copy of the given O obejct, adds the copy to the simulation, and returns a
          * SharedMember<O> referencing it.  O must be a subclass of IntraOptimizer.
          *
          * In practice, the template argument is omitted as it can be inferred from the argument.
-         *
-         * \throws std::bad_cast if O cannot be cast to an IntraOptimizer.
          */
-        template <class O> SharedMember<O> cloneIntraOpt(const O &o);
+        template <class O, class = typename std::enable_if<std::is_base_of<IntraOptimizer, O>::value>::type>
+        SharedMember<O> cloneIntraOpt(const O &o);
 
         /** Constructs a new inter-period optimizer object using the given constructor arguments
          * Args, adds it to the simulation, and returns a SharedMember<O> referencing it.
          */
-        template <class O, typename... Args> SharedMember<O> createInterOpt(Args&&... args);
+        template <class O, typename... Args, class = typename std::enable_if<std::is_base_of<InterOptimizer, O>::value>::type>
+        SharedMember<O> createInterOpt(Args&&... args);
 
         /** Makes a copy of the given inter-period optimizer O obejct, adds the copy to the
          * simulation, and returns a SharedMember<O> referencing it.  O must be a subclass of
          * InterOptimizer.
          *
          * In practice, the template argument is omitted as it can be inferred from the argument.
-         *
-         * \throws std::bad_cast if O cannot be cast to an InterOptimizer.
          */
-        template <class O> SharedMember<O> cloneInterOpt(const O &o);
+        template <class O, class = typename std::enable_if<std::is_base_of<InterOptimizer, O>::value>::type>
+        SharedMember<O> cloneInterOpt(const O &o);
 
         /** Removes the given agent (and any dependencies) from this simulation.  Note that both
          * Agent instances and SharedMember<Agent> instances are automatically cast to eris_id_t
@@ -162,24 +163,11 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
          */
         void removeIntraOpt(const eris_id_t &oid);
         /** Removes the given inter-temporal optimizer object (and any dependencies) from this
-         * simulation.  Note that both InterTemporal and SharedMember<InterTemporal> instances are
+         * simulation.  Note that both InterOptimizer and SharedMember<InterOptimizer> instances are
          * automatically cast to eris_id_t when required, so calling this method with those objects
          * as arguments is acceptable (and indeed preferred).
          */
         void removeInterOpt(const eris_id_t &oid);
-
-        /** Provides read-only access to the map of all of the simulation's agents. */
-        const MemberMap<Agent>& agents();
-        /** Provides read-only access to the map of the simulation's goods. */
-        const MemberMap<Good>& goods();
-        /** Provides read-only access to the map of the simulation's markets. */
-        const MemberMap<Market>& markets();
-        /** Provides read-only access to the map of the simulation's intra-period optimization
-         * objects. */
-        const MemberMap<IntraOptimizer>& intraOpts();
-        /** Provides read-only access to the map of the simulation's inter-period optimization
-         * objects. */
-        const MemberMap<InterOptimizer>& interOpts();
 
         /** Provides a const map of eris_id_t to SharedMember<A>, filtered to only include
          * SharedMember<A> agents that induce a true return from the provided filter function.
@@ -236,8 +224,42 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
          */
         void registerDependency(const eris_id_t &member, const eris_id_t &depends_on);
 
-        /// Returns the map of dependencies.
-        const DepMap& deps();
+        /** Sets the maximum number of threads to use for subsequent calls to run().  The default
+         * value is 0 (which uses no threads at all, see below).  If this is lowered between calls
+         * to run(), excess threads (if any) will be killed off at the beginning of the next run()
+         * call; if raised, new threads will be allowed to spawn as needed: `maxThreads(100)` will
+         * not create 100 threads unless there are at least 100 tasks to be performed
+         * simultaneously.
+         *
+         * Specifying 0 kills off all threads and skips the threading code entirely, turning all
+         * Member locking code into no-ops, thus avoiding the overhead threading imposes.  Note that
+         * specifying 1 thread still enables the threading code, but with only one thread.  This is
+         * probably not what you want (as it incurs some small overhead over not threading at all,
+         * by specifying 0), and is predominantly provided for testing purposes.
+         * 
+         * Whether using threads improves performance or not depends on the model under
+         * investigation: in a situation where each agent does significant calculations on its own,
+         * performance will improve significantly.  On the other hand, if each agent requires
+         * exclusively locking the same set of resources (for example, obtaining a write lock on all
+         * markets), the performance advantage of threads will be negligible as threads spend most
+         * of their time waiting for other threads to finish.
+         *
+         * Attempting to call this method during a call to run() is not permitted and will throw an
+         * exception.
+         *
+         * @throws std::runtime_error if called during a run() call.
+         */
+        void maxThreads(unsigned long max_threads);
+
+        /** Returns the maximum number of threads that are can be used in the current run() call (if
+         * called during run()) or in the next run() call (otherwise).  Returns 0 if threading is
+         * disabled entirely.
+         *
+         * This is guaranteed not to change during a call to run().
+         *
+         * \sa maxThreads(unsigned long)
+         */
+        unsigned long maxThreads();
 
         /** Runs one period of period of the simulation.  The following happens, in order (except on
          * the first run, when the inter-period optimizer calls are skipped):
@@ -258,6 +280,8 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
          *       all intra-period optimizers will run, even if some have already indicated a state
          *       change.
          *   - All intra-period optimizers have their apply() method called.
+         *
+         * \throws std::runtime_error if attempting to call run() during a run() call.
          */
         void run();
 
@@ -270,17 +294,22 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         int intraopt_count = -1;
 
     private:
-        void insertAgent(const SharedMember<Agent> &agent);
-        void insertGood(const SharedMember<Good> &good);
-        void insertMarket(const SharedMember<Market> &market);
-        void insertIntraOpt(const SharedMember<IntraOptimizer> &opt);
-        void insertInterOpt(const SharedMember<InterOptimizer> &opt);
+        unsigned long max_threads_ = 0;
+        bool running_ = false;
         eris_id_t id_next_ = 1;
         std::unique_ptr<MemberMap<Agent>> agents_;
         std::unique_ptr<MemberMap<Good>> goods_;
         std::unique_ptr<MemberMap<Market>> markets_;
         std::unique_ptr<MemberMap<IntraOptimizer>> intraopts_;
         std::unique_ptr<MemberMap<InterOptimizer>> interopts_;
+
+
+
+        void insertAgent(const SharedMember<Agent> &agent);
+        void insertGood(const SharedMember<Good> &good);
+        void insertMarket(const SharedMember<Market> &market);
+        void insertIntraOpt(const SharedMember<IntraOptimizer> &opt);
+        void insertInterOpt(const SharedMember<InterOptimizer> &opt);
 
         template <class T, class B> const MemberMap<T>
         genericFilter(const MemberMap<B> &map, std::function<bool(SharedMember<T> member)> &filter) const;
@@ -293,6 +322,7 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
 
         template <class B = Member,
                  class = typename std::enable_if<
+                     std::is_same<B, Member>::value or
                      std::is_same<B, Agent>::value or
                      std::is_same<B, Good>::value or
                      std::is_same<B, Market>::value or
@@ -305,6 +335,91 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         void removeDeps(const eris_id_t &member);
 
         int iteration_ = 0;
+
+        /* Threading variables */
+
+        // Protects member access/updates
+        mutable std::recursive_mutex member_mutex_;
+
+        // Pool of threads we can use
+        std::list<std::thread> thr_pool_;
+
+        // The different stages of the simulation, for synchronizing threads
+        enum class RunStage {
+            idle, // between-period/initial thread state
+            kill, // When a thread sees this, it checks thr_kill_, and if it is the current thread id, it finishes.
+            kill_all, // When a thread sees this, it finishes.
+            // Inter-period optimization stages:
+            inter_optimize, inter_apply, inter_advance, inter_postAdvance,
+            // Intra-period optimization stages:
+            intra_initialize, intra_reset, intra_optimize, intra_postOptimize, intra_apply
+        };
+
+        // The current experiment stage
+        RunStage stage_ = RunStage::idle;
+
+        // The thread to quit when a kill stage is signalled
+        std::thread::id thr_kill_;
+
+        // Mutex controlling access to thread variables, members, and synchronization
+        std::mutex thr_sync_mutex_;
+
+        // Queue of member objects (Agents, InterOpts, or IntraOpts) still waiting to be picked up
+        // by a thread for processing in the current stage.
+        decltype(std::declval<MemberMap<Agent>>().begin())          thr_q_agent_iter_, thr_q_agent_end_;
+        decltype(std::declval<MemberMap<InterOptimizer>>().begin()) thr_q_inter_iter_, thr_q_inter_end_;
+        decltype(std::declval<MemberMap<IntraOptimizer>>().begin()) thr_q_intra_iter_, thr_q_intra_end_;
+        // The size of the most-recently initialized queue
+        size_t thr_q_size_ = 0;
+
+        // The number of threads finished the current stage; when this reaches the size of
+        // thr_pool_, the stage is finished.
+        unsigned int thr_done_ = 0;
+
+        // Will be set the false at the beginning of an intraopt round.  If a postOptimize returns
+        // true (to restart the round), this will end up as true again; if still false at the end of
+        // the postOptimize stage, the intraopt stage ends, otherwise it restarts.
+        bool thr_redo_intra_ = true;
+
+        // CV for signalling a change in stage from master to workers
+        std::condition_variable_any thr_cv_stage_;
+
+        // CV for signalling the master that a thread has finished
+        std::condition_variable_any thr_cv_done_;
+
+        // Clears the current thread work member queue then copies the SharedMembers of the given
+        // MemberMap into it, starts a thread stage by creating new threads if needed (up to `max`
+        // or the queue size, whichever is smaller), setting stage_, signals threads to start, then
+        // waits for all threads to have signalled that they are finished with the current stage.
+        // thr_sync_mutex_ should be locked when calling, and will be locked when this returns.
+        void thr_stage(MemberMap<Agent> &mem_map, const RunStage &stage);
+        void thr_stage(MemberMap<InterOptimizer> &mem_map, const RunStage &stage);
+        void thr_stage(MemberMap<IntraOptimizer> &mem_map, const RunStage &stage);
+        void thr_stage(const RunStage &stage);
+
+        // Runs a stage without using threads.  This is called instead of thr_stage() when
+        // maxThreads() is set to 0.
+        void nothr_stage(const RunStage &stage);
+
+        // The main thread loop; runs until it sees a RunStage::kill with thr_kill_ set to the
+        // thread's id.
+        void thr_loop();
+
+        // Pulls the next Agent from the Agent queue, calls work on it, repeats until the queue is
+        // empty.  The sync mutex must be locked before calling and will be unlocked for the
+        // duration of each work call, then locked again.
+        void thr_work_agent(std::function<void(Agent&)> work);
+        // Just like above, but for the InterOpt queue
+        void thr_work_inter(std::function<void(InterOptimizer&)> work);
+        // Just like above, but for the IntraOpt queue
+        void thr_work_intra(std::function<void(IntraOptimizer&)> work);
+
+        // Used to signal that the stage has finished.  After signalling, this calls thr_wait() to
+        // wait until the stage changes to anything other than its current value.
+        void thr_stage_finished();
+
+        // Waits until stage changes to something other than the stage at the time of the call.
+        void thr_wait();
 };
 
 }
@@ -313,72 +428,69 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
 #include <eris/Member.hpp>
 
 namespace eris {
-template <class A, typename... Args> SharedMember<A> Simulation::createAgent(Args&&... args) {
-    // NB: Stored in a SM<Agent> rather than SM<A> ensures that A is an Agent subclass
-    SharedMember<Agent> agent(new A(std::forward<Args>(args)...));
+template <class A, typename... Args, class> SharedMember<A> Simulation::createAgent(Args&&... args) {
+    SharedMember<A> agent(std::make_shared<A>(std::forward<Args>(args)...));
     insertAgent(agent);
-    return agent; // Implicit recast back to SharedMember<A>
+    return agent;
 }
 
-template <class A> SharedMember<A> Simulation::cloneAgent(const A &a) {
-    // NB: Stored in a SM<Agent> rather than SM<A> ensures that A is an Agent subclass
-    SharedMember<Agent> agent(new A(a));
+template <class A, class> SharedMember<A> Simulation::cloneAgent(const A &a) {
+    SharedMember<A> agent(std::make_shared<A>(a));
     insertAgent(agent);
-    return agent; // Implicit recast back to SharedMember<A>
+    return agent;
 }
 
-template <class G, typename... Args> SharedMember<G> Simulation::createGood(Args&&... args) {
+template <class G, typename... Args, class> SharedMember<G> Simulation::createGood(Args&&... args) {
     // NB: Stored in a SM<Good> rather than SM<G> ensures that G is an Good subclass
-    SharedMember<Good> good(new G(std::forward<Args>(args)...));
+    SharedMember<Good> good(std::make_shared<G>(std::forward<Args>(args)...));
     insertGood(good);
     return good; // Implicit recast back to SharedMember<G>
 }
 
-template <class G> SharedMember<G> Simulation::cloneGood(const G &g) {
+template <class G, class> SharedMember<G> Simulation::cloneGood(const G &g) {
     // NB: Stored in a SM<Good> rather than SM<G> ensures that G is an Good subclass
-    SharedMember<Good> good(new G(g));
+    SharedMember<Good> good(std::make_shared<G>(g));
     insertGood(good);
     return good; // Implicit recast back to SharedMember<G>
 }
 
-template <class M, typename... Args> SharedMember<M> Simulation::createMarket(Args&&... args) {
+template <class M, typename... Args, class> SharedMember<M> Simulation::createMarket(Args&&... args) {
     // NB: Stored in a SM<Market> rather than SM<M> ensures that M is an Market subclass
-    SharedMember<Market> market(new M(std::forward<Args>(args)...));
+    SharedMember<Market> market(std::make_shared<M>(std::forward<Args>(args)...));
     insertMarket(market);
     return market; // Implicit recast back to SharedMember<M>
 }
 
-template <class M> SharedMember<M> Simulation::cloneMarket(const M &m) {
+template <class M, class> SharedMember<M> Simulation::cloneMarket(const M &m) {
     // NB: Stored in a SM<Market> rather than SM<M> ensures that M is an Market subclass
-    SharedMember<Market> market(new M(m));
+    SharedMember<Market> market(std::make_shared<M>(m));
     insertMarket(market);
     return market; // Implicit recast back to SharedMember<M>
 }
 
-template <class O, typename... Args> SharedMember<O> Simulation::createIntraOpt(Args&&... args) {
+template <class O, typename... Args, class> SharedMember<O> Simulation::createIntraOpt(Args&&... args) {
     // NB: Stored in a SM<IntraOpt> rather than SM<O> ensures that O is an IntraOptimizer subclass
-    SharedMember<IntraOptimizer> opt(new O(std::forward<Args>(args)...));
+    SharedMember<IntraOptimizer> opt(std::make_shared<O>(std::forward<Args>(args)...));
     insertIntraOpt(opt);
     return opt; // Implicit recast back to SharedMember<O>
 }
 
-template <class O> SharedMember<O> Simulation::cloneIntraOpt(const O &o) {
+template <class O, class> SharedMember<O> Simulation::cloneIntraOpt(const O &o) {
     // NB: Stored in a SM<IntraOpt> rather than SM<O> ensures that O is an IntraOptimizer subclass
-    SharedMember<IntraOptimizer> opt(new O(o));
+    SharedMember<O> opt(std::make_shared<O>(o));
     insertIntraOpt(opt);
     return market; // Implicit recast back to SharedMember<O>
 }
 
-template <class O, typename... Args> SharedMember<O> Simulation::createInterOpt(Args&&... args) {
-    // NB: Stored in a SM<InterOpt> rather than SM<O> ensures that O is an InterOptimizer subclass
-    SharedMember<InterOptimizer> opt(new O(std::forward<Args>(args)...));
+template <class O, typename... Args, class> SharedMember<O> Simulation::createInterOpt(Args&&... args) {
+    SharedMember<O> opt(std::make_shared<O>(std::forward<Args>(args)...));
     insertInterOpt(opt);
     return opt; // Implicit recast back to SharedMember<O>
 }
 
-template <class O> SharedMember<O> Simulation::cloneInterOpt(const O &o) {
+template <class O, class> SharedMember<O> Simulation::cloneInterOpt(const O &o) {
     // NB: Stored in a SM<InterOpt> rather than SM<O> ensures that O is an InterOptimizer subclass
-    SharedMember<InterOptimizer> opt(new O(o));
+    SharedMember<InterOptimizer> opt(std::make_shared<O>(o));
     insertInterOpt(opt);
     return market; // Implicit recast back to SharedMember<O>
 }
@@ -388,6 +500,9 @@ template <class T, class B>
 const Simulation::MemberMap<T> Simulation::genericFilter(
         const MemberMap<B>& map,
         std::function<bool(SharedMember<T> member)> &filter) const {
+
+    std::lock_guard<std::recursive_mutex> lock(member_mutex_);
+
     MemberMap<T> matched;
     auto &B_t = typeid(B), &T_t = typeid(T);
     size_t B_h = B_t.hash_code(), T_h = T_t.hash_code();
@@ -449,6 +564,8 @@ const Simulation::MemberMap<T> Simulation::genericFilter(
 
 template <class B, class>
 void Simulation::invalidateCache() {
+    std::lock_guard<std::recursive_mutex> lock(member_mutex_);
+
     if (filter_cache_) {
         if (typeid(B) == typeid(Member))
             filter_cache_->clear();
@@ -479,24 +596,48 @@ const Simulation::MemberMap<I> Simulation::intraOptFilter(std::function<bool(Sha
 }
 
 template <class A> SharedMember<A> Simulation::agent(eris_id_t aid) const {
-    return agents_->at(aid);
+    std::lock_guard<std::recursive_mutex> lock(member_mutex_);
+    return SharedMember<A>(agents_->at(aid));
 }
 
 template <class G> SharedMember<G> Simulation::good(eris_id_t gid) const {
-    return goods_->at(gid);
+    std::lock_guard<std::recursive_mutex> lock(member_mutex_);
+    return SharedMember<G>(goods_->at(gid));
 }
 
 template <class M> SharedMember<M> Simulation::market(eris_id_t mid) const {
-    return markets_->at(mid);
+    std::lock_guard<std::recursive_mutex> lock(member_mutex_);
+    return SharedMember<M>(markets_->at(mid));
 }
 
 template <class I> SharedMember<I> Simulation::intraOpt(eris_id_t oid) const {
-    return intraopts_->at(oid);
+    std::lock_guard<std::recursive_mutex> lock(member_mutex_);
+    return SharedMember<I>(intraopts_->at(oid));
 }
 
 template <class I> SharedMember<I> Simulation::interOpt(eris_id_t oid) const {
-    return interopts_->at(oid);
+    std::lock_guard<std::recursive_mutex> lock(member_mutex_);
+    return SharedMember<I>(interopts_->at(oid));
 }
+
+inline unsigned long Simulation::maxThreads() { return max_threads_; }
+
+
+
+inline void Simulation::thr_stage_finished() {
+    if (maxThreads() > 0) {
+        thr_done_++;
+        thr_cv_done_.notify_all();
+        thr_wait();
+    }
 }
+
+inline void Simulation::thr_wait() {
+    RunStage curr_stage = stage_;
+    thr_cv_stage_.wait(thr_sync_mutex_, [this,curr_stage] { return stage_ != curr_stage; });
+}
+
+}
+
 
 // vim:tw=100

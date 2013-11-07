@@ -31,6 +31,7 @@ MUPD::allocation MUPD::spending_allocation(const unordered_map<eris_id_t, double
             else {
                 // Otherwise query the market for the resulting quantity
                 auto mkt = sim->market(m.first);
+                auto lock = mkt->readLock();
 
                 auto q = mkt->quantity(m.second * price_ratio(mkt));
 
@@ -54,7 +55,7 @@ MUPD::allocation MUPD::spending_allocation(const unordered_map<eris_id_t, double
 double MUPD::calc_mu_per_d(
         const SharedMember<Consumer::Differentiable> &con,
         const eris_id_t &mkt_id,
-        const allocation &a,
+        const allocation &alloc,
         const Bundle &b) const {
 
     if (mkt_id == 0)
@@ -63,13 +64,15 @@ double MUPD::calc_mu_per_d(
     auto sim = simulation();
     auto mkt = sim->market(mkt_id);
 
+    auto mlock = mkt->readLock();
+
     double mu = 0.0;
     // Add together all of the marginal utilities weighted by the output level, since the market may
     // produce more than one good, and quantities may not equal 1.
     for (auto g : mkt->output_unit)
         mu += g.second * con->d(b, g.first);
 
-    double q = a.quantity.count(mkt) ? a.quantity.at(mkt) : 0;
+    double q = alloc.quantity.count(mkt) ? alloc.quantity.at(mkt) : 0;
     auto pricing = mkt->price(q);
 
     // FIXME: check feasible
@@ -79,25 +82,30 @@ double MUPD::calc_mu_per_d(
 }
 
 void MUPD::optimize() {
+
     auto sim = simulation();
     auto consumer = sim->agent<Consumer::Differentiable>(con_id);
 
-    Bundle &a = consumer->assets();
 
-    Bundle a_no_money = a;
-    double cash = a_no_money.remove(money);
-    if (cash <= 0) {
-        // No money, nothing to do.
-        return;
+    // Before bothering with anything else, make sure the consumer actually has some money to spend
+    {
+        auto lock = consumer->readLock();
+        if (consumer->assets()[money] <= 0)
+            return;
     }
+
+    std::vector<SharedMember<Member>> need_lock;
+
 
     unordered_map<eris_id_t, double> spending;
 
     spending[0] = 0.0; // 0 is the "don't spend"/"hold cash" option
 
-    for (auto mkt : sim->markets()) {
+    for (auto &mkt : sim->marketFilter()) {
         auto mkt_id = mkt.first;
         auto market = mkt.second;
+
+        auto mlock = market->readLock();
 
         if (not(market->price_unit.covers(money_unit) and money_unit.covers(market->price_unit))) {
             // price_unit is not (or not just) money; we can't handle that, so ignore this market
@@ -116,12 +124,24 @@ void MUPD::optimize() {
 
         // We assign an exact value later, once we know how many eligible markets there are.
         spending[mkt_id] = 0.0;
+        need_lock.push_back(market);
     }
 
     unsigned int markets = spending.size()-1; // -1 to account for the cash non-market (id=0)
 
     // If there are no viable markets, there's nothing to do.
     if (markets == 0) return;
+
+    // Now hold a big write lock on the consumer and all the markets in question
+    auto big_lock = consumer->writeLock(need_lock);
+
+    Bundle &a = consumer->assets();
+    Bundle a_no_money = a;
+    double cash = a_no_money.remove(money);
+    if (cash <= 0) {
+        // No money (there was before, so something external changed), nothing to do.
+        return;
+    }
 
     // Start out with equal spending in every market, no spending in the 0 (don't spend)
     // pseudo-market
@@ -252,10 +272,9 @@ void MUPD::optimize() {
         return;
     }
 
-    // If we haven't held back on any spending (i.e. we're spending everything, probably because
-    // this is the last round), add a tiny fraction of the amount of cash we are spending to assets
-    // (to prevent numerical errors causing insufficient assets exceptions), then subtract it off
-    // (if possible) after reserving.
+    // If we haven't held back on any spending, add a tiny fraction of the amount of cash we are
+    // spending to assets (to prevent numerical errors causing insufficient assets exceptions), then
+    // subtract it off (if possible) after reserving.
     double extra = 0;
     if (spending[0] == 0.0) {
         extra = cash * 1e-13;
@@ -264,7 +283,7 @@ void MUPD::optimize() {
 
     for (auto &m : final_alloc.quantity) {
         if (m.first != 0 and m.second > 0) {
-            reservations.push_front(sim->market(m.first)->reserve(m.second, &(consumer->assets())));
+            reservations.push_front(sim->market(m.first)->reserve(consumer, m.second));
         }
     }
 

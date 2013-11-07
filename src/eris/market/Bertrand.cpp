@@ -16,8 +16,15 @@ Market::quantity_info Bertrand::quantity(double price) const {
     // Keys are prices, values are aggregate quantities available
     std::unordered_map<double, double> price_quantity;
 
-    for (auto f : suppliers_) {
-        auto firm = simAgent<firm::PriceFirm>(f);
+    std::vector<SharedMember<Member>> to_lock;
+    auto suppliers = simulation()->agentFilter<firm::PriceFirm>([this] (SharedMember<firm::PriceFirm> f) {
+            return suppliers_.count(f) > 0; });
+    for (auto &f : suppliers) to_lock.push_back(f.second);
+
+    readLock(to_lock);
+
+    for (auto &f : suppliers) {
+        auto &firm = f.second;
         double s = firm->canSupplyAny(output_unit);
         if (s > 0) {
             double firm_price = output_unit.coverage(firm->output()) * firm->price().coverage(price_unit);
@@ -208,7 +215,7 @@ Bertrand::allocation Bertrand::allocate(double q) const {
     return a;
 }
 
-Market::Reservation Bertrand::reserve(double q, Bundle *assets, double p_max) {
+Market::Reservation Bertrand::reserve(SharedMember<Agent> agent, double q, double p_max) {
     // FIXME: need to lock the economy until this transaction completes; otherwise supply() could
     // fail.
     allocation a = allocate(q);
@@ -217,7 +224,7 @@ Market::Reservation Bertrand::reserve(double q, Bundle *assets, double p_max) {
     if (a.p.total > p_max) throw low_price();
 
     Bundle cost = a.p.total*price_unit;
-    if (!(*assets >= cost)) throw insufficient_assets();
+    if (!(agent->assets() >= cost)) throw insufficient_assets();
 
     double total_q = 0, total_p = 0;
 
@@ -233,7 +240,7 @@ Market::Reservation Bertrand::reserve(double q, Bundle *assets, double p_max) {
         firm_transfers[firm] += share.p * -price_unit + share.q * output_unit;
     }
 
-    Reservation res = createReservation(total_q, total_p, assets);
+    Reservation res = createReservation(agent, total_q, total_p);
     for (auto &ft : firm_transfers) {
         res->firmReserve(ft.first, ft.second);
     }

@@ -43,6 +43,11 @@ class InterOptimizer : public Member {
          * The default implementation does nothing.
          */
         virtual void postAdvance() {}
+
+    protected:
+        /// Returns a SharedMember<Member> from the simulation for the current object
+        SharedMember<Member> sharedSelf() const override { return simInterOpt<Member>(id()); }
+
 };
 
 }

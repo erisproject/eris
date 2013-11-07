@@ -83,7 +83,7 @@ class QMarket : public Market {
         eris_id_t optimizer = 0;
 
         /// Reserves q units, paying at most p_max for them.
-        virtual Reservation reserve(double q, Bundle *assets, double p_max = std::numeric_limits<double>::infinity()) override;
+        virtual Reservation reserve(SharedMember<Agent> agent, double q, double p_max = std::numeric_limits<double>::infinity()) override;
 
 
         /// Adds a firm to this market.  The Firm must be a QFirm object (or subclass)

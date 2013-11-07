@@ -20,6 +20,12 @@ void Market::buy_(Reservation_ &res) {
     if (!res.active)
         throw Reservation_::inactive_exception();
 
+    // Lock this market, the agent, and all the firm's involved in the reservation:
+    std::vector<SharedMember<Member>> to_lock;
+    to_lock.push_back(res.agent);
+    for (auto &firm_res: res.firm_reservations_) to_lock.push_back(firm_res->firm);
+    auto lock = writeLock(to_lock);
+
     res.completed = true;
     res.active = false;
     // Currently b_ contains the total payment; do firm transfers
@@ -27,13 +33,19 @@ void Market::buy_(Reservation_ &res) {
         firm_res->transfer(res.b_);
 
     // Now b_ has had the payment removed, and the output added, so send it back to the agent
-    *res.assets += res.b_;
+    res.agent->assets() += res.b_;
     res.b_.clear();
 }
 
 void Market::release_(Reservation_ &res) {
     if (!res.active)
         throw Reservation_::inactive_exception();
+
+    // Lock this market, the agent, and all the firm's involved in the reservation:
+    std::vector<SharedMember<Member>> to_lock;
+    to_lock.push_back(res.agent);
+    for (auto &firm_res: res.firm_reservations_) to_lock.push_back(firm_res->firm);
+    auto lock = writeLock(to_lock);
 
     res.completed = false;
     res.active = false;
@@ -42,14 +54,16 @@ void Market::release_(Reservation_ &res) {
         firm_res->release();
 
     // Refund that payment that was extracted when the reservation was made
-    *res.assets += res.b_;
+    res.agent->assets() += res.b_;
     res.b_.clear();
 }
 
-Market::Reservation_::Reservation_(SharedMember<Market> market, double quantity, double price, Bundle *assets)
-    : assets(assets), quantity(quantity), price(price), market(market) {
+Market::Reservation_::Reservation_(SharedMember<Market> mkt, SharedMember<Agent> agt, double qty, double pr)
+    : quantity(qty), price(pr), market(mkt), agent(agt) {
+    auto lock = agent->writeLock(std::vector<SharedMember<Member>>({ market }));
+
     Bundle payment = price * market->price_unit;
-    *assets -= payment;
+    agent->assets() -= payment;
     b_ += payment;
 }
 
@@ -71,8 +85,8 @@ void Market::Reservation_::release() {
     market->release_(*this);
 }
 
-Market::Reservation Market::createReservation(double q, double p, Bundle *assets) {
-    return Reservation(new Reservation_(simMarket(*this), q, p, assets));
+Market::Reservation Market::createReservation(SharedMember<Agent> agent, double q, double p) {
+    return Reservation(new Reservation_(sharedSelf(), agent, q, p));
 }
 
 }

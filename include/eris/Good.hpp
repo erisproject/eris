@@ -21,6 +21,8 @@ class Good : public Member {
     protected:
         /// Superclass constructor that stores the good name
         Good(std::string name);
+
+        SharedMember<Member> sharedSelf() const override { return simGood<Member>(id()); }
 };
 
 /** Continuous good.  This is a good with a fixed increment of 0, usable for any good which is
