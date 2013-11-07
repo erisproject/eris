@@ -114,7 +114,7 @@ const Simulation::MemberMap<InterOptimizer>& Simulation::interOpts() { return *i
 
 const Simulation::DepMap& Simulation::deps() { return depends_on_; }
 
-void Simulation::run(unsigned long max_threads) {
+void Simulation::run() {
     if (++iteration_ > 1) {
         // Skip all this on the first iteration
 

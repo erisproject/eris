@@ -258,10 +258,8 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
          *       all intra-period optimizers will run, even if some have already indicated a state
          *       change.
          *   - All intra-period optimizers have their apply() method called.
-         *
-         * @param threads maximum threads to run.  Currently unimplemented.
          */
-        void run(unsigned long max_threads = 1);
+        void run();
 
         /** Contains the number of rounds of the intra-period optimizers in the previous run() call.
          * A round is defined by a reset() call, a set of optimize() calls, and a set of
