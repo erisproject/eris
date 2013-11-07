@@ -7,8 +7,6 @@
 #include <eris/InterOptimizer.hpp>
 #include <algorithm>
 
-#include <iostream>
-
 namespace eris {
 
 Simulation::Simulation() :
@@ -129,6 +127,68 @@ void Simulation::removeDeps(const eris_id_t &member) {
     }
 }
 
+void Simulation::maxThreads(unsigned long max_threads) {
+    if (running_)
+        throw std::runtime_error("Cannot change number of threads during a Simulation run() call");
+    max_threads_ = max_threads;
+}
+
+void Simulation::nothr_stage(const RunStage &stage) {
+    stage_ = stage;
+    // Does the same as thr_stage() and thr_loop() for the current stage, but with all of the
+    // threading code; this is substantially simpler code as a result.
+    switch (stage_) {
+        // Inter-period optimizer stages.  These are in order and are intentionally ifs, not else
+        // ifs, because we they occur in order but new threads can enter anywhere along the process.
+        case RunStage::inter_optimize:
+            for (auto &pair : *interopts_) pair.second->optimize();
+            break;
+
+        case RunStage::inter_apply:
+            for (auto &pair : *interopts_) pair.second->apply();
+            break;
+
+        case RunStage::inter_advance:
+            for (auto &pair : *agents_) pair.second->advance();
+            break;
+
+        case RunStage::inter_postAdvance:
+            for (auto &pair : *interopts_) pair.second->postAdvance();
+            break;
+
+            // Intra-period optimizations
+        case RunStage::intra_initialize:
+            for (auto &pair : *intraopts_) pair.second->initialize();
+            break;
+
+        case RunStage::intra_reset:
+            for (auto &pair : *intraopts_) pair.second->reset();
+            break;
+
+        case RunStage::intra_optimize:
+            for (auto &pair : *intraopts_) pair.second->optimize();
+            break;
+
+        case RunStage::intra_postOptimize:
+            for (auto &pair : *intraopts_) {
+                if (pair.second->postOptimize())
+                    thr_redo_intra_ = true;
+            }
+            break;
+
+        case RunStage::intra_apply:
+            for (auto &pair : *intraopts_) pair.second->apply();
+            break;
+
+        case RunStage::kill:
+        case RunStage::kill_all:
+        case RunStage::idle:
+            // None of these should happen when not using threads!
+            throw std::runtime_error("Found thread-specific state (kill, kill_all, or idle) but threads are not in use!");
+            break;
+    }
+}
+
 void Simulation::thr_loop() {
     thr_sync_mutex_.lock();
     // Continually looks for the various stages and responds according.  Threads are allowed to
@@ -158,77 +218,154 @@ void Simulation::thr_loop() {
             // Inter-period optimizer stages.  These are in order and are intentionally ifs, not else
             // ifs, because we they occur in order but new threads can enter anywhere along the process.
             case RunStage::inter_optimize:
-                thr_work_queue<InterOptimizer>([](SharedMember<InterOptimizer> opt) { opt->optimize(); });
+                thr_work_inter([](InterOptimizer &opt) { opt.optimize(); });
                 thr_stage_finished();
                 break;
 
             case RunStage::inter_apply:
-                thr_work_queue<InterOptimizer>([](SharedMember<InterOptimizer> opt) { opt->apply(); });
+                thr_work_inter([](InterOptimizer &opt) { opt.apply(); });
                 thr_stage_finished();
                 break;
 
             case RunStage::inter_advance:
-                thr_work_queue<Agent>([](SharedMember<Agent> agent) { agent->advance(); });
+                thr_work_agent([](Agent &agent) { agent.advance(); });
                 thr_stage_finished();
                 break;
 
             case RunStage::inter_postAdvance:
-                thr_work_queue<InterOptimizer>([](SharedMember<InterOptimizer> opt) { opt->postAdvance(); });
+                thr_work_inter([](InterOptimizer &opt) { opt.postAdvance(); });
                 thr_stage_finished();
                 break;
 
             // Intra-period optimizations
             case RunStage::intra_initialize:
-                thr_work_queue<IntraOptimizer>([](SharedMember<IntraOptimizer> opt) { opt->initialize(); });
+                thr_work_intra([](IntraOptimizer &opt) { opt.initialize(); });
                 thr_stage_finished();
                 break;
 
             case RunStage::intra_reset:
-                thr_work_queue<IntraOptimizer>([](SharedMember<IntraOptimizer> opt) { opt->reset(); });
+                thr_work_intra([](IntraOptimizer &opt) { opt.reset(); });
                 thr_stage_finished();
                 break;
 
             case RunStage::intra_optimize:
-                thr_work_queue<IntraOptimizer>([](SharedMember<IntraOptimizer> opt) { opt->optimize(); });
+                thr_work_intra([](IntraOptimizer &opt) { opt.optimize(); });
                 thr_stage_finished();
                 break;
 
             case RunStage::intra_postOptimize:
                 // Slightly trickier than the others: we need to signal a redo on the intra-optimizers
                 // if any postOptimize returns false.
-                thr_work_queue<IntraOptimizer>([this](SharedMember<IntraOptimizer> opt) {
-                        if (opt->postOptimize()) { // Need a restart
+                thr_work_intra([this](IntraOptimizer &opt) {
+                    if (opt.postOptimize()) { // Need a restart
                         thr_sync_mutex_.lock();
                         thr_redo_intra_ = true;
                         thr_sync_mutex_.unlock();
-                        }
-                        });
+                    }
+                });
                 // After a postOptimize, we wait for *either* a return to reset or an apply
                 thr_stage_finished();
                 break;
 
             case RunStage::intra_apply:
-                thr_work_queue<IntraOptimizer>([](SharedMember<IntraOptimizer> opt) { opt->apply(); });
+                thr_work_intra([](IntraOptimizer &opt) { opt.apply(); });
                 thr_stage_finished();
                 break;
 
-            default:
-                // Any other case (including idle) we don't handle, so just wait for the state to
-                // change to something else.
+            case RunStage::idle:
+                // Just wait for the state to change to something else.
                 thr_wait();
                 break;
         }
+
+        if (maxThreads() == 0) return;
     }
 }
 
-void Simulation::run(unsigned long max_threads) {
+void Simulation::thr_work_agent(std::function<void(Agent&)> work) {
+    while (thr_q_agent_iter_ != thr_q_agent_end_) {
+        auto &pair = *(thr_q_agent_iter_++);
+        thr_sync_mutex_.unlock();
+        work(pair.second);
+        thr_sync_mutex_.lock();
+    }
+}
+void Simulation::thr_work_inter(std::function<void(InterOptimizer&)> work) {
+    while (thr_q_inter_iter_ != thr_q_inter_end_) {
+        auto &pair = *(thr_q_inter_iter_++);
+        thr_sync_mutex_.unlock();
+        work(pair.second);
+        thr_sync_mutex_.lock();
+    }
+}
+void Simulation::thr_work_intra(std::function<void(IntraOptimizer&)> work) {
+    while (thr_q_intra_iter_ != thr_q_intra_end_) {
+        auto &pair = *(thr_q_intra_iter_++);
+        thr_sync_mutex_.unlock();
+        work(pair.second);
+        thr_sync_mutex_.lock();
+    }
+}
 
-    thr_sync_mutex_.lock();
+void Simulation::thr_stage(MemberMap<Agent> &mem_map, const RunStage &stage) {
+    {
+        std::lock_guard<std::recursive_mutex> lock(member_mutex_);
+        thr_q_size_ = mem_map.size();
+        thr_q_agent_iter_ = mem_map.begin();
+        thr_q_agent_end_  = mem_map.end();
+    }
+
+    thr_stage(stage);
+}
+
+void Simulation::thr_stage(MemberMap<InterOptimizer> &mem_map, const RunStage &stage) {
+    {
+        std::lock_guard<std::recursive_mutex> lock(member_mutex_);
+        thr_q_size_ = mem_map.size();
+        thr_q_inter_iter_ = mem_map.begin();
+        thr_q_inter_end_  = mem_map.end();
+    }
+
+    thr_stage(stage);
+}
+
+void Simulation::thr_stage(MemberMap<IntraOptimizer> &mem_map, const RunStage &stage) {
+    {
+        std::lock_guard<std::recursive_mutex> lock(member_mutex_);
+        thr_q_size_ = mem_map.size();
+        thr_q_intra_iter_ = mem_map.begin();
+        thr_q_intra_end_  = mem_map.end();
+    }
+
+    thr_stage(stage);
+}
+
+void Simulation::thr_stage(const RunStage &stage) {
+    stage_ = stage;
+    unsigned long max_threads = std::min(maxThreads(), thr_q_size_);
+
+    while (thr_pool_.size() < max_threads) {
+        thr_pool_.push_back(std::thread(&Simulation::thr_loop, this));
+    }
+    thr_done_ = 0;
+    thr_cv_stage_.notify_all();
+
+    thr_cv_done_.wait(thr_sync_mutex_, [this] { return thr_done_ >= thr_pool_.size(); });
+}
+
+
+
+void Simulation::run() {
+    if (running_)
+        throw std::runtime_error("Calling Simulation::run() recursively not permitted");
+    running_ = true;
+
+    if (maxThreads() > 0) thr_sync_mutex_.lock();
     stage_ = RunStage::idle;
 
-    if (thr_pool_.size() > max_threads) {
+    if (thr_pool_.size() > maxThreads()) {
         // Too many threads in the pool, kill some off
-        for (unsigned int excess = thr_pool_.size() - max_threads; excess > 0; excess--) {
+        for (unsigned int excess = thr_pool_.size() - maxThreads(); excess > 0; excess--) {
             auto &thr = thr_pool_.front();
             stage_ = RunStage::kill;
             thr_kill_ = thr.get_id();
@@ -240,34 +377,54 @@ void Simulation::run(unsigned long max_threads) {
         }
     }
 
-    // There shouldn't be anything in the queue, but clear it just in case.
-    thr_queue_.clear();
-
     if (++iteration_ > 1) {
         // Skip all this on the first iteration
-        thr_run(*interopts_, max_threads, RunStage::inter_optimize);
-        thr_run(*interopts_, max_threads, RunStage::inter_apply);
-        thr_run(*agents_, max_threads, RunStage::inter_advance);
-        thr_run(*interopts_, max_threads, RunStage::inter_postAdvance);
+        if (maxThreads() > 0) {
+            thr_stage(*interopts_, RunStage::inter_optimize);
+            thr_stage(*interopts_, RunStage::inter_apply);
+            thr_stage(*agents_, RunStage::inter_advance);
+            thr_stage(*interopts_, RunStage::inter_postAdvance);
+        }
+        else {
+            nothr_stage(RunStage::inter_optimize);
+            nothr_stage(RunStage::inter_apply);
+            nothr_stage(RunStage::inter_advance);
+            nothr_stage(RunStage::inter_postAdvance);
+        }
     }
 
     intraopt_count = 0;
 
-    thr_run(*intraopts_, max_threads, RunStage::intra_initialize);
+    if (maxThreads() > 0)
+        thr_stage(*intraopts_, RunStage::intra_initialize);
+    else
+        nothr_stage(RunStage::intra_initialize);
 
     thr_redo_intra_ = true;
     while (thr_redo_intra_) {
         intraopt_count++;
-        thr_run(*intraopts_, max_threads, RunStage::intra_reset);
-        thr_run(*intraopts_, max_threads, RunStage::intra_optimize);
-        thr_redo_intra_ = false;
-        thr_run(*intraopts_, max_threads, RunStage::intra_postOptimize);
+        if (maxThreads() > 0) {
+            thr_stage(*intraopts_, RunStage::intra_reset);
+            thr_stage(*intraopts_, RunStage::intra_optimize);
+            thr_redo_intra_ = false;
+            thr_stage(*intraopts_, RunStage::intra_postOptimize);
+        }
+        else {
+            nothr_stage(RunStage::intra_reset);
+            nothr_stage(RunStage::intra_optimize);
+            thr_redo_intra_ = false;
+            nothr_stage(RunStage::intra_postOptimize);
+        }
     }
 
-    thr_run(*intraopts_, max_threads, RunStage::intra_apply);
+    if (maxThreads() > 0)
+        thr_stage(*intraopts_, RunStage::intra_apply);
+    else
+        nothr_stage(RunStage::intra_apply);
 
     stage_ = RunStage::idle;
-    thr_sync_mutex_.unlock();
+    if (maxThreads() > 0) thr_sync_mutex_.unlock();
+    running_ = false;
 }
 
 Simulation::~Simulation() {

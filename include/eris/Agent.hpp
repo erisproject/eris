@@ -1,6 +1,7 @@
 #pragma once
 #include <eris/Bundle.hpp>
 #include <eris/Member.hpp>
+#include <utility>
 
 namespace eris {
 
@@ -25,7 +26,7 @@ class Agent : public Member {
     protected:
 
         /// Returns a SharedMember<Member> wrapped around the current object
-        SharedMember<Member> sharedSelf() const override { return simAgent(id()); }
+        SharedMember<Member> sharedSelf() const override { return simAgent<Member>(id()); }
 
     private:
         /** The current set of resources.  For a consumer, this could be the things to consume; for

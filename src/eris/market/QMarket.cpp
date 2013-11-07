@@ -24,7 +24,9 @@ double QMarket::firmQuantities(double max) const {
     double q = 0;
 
     for (auto f : suppliers_) {
-        q += simAgent<firm::QFirm>(f)->assets().multiples(output_unit);
+        auto firm = simAgent<firm::QFirm>(f);
+        auto lock = firm->readLock();
+        q += firm->assets().multiples(output_unit);
         if (q >= max) return q;
     }
     return q;
@@ -40,6 +42,12 @@ Market::quantity_info QMarket::quantity(double p) const {
 }
 
 Market::Reservation QMarket::reserve(SharedMember<Agent> agent, double q, double p_max) {
+    std::vector<SharedMember<firm::QFirm>> supply;
+    for (auto &sid : suppliers_) {
+        supply.push_back(simAgent<firm::QFirm>(sid));
+    }
+    agent->writeLock(supply);
+
     double available = firmQuantities(q);
     if (q > available)
         throw output_infeasible();

@@ -24,7 +24,7 @@ void Market::buy_(Reservation_ &res) {
     std::vector<SharedMember<Member>> to_lock;
     to_lock.push_back(res.agent);
     for (auto &firm_res: res.firm_reservations_) to_lock.push_back(firm_res->firm);
-    auto lock = writeLockMany(to_lock);
+    auto lock = writeLock(to_lock);
 
     res.completed = true;
     res.active = false;
@@ -45,7 +45,7 @@ void Market::release_(Reservation_ &res) {
     std::vector<SharedMember<Member>> to_lock;
     to_lock.push_back(res.agent);
     for (auto &firm_res: res.firm_reservations_) to_lock.push_back(firm_res->firm);
-    auto lock = writeLockMany(to_lock);
+    auto lock = writeLock(to_lock);
 
     res.completed = false;
     res.active = false;
@@ -60,7 +60,7 @@ void Market::release_(Reservation_ &res) {
 
 Market::Reservation_::Reservation_(SharedMember<Market> mkt, SharedMember<Agent> agt, double qty, double pr)
     : quantity(qty), price(pr), market(mkt), agent(agt) {
-    auto lock = agent->writeLockMany(std::vector<SharedMember<Member>>({ market }));
+    auto lock = agent->writeLock(std::vector<SharedMember<Member>>({ market }));
 
     Bundle payment = price * market->price_unit;
     agent->assets() -= payment;
@@ -88,7 +88,5 @@ void Market::Reservation_::release() {
 Market::Reservation Market::createReservation(SharedMember<Agent> agent, double q, double p) {
     return Reservation(new Reservation_(sharedSelf(), agent, q, p));
 }
-
-SharedMember<Member> Market::sharedSelf() const { return simMarket(id()); }
 
 }

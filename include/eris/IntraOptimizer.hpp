@@ -74,7 +74,7 @@ class IntraOptimizer : public Member {
 
     protected:
         /// Returns a SharedMember<Member> from the simulation for the current object
-        SharedMember<Member> sharedSelf() const override { return simIntraOpt(id()); }
+        SharedMember<Member> sharedSelf() const override { return simIntraOpt<Member>(id()); }
 };
 
 }

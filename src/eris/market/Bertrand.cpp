@@ -21,7 +21,7 @@ Market::quantity_info Bertrand::quantity(double price) const {
             return suppliers_.count(f) > 0; });
     for (auto &f : suppliers) to_lock.push_back(f.second);
 
-    readLockMany(to_lock);
+    readLock(to_lock);
 
     for (auto &f : suppliers) {
         auto &firm = f.second;

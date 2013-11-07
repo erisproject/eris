@@ -22,6 +22,7 @@ bool WalrasianPricer::postOptimize() {
     if (++tried_ > tries_) return false;
 
     auto qmarket = simMarket<QMarket>(market_id_);
+    auto qlock = qmarket->writeLock();
     double excess_capacity = qmarket->firmQuantities();
 
     bool last_was_decrease = not stepper_.prev_up;

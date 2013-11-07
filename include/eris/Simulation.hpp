@@ -33,6 +33,7 @@ class InterOptimizer;
  */
 class Simulation : public std::enable_shared_from_this<Simulation> {
     public:
+        /// Creates a new Simulation.
         Simulation();
         // Destructor.  When destruction occurs, any outstanding threads are killed and rejoined.
         virtual ~Simulation();
@@ -223,6 +224,43 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
          */
         void registerDependency(const eris_id_t &member, const eris_id_t &depends_on);
 
+        /** Sets the maximum number of threads to use for subsequent calls to run().  The default
+         * value is 0 (which uses no threads at all, see below).  If this is lowered between calls
+         * to run(), excess threads (if any) will be killed off at the beginning of the next run()
+         * call; if raised, new threads will be allowed to spawn as needed: `maxThreads(100)` will
+         * not create 100 threads unless there are at least 100 tasks to be performed
+         * simultaneously.
+         *
+         * Specifying 0 kills off all threads and skips the threading code entirely, turning all
+         * Member locking code into no-ops, thus avoiding the overhead threading imposes.  Note that
+         * specifying 1 thread still enables the threading code, but with only one thread.  This is
+         * probably not what you want (as it incurs some small overhead over not threading at all,
+         * by specifying 0), and is predominantly provided for testing purposes.
+         * 
+         * Whether using threads improves performance or not depends on the model under
+         * investigation: in a situation where each agent does significant calculations on its own,
+         * performance will improve significantly.  On the other hand, if each agent requires
+         * exclusively locking the same set of resources (for example, obtaining a write lock on all
+         * markets), the performance advantage of threads will be negligible as threads spend most
+         * of their time waiting for other threads to finish.
+         *
+         * Attempting to call this method during a call to run() is not permitted and will throw an
+         * exception.
+         *
+         * @throws std::runtime_error if called during a run() call.
+         */
+        void maxThreads(unsigned long max_threads);
+
+        /** Returns the maximum number of threads that are can be used in the current run() call (if
+         * called during run()) or in the next run() call (otherwise).  Returns 0 if threading is
+         * disabled entirely.
+         *
+         * This is guaranteed not to change during a call to run().
+         *
+         * \sa maxThreads(unsigned long)
+         */
+        unsigned long maxThreads();
+
         /** Runs one period of period of the simulation.  The following happens, in order (except on
          * the first run, when the inter-period optimizer calls are skipped):
          *
@@ -243,13 +281,9 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
          *       change.
          *   - All intra-period optimizers have their apply() method called.
          *
-         * @param threads the maximum number of concurrent threads to allow.  The default value
-         * uses the number of hardware threads supported.  If a subsequent run call specifies a
-         * max_threads value that is lower than the current number of active threads, the excess
-         * will be stopped.  Threads will be created only if needed: `max_threads = 100` will not
-         * create 100 threads unless there are at least 100 tasks to be performed at once.
+         * \throws std::runtime_error if attempting to call run() during a run() call.
          */
-        void run(unsigned long max_threads = std::thread::hardware_concurrency());
+        void run();
 
         /** Contains the number of rounds of the intra-period optimizers in the previous run() call.
          * A round is defined by a reset() call, a set of optimize() calls, and a set of
@@ -260,17 +294,22 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         int intraopt_count = -1;
 
     private:
-        void insertAgent(const SharedMember<Agent> &agent);
-        void insertGood(const SharedMember<Good> &good);
-        void insertMarket(const SharedMember<Market> &market);
-        void insertIntraOpt(const SharedMember<IntraOptimizer> &opt);
-        void insertInterOpt(const SharedMember<InterOptimizer> &opt);
+        unsigned long max_threads_ = 0;
+        bool running_ = false;
         eris_id_t id_next_ = 1;
         std::unique_ptr<MemberMap<Agent>> agents_;
         std::unique_ptr<MemberMap<Good>> goods_;
         std::unique_ptr<MemberMap<Market>> markets_;
         std::unique_ptr<MemberMap<IntraOptimizer>> intraopts_;
         std::unique_ptr<MemberMap<InterOptimizer>> interopts_;
+
+
+
+        void insertAgent(const SharedMember<Agent> &agent);
+        void insertGood(const SharedMember<Good> &good);
+        void insertMarket(const SharedMember<Market> &market);
+        void insertIntraOpt(const SharedMember<IntraOptimizer> &opt);
+        void insertInterOpt(const SharedMember<InterOptimizer> &opt);
 
         template <class T, class B> const MemberMap<T>
         genericFilter(const MemberMap<B> &map, std::function<bool(SharedMember<T> member)> &filter) const;
@@ -327,7 +366,11 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
 
         // Queue of member objects (Agents, InterOpts, or IntraOpts) still waiting to be picked up
         // by a thread for processing in the current stage.
-        std::list<SharedMember<Member>> thr_queue_;
+        decltype(std::declval<MemberMap<Agent>>().begin())          thr_q_agent_iter_, thr_q_agent_end_;
+        decltype(std::declval<MemberMap<InterOptimizer>>().begin()) thr_q_inter_iter_, thr_q_inter_end_;
+        decltype(std::declval<MemberMap<IntraOptimizer>>().begin()) thr_q_intra_iter_, thr_q_intra_end_;
+        // The size of the most-recently initialized queue
+        size_t thr_q_size_ = 0;
 
         // The number of threads finished the current stage; when this reaches the size of
         // thr_pool_, the stage is finished.
@@ -349,17 +392,27 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         // or the queue size, whichever is smaller), setting stage_, signals threads to start, then
         // waits for all threads to have signalled that they are finished with the current stage.
         // thr_sync_mutex_ should be locked when calling, and will be locked when this returns.
-        template <class M>
-        void thr_run(const MemberMap<M> &mem_map, const unsigned long &max, const RunStage &stage);
+        void thr_stage(MemberMap<Agent> &mem_map, const RunStage &stage);
+        void thr_stage(MemberMap<InterOptimizer> &mem_map, const RunStage &stage);
+        void thr_stage(MemberMap<IntraOptimizer> &mem_map, const RunStage &stage);
+        void thr_stage(const RunStage &stage);
+
+        // Runs a stage without using threads.  This is called instead of thr_stage() when
+        // maxThreads() is set to 0.
+        void nothr_stage(const RunStage &stage);
 
         // The main thread loop; runs until it sees a RunStage::kill with thr_kill_ set to the
         // thread's id.
         void thr_loop();
 
-        // Pulls an SharedMember<T> from the queue, calls work with it, repeats until the queue is
+        // Pulls the next Agent from the Agent queue, calls work on it, repeats until the queue is
         // empty.  The sync mutex must be locked before calling and will be unlocked for the
         // duration of each work call, then locked again.
-        template <class T> void thr_work_queue(std::function<void(SharedMember<T>)> work);
+        void thr_work_agent(std::function<void(Agent&)> work);
+        // Just like above, but for the InterOpt queue
+        void thr_work_inter(std::function<void(InterOptimizer&)> work);
+        // Just like above, but for the IntraOpt queue
+        void thr_work_intra(std::function<void(IntraOptimizer&)> work);
 
         // Used to signal that the stage has finished.  After signalling, this calls thr_wait() to
         // wait until the stage changes to anything other than its current value.
@@ -389,11 +442,8 @@ template <class A, class> SharedMember<A> Simulation::cloneAgent(const A &a) {
 
 template <class G, typename... Args, class> SharedMember<G> Simulation::createGood(Args&&... args) {
     // NB: Stored in a SM<Good> rather than SM<G> ensures that G is an Good subclass
-    std::cout << __FILE__ << ":" << __LINE__ << "\n" << std::flush;
     SharedMember<Good> good(std::make_shared<G>(std::forward<Args>(args)...));
-    std::cout << __FILE__ << ":" << __LINE__ << "\n" << std::flush;
     insertGood(good);
-    std::cout << __FILE__ << ":" << __LINE__ << "\n" << std::flush;
     return good; // Implicit recast back to SharedMember<G>
 }
 
@@ -547,64 +597,39 @@ const Simulation::MemberMap<I> Simulation::intraOptFilter(std::function<bool(Sha
 
 template <class A> SharedMember<A> Simulation::agent(eris_id_t aid) const {
     std::lock_guard<std::recursive_mutex> lock(member_mutex_);
-    return agents_->at(aid);
+    return SharedMember<A>(agents_->at(aid));
 }
 
 template <class G> SharedMember<G> Simulation::good(eris_id_t gid) const {
     std::lock_guard<std::recursive_mutex> lock(member_mutex_);
-    return goods_->at(gid);
+    return SharedMember<G>(goods_->at(gid));
 }
 
 template <class M> SharedMember<M> Simulation::market(eris_id_t mid) const {
     std::lock_guard<std::recursive_mutex> lock(member_mutex_);
-    return markets_->at(mid);
+    return SharedMember<M>(markets_->at(mid));
 }
 
 template <class I> SharedMember<I> Simulation::intraOpt(eris_id_t oid) const {
     std::lock_guard<std::recursive_mutex> lock(member_mutex_);
-    return intraopts_->at(oid);
+    return SharedMember<I>(intraopts_->at(oid));
 }
 
 template <class I> SharedMember<I> Simulation::interOpt(eris_id_t oid) const {
     std::lock_guard<std::recursive_mutex> lock(member_mutex_);
-    return interopts_->at(oid);
+    return SharedMember<I>(interopts_->at(oid));
 }
 
-template <class M>
-void Simulation::thr_run(const MemberMap<M> &mem_map, const unsigned long &max, const RunStage &stage) {
-    thr_queue_.clear();
-    {
-        std::lock_guard<std::recursive_mutex> lock(member_mutex_);
-        for (auto &m : mem_map)
-            thr_queue_.push_back(m.second);
-    }
+inline unsigned long Simulation::maxThreads() { return max_threads_; }
 
-    stage_ = stage;
-    unsigned long max_threads = std::min(max, thr_queue_.size());
 
-    while (thr_pool_.size() < max_threads) {
-        thr_pool_.push_back(std::thread(&Simulation::thr_loop, this));
-    }
-    thr_done_ = 0;
-    thr_cv_stage_.notify_all();
-
-    thr_cv_done_.wait(thr_sync_mutex_, [this] { return thr_done_ >= thr_pool_.size(); });
-}
-
-template <class T> void Simulation::thr_work_queue(std::function<void(SharedMember<T>)> work) {
-    while (not thr_queue_.empty()) {
-        SharedMember<T> member = thr_queue_.front();
-        thr_queue_.pop_front();
-        thr_sync_mutex_.unlock();
-        work(member);
-        thr_sync_mutex_.lock();
-    }
-}
 
 inline void Simulation::thr_stage_finished() {
-    thr_done_++;
-    thr_cv_done_.notify_all();
-    thr_wait();
+    if (maxThreads() > 0) {
+        thr_done_++;
+        thr_cv_done_.notify_all();
+        thr_wait();
+    }
 }
 
 inline void Simulation::thr_wait() {

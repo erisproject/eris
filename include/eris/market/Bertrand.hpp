@@ -15,8 +15,6 @@ namespace eris { namespace market {
  */
 class Bertrand : public Market {
     public:
-        ~Bertrand() { std::cout << "Bertrand market being destroyed!\n" << std::flush; }
-
         /// The default value of the constructor's randomize parameter
         static constexpr bool default_randomize = false;
 

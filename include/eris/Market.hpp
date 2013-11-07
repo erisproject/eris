@@ -253,7 +253,8 @@ class Market : public Member {
 
         /** Returns a SharedMember<Member> for the current object, via the simulation.
          */
-        SharedMember<Member> sharedSelf() const override;
+        SharedMember<Member> sharedSelf() const override { return simMarket<Member>(id()); }
+
 
     public:
         /** Adds f to the firms supplying in this market.  Subclasses that require a particular type
