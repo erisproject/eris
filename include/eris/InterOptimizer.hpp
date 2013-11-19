@@ -29,6 +29,13 @@ class InterOptimizer : public Member {
          */
         virtual void optimize() const {}
 
+        /** Called when Simulation::threadModel() is ThreadModel::Hybrid to determine whether to
+         * preallocate (true) or queue (false) the optimize() call.  This returns true by default.
+         * Subclasses that require considerable CPU time in optimize() should override this to
+         * return false.
+         */
+        virtual bool preallocateOptimize() const { return true; }
+
         /** Called to apply any changes calculated in optimize(), before agents advance().  Any
          * changes that affect agent advance() behaviour should happen here; any changes that don't
          * affect the agent behaviour until the period begins (such as asset changes) should be
@@ -38,11 +45,25 @@ class InterOptimizer : public Member {
          */
         virtual void apply() {}
 
+        /** Called when Simulation::threadModel() is ThreadModel::Hybrid to determine whether to
+         * preallocate (true) or queue (false) the apply() call.  This returns true by default.
+         * Subclasses that require considerable CPU time in apply() should override this to return
+         * false.
+         */
+        virtual bool preallocateApply() const { return true; }
+
         /** Called to apply any changes calculated in optimize() or apply(), after agents advance().
          *
          * The default implementation does nothing.
          */
         virtual void postAdvance() {}
+
+        /** Called when Simulation::threadModel() is ThreadModel::Hybrid to determine whether to
+         * preallocate (true) or queue (false) the postAdvance() call.  This returns true by
+         * default.  Subclasses that require considerable CPU time in postAdvance() should override
+         * this to return false.
+         */
+        virtual bool preallocatePostAdvance() const { return true; }
 
     protected:
         /// Returns a SharedMember<Member> from the simulation for the current object

@@ -33,6 +33,13 @@ class IntraOptimizer : public Member {
          */
         virtual void optimize() {}
 
+        /** Called when Simulation::threadModel() is ThreadModel::Hybrid to determine whether to
+         * preallocate (true) or queue (false) the optimize() call.  This returns true by default.
+         * Subclasses that require considerable CPU time in optimize() should override this to
+         * return false.
+         */
+        virtual bool preallocateOptimize() const { return true; }
+
         /** Performs an optimization run after all agents have had their optimize() methods called.
          * This should return true if it changes any state that requires any agent to optimize,
          * false if nothing needs to be changed.  This is typically used by Markets that require
@@ -48,6 +55,13 @@ class IntraOptimizer : public Member {
          */
         virtual bool postOptimize() { return false; }
 
+        /** Called when Simulation::threadModel() is ThreadModel::Hybrid to determine whether to
+         * preallocate (true) or queue (false) the postOptimize() call.  This returns true by
+         * default.  Subclasses that require considerable CPU time in postOptimize() should override
+         * this to return false.
+         */
+        virtual bool preallocatePostOptimize() const { return true; }
+
         /** Applies changes calculated by optimize() (and possibly postOptimize()) calls.  This will
          * always be called exactly once per simulation run.
          *
@@ -55,12 +69,27 @@ class IntraOptimizer : public Member {
          */
         virtual void apply() = 0;
 
+        /** Called when Simulation::threadModel() is ThreadModel::Hybrid to determine whether to
+         * preallocate (true) or queue (false) the apply() call.  This returns true by default.
+         * Subclasses that require considerable CPU time in apply() should override this to return
+         * false.
+         */
+        virtual bool preallocateApply() const { return true; }
+
         /** Called before optimization begins, once per period.  Unlike reset(), this is called once
          * before the optimization rounds for a period begin.  
          *
          * The default implementation does nothing.
          */
         virtual void initialize() {}
+
+        /** Called when Simulation::threadModel() is ThreadModel::Hybrid to determine whether to
+         * preallocate (true) or queue (false) the initialize() call.  This returns true by default.
+         * Subclasses that require considerable CPU time in initialize() should override this to
+         * return false.
+         */
+        virtual bool preallocateInitialize() const { return true; }
+
 
         /** Called at the beginning of an optimization round before optimize() calls.  By default
          * does nothing.  This will always be called before optimize()---even for the very first
@@ -71,6 +100,14 @@ class IntraOptimizer : public Member {
          * The default implementation does nothing.
          */
         virtual void reset() {}
+
+        /** Called when Simulation::threadModel() is ThreadModel::Hybrid to determine whether to
+         * preallocate (true) or queue (false) the reset() call.  This returns true by default.
+         * Subclasses that require considerable CPU time in reset() should override this to return
+         * false.
+         */
+        virtual bool preallocateReset() const { return true; }
+
 
     protected:
         /// Returns a SharedMember<Member> from the simulation for the current object

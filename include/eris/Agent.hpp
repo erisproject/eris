@@ -19,9 +19,21 @@ class Agent : public Member {
 
         /** Called when advancing a period.  Subclasses are intended to override (or enhance) as
          * required.  This could, for example, reset costs, reset costs, discard perishable output,
-         * depreciate capital, etc.  By default clears the agent's assets.
+         * depreciate capital, etc.
+         *
+         * By default this clears the agent's assets bundle.
          */
         virtual void advance() { assets_.clear(); }
+
+        /** Returns a hint for Simulation::run() as to whether the agent's advance() method should
+         * be prescheduled across threads (if true) or put into a common queue processed across all
+         * threads.  This is only called and used when Simualation's hybrid threading model is
+         * active.  The default returns true; Agent subclasses with advance() methods requiring
+         * substantial CPU time should override this method to return false.
+         *
+         * \sa Simulation::threadModel()
+         */
+        virtual bool preallocateAdvance() const { return true; }
 
     protected:
 

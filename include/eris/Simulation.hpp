@@ -7,6 +7,7 @@
 #include <unordered_set>
 #include <typeinfo>
 #include <list>
+#include <vector>
 #include <thread>
 #include <atomic>
 #include <condition_variable>
@@ -251,6 +252,47 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
          */
         void maxThreads(unsigned long max_threads);
 
+
+        /** Thread allocation models.  There are currently three models available, which are
+         * configured or queried by calling the threadModel() methods:
+         *
+         * - `ThreadModel::Preallocate` preallocates jobs in a fixed number across threads.  For
+         *   example, if there are 100 intra-period optimizers and 4 threads, this will allocate 25
+         *   jobs to each thread before beginning work.  The advantage of this method is that
+         *   threads don't have to obtain a lock each time they access a new job, which
+         *   substantially decreases thread contention, increasing threading performance when all
+         *   jobs are tiny.
+         * - `ThreadModel::Sequential` does no preallocation; each thread obtains a new task
+         *   after finishing its current task from the global pool of waiting tasks.  When
+         *   individual tasks take considerable but variable amounts of time, this is more efficient
+         *   than preallocation as it tends to keep all threads busy for a shorter amount of time
+         *   rather than having a few that happen to run longer.
+         * - `ThreadModel::Hybrid` combines the above by looking at each job's associated
+         *   preallocate*() method (e.g. InterOptimizer::preallocateApply(),
+         *   IntraOptimizer::preallocateOptimize(), Agent::preallocateAdvance(), etc.),
+         *   preallocating jobs (as ThreadModel::Preallocate does) that return true, queueing jobs
+         *   (as in ThreadModel::Sequential) for jobs that return false.
+         */
+        enum class ThreadModel { Preallocate, Sequential, Hybrid };
+
+        /** Returns the currently active thread job ThreadModel.  The default model is currently
+         * Hybrid.
+         *
+         * This is guaranteed not to change during a call to run().
+         *
+         * \sa ThreadModel
+         */
+        ThreadModel threadModel();
+
+        /** Sets the thread job ThreadModel for the next run() call.  Has no effect if
+         * threading is disabled (i.e. maxThreads() is 0).
+         *
+         * This cannot be changed during a call to run().
+         *
+         * \throws std::runtime_error if called during a run() call.
+         */
+        void threadModel(ThreadModel model);
+
         /** Returns the maximum number of threads that are can be used in the current run() call (if
          * called during run()) or in the next run() call (otherwise).  Returns 0 if threading is
          * disabled entirely.
@@ -295,6 +337,7 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
 
     private:
         unsigned long max_threads_ = 0;
+        ThreadModel thread_model_ = ThreadModel::Hybrid;
         bool running_ = false;
         eris_id_t id_next_ = 1;
         std::unique_ptr<MemberMap<Agent>> agents_;
@@ -302,8 +345,6 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         std::unique_ptr<MemberMap<Market>> markets_;
         std::unique_ptr<MemberMap<IntraOptimizer>> intraopts_;
         std::unique_ptr<MemberMap<InterOptimizer>> interopts_;
-
-
 
         void insertAgent(const SharedMember<Agent> &agent);
         void insertGood(const SharedMember<Good> &good);
@@ -342,7 +383,7 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         mutable std::recursive_mutex member_mutex_;
 
         // Pool of threads we can use
-        std::list<std::thread> thr_pool_;
+        std::vector<std::thread> thr_pool_;
 
         // The different stages of the simulation, for synchronizing threads
         enum class RunStage {
@@ -364,13 +405,18 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         // Mutex controlling access to thread variables, members, and synchronization
         std::mutex thr_sync_mutex_;
 
-        // Queue of member objects (Agents, InterOpts, or IntraOpts) still waiting to be picked up
-        // by a thread for processing in the current stage.
-        decltype(std::declval<MemberMap<Agent>>().begin())          thr_q_agent_iter_, thr_q_agent_end_;
-        decltype(std::declval<MemberMap<InterOptimizer>>().begin()) thr_q_inter_iter_, thr_q_inter_end_;
-        decltype(std::declval<MemberMap<IntraOptimizer>>().begin()) thr_q_intra_iter_, thr_q_intra_end_;
-        // The size of the most-recently initialized queue
-        size_t thr_q_size_ = 0;
+        // Queue of the eris_id_ts of member object (Agent, InterOpt, or IntraOpt) still waiting to
+        // be picked up by a thread for processing in the current stage.  The queues are per-thread,
+        // and are used only in preallocate and hybrid threading models.
+        //
+        // This object is updated only be updated by the master thread, and only while all children
+        // are dormant.
+        std::unordered_map<std::thread::id, std::vector<eris_id_t>> thr_q_;
+
+        // Shared queue for sequential and hybrid threading models
+        std::vector<eris_id_t> shared_q_;
+        // Position of the next element to be processed in the shared_q_
+        std::atomic_size_t shared_q_next_;
 
         // The number of threads finished the current stage; when this reaches the size of
         // thr_pool_, the stage is finished.
@@ -387,15 +433,19 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         // CV for signalling the master that a thread has finished
         std::condition_variable_any thr_cv_done_;
 
-        // Clears the current thread work member queue then copies the SharedMembers of the given
-        // MemberMap into it, starts a thread stage by creating new threads if needed (up to `max`
-        // or the queue size, whichever is smaller), setting stage_, signals threads to start, then
-        // waits for all threads to have signalled that they are finished with the current stage.
+        // Clears the current work queues then copies the keys of the given MemberMap into them
+        // according to the current threading model.  We start up threads if needed (up to `max` or
+        // the queue size, whichever is smaller), setting stage_, signal the threads to start, then
+        // wait for all threads to have signalled that they are finished with the current stage.
         // thr_sync_mutex_ should be locked when calling, and will be locked when this returns.
-        void thr_stage(MemberMap<Agent> &mem_map, const RunStage &stage);
-        void thr_stage(MemberMap<InterOptimizer> &mem_map, const RunStage &stage);
-        void thr_stage(MemberMap<IntraOptimizer> &mem_map, const RunStage &stage);
+        void thr_stage(const MemberMap<Agent> &mem_map, const RunStage &stage);
+        void thr_stage(const MemberMap<InterOptimizer> &mem_map, const RunStage &stage);
+        void thr_stage(const MemberMap<IntraOptimizer> &mem_map, const RunStage &stage);
         void thr_stage(const RunStage &stage);
+
+        // Called from thr_stage to ensure the thread pool has at least the optimal number of
+        // threads, which is the minimum of maxThreads() and the passed-in queue size.
+        void thr_thread_pool(size_t q_size);
 
         // Runs a stage without using threads.  This is called instead of thr_stage() when
         // maxThreads() is set to 0.
@@ -405,14 +455,18 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         // thread's id.
         void thr_loop();
 
+        // Checks the thread-specific queue and, if non-empty, releases the sync lock until it
+        // finishes the agents from it.  Once finished, it tries to pull agents from the master
+        // thread queue (if any), releasing the sync lock for one job at a time, until the shared
+        // queue is also empty.
         // Pulls the next Agent from the Agent queue, calls work on it, repeats until the queue is
         // empty.  The sync mutex must be locked before calling and will be unlocked for the
         // duration of each work call, then locked again.
-        void thr_work_agent(std::function<void(Agent&)> work);
+        void thr_work_agent(const std::function<void(Agent&)> &work);
         // Just like above, but for the InterOpt queue
-        void thr_work_inter(std::function<void(InterOptimizer&)> work);
+        void thr_work_inter(const std::function<void(InterOptimizer&)> &work);
         // Just like above, but for the IntraOpt queue
-        void thr_work_intra(std::function<void(IntraOptimizer&)> work);
+        void thr_work_intra(const std::function<void(IntraOptimizer&)> &work);
 
         // Used to signal that the stage has finished.  After signalling, this calls thr_wait() to
         // wait until the stage changes to anything other than its current value.
