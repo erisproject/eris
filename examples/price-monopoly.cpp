@@ -50,7 +50,7 @@ int main() {
     std::cout << __FILE__ << ":" << __LINE__ << "\n" << std::flush;
     // Set up some agents, from 1 to 100, which agent j having utility m + x - x^2/(2j).
     // This is simple enough: the optimal price is 0.5, with agent j buying j/2 units.
-    for (int j = 1; j <= 5; j++) {
+    for (int j = 1; j <= 50; j++) {
     std::cout << __FILE__ << ":" << __LINE__ << "\n" << std::flush;
         auto c = sim->createAgent<Quadratic>();
         c->coef(m) = 1;
@@ -66,9 +66,11 @@ int main() {
         sim->createInterOpt<FixedIncome>(c, 100*m1);
     }
 
+    sim->maxThreads(4);
+
     for (int i = 0; i < 100; i++) {
         std::cout << "about to run\n" << std::flush;
-        sim->run(2);
+        sim->run();
 
         std::cout << "Ran iteration " << i << ".  (" << sim->intraopt_count << " intraopt loops)\n";
 
