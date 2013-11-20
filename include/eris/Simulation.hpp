@@ -271,9 +271,17 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
          *   preallocate*() method (e.g. InterOptimizer::preallocateApply(),
          *   IntraOptimizer::preallocateOptimize(), Agent::preallocateAdvance(), etc.),
          *   preallocating jobs (as ThreadModel::Preallocate does) that return true, queueing jobs
-         *   (as in ThreadModel::Sequential) for jobs that return false.
+         *   (as in ThreadModel::Sequential) for jobs that return false.  This implicitly assumes
+         *   that the preallocate*() methods are static: that is, that an object that returns true
+         *   will always return true and vice versa, allowing the results to be cached.  If you
+         *   have objects that sometimes return true and sometimes false, you might consider
+         *   HybridRecheck instead.
+         * - `ThreadModel::HybridRecheck` is just like Hybrid, except that it does not use queue
+         *   caching: in each iteration the appropriate perallocate*() method must be checked to
+         *   allocate jobs.  This induces a small performance hit, but may help with intertemporally
+         *   heterogeneous jobs.
          */
-        enum class ThreadModel { Preallocate, Sequential, Hybrid };
+        enum class ThreadModel { Preallocate, Sequential, Hybrid, HybridRecheck };
 
         /** Returns the currently active thread job ThreadModel.  The default model is currently
          * Hybrid.
@@ -390,7 +398,7 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
             idle, // between-period/initial thread state
             kill, // When a thread sees this, it checks thr_kill_, and if it is the current thread id, it finishes.
             kill_all, // When a thread sees this, it finishes.
-            // Inter-period optimization stages:
+            // Inter-period optimization stages (inter_advance applies to agents):
             inter_optimize, inter_apply, inter_advance, inter_postAdvance,
             // Intra-period optimization stages:
             intra_initialize, intra_reset, intra_optimize, intra_postOptimize, intra_apply
@@ -411,12 +419,26 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         //
         // This object is updated only be updated by the master thread, and only while all children
         // are dormant.
-        std::unordered_map<std::thread::id, std::vector<eris_id_t>> thr_q_;
+        //
+        // The vector is actually a shared pointer to allow caching of prior values as a speed-up.
+        std::unordered_map<std::thread::id, std::shared_ptr<std::vector<eris_id_t>>> thr_q_;
 
         // Shared queue for sequential and hybrid threading models
-        std::vector<eris_id_t> shared_q_;
+        std::shared_ptr<std::vector<eris_id_t>> shared_q_;
         // Position of the next element to be processed in the shared_q_
         std::atomic_size_t shared_q_next_;
+
+        // Cache of agent, interopt, and intraopt ids for the shared q cache.  This cache is used
+        // when it exists; otherwise the list is rebuilt from the simulation's current set of
+        // agents/interopts/intraopts.  The cache is invalidated when an agent/interopt/intraopt is
+        // added or removed.
+        std::shared_ptr<std::vector<eris_id_t>> shared_q_cache_agent_, shared_q_cache_inter_, shared_q_cache_intra_;
+
+        // Set to true when the relevant cache needs to be recalculated
+        bool q_cache_reset_agent_ = true, q_cache_reset_inter_ = true, q_cache_reset_intra_ = true;
+
+        // Same as the above, but for the per-thread caches
+        std::unordered_map<std::thread::id, std::shared_ptr<std::vector<eris_id_t>>> thr_cache_agent_, thr_cache_inter_, thr_cache_intra_;
 
         // The number of threads finished the current stage; when this reaches the size of
         // thr_pool_, the stage is finished.
@@ -433,19 +455,31 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         // CV for signalling the master that a thread has finished
         std::condition_variable_any thr_cv_done_;
 
-        // Clears the current work queues then copies the keys of the given MemberMap into them
-        // according to the current threading model.  We start up threads if needed (up to `max` or
-        // the queue size, whichever is smaller), setting stage_, signal the threads to start, then
-        // wait for all threads to have signalled that they are finished with the current stage.
-        // thr_sync_mutex_ should be locked when calling, and will be locked when this returns.
-        void thr_stage(const MemberMap<Agent> &mem_map, const RunStage &stage);
-        void thr_stage(const MemberMap<InterOptimizer> &mem_map, const RunStage &stage);
-        void thr_stage(const MemberMap<IntraOptimizer> &mem_map, const RunStage &stage);
+        // Sets up the thread and/or shared queues for the appropriate stage.  This starts up
+        // threads if needed (up to `max` or the number of members, whichever is smaller), sets
+        // stage_, signals the threads to start, then wait for all threads to have signalled that
+        // they are finished with the current stage.  thr_sync_mutex_ should be locked when calling,
+        // and will be locked when this returns.
         void thr_stage(const RunStage &stage);
 
-        // Called from thr_stage to ensure the thread pool has at least the optimal number of
-        // threads, which is the minimum of maxThreads() and the passed-in queue size.
-        void thr_thread_pool(size_t q_size);
+        // Loads the given eris_id_t into the given thread cache at position next, incrementing next
+        // (and resetting to zero when it hits the end of the number of threads).
+        void thr_queue(size_t &next, decltype(thr_cache_agent_) &thr_cache, const eris_id_t &id) const;
+
+        // Called at the beginning of run() to start up needed threads or kill off excess threads.
+        //
+        // Excess threads are those which exceed maxThreads().
+        //
+        // Needed threads is the smaller of maxThreads() and maximum simultaneous jobs, which is the
+        // maximum of the number of agents, interoptimizers, and intraoptimizers.
+        //
+        // Note that those numbers two values don't necessarily coincide.
+        //
+        // If this method changes the number of threads, this also takes care to invalidate queue
+        // caches as needed so that appropriate thread reallocations will occur.
+        //
+        // This is called at the beginning of run().
+        void thr_thread_pool();
 
         // Runs a stage without using threads.  This is called instead of thr_stage() when
         // maxThreads() is set to 0.
@@ -689,6 +723,11 @@ inline void Simulation::thr_stage_finished() {
 inline void Simulation::thr_wait() {
     RunStage curr_stage = stage_;
     thr_cv_stage_.wait(thr_sync_mutex_, [this,curr_stage] { return stage_ != curr_stage; });
+}
+
+inline void Simulation::thr_queue(size_t &next, decltype(thr_cache_agent_) &thr_cache, const eris_id_t &id) const {
+    thr_cache[thr_pool_.at(next).get_id()]->push_back(id);
+    next = (++next) % thr_pool_.size();
 }
 
 }

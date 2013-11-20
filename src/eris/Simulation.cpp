@@ -24,6 +24,7 @@ void Simulation::insertAgent(const SharedMember<Agent> &a) {
     a->simulation(shared_from_this(), id_next_++);
     agents_->insert(std::make_pair(a->id(), a));
     invalidateCache<Agent>();
+    q_cache_reset_agent_ = true;
 }
 // Assign an ID, set it, store the simulator, and insert into the good map
 // This should be the *ONLY* place anything is ever added into goods_
@@ -48,6 +49,7 @@ void Simulation::insertIntraOpt(const SharedMember<IntraOptimizer> &o) {
     o->simulation(shared_from_this(), id_next_++);
     intraopts_->insert(std::make_pair(o->id(), o));
     invalidateCache<IntraOptimizer>();
+    q_cache_reset_intra_ = true;
 }
 // Assign an ID, set it, store the optimizer, and insert into the interopt map
 // This should be the *ONLY* place anything is ever added into interopts_
@@ -56,6 +58,7 @@ void Simulation::insertInterOpt(const SharedMember<InterOptimizer> &o) {
     o->simulation(shared_from_this(), id_next_++);
     interopts_->insert(std::make_pair(o->id(), o));
     invalidateCache<InterOptimizer>();
+    q_cache_reset_inter_ = true;
 }
 
 void Simulation::registerDependency(const eris_id_t &member, const eris_id_t &depends_on) {
@@ -71,6 +74,7 @@ void Simulation::removeAgent(const eris_id_t &aid) {
     agents_->erase(aid);
     removeDeps(aid);
     invalidateCache<Agent>();
+    q_cache_reset_agent_ = true;
 }
 void Simulation::removeGood(const eris_id_t &gid) {
     std::lock_guard<std::recursive_mutex> lock(member_mutex_);
@@ -95,6 +99,7 @@ void Simulation::removeIntraOpt(const eris_id_t &oid) {
     intraopts_->erase(oid);
     removeDeps(oid);
     invalidateCache<IntraOptimizer>();
+    q_cache_reset_intra_ = true;
 }
 void Simulation::removeInterOpt(const eris_id_t &oid) {
     std::lock_guard<std::recursive_mutex> lock(member_mutex_);
@@ -103,6 +108,7 @@ void Simulation::removeInterOpt(const eris_id_t &oid) {
     interopts_->erase(oid);
     removeDeps(oid);
     invalidateCache<InterOptimizer>();
+    q_cache_reset_inter_ = true;
 }
 
 
@@ -295,170 +301,133 @@ void Simulation::thr_work_agent(const std::function<void(Agent&)> &work) {
     // Release the sync mutex right away until we're done.  The master thread (and all other
     // threads) should be well behaved and not modify queues until we're done.
     thr_sync_mutex_.unlock();
-    for (auto &aid : thr_q_[std::this_thread::get_id()]) {
+    for (auto &aid : *thr_q_[std::this_thread::get_id()]) {
         work(agents_->at(aid));
     }
 
+    auto qsize = shared_q_->size();
     size_t i;
-    while ((i = shared_q_next_++) < shared_q_.size()) {
-        work(agents_->at(shared_q_.at(i)));
+    while ((i = shared_q_next_++) < qsize) {
+        work(agents_->at(shared_q_->at(i)));
     }
     thr_sync_mutex_.lock();
 }
 void Simulation::thr_work_inter(const std::function<void(InterOptimizer&)> &work) {
     thr_sync_mutex_.unlock();
-    for (auto &iid : thr_q_[std::this_thread::get_id()]) {
+    for (auto &iid : *thr_q_[std::this_thread::get_id()]) {
         work(interopts_->at(iid));
     }
 
+    auto qsize = shared_q_->size();
     size_t i;
-    while ((i = shared_q_next_++) < shared_q_.size()) {
-        work(interopts_->at(shared_q_.at(i)));
+    while ((i = shared_q_next_++) < qsize) {
+        work(interopts_->at(shared_q_->at(i)));
     }
     thr_sync_mutex_.lock();
 }
 void Simulation::thr_work_intra(const std::function<void(IntraOptimizer&)> &work) {
     thr_sync_mutex_.unlock();
-    for (auto &iid : thr_q_[std::this_thread::get_id()]) {
+    for (auto &iid : *thr_q_[std::this_thread::get_id()]) {
         work(intraopts_->at(iid));
     }
+    auto qsize = shared_q_->size();
     size_t i;
-    while ((i = shared_q_next_++) < shared_q_.size()) {
-        work(intraopts_->at(shared_q_.at(i)));
+    while ((i = shared_q_next_++) < qsize) {
+        work(intraopts_->at(shared_q_->at(i)));
     }
     thr_sync_mutex_.lock();
 }
 
-void Simulation::thr_stage(const MemberMap<Agent> &mem_map, const RunStage &stage) {
-    {
-        std::lock_guard<std::recursive_mutex> lock(member_mutex_);
-
-        thr_thread_pool(mem_map.size());
-
-        // Clear existing queues
-        shared_q_.clear();
-        shared_q_next_ = 0;
-        for (auto &pair : thr_q_)
-            pair.second.clear();
-
-        size_t next = 0;
-
-        if (threadModel() == ThreadModel::Hybrid) {
-            for (auto &pair : mem_map) {
-                if (pair.second->preallocateAdvance()) {
-                    thr_q_[thr_pool_.at(next).get_id()].push_back(pair.first);
-                    next = (++next) % thr_pool_.size();
-                }
-                else {
-                    shared_q_.push_back(pair.first);
-                }
-            }
-        }
-        else if (threadModel() == ThreadModel::Preallocate) {
-            for (auto &pair : mem_map) {
-                thr_q_[thr_pool_.at(next).get_id()].push_back(pair.first);
-                next = (++next) % thr_pool_.size();
-            }
-        }
-        else { // ThreadModel::Sequential
-            for (auto &pair : mem_map) {
-                shared_q_.push_back(pair.first);
-            }
-        }
-    }
-
-    thr_stage(stage);
-}
-
-void Simulation::thr_stage(const MemberMap<InterOptimizer> &mem_map, const RunStage &stage) {
-    {
-        std::lock_guard<std::recursive_mutex> lock(member_mutex_);
-
-        thr_thread_pool(mem_map.size());
-
-        // Clear existing queues
-        shared_q_.clear();
-        shared_q_next_ = 0;
-        for (auto &pair : thr_q_)
-            pair.second.clear();
-
-        size_t next = 0;
-
-        if (threadModel() == ThreadModel::Hybrid) {
-            for (auto &pair : mem_map) {
-                if (stage == RunStage::inter_optimize ? pair.second->preallocateOptimize() :
-                    stage == RunStage::inter_apply    ? pair.second->preallocateApply() :
-                                                        pair.second->preallocatePostAdvance()) {
-                    thr_q_[thr_pool_.at(next).get_id()].push_back(pair.first);
-                    next = (++next) % thr_pool_.size();
-                }
-                else {
-                    shared_q_.push_back(pair.first);
-                }
-            }
-        }
-        else if (threadModel() == ThreadModel::Preallocate) {
-            for (auto &pair : mem_map) {
-                thr_q_[thr_pool_.at(next).get_id()].push_back(pair.first);
-                next = (++next) % thr_pool_.size();
-            }
-        }
-        else { // ThreadModel::Sequential
-            for (auto &pair : mem_map) {
-                shared_q_.push_back(pair.first);
-            }
-        }
-    }
-
-    thr_stage(stage);
-}
-
-void Simulation::thr_stage(const MemberMap<IntraOptimizer> &mem_map, const RunStage &stage) {
-    {
-        std::lock_guard<std::recursive_mutex> lock(member_mutex_);
-
-        thr_thread_pool(mem_map.size());
-
-        // Clear existing queues
-        shared_q_.clear();
-        shared_q_next_ = 0;
-        for (auto &pair : thr_q_)
-            pair.second.clear();
-
-        size_t next = 0;
-
-        if (threadModel() == ThreadModel::Hybrid) {
-            for (auto &pair : mem_map) {
-                if (stage == RunStage::intra_initialize   ? pair.second->preallocateInitialize() :
-                    stage == RunStage::intra_reset        ? pair.second->preallocateReset() :
-                    stage == RunStage::intra_optimize     ? pair.second->preallocateOptimize() :
-                    stage == RunStage::intra_postOptimize ? pair.second->preallocatePostOptimize() :
-                                                            pair.second->preallocateApply()) {
-                    thr_q_[thr_pool_.at(next).get_id()].push_back(pair.first);
-                    next = (++next) % thr_pool_.size();
-                }
-                else {
-                    shared_q_.push_back(pair.first);
-                }
-            }
-        }
-        else if (threadModel() == ThreadModel::Preallocate) {
-            for (auto &pair : mem_map) {
-                thr_q_[thr_pool_.at(next).get_id()].push_back(pair.first);
-                next = (++next) % thr_pool_.size();
-            }
-        }
-        else { // ThreadModel::Sequential
-            for (auto &pair : mem_map) {
-                shared_q_.push_back(pair.first);
-            }
-        }
-    }
-
-    thr_stage(stage);
-}
-
 void Simulation::thr_stage(const RunStage &stage) {
+    {
+        std::lock_guard<std::recursive_mutex> lock(member_mutex_);
+
+        bool agent_stage = stage == RunStage::inter_advance;
+        bool inter_stage = stage == RunStage::inter_optimize or stage == RunStage::inter_apply or stage == RunStage::inter_postAdvance;
+        // otherwise intra
+
+        auto &shared_cache = agent_stage ? shared_q_cache_agent_ : inter_stage ? shared_q_cache_inter_ : shared_q_cache_intra_;
+        auto &thr_cache    = agent_stage ? thr_cache_agent_      : inter_stage ? thr_cache_inter_      : thr_cache_intra_;
+        bool &reset_cache  = agent_stage ? q_cache_reset_agent_  : inter_stage ? q_cache_reset_inter_  : q_cache_reset_intra_;
+
+        if (not shared_cache)
+            shared_cache = std::make_shared<std::vector<eris_id_t>>();
+
+        if (threadModel() == ThreadModel::HybridRecheck) {
+            // Invalidate the cache every period, because some preallocate*() methods may change
+            // their values.
+            reset_cache = true;
+        }
+
+        if (reset_cache) {
+            reset_cache = false;
+            shared_cache->clear();
+            for (auto &pair : thr_cache) pair.second->clear();
+
+            size_t next = 0;
+            if (threadModel() == ThreadModel::Preallocate) {
+                if (agent_stage) {
+                    for (auto &pair : *agents_)
+                        thr_queue(next, thr_cache, pair.first);
+                }
+                else if (inter_stage) {
+                    for (auto &pair : *interopts_)
+                        thr_queue(next, thr_cache, pair.first);
+                }
+                else {
+                    for (auto &pair : *intraopts_)
+                        thr_queue(next, thr_cache, pair.first);
+                }
+            }
+            else if (threadModel() == ThreadModel::Sequential) {
+                // All jobs go into shared queue.
+                if (agent_stage) {
+                    for (auto &pair : *agents_)
+                        shared_cache->push_back(pair.first);
+                }
+                else if (inter_stage) {
+                    for (auto &pair : *interopts_)
+                        shared_cache->push_back(pair.first);
+                }
+                else {
+                    for (auto &pair : *intraopts_)
+                        shared_cache->push_back(pair.first);
+                }
+            }
+            else { // Hybrid or HybridRecheck: add to thread cache if preallocate*() returns true, shared cache otherwise
+                switch (stage) {
+#define ERIS_SIM_Q_CASE(stage, map, method_suffix)\
+                    case RunStage::stage:\
+                        for (auto &pair : *map) {\
+                            if (pair.second->preallocate##method_suffix()) thr_queue(next, thr_cache, pair.first);\
+                            else shared_cache->push_back(pair.first);\
+                        }\
+                        break;
+                    ERIS_SIM_Q_CASE(inter_optimize,     interopts_, Optimize)
+                    ERIS_SIM_Q_CASE(inter_apply,        interopts_, Apply)
+                    ERIS_SIM_Q_CASE(inter_advance,      agents_,    Advance)
+                    ERIS_SIM_Q_CASE(inter_postAdvance,  interopts_, PostAdvance)
+                    ERIS_SIM_Q_CASE(intra_initialize,   intraopts_, Initialize)
+                    ERIS_SIM_Q_CASE(intra_reset,        intraopts_, Reset)
+                    ERIS_SIM_Q_CASE(intra_optimize,     intraopts_, Optimize)
+                    ERIS_SIM_Q_CASE(intra_postOptimize, intraopts_, PostOptimize)
+                    ERIS_SIM_Q_CASE(intra_apply,        intraopts_, Apply)
+#undef ERIS_SIM_Q_CASE
+                    case RunStage::kill:
+                    case RunStage::kill_all:
+                    case RunStage::idle:
+                        break;
+                }
+            }
+        }
+
+        shared_q_ = shared_cache;
+        shared_q_next_ = 0;
+
+        for (auto &pair : thr_cache)
+            thr_q_[pair.first] = pair.second;
+    }
+
     stage_ = stage;
 
     thr_done_ = 0;
@@ -467,13 +436,62 @@ void Simulation::thr_stage(const RunStage &stage) {
     thr_cv_done_.wait(thr_sync_mutex_, [this] { return thr_done_ >= thr_pool_.size(); });
 }
 
-void Simulation::thr_thread_pool(size_t q_size) {
-    unsigned long max_threads = std::min(maxThreads(), q_size);
+void Simulation::thr_thread_pool() {
+    bool changed = false;
+    if (thr_pool_.size() == maxThreads()) {
+        // Nothing to see here.  Move along.
+        return;
+    }
+    else if (thr_pool_.size() > maxThreads()) {
+        // Too many threads in the pool, kill some off
+        for (unsigned int excess = thr_pool_.size() - maxThreads(); excess > 0; excess--) {
+            auto &thr = thr_pool_.back();
+            stage_ = RunStage::kill;
+            thr_kill_ = thr.get_id();
+            thr_sync_mutex_.unlock();
+            thr_cv_stage_.notify_all();
+            thr.join();
+            thr_sync_mutex_.lock();
+            thr_pool_.pop_back();
+            thr_q_.erase(thr_kill_);
+            thr_cache_agent_.erase(thr_kill_);
+            thr_cache_inter_.erase(thr_kill_);
+            thr_cache_intra_.erase(thr_kill_);
 
-    while (thr_pool_.size() < max_threads) {
-        // The first thing threads do is lock thr_sync_mutex_, which should be held during this method
-        thr_pool_.push_back(std::thread(&Simulation::thr_loop, this));
-        thr_q_.insert(std::make_pair(thr_pool_.back().get_id(), std::vector<eris_id_t>()));
+        }
+        changed = true;
+    }
+    else {
+        // The pool is smaller than the maximum; see if there is a benefit to creating more threads
+        unsigned long want_threads = std::min(maxThreads(),
+                std::max({ agents_->size(), interopts_->size(), intraopts_->size() }));
+
+        while (thr_pool_.size() < want_threads) {
+            changed = true;
+            // The first thing threads do is lock thr_sync_mutex_, which should be held during this method
+            thr_pool_.push_back(std::thread(&Simulation::thr_loop, this));
+            auto thid = thr_pool_.back().get_id();
+            thr_cache_agent_.insert(std::make_pair(
+                        thid, std::make_shared<std::vector<eris_id_t>>()));
+            thr_cache_inter_.insert(std::make_pair(
+                        thid, std::make_shared<std::vector<eris_id_t>>()));
+            thr_cache_intra_.insert(std::make_pair(
+                        thid, std::make_shared<std::vector<eris_id_t>>()));
+        }
+    }
+
+    // If we changed the thread pool, we might need to do some cache invalidation
+    if (changed) {
+        if (threadModel() == ThreadModel::Preallocate or threadModel() == ThreadModel::Hybrid) {
+            // We created or kill some threads, so the preallocation is no longer balanced (and
+            // potentially incomplete).
+            q_cache_reset_agent_ = true;
+            q_cache_reset_inter_ = true;
+            q_cache_reset_intra_ = true;
+        }
+        // Otherwise we're in Sequential or HybridRecheck models: in Sequential, all threads use the
+        // shared cache, which hasn't changed.  In HybridRecheck we redo the allocation every time
+        // anyway instead of using the cache, so there's nothing to do here either.
     }
 }
 
@@ -487,28 +505,16 @@ void Simulation::run() {
     if (maxThreads() > 0) thr_sync_mutex_.lock();
     stage_ = RunStage::idle;
 
-    if (thr_pool_.size() > maxThreads()) {
-        // Too many threads in the pool, kill some off
-        for (unsigned int excess = thr_pool_.size() - maxThreads(); excess > 0; excess--) {
-            auto &thr = thr_pool_.back();
-            stage_ = RunStage::kill;
-            thr_kill_ = thr.get_id();
-            thr_sync_mutex_.unlock();
-            thr_cv_stage_.notify_all();
-            thr.join();
-            thr_sync_mutex_.lock();
-            thr_pool_.pop_back();
-            thr_q_.erase(thr_kill_);
-        }
-    }
+    // Enlarge or shrink the thread pool as needed
+    thr_thread_pool();
 
     if (++iteration_ > 1) {
         // Skip all this on the first iteration
         if (maxThreads() > 0) {
-            thr_stage(*interopts_, RunStage::inter_optimize);
-            thr_stage(*interopts_, RunStage::inter_apply);
-            thr_stage(*agents_, RunStage::inter_advance);
-            thr_stage(*interopts_, RunStage::inter_postAdvance);
+            thr_stage(RunStage::inter_optimize);
+            thr_stage(RunStage::inter_apply);
+            thr_stage(RunStage::inter_advance);
+            thr_stage(RunStage::inter_postAdvance);
         }
         else {
             nothr_stage(RunStage::inter_optimize);
@@ -521,7 +527,7 @@ void Simulation::run() {
     intraopt_count = 0;
 
     if (maxThreads() > 0)
-        thr_stage(*intraopts_, RunStage::intra_initialize);
+        thr_stage(RunStage::intra_initialize);
     else
         nothr_stage(RunStage::intra_initialize);
 
@@ -529,10 +535,10 @@ void Simulation::run() {
     while (thr_redo_intra_) {
         intraopt_count++;
         if (maxThreads() > 0) {
-            thr_stage(*intraopts_, RunStage::intra_reset);
-            thr_stage(*intraopts_, RunStage::intra_optimize);
+            thr_stage(RunStage::intra_reset);
+            thr_stage(RunStage::intra_optimize);
             thr_redo_intra_ = false;
-            thr_stage(*intraopts_, RunStage::intra_postOptimize);
+            thr_stage(RunStage::intra_postOptimize);
         }
         else {
             nothr_stage(RunStage::intra_reset);
@@ -543,7 +549,7 @@ void Simulation::run() {
     }
 
     if (maxThreads() > 0)
-        thr_stage(*intraopts_, RunStage::intra_apply);
+        thr_stage(RunStage::intra_apply);
     else
         nothr_stage(RunStage::intra_apply);
 
