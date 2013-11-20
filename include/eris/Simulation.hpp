@@ -739,7 +739,7 @@ inline void Simulation::thr_wait(const RunStage &curr_stage) {
 
 inline void Simulation::thr_queue(size_t &next, decltype(thr_cache_agent_) &thr_cache, const eris_id_t &id) const {
     thr_cache[thr_pool_.at(next).get_id()]->push_back(id);
-    next = (++next) % thr_pool_.size();
+    ++next %= thr_pool_.size();
 }
 
 inline unsigned long Simulation::t() const {

@@ -66,7 +66,7 @@ void Member::Lock::read() {
         auto &members = data->members;
         while (true) {
             int unwind = -1;
-            for (int i = 0; i < members.size(); i++) {
+            for (int i = 0; i < (int) members.size(); i++) {
                 if (holding == i) continue; // We're already holding this lock
 
                 auto &mutex = members.at(i)->wmutex_;
@@ -126,7 +126,7 @@ void Member::Lock::write() {
     auto &members = data->members;
     while (true) {
         int unwind = -1;
-        for (int i = 0; i < members.size(); i++) {
+        for (int i = 0; i < (int) members.size(); i++) {
             if (i == holding) continue; // We're already holding this write lock
 
             auto &lock = members.at(i)->wmutex_;
