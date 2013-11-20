@@ -153,7 +153,7 @@ void Simulation::nothr_stage(const RunStage &stage) {
     stage_ = stage;
     // Does the same as thr_stage() and thr_loop() for the current stage, but with all of the
     // threading code; this is substantially simpler code as a result.
-    switch (stage_) {
+    switch ((RunStage) stage_) {
         // Inter-period optimizer stages.  These are in order and are intentionally ifs, not else
         // ifs, because we they occur in order but new threads can enter anywhere along the process.
         case RunStage::inter_optimize:
@@ -206,91 +206,65 @@ void Simulation::nothr_stage(const RunStage &stage) {
 }
 
 void Simulation::thr_loop() {
-    thr_sync_mutex_.lock();
     // Continually looks for the various stages and responds according.  Threads are allowed to
     // start work in any stage except idle.  The thread continues forever unless it sees a kill
     // stage with thr_kill_ set to its thread id.
     while (true) {
-        switch (stage_) {
+        RunStage curr_stage = stage_;
+        switch (curr_stage) {
             // Every case should either exit the loop or wait
+            case RunStage::idle:
+                // Just wait for the state to change to something else.
+                thr_wait(curr_stage);
+                break;
             case RunStage::kill:
                 if (thr_kill_ == std::this_thread::get_id()) {
-                    thr_sync_mutex_.unlock();
                     return; // Killed!
                 }
                 else {
                     // Otherwise it's someone else, so just wait until either another stage happens, or
                     // we get killed
-                    thr_cv_stage_.wait(thr_sync_mutex_, [&] {
+                    std::unique_lock<std::mutex> lock(stage_mutex_);
+                    thr_cv_stage_.wait(lock, [&] {
                             return stage_ != RunStage::kill or thr_kill_ == std::this_thread::get_id(); });
                 }
                 break;
 
             case RunStage::kill_all:
-                thr_sync_mutex_.unlock();
                 return; // Killed!
                 break;
 
+#define ERIS_SIM_STAGE_CASE(S, W, T, M)\
+            case RunStage::S:\
+                thr_work_##W([](T &o) { o.M(); });\
+                thr_stage_finished(curr_stage);\
+                break;
+
             // Inter-period optimizer stages
-            case RunStage::inter_optimize:
-                thr_work_inter([](InterOptimizer &opt) { opt.optimize(); });
-                thr_stage_finished();
-                break;
+            ERIS_SIM_STAGE_CASE(inter_optimize,    inter, InterOptimizer, optimize)
+            ERIS_SIM_STAGE_CASE(inter_apply,       inter, InterOptimizer, apply)
+            ERIS_SIM_STAGE_CASE(inter_advance,     agent, Agent,          advance)
+            ERIS_SIM_STAGE_CASE(inter_postAdvance, inter, InterOptimizer, postAdvance)
 
-            case RunStage::inter_apply:
-                thr_work_inter([](InterOptimizer &opt) { opt.apply(); });
-                thr_stage_finished();
-                break;
-
-            case RunStage::inter_advance:
-                thr_work_agent([](Agent &agent) { agent.advance(); });
-                thr_stage_finished();
-                break;
-
-            case RunStage::inter_postAdvance:
-                thr_work_inter([](InterOptimizer &opt) { opt.postAdvance(); });
-                thr_stage_finished();
-                break;
-
-            // Intra-period optimizations
-            case RunStage::intra_initialize:
-                thr_work_intra([](IntraOptimizer &opt) { opt.initialize(); });
-                thr_stage_finished();
-                break;
-
-            case RunStage::intra_reset:
-                thr_work_intra([](IntraOptimizer &opt) { opt.reset(); });
-                thr_stage_finished();
-                break;
-
-            case RunStage::intra_optimize:
-                thr_work_intra([](IntraOptimizer &opt) { opt.optimize(); });
-                thr_stage_finished();
-                break;
+            // Intra-period optimizer stages
+            ERIS_SIM_STAGE_CASE(intra_initialize, intra, IntraOptimizer, initialize)
+            ERIS_SIM_STAGE_CASE(intra_reset,      intra, IntraOptimizer, reset)
+            ERIS_SIM_STAGE_CASE(intra_optimize,   intra, IntraOptimizer, optimize)
+            ERIS_SIM_STAGE_CASE(intra_apply,      intra, IntraOptimizer, apply)
 
             case RunStage::intra_postOptimize:
                 // Slightly trickier than the others: we need to signal a redo on the intra-optimizers
                 // if any postOptimize returns false.
                 thr_work_intra([this](IntraOptimizer &opt) {
                     if (opt.postOptimize()) { // Need a restart
-                        thr_sync_mutex_.lock();
                         thr_redo_intra_ = true;
-                        thr_sync_mutex_.unlock();
                     }
                 });
                 // After a postOptimize, we wait for *either* a return to reset or an apply
-                thr_stage_finished();
+                thr_stage_finished(curr_stage);
                 break;
+#undef ERIS_SIM_STAGE_CASE
 
-            case RunStage::intra_apply:
-                thr_work_intra([](IntraOptimizer &opt) { opt.apply(); });
-                thr_stage_finished();
-                break;
-
-            case RunStage::idle:
-                // Just wait for the state to change to something else.
-                thr_wait();
-                break;
         }
 
         if (maxThreads() == 0) return;
@@ -300,7 +274,6 @@ void Simulation::thr_loop() {
 void Simulation::thr_work_agent(const std::function<void(Agent&)> &work) {
     // Release the sync mutex right away until we're done.  The master thread (and all other
     // threads) should be well behaved and not modify queues until we're done.
-    thr_sync_mutex_.unlock();
     for (auto &aid : *thr_q_[std::this_thread::get_id()]) {
         work(agents_->at(aid));
     }
@@ -310,10 +283,8 @@ void Simulation::thr_work_agent(const std::function<void(Agent&)> &work) {
     while ((i = shared_q_next_++) < qsize) {
         work(agents_->at(shared_q_->at(i)));
     }
-    thr_sync_mutex_.lock();
 }
 void Simulation::thr_work_inter(const std::function<void(InterOptimizer&)> &work) {
-    thr_sync_mutex_.unlock();
     for (auto &iid : *thr_q_[std::this_thread::get_id()]) {
         work(interopts_->at(iid));
     }
@@ -323,10 +294,8 @@ void Simulation::thr_work_inter(const std::function<void(InterOptimizer&)> &work
     while ((i = shared_q_next_++) < qsize) {
         work(interopts_->at(shared_q_->at(i)));
     }
-    thr_sync_mutex_.lock();
 }
 void Simulation::thr_work_intra(const std::function<void(IntraOptimizer&)> &work) {
-    thr_sync_mutex_.unlock();
     for (auto &iid : *thr_q_[std::this_thread::get_id()]) {
         work(intraopts_->at(iid));
     }
@@ -335,7 +304,6 @@ void Simulation::thr_work_intra(const std::function<void(IntraOptimizer&)> &work
     while ((i = shared_q_next_++) < qsize) {
         work(intraopts_->at(shared_q_->at(i)));
     }
-    thr_sync_mutex_.lock();
 }
 
 void Simulation::thr_stage(const RunStage &stage) {
@@ -428,15 +396,23 @@ void Simulation::thr_stage(const RunStage &stage) {
             thr_q_[pair.first] = pair.second;
     }
 
+    std::unique_lock<std::mutex> lock_s(stage_mutex_, std::defer_lock);
+    std::unique_lock<std::mutex> lock_d(done_mutex_, std::defer_lock);
+    std::lock(lock_s, lock_d);
     stage_ = stage;
-
     thr_done_ = 0;
+    lock_s.unlock();
+
     thr_cv_stage_.notify_all();
 
-    thr_cv_done_.wait(thr_sync_mutex_, [this] { return thr_done_ >= thr_pool_.size(); });
+    thr_cv_done_.wait(lock_d, [this] { return thr_done_ >= thr_pool_.size(); });
+    lock_d.unlock();
 }
 
 void Simulation::thr_thread_pool() {
+    if (stage_ != RunStage::idle)
+        throw std::runtime_error("Cannot enlarge thread pool during non-idle run phase");
+
     bool changed = false;
     if (thr_pool_.size() == maxThreads()) {
         // Nothing to see here.  Move along.
@@ -448,10 +424,8 @@ void Simulation::thr_thread_pool() {
             auto &thr = thr_pool_.back();
             stage_ = RunStage::kill;
             thr_kill_ = thr.get_id();
-            thr_sync_mutex_.unlock();
             thr_cv_stage_.notify_all();
             thr.join();
-            thr_sync_mutex_.lock();
             thr_pool_.pop_back();
             thr_q_.erase(thr_kill_);
             thr_cache_agent_.erase(thr_kill_);
@@ -468,7 +442,7 @@ void Simulation::thr_thread_pool() {
 
         while (thr_pool_.size() < want_threads) {
             changed = true;
-            // The first thing threads do is lock thr_sync_mutex_, which should be held during this method
+            // We're in RunStage::idle, so the new thread is going to wait right away
             thr_pool_.push_back(std::thread(&Simulation::thr_loop, this));
             auto thid = thr_pool_.back().get_id();
             thr_cache_agent_.insert(std::make_pair(
@@ -502,7 +476,6 @@ void Simulation::run() {
         throw std::runtime_error("Calling Simulation::run() recursively not permitted");
     running_ = true;
 
-    if (maxThreads() > 0) thr_sync_mutex_.lock();
     stage_ = RunStage::idle;
 
     // Enlarge or shrink the thread pool as needed
@@ -554,14 +527,11 @@ void Simulation::run() {
         nothr_stage(RunStage::intra_apply);
 
     stage_ = RunStage::idle;
-    if (maxThreads() > 0) thr_sync_mutex_.unlock();
     running_ = false;
 }
 
 Simulation::~Simulation() {
-    thr_sync_mutex_.lock();
     stage_ = RunStage::kill_all;
-    thr_sync_mutex_.unlock();
     thr_cv_stage_.notify_all();
 
     for (auto &thr : thr_pool_) {

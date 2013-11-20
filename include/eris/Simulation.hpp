@@ -36,9 +36,10 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
     public:
         /// Creates a new Simulation.
         Simulation();
-        // Destructor.  When destruction occurs, any outstanding threads are killed and rejoined.
+        /// Destructor.  When destruction occurs, any outstanding threads are killed and rejoined.
         virtual ~Simulation();
 
+        /// Copy constructor explicitly deleted
         Simulation(const Simulation &) = delete;
 
         /// Alias for a map of eris_id_t to SharedMember<A> of arbitrary type A
@@ -413,13 +414,10 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         };
 
         // The current experiment stage
-        RunStage stage_ = RunStage::idle;
+        std::atomic<RunStage> stage_{RunStage::idle};
 
         // The thread to quit when a kill stage is signalled
-        std::thread::id thr_kill_;
-
-        // Mutex controlling access to thread variables, members, and synchronization
-        std::mutex thr_sync_mutex_;
+        std::atomic<std::thread::id> thr_kill_;
 
         // Queue of the eris_id_ts of member object (Agent, InterOpt, or IntraOpt) still waiting to
         // be picked up by a thread for processing in the current stage.  The queues are per-thread,
@@ -455,19 +453,22 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         // Will be set the false at the beginning of an intraopt round.  If a postOptimize returns
         // true (to restart the round), this will end up as true again; if still false at the end of
         // the postOptimize stage, the intraopt stage ends, otherwise it restarts.
-        bool thr_redo_intra_ = true;
+        std::atomic_bool thr_redo_intra_{true};
 
         // CV for signalling a change in stage from master to workers
-        std::condition_variable_any thr_cv_stage_;
+        std::condition_variable thr_cv_stage_;
+        // mutex for the stage CV and for threads waiting for changes in stage_
+        std::mutex stage_mutex_;
 
         // CV for signalling the master that a thread has finished
-        std::condition_variable_any thr_cv_done_;
+        std::condition_variable thr_cv_done_;
+        // mutex for the done CV and for threads signalling that they have finished
+        std::mutex done_mutex_;
 
         // Sets up the thread and/or shared queues for the appropriate stage.  This starts up
         // threads if needed (up to `max` or the number of members, whichever is smaller), sets
         // stage_, signals the threads to start, then wait for all threads to have signalled that
-        // they are finished with the current stage.  thr_sync_mutex_ should be locked when calling,
-        // and will be locked when this returns.
+        // they are finished with the current stage.
         void thr_stage(const RunStage &stage);
 
         // Loads the given eris_id_t into the given thread cache at position next, incrementing next
@@ -502,20 +503,19 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         // thread queue (if any), releasing the sync lock for one job at a time, until the shared
         // queue is also empty.
         // Pulls the next Agent from the Agent queue, calls work on it, repeats until the queue is
-        // empty.  The sync mutex must be locked before calling and will be unlocked for the
-        // duration of each work call, then locked again.
+        // empty.
         void thr_work_agent(const std::function<void(Agent&)> &work);
         // Just like above, but for the InterOpt queue
         void thr_work_inter(const std::function<void(InterOptimizer&)> &work);
         // Just like above, but for the IntraOpt queue
         void thr_work_intra(const std::function<void(IntraOptimizer&)> &work);
 
-        // Used to signal that the stage has finished.  After signalling, this calls thr_wait() to
-        // wait until the stage changes to anything other than its current value.
-        void thr_stage_finished();
+        // Used to signal that the stage has finished.  After signalling, this calls
+        // thr_wait(curr_stage) to wait until the stage changes to something other than curr_stage
+        void thr_stage_finished(const RunStage &curr_stage);
 
-        // Waits until stage changes to something other than the stage at the time of the call.
-        void thr_wait();
+        // Waits until stage changes to something other than the passed-in stage.
+        void thr_wait(const RunStage &curr_stage);
 };
 
 }
@@ -720,17 +720,21 @@ inline unsigned long Simulation::maxThreads() { return max_threads_; }
 
 
 
-inline void Simulation::thr_stage_finished() {
+inline void Simulation::thr_stage_finished(const RunStage &curr_stage) {
     if (maxThreads() > 0) {
-        thr_done_++;
+        {
+            std::unique_lock<std::mutex> lock(done_mutex_);
+            thr_done_++;
+        }
         thr_cv_done_.notify_all();
-        thr_wait();
+        thr_wait(curr_stage);
     }
 }
 
-inline void Simulation::thr_wait() {
-    RunStage curr_stage = stage_;
-    thr_cv_stage_.wait(thr_sync_mutex_, [this,curr_stage] { return stage_ != curr_stage; });
+inline void Simulation::thr_wait(const RunStage &curr_stage) {
+    std::unique_lock<std::mutex> lock(stage_mutex_);
+    if (stage_ == curr_stage)
+        thr_cv_stage_.wait(lock, [this,curr_stage] { return stage_ != curr_stage; });
 }
 
 inline void Simulation::thr_queue(size_t &next, decltype(thr_cache_agent_) &thr_cache, const eris_id_t &id) const {
