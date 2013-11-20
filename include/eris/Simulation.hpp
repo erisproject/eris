@@ -335,6 +335,14 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
          */
         void run();
 
+        /** Returns the iteration number, where 1 is the first iteration.  This is incremented
+         * before inter-period optimizers run, and so, if called from inter-period optimizer code,
+         * this will return the t value for the upcoming stage, not the most recent stage.
+         *
+         * This is initially 0 (until the first run() call).
+         */
+        unsigned long t() const;
+
         /** Contains the number of rounds of the intra-period optimizers in the previous run() call.
          * A round is defined by a reset() call, a set of optimize() calls, and a set of
          * postOptimize() calls.  A multi-round optimization will only occur when there are
@@ -383,7 +391,7 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         DepMap depends_on_;
         void removeDeps(const eris_id_t &member);
 
-        int iteration_ = 0;
+        unsigned long iteration_ = 0;
 
         /* Threading variables */
 
@@ -728,6 +736,10 @@ inline void Simulation::thr_wait() {
 inline void Simulation::thr_queue(size_t &next, decltype(thr_cache_agent_) &thr_cache, const eris_id_t &id) const {
     thr_cache[thr_pool_.at(next).get_id()]->push_back(id);
     next = (++next) % thr_pool_.size();
+}
+
+inline unsigned long Simulation::t() const {
+    return iteration_;
 }
 
 }
