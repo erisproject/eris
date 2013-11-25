@@ -1,4 +1,6 @@
+#pragma once
 #include <cstdint>
+#include <functional>
 
 namespace eris {
     /** Integer type that stores a unique id for each Member (Agent, Market, or Good) in an Eris
@@ -21,4 +23,20 @@ namespace eris {
      *   guaranteed.
      */
     typedef uint64_t eris_id_t;
+
+    /** enum of the different stages of the simulation, primarily used for synchronizing threads.
+     */
+    enum class RunStage : int {
+        idle, // between-period/initial thread state
+        kill, // When a thread sees this, it checks thr_kill_, and if it is the current thread id, it finishes.
+        kill_all, // When a thread sees this, it finishes.
+        // Inter-period optimization stages (inter_Advance applies to agents):
+        inter_Optimize, inter_Apply, inter_Advance, inter_PostAdvance,
+        // Intra-period optimization stages:
+        intra_Initialize, intra_Reset, intra_Optimize, intra_Reoptimize, intra_Apply
+    };
+
+    /// The highest RunStage value
+    const RunStage RunStage_LAST = RunStage::intra_Apply;
+
 }

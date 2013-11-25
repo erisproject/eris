@@ -50,10 +50,9 @@ class PositionalAgent : public Agent {
         const Position& position() const noexcept;
 
         /** Returns to distance from this agent's position to the passed-in agent's position.  This
-         * is simply an alias for obj.position().distance(target.position()), though subclasses
-         * could override.
+         * is simply an alias for obj.position().distance(target.position()).
          */
-        virtual double distance(const PositionalAgent &other) const;
+        double distance(const PositionalAgent &other) const;
 
         /** Returns true if a boundary applies to the position of this agent.
          */
@@ -101,16 +100,13 @@ class PositionalAgent : public Agent {
          * `moveToBoundary()` is checked: if true, the agent moves to boundary point closest to the
          * destination; if false, a boundary_error exception is thrown.
          *
-         * Only this method is virtual as all other moveTo() and moveBy() methods simply call this
-         * method.
-         *
          * \returns true if the move was completed as requested, false if the move was corrected to
          * the nearest boundary point.
          * \throws PositionalAgent::boundary_error if moveToBoundary() was false and the destination
          * was outside the boundary.
          * \throws std::length_error if p does not have the same dimensions as the agent's position.
          */
-        virtual bool moveTo(Position p);
+        bool moveTo(Position p);
 
         /// Just like moveTo(Position), but takes a single coordinate for a 1-d Position object
         bool moveTo(const double &x);
@@ -164,7 +160,7 @@ class PositionalAgent : public Agent {
          * and throws a boundary_error exception if throw_on_truncation is true if changes are
          * needed but not allowed.
          */
-        virtual bool truncate(Position &pos, bool throw_on_truncation = false) const;
+        bool truncate(Position &pos, bool throw_on_truncation = false) const;
 };
 
 inline const Position& PositionalAgent::position() const noexcept { return position_; }

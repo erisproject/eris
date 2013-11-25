@@ -9,6 +9,7 @@
 #include <vector>
 #include <condition_variable>
 #include <unordered_map>
+#include <type_traits>
 
 namespace eris {
 
@@ -19,9 +20,13 @@ class Market;
 class IntraOptimizer;
 class InterOptimizer;
 
-/** Base class for "members" of a simulation: goods, agents, markets, and optimizers.  This class
- * provides an id, a weak reference to the owning simulation object, and a < operator comparing ids
- * (so that ordering works).
+/** Base class for "members" of a simulation: often goods, agents, markets, and optimizers.  This class
+ * provides an id, a weak reference to the owning simulation object, a few utility methods, and lock
+ * functionality for aiding thread-safety.
+ *
+ * This class is a base class for all objects belonging to an eris simulation: Goods, Agents,
+ * and Markets (see those classes for details).  It is also used for other, generic members that are
+ * none of the above such as optimization classes.
  */
 class Member {
     public:
@@ -46,10 +51,8 @@ class Member {
         template <class G = Good> SharedMember<G> simGood(eris_id_t gid) const;
         /** Shortcut for `member.simulation()->market<M>()` */
         template <class M = Market> SharedMember<M> simMarket(eris_id_t mid) const;
-        /** Shortcut for `member.simulation()->intraOpt<I>()` */
-        template <class I = IntraOptimizer> SharedMember<I> simIntraOpt(eris_id_t oid) const;
-        /** Shortcut for `member.simulation()->interOpt<I>()` */
-        template <class I = InterOptimizer> SharedMember<I> simInterOpt(eris_id_t oid) const;
+        /** Shortcut for `member.simulation()->other<O>()` */
+        template <class O = Member> SharedMember<O> simOther(eris_id_t oid) const;
 
         /** Records a dependency with the Simulation object.  This should not be called until after
          * simulation() has been called, and is typically invoked in an overridden added() method.
@@ -230,21 +233,16 @@ class Member {
             return Member::Lock(false, std::move(members));
         }
 
-        /** Obtains a read lock for the current objects *plus* the all the SharedMember<T> values of
-         * the provided map-like container.
-         *
-         * \param plus any iterable object containing std::pair<K, SharedMember<T>> objects.
+        /** Obtains a read lock for the current objects *plus* the all the SharedMember<T> values
+         * passed in.
          */
-        template <class Container>
-        Lock readLock(const Container &plus,
-                typename std::enable_if<
-                    std::is_base_of<Member, typename decltype(std::declval<Container>().begin())::value_type::second_type::member_type>::value
-                    >::type* = 0) const {
+        template <class... Args>
+        Lock readLock(SharedMember<Member> plus, Args... more) const {
             if (maxThreads() == 0) return Member::Lock(false); // Fake lock
             std::vector<SharedMember<Member>> members;
             members.push_back(sharedSelf());
-            for (auto &p : plus)
-                members.push_back(p.second);
+            members.push_back(plus);
+            member_zip_(members, more...);
             return Member::Lock(false, std::move(members));
         }
 
@@ -264,6 +262,7 @@ class Member {
          * The lock provided is advisory: it is still possible for a thread without a write lock to
          * invoke changes on the locked object, but such should be considered a serious error.
          */
+
         Lock writeLock() {
             if (maxThreads() == 0) return Member::Lock(true); // Fake lock
             auto s = sharedSelf();
@@ -301,21 +300,16 @@ class Member {
             return Member::Lock(true, std::move(members));
         }
 
-        /** Obtains a read lock for the current objects *plus* the all the SharedMember<T> values of
-         * the provided map-like container.
-         *
-         * \param plus any iterable object containing std::pair<K, SharedMember<T>> objects.
+        /** Obtains a write lock for the current objects *plus* the all the SharedMember<T> values
+         * passed in.
          */
-        template <class Container>
-        Lock writeLock(const Container &plus,
-                typename std::enable_if<
-                    std::is_base_of<Member, typename decltype(std::declval<Container>().begin())::value_type::second_type::member_type>::value
-                    >::type* = 0) const {
+        template <class... Args>
+        Lock writeLock(SharedMember<Member> plus, Args... more) const {
             if (maxThreads() == 0) return Member::Lock(true); // Fake lock
             std::vector<SharedMember<Member>> members;
             members.push_back(sharedSelf());
-            for (auto &p : plus)
-                members.push_back(p.second);
+            members.push_back(plus);
+            member_zip_(members, more...);
             return Member::Lock(true, std::move(members));
         }
 
@@ -361,9 +355,10 @@ class Member {
          * This returns a generic SharedMember<Member>, which is castable to SharedMember<O> where O
          * is the actual O subclass the object belongs to.
          *
-         * This is deliberately not provided by Member to make Member an abstract class.
+         * The default implementation returns a member from the simulation's "other" set; Agent,
+         * Good, and Market have overrides to return from the other appropriate sets.
          */
-        virtual SharedMember<Member> sharedSelf() const = 0;
+        virtual SharedMember<Member> sharedSelf() const { return simOther<Member>(id()); }
 
         /** Returns the maximum number of threads in the simulation.  This is simply an alias for
          * simulation()->maxThreads().
@@ -399,6 +394,13 @@ class Member {
          */
         void unlock_many_(bool write, const std::vector<SharedMember<Member>> &plus);
 
+        /** Sticks the passed-in SharedMember<T> objects into the passed-in std::vector */
+        template <class... Args>
+        void member_zip_(std::vector<SharedMember<Member>> &zip, SharedMember<Member> add, Args... more) const {
+            zip.push_back(add);
+            member_zip_(zip, more...);
+        }
+        void member_zip_(std::vector<SharedMember<Member>> &zip) const {}
 };
 
 }
@@ -417,11 +419,8 @@ template <class G> SharedMember<G> Member::simGood(eris_id_t gid) const {
 template <class M> SharedMember<M> Member::simMarket(eris_id_t mid) const {
     return simulation()->market<M>(mid);
 }
-template <class I> SharedMember<I> Member::simIntraOpt(eris_id_t oid) const {
-    return simulation()->intraOpt<I>(oid);
-}
-template <class I> SharedMember<I> Member::simInterOpt(eris_id_t oid) const {
-    return simulation()->interOpt<I>(oid);
+template <class O> SharedMember<O> Member::simOther(eris_id_t oid) const {
+    return simulation()->other<O>(oid);
 }
 inline unsigned long Member::maxThreads() const {
     return simulation()->maxThreads();

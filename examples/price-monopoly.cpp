@@ -23,9 +23,9 @@ int main() {
     Eris<Simulation> sim;
 
     std::cout << __FILE__ << ":" << __LINE__ << "\n" << std::flush;
-    auto m = sim->createGood<Good::Continuous>("money");
+    auto m = sim->create<Good::Continuous>("money");
     std::cout << __FILE__ << ":" << __LINE__ << "\n" << std::flush;
-    auto x = sim->createGood<Good::Continuous>("x");
+    auto x = sim->create<Good::Continuous>("x");
 
     std::cout << __FILE__ << ":" << __LINE__ << "\n" << std::flush;
     auto m1 = Bundle(m, 1);
@@ -33,17 +33,19 @@ int main() {
 
     std::cout << __FILE__ << ":" << __LINE__ << "\n" << std::flush;
     // Set up a price setting firm that produces x, with initial price of 0.8.
-    auto firm = sim->createAgent<PriceFirm>(x1, 2 * m1);
+    auto firm = sim->create<PriceFirm>(x1, 2 * m1);
 
     std::cout << __FILE__ << ":" << __LINE__ << "\n" << std::flush;
-    sim->createInterOpt<PriceStepper>(firm);
+    sim->create<PriceStepper>(firm);
 
     std::cout << __FILE__ << ":" << __LINE__ << "\n" << std::flush;
-    auto berty = sim->createMarket<Bertrand>(x1, m1);
+    auto berty = sim->create<Bertrand>(x1, m1);
+    std::cout << __FILE__ << ":" << __LINE__ << "\n" << std::flush;
     berty->addFirm(firm);
+    std::cout << __FILE__ << ":" << __LINE__ << "\n" << std::flush;
 
     std::cout << __FILE__ << ":" << __LINE__ << "\n" << std::flush;
-    std::cout << "Market is id=" << sim->marketFilter().begin()->second->id() << "\n";
+    std::cout << "Market is id=" << (*(sim->markets().begin()))->id() << "\n";
 
     std::list<SharedMember<Quadratic>> consumers;
 
@@ -52,18 +54,18 @@ int main() {
     // This is simple enough: the optimal price is 0.5, with agent j buying j/2 units.
     for (int j = 1; j <= 50; j++) {
     std::cout << __FILE__ << ":" << __LINE__ << "\n" << std::flush;
-        auto c = sim->createAgent<Quadratic>();
+        auto c = sim->create<Quadratic>();
         c->coef(m) = 1;
         c->coef(x) = 1;
         c->coef(x, x) = -0.5 / j;
         consumers.push_back(c);
 
         // Use MUPD for optimization
-        sim->createIntraOpt<MUPD>(c, m);
+        sim->create<MUPD>(c, m);
 
         // Give them some income:
         c->assets() += 100*m1;
-        sim->createInterOpt<FixedIncome>(c, 100*m1);
+        sim->create<FixedIncome>(c, 100*m1);
     }
 
     sim->maxThreads(4);

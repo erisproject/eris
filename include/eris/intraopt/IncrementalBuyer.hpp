@@ -1,7 +1,7 @@
 #pragma once
 #include <eris/Consumer.hpp>
-#include <eris/IntraOptimizer.hpp>
 #include <eris/Market.hpp>
+#include <eris/Optimize.hpp>
 #include <forward_list>
 
 namespace eris { namespace intraopt {
@@ -47,7 +47,7 @@ namespace eris { namespace intraopt {
  * - then unwind everything and pick the highest
  */
 
-class IncrementalBuyer : public IntraOptimizer {
+class IncrementalBuyer : public Member, public virtual OptApplyReset {
     public:
         /** Constructs a new IncrementalBuyer optimization object for a given agent.
          *
@@ -98,15 +98,15 @@ class IncrementalBuyer : public IntraOptimizer {
          * specified in the constructor, purchasing whichever goods yields the highest utility gain
          * at each step.
          */
-        virtual void optimize() override;
+        virtual void intraOptimize() override;
 
         /** Completes any purchases calculated and reserved in optimize(). */
-        virtual void apply() override;
+        virtual void intraApply() override;
 
         /** Resets any optimization, discarding reservations previously calculated in optimize(), if
          * any.
          */
-        virtual void reset() override;
+        virtual void intraReset() override;
 
     protected:
         const eris_id_t con_id;

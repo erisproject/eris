@@ -1,6 +1,7 @@
 #pragma once
 #include <eris/algorithms.hpp>
-#include <eris/InterOptimizer.hpp>
+#include <eris/Optimize.hpp>
+#include <eris/Member.hpp>
 
 namespace eris { namespace interopt {
 
@@ -19,7 +20,7 @@ namespace eris { namespace interopt {
  * \sa Stepper the class handling the step adjustment logic
  * \sa PriceStepper a Stepper implementation adapted to PriceFirms
  */
-class InterStepper : public InterOptimizer {
+class InterStepper : public Member, public virtual OptApply {
     public:
         /// The default initial step, if not given in the constructor
         static constexpr double default_initial_step = Stepper::default_initial_step;
@@ -77,12 +78,12 @@ class InterStepper : public InterOptimizer {
         /** Determines whether the value should go up or down, and by how much.  Calls
          * (unimplemented) method should_increase() to determine the direction of change.
          */
-        virtual void optimize() const override;
+        virtual void interOptimize() const override;
 
         /** Applies the value change calculated in optimize().  This will call take_step() with the
          * relative value change (e.g. 1.25 to increase value by 25%).
          */
-        virtual void apply() override;
+        virtual void interApply() override;
 
     protected:
         /// The Stepper object used to handle step adjustment logic

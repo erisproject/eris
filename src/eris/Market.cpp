@@ -58,7 +58,7 @@ void Market::release_(Reservation_ &res) {
     res.b_.clear();
 }
 
-Market::Reservation_::Reservation_(SharedMember<Market> mkt, SharedMember<Agent> agt, double qty, double pr)
+Market::Reservation_::Reservation_(SharedMember<Market> mkt, SharedMember<AssetAgent> agt, double qty, double pr)
     : quantity(qty), price(pr), market(mkt), agent(agt) {
     auto lock = agent->writeLock(std::vector<SharedMember<Member>>({ market }));
 
@@ -85,7 +85,7 @@ void Market::Reservation_::release() {
     market->release_(*this);
 }
 
-Market::Reservation Market::createReservation(SharedMember<Agent> agent, double q, double p) {
+Market::Reservation Market::createReservation(SharedMember<AssetAgent> agent, double q, double p) {
     return Reservation(new Reservation_(sharedSelf(), agent, q, p));
 }
 

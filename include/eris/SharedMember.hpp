@@ -16,6 +16,9 @@ class Member;
  * SharedMember<Member>, and the same SharedMember<Member> variable can be cast as a
  * SharedMember<Good>.
  *
+ * A less-than comparison operator is provided so that SharedMembers can be stored in an ordered
+ * container.
+ *
  * Note that SharedMember instances *cannot* be constructed directly (except when copying from
  * another compatible SharedMember instance), but are created via the various add* and clone*
  * methods of Simulation.
@@ -36,6 +39,17 @@ class SharedMember final {
         T& operator * () const { return *ptr_; }
         /** Dereferencing member access works on the underlying T */
         T* operator -> () const { return ptr_.get(); }
+
+        /** Less-than comparison operator.  This currently compares eris_id_t values, but that could
+         * be subject to change.  If either SharedMember doesn't have an actual member, a value of 0
+         * is used.  0 is also used for Members that are not part of a simulation.
+         *
+         * eris_id_t values are unique within a simulation, but not across simulations: attempting
+         * to store SharedMember<T> of different simulations in a container will not work.
+         */
+        template <class O>
+        bool operator < (const SharedMember<O> &other) {
+            return (ptr_ ? ptr_->id() : 0) < (other.ptr_ ? other.ptr_->id() : 0); }
 
         /** Access to the underlying shared_ptr */
         const std::shared_ptr<T> ptr() const { return ptr_; }

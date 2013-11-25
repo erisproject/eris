@@ -1,5 +1,5 @@
 #pragma once
-#include <eris/Agent.hpp>
+#include <eris/agent/AssetAgent.hpp>
 #include <eris/Bundle.hpp>
 #include <algorithm>
 #include <exception>
@@ -13,7 +13,7 @@ namespace firm {}
 /** Abstract base class for representing a firm that uses some input (such as money) to supply some
  * output (such as a good).
  */
-class Firm : public Agent {
+class Firm : public agent::AssetAgent {
     public:
         /** Returns true if the firm is able to supply the given Bundle.  Returning false thus 
          * indicates that the firm either cannot supply some of the items in the Bundle, or else

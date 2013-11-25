@@ -61,12 +61,8 @@ void thr_code3() {
 }
 void thr_code4() {
     sleep_ms(100);
-    std::vector<SharedMember<Member>> pals;
-    for (int i = 1; i < 5; i++) {
-        pals.push_back(c[i]);
-    }
     std::cout << "                                                  4 write-locking   0--4...\n" << std::flush;
-    auto wlock = c[0]->writeLock(pals);
+    auto wlock = c[0]->writeLock(c[1], c[2], c[3], c[4]);
     std::cout << "                                                  4 write-locked    0--4\n" << std::flush;
     std::cout << "                                                  4 write-releasing 0--4       *7, 7*\n" << std::flush;
 
@@ -83,12 +79,8 @@ void thr_code5() {
 }
 void thr_code6() {
     sleep_ms(50);
-    std::vector<SharedMember<Member>> pals;
-    for (int i = 2; i <= 6; i++) {
-        pals.push_back(c[i]);
-    }
     std::cout << "                                                  6 read-locking    1--6...\n" << std::flush;
-    auto rlock = c[1]->readLock(pals);
+    auto rlock = c[1]->readLock(c[2], c[3], c[4], c[5], c[6]);
     std::cout << "                                                  6 read-locked     1--6\n" << std::flush;
     sleep_ms(500);
     std::cout << "                                                  6 read-releasing  1--6       *6, 2*\n" << std::flush;
@@ -121,6 +113,7 @@ void thr_code8() {
 int main() {
 
     Eris<Simulation> sim;
+    sim->maxThreads(10);
 
     for (int i = 0; i < 10; i++) {
         c.push_back(sim->createAgent<Quadratic>());

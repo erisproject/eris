@@ -1,12 +1,11 @@
 #include <eris/market/QMarket.hpp>
-#include <eris/intraopt/WalrasianPricer.hpp>
-#include <eris/Simulation.hpp>
+//#include <eris/Simulation.hpp>
 #include <unordered_map>
 
 namespace eris { namespace market {
 
-QMarket::QMarket(Bundle output_unit, Bundle price_unit, double initial_price, int qmpricer_tries) :
-    Market(output_unit, price_unit), qmpricer_tries_(qmpricer_tries) {
+QMarket::QMarket(Bundle output_unit, Bundle price_unit, double initial_price, unsigned int qmpricer_tries) :
+    Market(output_unit, price_unit), tries_(qmpricer_tries) {
     price_ = initial_price <= 0 ? 1 : initial_price;
 }
 
@@ -41,7 +40,7 @@ Market::quantity_info QMarket::quantity(double p) const {
     return { .quantity=q, .constrained=constrained, .spent=spent, .unspent=p-spent };
 }
 
-Market::Reservation QMarket::reserve(SharedMember<Agent> agent, double q, double p_max) {
+Market::Reservation QMarket::reserve(SharedMember<AssetAgent> agent, double q, double p_max) {
     std::vector<SharedMember<firm::QFirm>> supply;
     for (auto &sid : suppliers_) {
         supply.push_back(simAgent<firm::QFirm>(sid));
@@ -111,9 +110,37 @@ void QMarket::setPrice(double p) {
     price_ = p;
 }
 
-void QMarket::added() {
-    if (qmpricer_tries_ > 0)
-        optimizer = simulation()->createIntraOpt<eris::intraopt::WalrasianPricer>(*this, qmpricer_tries_);
+void QMarket::intraInitialize() {
+    tried_ = 0;
+}
+
+bool QMarket::intraReoptimize() {
+    bool first_try = tried_ == 0;
+
+    // If we're all out of adjustments, don't change the price
+    if (++tried_ > tries_) return false;
+
+    auto qlock = writeLock();
+    double excess_capacity = firmQuantities();
+
+    bool last_was_decrease = not stepper_.prev_up;
+    bool increase_price = excess_capacity <= 0;
+
+    if (not first_try and last_was_decrease and not increase_price and excess_capacity >= last_excess_) {
+        // Decreasing the price last time didn't help anything--perhaps noise from other market
+        // adjustments, but it could also mean that we've hit market satiation, in which case
+        // decreasing price further won't help.
+        increase_price = true;
+    }
+    last_excess_ = excess_capacity;
+
+    double new_price = stepper_.step(increase_price);
+
+    if (new_price != 1) {
+        setPrice(new_price * price());
+        return true;
+    }
+    return false;
 }
 
 } }

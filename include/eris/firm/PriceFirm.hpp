@@ -50,7 +50,7 @@ class PriceFirm : public Firm {
         /** Advances to the next period.  In particular, this resets the used capacity to 0, thus
          * restoring a constrained firm's ability to produce.
          */
-        virtual void advance();
+        virtual void interAdvance() override;
 
     protected:
         Bundle price_, output_;

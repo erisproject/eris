@@ -1,7 +1,7 @@
 #pragma once
 
 #include <eris/Consumer.hpp>
-#include <eris/IntraOptimizer.hpp>
+#include <eris/Optimize.hpp>
 #include <eris/Market.hpp>
 #include <unordered_map>
 #include <unordered_set>
@@ -19,7 +19,7 @@ namespace eris { namespace intraopt {
  * marginal utility per money unit is equal in each available market.  Multi-good markets are
  * handled (the marginal utility is the sum of the marginal utility of the individual goods).
  */
-class MUPD : public IntraOptimizer {
+class MUPD : public Member, public virtual OptApplyReset {
     public:
         /// The default value of the constructor's tolerance parameter
         static constexpr double default_tolerance = 1.0e-10;
@@ -36,13 +36,13 @@ class MUPD : public IntraOptimizer {
          * typically, with no other changes to the economy between calls, optimize() will return
          * false on the second call.
          */
-        virtual void optimize() override;
+        virtual void intraOptimize() override;
 
         /// Resets optimization, discarding any reservations previously calculated in optimize().
-        virtual void reset() override;
+        virtual void intraReset() override;
 
         /// Applies spending calculated and reserved in optimize().
-        virtual void apply() override;
+        virtual void intraApply() override;
 
         /** The relative tolerance level at which optimization stops. */
         double tolerance;

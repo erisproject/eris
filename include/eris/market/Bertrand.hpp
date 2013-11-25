@@ -35,7 +35,7 @@ class Bertrand : public Market {
         virtual quantity_info quantity(double p) const override;
         /// Reserves q units, paying at most p_max for them.
         virtual Reservation reserve(
-                SharedMember<Agent> agent,
+                SharedMember<AssetAgent> agent,
                 double q,
                 double p_max = std::numeric_limits<double>::infinity()) override;
         /// Adds a firm to this market.  The Firm must be a PriceFirm object (or subclass)

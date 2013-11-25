@@ -39,7 +39,7 @@ class QFirm : public FirmNoProd {
          * capacity to be produced is 20, and 4 remains after depreciation, only 16 will actually be
          * produced.
          */
-        virtual void advance() override;
+        virtual void interAdvance() override;
 
         /** Called to depreciate any current on-hand stock according to the depreciation parameter
          * given during construction.  Only good quantities that are in the output unit given during

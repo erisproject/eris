@@ -23,21 +23,19 @@ int main() {
 
     Eris<Simulation> sim;
 
-    auto m = sim->createGood<Good::Continuous>("money");
-    auto x = sim->createGood<Good::Continuous>("x");
+    auto m = sim->create<Good::Continuous>("money");
+    auto x = sim->create<Good::Continuous>("x");
 
     auto m1 = Bundle(m, 1);
     auto x1 = Bundle(x, 1);
 
     // Set up a quantity-setting firm that produces x, with initial quantity of 100,
     // and complete depreciation.
-    auto firm = sim->createAgent<QFirm>(x1, 100);
-    sim->createInterOpt<QFStepper>(firm, m1);
+    auto firm = sim->create<QFirm>(x1, 100);
+    sim->create<QFStepper>(firm, m1);
 
-    auto qmkt = sim->createMarket<QMarket>(x1, m1, 1.0, 7);
+    auto qmkt = sim->create<QMarket>(x1, m1, 1.0, 7);
     qmkt->addFirm(firm);
-
-//    sim->createIntraOpt<WalrasianPricer>(qmkt, Stepper(Stepper::default_initial_step, Stepper::default_increase_count, 1e-6), 7);
 
     std::cout << "qmkt->optimizer=" << qmkt->optimizer << "\n";
 
@@ -46,21 +44,23 @@ int main() {
     // Set up some agents, from 1 to 100, which agent j having utility m + x - x^2/(2j).
     // This is simple enough: the optimal price is 0.5, with agent j buying j/2 units.
     for (int j = 1; j <= 100; j++) {
-        auto c = sim->createAgent<Quadratic>();
+        auto c = sim->create<Quadratic>();
         c->coef(m) = 1;
         c->coef(x) = 1;
         c->coef(x, x) = -0.5 / j;
         consumers.push_back(c);
 
         // Use MUPD for optimization
-        eris_id_t z = sim->createIntraOpt<MUPD>(c, m);
+        eris_id_t z = sim->create<MUPD>(c, m);
         std::cout << "MUPD: " << z << "\n";
 
         // Give them some income:
         c->assets() += 100*m1;
-        z = sim->createInterOpt<FixedIncome>(c, 100*m1);
+        z = sim->create<FixedIncome>(c, 100*m1);
         std::cout << "FixedIncome: " << z << "\n";
     }
+
+    sim->maxThreads(4);
 
     for (int i = 0; i < 30; i++) {
         std::cout << "Running iteration " << i << "...\n";

@@ -1,6 +1,6 @@
 #pragma once
 #include <eris/Member.hpp>
-#include <eris/Agent.hpp>
+#include <eris/agent/AssetAgent.hpp>
 #include <eris/Firm.hpp>
 #include <eris/Good.hpp>
 #include <eris/Bundle.hpp>
@@ -9,6 +9,8 @@
 #include <forward_list>
 
 namespace eris {
+
+using agent::AssetAgent;
 
 /** Abstract base class for markets in Eris.
  *
@@ -86,7 +88,7 @@ class Market : public Member {
             private:
                 friend class Market;
 
-                Reservation_(SharedMember<Market> market, SharedMember<Agent> agent, double quantity, double price);
+                Reservation_(SharedMember<Market> market, SharedMember<AssetAgent> agent, double quantity, double price);
 
                 // Disable empty and copy constructors
                 Reservation_() = delete;
@@ -114,7 +116,7 @@ class Market : public Member {
                 /// The market to which this Reservation applies.
                 const SharedMember<Market> market;
                 /// The agent for which this Reservation is being held.
-                const SharedMember<Agent> agent;
+                const SharedMember<AssetAgent> agent;
                 /** Reserves the given BundleNegative transfer from the given firm and stores the
                  * result, to be transferred if buy() is called, and aborted if release() is called.
                  * Positive amounts are to be transferred from the firm, negative amounts are to be
@@ -179,16 +181,16 @@ class Market : public Member {
 
         /** Reserves q times the output Bundle for price at most p_max * price Bundle.  Removes the
          * purchase price (which could be less than p_max * price) from the assets() bundle of the
-         * provided Agent.  When the reservation is completed, the amount is transfered to the firm;
-         * if aborted, the amount is returned to the Agent's assets() Bundle.  Returns a Reservation
-         * object that should be passed in to buy() to complete the transfer, or release() to abort
-         * the sale.
+         * provided AssetAgent.  When the reservation is completed, the amount is transfered to the
+         * firm; if aborted, the amount is returned to the AssetAgent's assets() Bundle.  Returns a
+         * Reservation object that should be passed in to buy() to complete the transfer, or
+         * release() to abort the sale.
          *
          * \param q the quantity to reserve, as a multiple of the market's output_unit.
-         * \param agent a SharedMember<Agent> (or Agent subclass) from whose assets() Bundle the
-         * payment will be taken.  The removed amount will be held until either buy() or release()
-         * is called, at which point it will be transferred to the seller(s) or returned to the
-         * Agent, respectively.
+         * \param agent a SharedMember<AssetAgent> (or AssetAgent subclass) from whose assets()
+         * Bundle the payment will be taken.  The removed amount will be held until either buy() or
+         * release() is called, at which point it will be transferred to the seller(s) or returned
+         * to the AssetAgent, respectively.
          * \param p_max the maximum price to pay, as a multiple of the market's price_unit.
          * Optional; if omitted, defaults to infinity (i.e. no limit).
          *
@@ -212,11 +214,11 @@ class Market : public Member {
          * when assets are less than p_max*price: the actual transaction price could be low enough
          * that assets is sufficient.
          */
-        virtual Reservation reserve(SharedMember<Agent> agent, double q, double p_max = std::numeric_limits<double>::infinity()) = 0;
+        virtual Reservation reserve(SharedMember<AssetAgent> agent, double q, double p_max = std::numeric_limits<double>::infinity()) = 0;
 
         /** Completes a reservation made with reserve().  Transfers the reserved assets into the
-         * assets() Bundle of the Agent supplied when creating the reservation, and transfers the
-         * reserved payment to the firm(s) supplying the output.
+         * assets() Bundle of the AssetAgent supplied when creating the reservation, and transfers
+         * the reserved payment to the firm(s) supplying the output.
          *
          * The provided Reservation object is updated to record that it has been purchased.
          *
@@ -300,10 +302,10 @@ class Market : public Member {
         std::unordered_set<eris_id_t> suppliers_;
 
         /** Creates a Reservation and returns it.  For use by subclasses only.  The reserved payment
-         * (i.e. p*price_unit) will be transferred out of the Agent's assets() Bundle and held in the
-         * Reservation until completed or cancelled.
+         * (i.e. p*price_unit) will be transferred out of the AssetAgent's assets() Bundle and held
+         * in the Reservation until completed or cancelled.
          */
-        Reservation createReservation(SharedMember<Agent> agent, double q, double p);
+        Reservation createReservation(SharedMember<AssetAgent> agent, double q, double p);
 };
 
 

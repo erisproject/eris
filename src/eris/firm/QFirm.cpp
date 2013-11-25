@@ -30,9 +30,9 @@ const Bundle& QFirm::output() const noexcept {
     return output_unit_;
 }
 
-void QFirm::advance() {
+void QFirm::interAdvance() {
     Bundle leftover = depreciate();
-    FirmNoProd::advance(); // Clears assets
+    FirmNoProd::interAdvance(); // Clears assets
     assets() += leftover;
     ensureNext(capacity * output());
     updateStarted();

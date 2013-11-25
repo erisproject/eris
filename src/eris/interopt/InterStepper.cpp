@@ -8,7 +8,7 @@ InterStepper::InterStepper(double step, int increase_count, int period, int peri
 InterStepper::InterStepper(Stepper stepper, int period, int period_offset)
     : stepper_(stepper), period_(period), period_offset_(period_offset) {}
 
-void InterStepper::optimize() const {
+void InterStepper::interOptimize() const {
     jump_ = should_jump();
 
     ++last_step_;
@@ -24,7 +24,7 @@ void InterStepper::optimize() const {
     }
 }
 
-void InterStepper::apply() {
+void InterStepper::interApply() {
     if (jump_) {
         stepper_.same = 0;
         take_jump();

@@ -2,8 +2,6 @@
 #include <eris/Agent.hpp>
 #include <eris/Good.hpp>
 #include <eris/Market.hpp>
-#include <eris/IntraOptimizer.hpp>
-#include <eris/InterOptimizer.hpp>
 
 namespace eris {
 

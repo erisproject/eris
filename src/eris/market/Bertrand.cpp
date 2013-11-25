@@ -17,14 +17,13 @@ Market::quantity_info Bertrand::quantity(double price) const {
     std::unordered_map<double, double> price_quantity;
 
     std::vector<SharedMember<Member>> to_lock;
-    auto suppliers = simulation()->agentFilter<firm::PriceFirm>([this] (SharedMember<firm::PriceFirm> f) {
+    auto suppliers = simulation()->agents<firm::PriceFirm>([this] (const firm::PriceFirm &f) {
             return suppliers_.count(f) > 0; });
-    for (auto &f : suppliers) to_lock.push_back(f.second);
+    for (auto &f : suppliers) to_lock.push_back(f);
 
     readLock(to_lock);
 
-    for (auto &f : suppliers) {
-        auto &firm = f.second;
+    for (auto &firm : suppliers) {
         double s = firm->canSupplyAny(output_unit);
         if (s > 0) {
             double firm_price = output_unit.coverage(firm->output()) * firm->price().coverage(price_unit);
@@ -215,7 +214,7 @@ Bertrand::allocation Bertrand::allocate(double q) const {
     return a;
 }
 
-Market::Reservation Bertrand::reserve(SharedMember<Agent> agent, double q, double p_max) {
+Market::Reservation Bertrand::reserve(SharedMember<AssetAgent> agent, double q, double p_max) {
     // FIXME: need to lock the economy until this transaction completes; otherwise supply() could
     // fail.
     allocation a = allocate(q);

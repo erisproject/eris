@@ -3,115 +3,92 @@
 #include <eris/Agent.hpp>
 #include <eris/Good.hpp>
 #include <eris/Market.hpp>
-#include <eris/IntraOptimizer.hpp>
-#include <eris/InterOptimizer.hpp>
+#include <eris/Optimize.hpp>
 #include <algorithm>
 
 namespace eris {
 
-Simulation::Simulation() :
-    agents_(new MemberMap<Agent>()),
-    goods_(new MemberMap<Good>()),
-    markets_(new MemberMap<Market>()),
-    intraopts_(new MemberMap<IntraOptimizer>()),
-    interopts_(new MemberMap<InterOptimizer>())
-    {}
-
-// Assign an ID, set it, store the simulator, and insert into the agent map
-// This should be the *ONLY* place anything is ever added into agents_
-void Simulation::insertAgent(const SharedMember<Agent> &a) {
-    std::lock_guard<std::recursive_mutex> lock(member_mutex_);
-    a->simulation(shared_from_this(), id_next_++);
-    agents_->insert(std::make_pair(a->id(), a));
-    invalidateCache<Agent>();
-    q_cache_reset_agent_ = true;
-}
 // Assign an ID, set it, store the simulator, and insert into the good map
 // This should be the *ONLY* place anything is ever added into goods_
-void Simulation::insertGood(const SharedMember<Good> &g) {
-    std::lock_guard<std::recursive_mutex> lock(member_mutex_);
-    g->simulation(shared_from_this(), id_next_++);
-    goods_->insert(std::make_pair(g->id(), g));
-    invalidateCache<Good>();
-}
-// Assign an ID, set it, store the simulator, and insert into the market map
-// This should be the *ONLY* place anything is ever added into markets_
-void Simulation::insertMarket(const SharedMember<Market> &m) {
-    std::lock_guard<std::recursive_mutex> lock(member_mutex_);
-    m->simulation(shared_from_this(), id_next_++);
-    markets_->insert(std::make_pair(m->id(), m));
-    invalidateCache<Market>();
-}
-// Assign an ID, set it, store the optimizer, and insert into the intraopt map
-// This should be the *ONLY* place anything is ever added into intraopts_
-void Simulation::insertIntraOpt(const SharedMember<IntraOptimizer> &o) {
-    std::lock_guard<std::recursive_mutex> lock(member_mutex_);
-    o->simulation(shared_from_this(), id_next_++);
-    intraopts_->insert(std::make_pair(o->id(), o));
-    invalidateCache<IntraOptimizer>();
-    q_cache_reset_intra_ = true;
-}
-// Assign an ID, set it, store the optimizer, and insert into the interopt map
-// This should be the *ONLY* place anything is ever added into interopts_
-void Simulation::insertInterOpt(const SharedMember<InterOptimizer> &o) {
-    std::lock_guard<std::recursive_mutex> lock(member_mutex_);
-    o->simulation(shared_from_this(), id_next_++);
-    interopts_->insert(std::make_pair(o->id(), o));
-    invalidateCache<InterOptimizer>();
-    q_cache_reset_inter_ = true;
-}
 
 void Simulation::registerDependency(const eris_id_t &member, const eris_id_t &depends_on) {
     std::lock_guard<std::recursive_mutex> lock(member_mutex_);
     depends_on_[depends_on].insert(member);
 }
 
-// This should be the *ONLY* place anything is ever removed from agents_
-void Simulation::removeAgent(const eris_id_t &aid) {
-    std::lock_guard<std::recursive_mutex> lock(member_mutex_);
-    auto mlock = agents_->at(aid)->readLock();
-    agents_->at(aid)->simulation(nullptr, 0);
-    agents_->erase(aid);
-    removeDeps(aid);
-    invalidateCache<Agent>();
-    q_cache_reset_agent_ = true;
-}
-void Simulation::removeGood(const eris_id_t &gid) {
-    std::lock_guard<std::recursive_mutex> lock(member_mutex_);
-    auto mlock = goods_->at(gid)->readLock();
-    goods_->at(gid)->simulation(nullptr, 0);
-    goods_->erase(gid);
-    removeDeps(gid);
-    invalidateCache<Good>();
-}
-void Simulation::removeMarket(const eris_id_t &mid) {
-    std::lock_guard<std::recursive_mutex> lock(member_mutex_);
-    auto mlock = markets_->at(mid)->readLock();
-    markets_->at(mid)->simulation(nullptr, 0);
-    markets_->erase(mid);
-    removeDeps(mid);
-    invalidateCache<Market>();
-}
-void Simulation::removeIntraOpt(const eris_id_t &oid) {
-    std::lock_guard<std::recursive_mutex> lock(member_mutex_);
-    auto mlock = intraopts_->at(oid)->readLock();
-    intraopts_->at(oid)->simulation(nullptr, 0);
-    intraopts_->erase(oid);
-    removeDeps(oid);
-    invalidateCache<IntraOptimizer>();
-    q_cache_reset_intra_ = true;
-}
-void Simulation::removeInterOpt(const eris_id_t &oid) {
-    std::lock_guard<std::recursive_mutex> lock(member_mutex_);
-    auto mlock = interopts_->at(oid)->readLock();
-    interopts_->at(oid)->simulation(nullptr, 0);
-    interopts_->erase(oid);
-    removeDeps(oid);
-    invalidateCache<InterOptimizer>();
-    q_cache_reset_inter_ = true;
+void Simulation::insert(const SharedMember<Member> &member) {
+    if (dynamic_cast<Agent*>(member.ptr_.get())) insertAgent(member);
+    else if (dynamic_cast<Good*>(member.ptr_.get())) insertGood(member);
+    else if (dynamic_cast<Market*>(member.ptr_.get())) insertMarket(member);
+    else insertOther(member);
 }
 
+// Macro for the 4 nearly-identical versions of these two functions.  When adding to the simulation,
+// we need to assign an eris_id_t, give a reference to the simulation to the object, insert into
+// agents_/goods_/markets_/others_, register any optimization implementations, and invalidate the
+// associated filter cache.  When removing, we need to undo all of the above.
+// This should be the *ONLY* place anything is ever added or removed from agents_, goods_, markets_,
+// and others_
+#define ERIS_SIM_INSERT_REMOVE_MEMBER(TYPE, CLASS, MAP)\
+void Simulation::insert##TYPE(const SharedMember<CLASS> &member) {\
+    std::lock_guard<std::recursive_mutex> mbr_lock(member_mutex_);\
+    member->simulation(shared_from_this(), id_next_++);\
+    MAP.insert(std::make_pair(member->id(), member));\
+    insertOptimizers(member);\
+    invalidateCache<CLASS>();\
+}\
+void Simulation::remove##TYPE(const eris_id_t &id) {\
+    std::lock_guard<std::recursive_mutex> mbr_lock(member_mutex_);\
+    auto &member = MAP.at(id);\
+    auto lock = member->writeLock();\
+    removeOptimizers(member);\
+    member->simulation(nullptr, 0);\
+    MAP.erase(id);\
+    removeDeps(id);\
+    invalidateCache<CLASS>();\
+}
+ERIS_SIM_INSERT_REMOVE_MEMBER(Agent,  Agent,  agents_)
+ERIS_SIM_INSERT_REMOVE_MEMBER(Good,   Good,   goods_)
+ERIS_SIM_INSERT_REMOVE_MEMBER(Market, Market, markets_)
+ERIS_SIM_INSERT_REMOVE_MEMBER(Other,  Member, others_)
+#undef ERIS_SIM_INSERT_REMOVE_MEMBER
 
+void Simulation::remove(const eris_id_t &id) {
+    if (agents_.count(id)) removeAgent(id);
+    else if (goods_.count(id)) removeGood(id);
+    else if (markets_.count(id)) removeMarket(id);
+    else if (others_.count(id)) removeOther(id);
+    else throw std::out_of_range("eris_id_t to be removed does not exist");
+}
+
+void Simulation::insertOptimizers(const SharedMember<Member> &member) {
+    std::lock_guard<std::recursive_mutex> lock(member_mutex_);\
+    Member *mem = member.ptr_.get();
+#define ERIS_SIM_INSERT_OPTIMIZER(TYPE, STAGE)\
+    if (dynamic_cast<TYPE##opt::STAGE*>(mem)) {\
+        optimizers_[(int) RunStage::TYPE##_##STAGE].emplace(member);\
+        shared_q_cache_[(int) RunStage::TYPE##_##STAGE].reset();\
+    }
+    ERIS_SIM_INSERT_OPTIMIZER(inter, Optimize)
+    ERIS_SIM_INSERT_OPTIMIZER(inter, Apply)
+    ERIS_SIM_INSERT_OPTIMIZER(inter, Advance)
+    ERIS_SIM_INSERT_OPTIMIZER(inter, PostAdvance)
+
+    ERIS_SIM_INSERT_OPTIMIZER(intra, Initialize)
+    ERIS_SIM_INSERT_OPTIMIZER(intra, Reset)
+    ERIS_SIM_INSERT_OPTIMIZER(intra, Optimize)
+    ERIS_SIM_INSERT_OPTIMIZER(intra, Reoptimize)
+    ERIS_SIM_INSERT_OPTIMIZER(intra, Apply)
+#undef ERIS_SIM_INSERT_OPTIMIZER
+}
+void Simulation::removeOptimizers(const SharedMember<Member> &member) {
+    std::lock_guard<std::recursive_mutex> lock(member_mutex_);\
+    for (int i = optimizers_.size()-1; i >= 0; i--) {
+        if (optimizers_[i].erase(member) > 0) {
+            shared_q_cache_[i].reset();
+        }
+    }
+}
 
 void Simulation::removeDeps(const eris_id_t &member) {
     std::lock_guard<std::recursive_mutex> lock(member_mutex_);
@@ -119,15 +96,14 @@ void Simulation::removeDeps(const eris_id_t &member) {
     if (!depends_on_.count(member)) return;
 
     // Remove the dependents before iterating, to break potential dependency loops
-    const auto deps = depends_on_.at(member);
+    const auto deps = depends_on_[member];
     depends_on_.erase(member);
 
     for (const auto &dep : deps) {
-        if      (   agents_->count(dep))    removeAgent(dep);
-        else if (    goods_->count(dep))     removeGood(dep);
-        else if (  markets_->count(dep))   removeMarket(dep);
-        else if (intraopts_->count(dep)) removeIntraOpt(dep);
-        else if (interopts_->count(dep)) removeInterOpt(dep);
+        if      ( agents_.count(dep))  removeAgent(dep);
+        else if (  goods_.count(dep))   removeGood(dep);
+        else if (markets_.count(dep)) removeMarket(dep);
+        else if ( others_.count(dep))  removeOther(dep);
         // Otherwise it's already removed (possibly because of some nested dependencies), so don't
         // worry about it.
     }
@@ -137,72 +113,6 @@ void Simulation::maxThreads(unsigned long max_threads) {
     if (running_)
         throw std::runtime_error("Cannot change number of threads during a Simulation run() call");
     max_threads_ = max_threads;
-}
-
-Simulation::ThreadModel Simulation::threadModel() {
-    return thread_model_;
-}
-
-void Simulation::threadModel(ThreadModel model) {
-    if (running_)
-        throw std::runtime_error("Cannot change threading model during a Simulation run() call");
-    thread_model_ = model;
-}
-
-void Simulation::nothr_stage(const RunStage &stage) {
-    stage_ = stage;
-    // Does the same as thr_stage() and thr_loop() for the current stage, but with all of the
-    // threading code; this is substantially simpler code as a result.
-    switch ((RunStage) stage_) {
-        // Inter-period optimizer stages.  These are in order and are intentionally ifs, not else
-        // ifs, because we they occur in order but new threads can enter anywhere along the process.
-        case RunStage::inter_optimize:
-            for (auto &pair : *interopts_) pair.second->optimize();
-            break;
-
-        case RunStage::inter_apply:
-            for (auto &pair : *interopts_) pair.second->apply();
-            break;
-
-        case RunStage::inter_advance:
-            for (auto &pair : *agents_) pair.second->advance();
-            break;
-
-        case RunStage::inter_postAdvance:
-            for (auto &pair : *interopts_) pair.second->postAdvance();
-            break;
-
-            // Intra-period optimizations
-        case RunStage::intra_initialize:
-            for (auto &pair : *intraopts_) pair.second->initialize();
-            break;
-
-        case RunStage::intra_reset:
-            for (auto &pair : *intraopts_) pair.second->reset();
-            break;
-
-        case RunStage::intra_optimize:
-            for (auto &pair : *intraopts_) pair.second->optimize();
-            break;
-
-        case RunStage::intra_postOptimize:
-            for (auto &pair : *intraopts_) {
-                if (pair.second->postOptimize())
-                    thr_redo_intra_ = true;
-            }
-            break;
-
-        case RunStage::intra_apply:
-            for (auto &pair : *intraopts_) pair.second->apply();
-            break;
-
-        case RunStage::kill:
-        case RunStage::kill_all:
-        case RunStage::idle:
-            // None of these should happen when not using threads!
-            throw std::runtime_error("Found thread-specific state (kill, kill_all, or idle) but threads are not in use!");
-            break;
-    }
 }
 
 void Simulation::thr_loop() {
@@ -234,186 +144,120 @@ void Simulation::thr_loop() {
                 return; // Killed!
                 break;
 
-#define ERIS_SIM_STAGE_CASE(S, W, T, M)\
-            case RunStage::S:\
-                thr_work_##W([](T &o) { o.M(); });\
+#define ERIS_SIM_STAGE_CASE(TYPE, STAGE)\
+            case RunStage::TYPE##_##STAGE:\
+                thr_work<TYPE##opt::STAGE>([](TYPE##opt::STAGE &o) { o.TYPE##STAGE(); });\
                 thr_stage_finished(curr_stage);\
-                break;
+                break
 
             // Inter-period optimizer stages
-            ERIS_SIM_STAGE_CASE(inter_optimize,    inter, InterOptimizer, optimize)
-            ERIS_SIM_STAGE_CASE(inter_apply,       inter, InterOptimizer, apply)
-            ERIS_SIM_STAGE_CASE(inter_advance,     agent, Agent,          advance)
-            ERIS_SIM_STAGE_CASE(inter_postAdvance, inter, InterOptimizer, postAdvance)
+            ERIS_SIM_STAGE_CASE(inter, Optimize);
+            ERIS_SIM_STAGE_CASE(inter, Apply);
+            ERIS_SIM_STAGE_CASE(inter, Advance);
+            ERIS_SIM_STAGE_CASE(inter, PostAdvance);
 
             // Intra-period optimizer stages
-            ERIS_SIM_STAGE_CASE(intra_initialize, intra, IntraOptimizer, initialize)
-            ERIS_SIM_STAGE_CASE(intra_reset,      intra, IntraOptimizer, reset)
-            ERIS_SIM_STAGE_CASE(intra_optimize,   intra, IntraOptimizer, optimize)
-            ERIS_SIM_STAGE_CASE(intra_apply,      intra, IntraOptimizer, apply)
-
-            case RunStage::intra_postOptimize:
+            ERIS_SIM_STAGE_CASE(intra, Initialize);
+            ERIS_SIM_STAGE_CASE(intra, Reset);
+            ERIS_SIM_STAGE_CASE(intra, Optimize);
+            ERIS_SIM_STAGE_CASE(intra, Apply);
+#undef ERIS_SIM_STAGE_CASE
+            case RunStage::intra_Reoptimize:
                 // Slightly trickier than the others: we need to signal a redo on the intra-optimizers
-                // if any postOptimize returns false.
-                thr_work_intra([this](IntraOptimizer &opt) {
-                    if (opt.postOptimize()) { // Need a restart
+                // if any reoptimize returns false.
+                thr_work<intraopt::Reoptimize>([this](intraopt::Reoptimize &opt) {
+                    if (opt.intraReoptimize()) // Need a restart
                         thr_redo_intra_ = true;
-                    }
                 });
-                // After a postOptimize, we wait for *either* a return to reset or an apply
                 thr_stage_finished(curr_stage);
                 break;
-#undef ERIS_SIM_STAGE_CASE
-
         }
-
-        if (maxThreads() == 0) return;
     }
 }
 
-void Simulation::thr_work_agent(const std::function<void(Agent&)> &work) {
-    // Release the sync mutex right away until we're done.  The master thread (and all other
-    // threads) should be well behaved and not modify queues until we're done.
-    for (auto &aid : *thr_q_[std::this_thread::get_id()]) {
-        work(agents_->at(aid));
-    }
-
+template <class Opt>
+void Simulation::thr_work(const std::function<void(Opt&)> &work) {
     auto qsize = shared_q_->size();
     size_t i;
     while ((i = shared_q_next_++) < qsize) {
-        work(agents_->at(shared_q_->at(i)));
-    }
-}
-void Simulation::thr_work_inter(const std::function<void(InterOptimizer&)> &work) {
-    for (auto &iid : *thr_q_[std::this_thread::get_id()]) {
-        work(interopts_->at(iid));
-    }
-
-    auto qsize = shared_q_->size();
-    size_t i;
-    while ((i = shared_q_next_++) < qsize) {
-        work(interopts_->at(shared_q_->at(i)));
-    }
-}
-void Simulation::thr_work_intra(const std::function<void(IntraOptimizer&)> &work) {
-    for (auto &iid : *thr_q_[std::this_thread::get_id()]) {
-        work(intraopts_->at(iid));
-    }
-    auto qsize = shared_q_->size();
-    size_t i;
-    while ((i = shared_q_next_++) < qsize) {
-        work(intraopts_->at(shared_q_->at(i)));
+        work(*(dynamic_cast<Opt*>(shared_q_->operator[](i).ptr_.get())));
     }
 }
 
 void Simulation::thr_stage(const RunStage &stage) {
-    {
-        std::lock_guard<std::recursive_mutex> lock(member_mutex_);
+    switch (stage) {
+        case RunStage::inter_Optimize:
+        case RunStage::inter_Apply:
+        case RunStage::inter_Advance:
+        case RunStage::inter_PostAdvance:
+        case RunStage::intra_Initialize:
+        case RunStage::intra_Reset:
+        case RunStage::intra_Optimize:
+        case RunStage::intra_Reoptimize:
+        case RunStage::intra_Apply:
+            {
+                std::lock_guard<std::recursive_mutex> lock(member_mutex_);
 
-        bool agent_stage = stage == RunStage::inter_advance;
-        bool inter_stage = stage == RunStage::inter_optimize or stage == RunStage::inter_apply or stage == RunStage::inter_postAdvance;
-        // otherwise intra
-
-        auto &shared_cache = agent_stage ? shared_q_cache_agent_ : inter_stage ? shared_q_cache_inter_ : shared_q_cache_intra_;
-        auto &thr_cache    = agent_stage ? thr_cache_agent_      : inter_stage ? thr_cache_inter_      : thr_cache_intra_;
-        bool &reset_cache  = agent_stage ? q_cache_reset_agent_  : inter_stage ? q_cache_reset_inter_  : q_cache_reset_intra_;
-
-        if (not shared_cache)
-            shared_cache = std::make_shared<std::vector<eris_id_t>>();
-
-        if (threadModel() == ThreadModel::HybridRecheck) {
-            // Invalidate the cache every period, because some preallocate*() methods may change
-            // their values.
-            reset_cache = true;
-        }
-
-        if (reset_cache) {
-            reset_cache = false;
-            shared_cache->clear();
-            for (auto &pair : thr_cache) pair.second->clear();
-
-            size_t next = 0;
-            if (threadModel() == ThreadModel::Preallocate) {
-                if (agent_stage) {
-                    for (auto &pair : *agents_)
-                        thr_queue(next, thr_cache, pair.first);
+                auto &shared_cache = shared_q_cache_[(int) stage];
+                if (not shared_cache) {
+                    shared_cache.reset(new std::vector<SharedMember<Member>>());
+                    const auto &opts = optimizers_[(int) stage];
+                    shared_cache->reserve(opts.size());
+                    shared_cache->insert(shared_cache->end(), opts.cbegin(), opts.cend());
                 }
-                else if (inter_stage) {
-                    for (auto &pair : *interopts_)
-                        thr_queue(next, thr_cache, pair.first);
-                }
-                else {
-                    for (auto &pair : *intraopts_)
-                        thr_queue(next, thr_cache, pair.first);
-                }
+                shared_q_ = shared_cache;
+                shared_q_next_ = 0;
             }
-            else if (threadModel() == ThreadModel::Sequential) {
-                // All jobs go into shared queue.
-                if (agent_stage) {
-                    for (auto &pair : *agents_)
-                        shared_cache->push_back(pair.first);
-                }
-                else if (inter_stage) {
-                    for (auto &pair : *interopts_)
-                        shared_cache->push_back(pair.first);
-                }
-                else {
-                    for (auto &pair : *intraopts_)
-                        shared_cache->push_back(pair.first);
-                }
-            }
-            else { // Hybrid or HybridRecheck: add to thread cache if preallocate*() returns true, shared cache otherwise
-                switch (stage) {
-#define ERIS_SIM_Q_CASE(stage, map, method_suffix)\
-                    case RunStage::stage:\
-                        for (auto &pair : *map) {\
-                            if (pair.second->preallocate##method_suffix()) thr_queue(next, thr_cache, pair.first);\
-                            else shared_cache->push_back(pair.first);\
-                        }\
-                        break;
-                    ERIS_SIM_Q_CASE(inter_optimize,     interopts_, Optimize)
-                    ERIS_SIM_Q_CASE(inter_apply,        interopts_, Apply)
-                    ERIS_SIM_Q_CASE(inter_advance,      agents_,    Advance)
-                    ERIS_SIM_Q_CASE(inter_postAdvance,  interopts_, PostAdvance)
-                    ERIS_SIM_Q_CASE(intra_initialize,   intraopts_, Initialize)
-                    ERIS_SIM_Q_CASE(intra_reset,        intraopts_, Reset)
-                    ERIS_SIM_Q_CASE(intra_optimize,     intraopts_, Optimize)
-                    ERIS_SIM_Q_CASE(intra_postOptimize, intraopts_, PostOptimize)
-                    ERIS_SIM_Q_CASE(intra_apply,        intraopts_, Apply)
-#undef ERIS_SIM_Q_CASE
-                    case RunStage::kill:
-                    case RunStage::kill_all:
-                    case RunStage::idle:
-                        break;
-                }
-            }
-        }
-
-        shared_q_ = shared_cache;
-        shared_q_next_ = 0;
-
-        for (auto &pair : thr_cache)
-            thr_q_[pair.first] = pair.second;
+            break;
+        default:
+            throw std::runtime_error("thr_stage called with non-stage RunStage");
     }
 
-    std::unique_lock<std::mutex> lock_s(stage_mutex_, std::defer_lock);
-    std::unique_lock<std::mutex> lock_d(done_mutex_, std::defer_lock);
-    std::lock(lock_s, lock_d);
-    stage_ = stage;
-    thr_done_ = 0;
-    lock_s.unlock();
+    if (maxThreads() == 0) {
+        // Not using threads; call thr_work directly
+        switch (stage) {
+#define ERIS_SIM_NOTHR_WORK(TYPE, STAGE)\
+            case RunStage::TYPE##_##STAGE:\
+                thr_work<TYPE##opt::STAGE>([](TYPE##opt::STAGE &o) { o.TYPE##STAGE(); });\
+                break;
+            ERIS_SIM_NOTHR_WORK(inter, Optimize)
+            ERIS_SIM_NOTHR_WORK(inter, Apply)
+            ERIS_SIM_NOTHR_WORK(inter, Advance)
+            ERIS_SIM_NOTHR_WORK(inter, PostAdvance)
 
-    thr_cv_stage_.notify_all();
+            ERIS_SIM_NOTHR_WORK(intra, Initialize)
+            ERIS_SIM_NOTHR_WORK(intra, Reset)
+            ERIS_SIM_NOTHR_WORK(intra, Optimize)
+            ERIS_SIM_NOTHR_WORK(intra, Apply)
+#undef ERIS_SIM_NOTHR_WORK
+            case RunStage::intra_Reoptimize:
+                thr_work<intraopt::Reoptimize>([this](intraopt::Reoptimize &opt) {
+                    if (opt.intraReoptimize()) // Need a restart
+                        thr_redo_intra_ = true;
+                });
+                break;
+            default:
+                break;
+        }
+    }
+    else {
+        // Threads: lock, signal, then wait for threads to finish
+        std::unique_lock<std::mutex> lock_s(stage_mutex_, std::defer_lock);
+        std::unique_lock<std::mutex> lock_d(done_mutex_, std::defer_lock);
+        std::lock(lock_s, lock_d);
+        stage_ = stage;
+        thr_running_ = thr_pool_.size();
+        lock_s.unlock();
+        thr_cv_stage_.notify_all();
 
-    thr_cv_done_.wait(lock_d, [this] { return thr_done_ >= thr_pool_.size(); });
-    lock_d.unlock();
+        thr_cv_done_.wait(lock_d, [this] { return thr_running_ == 0; });
+    }
 }
 
 void Simulation::thr_thread_pool() {
     if (stage_ != RunStage::idle)
         throw std::runtime_error("Cannot enlarge thread pool during non-idle run phase");
 
-    bool changed = false;
     if (thr_pool_.size() == maxThreads()) {
         // Nothing to see here.  Move along.
         return;
@@ -422,50 +266,28 @@ void Simulation::thr_thread_pool() {
         // Too many threads in the pool, kill some off
         for (unsigned int excess = thr_pool_.size() - maxThreads(); excess > 0; excess--) {
             auto &thr = thr_pool_.back();
-            stage_ = RunStage::kill;
             thr_kill_ = thr.get_id();
+            stage_ = RunStage::kill;
             thr_cv_stage_.notify_all();
             thr.join();
             thr_pool_.pop_back();
-            thr_q_.erase(thr_kill_);
-            thr_cache_agent_.erase(thr_kill_);
-            thr_cache_inter_.erase(thr_kill_);
-            thr_cache_intra_.erase(thr_kill_);
-
         }
-        changed = true;
+        stage_ = RunStage::idle;
     }
     else {
         // The pool is smaller than the maximum; see if there is a benefit to creating more threads
-        unsigned long want_threads = std::min(maxThreads(),
-                std::max({ agents_->size(), interopts_->size(), intraopts_->size() }));
+        unsigned long max_opts = 0;
+        for (const auto &opt : optimizers_) {
+            auto size = opt.size();
+            if (size > max_opts)
+                max_opts = size;
+        }
+        unsigned long want_threads = std::min(maxThreads(), max_opts);
 
         while (thr_pool_.size() < want_threads) {
-            changed = true;
             // We're in RunStage::idle, so the new thread is going to wait right away
             thr_pool_.push_back(std::thread(&Simulation::thr_loop, this));
-            auto thid = thr_pool_.back().get_id();
-            thr_cache_agent_.insert(std::make_pair(
-                        thid, std::make_shared<std::vector<eris_id_t>>()));
-            thr_cache_inter_.insert(std::make_pair(
-                        thid, std::make_shared<std::vector<eris_id_t>>()));
-            thr_cache_intra_.insert(std::make_pair(
-                        thid, std::make_shared<std::vector<eris_id_t>>()));
         }
-    }
-
-    // If we changed the thread pool, we might need to do some cache invalidation
-    if (changed) {
-        if (threadModel() == ThreadModel::Preallocate or threadModel() == ThreadModel::Hybrid) {
-            // We created or kill some threads, so the preallocation is no longer balanced (and
-            // potentially incomplete).
-            q_cache_reset_agent_ = true;
-            q_cache_reset_inter_ = true;
-            q_cache_reset_intra_ = true;
-        }
-        // Otherwise we're in Sequential or HybridRecheck models: in Sequential, all threads use the
-        // shared cache, which hasn't changed.  In HybridRecheck we redo the allocation every time
-        // anyway instead of using the cache, so there's nothing to do here either.
     }
 }
 
@@ -483,51 +305,33 @@ void Simulation::run() {
 
     if (++iteration_ > 1) {
         // Skip all this on the first iteration
-        if (maxThreads() > 0) {
-            thr_stage(RunStage::inter_optimize);
-            thr_stage(RunStage::inter_apply);
-            thr_stage(RunStage::inter_advance);
-            thr_stage(RunStage::inter_postAdvance);
-        }
-        else {
-            nothr_stage(RunStage::inter_optimize);
-            nothr_stage(RunStage::inter_apply);
-            nothr_stage(RunStage::inter_advance);
-            nothr_stage(RunStage::inter_postAdvance);
-        }
+        thr_stage(RunStage::inter_Optimize);
+        thr_stage(RunStage::inter_Apply);
+        thr_stage(RunStage::inter_Advance);
+        thr_stage(RunStage::inter_PostAdvance);
     }
 
     intraopt_count = 0;
 
-    if (maxThreads() > 0)
-        thr_stage(RunStage::intra_initialize);
-    else
-        nothr_stage(RunStage::intra_initialize);
+    thr_stage(RunStage::intra_Initialize);
 
     thr_redo_intra_ = true;
     while (thr_redo_intra_) {
         intraopt_count++;
-        if (maxThreads() > 0) {
-            thr_stage(RunStage::intra_reset);
-            thr_stage(RunStage::intra_optimize);
-            thr_redo_intra_ = false;
-            thr_stage(RunStage::intra_postOptimize);
-        }
-        else {
-            nothr_stage(RunStage::intra_reset);
-            nothr_stage(RunStage::intra_optimize);
-            thr_redo_intra_ = false;
-            nothr_stage(RunStage::intra_postOptimize);
-        }
+        thr_stage(RunStage::intra_Reset);
+        thr_stage(RunStage::intra_Optimize);
+        thr_redo_intra_ = false;
+        thr_stage(RunStage::intra_Reoptimize);
     }
 
-    if (maxThreads() > 0)
-        thr_stage(RunStage::intra_apply);
-    else
-        nothr_stage(RunStage::intra_apply);
+    thr_stage(RunStage::intra_Apply);
 
     stage_ = RunStage::idle;
     running_ = false;
+}
+
+const RunStage Simulation::runStage() const {
+    return stage_;
 }
 
 Simulation::~Simulation() {

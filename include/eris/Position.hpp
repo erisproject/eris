@@ -118,7 +118,7 @@ class Position final {
         /** Accesses the number of dimensions of this Position object.  This will always be at least
          * 1, and cannot be changed.
          */
-        // (Declared here because it depends on pos_.)
+        // (Declared here because it depends on pos_, which gets initialized during construction)
         const int dimensions = pos_.size();
 
 };

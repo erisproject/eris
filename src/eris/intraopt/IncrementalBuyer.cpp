@@ -24,17 +24,17 @@ void IncrementalBuyer::permuteZeros(const bool &pz) noexcept {
 
 /** \todo need to worry about locking the markets until we decide which one to buy from.
  */
-void IncrementalBuyer::optimize() {
+void IncrementalBuyer::intraOptimize() {
     round = 0;
     while (oneRound()) {}
 }
 
-void IncrementalBuyer::apply() {
+void IncrementalBuyer::intraApply() {
     for (auto &res : reservations)
         res->buy();
 }
 
-void IncrementalBuyer::reset() {
+void IncrementalBuyer::intraReset() {
     reservations.clear();
 }
 
@@ -70,9 +70,7 @@ bool IncrementalBuyer::oneRound() {
     // q_cache[m][n]
     std::unordered_map<eris_id_t, std::unordered_map<int, Market::quantity_info>> q_cache;
 
-    for (auto mkt : sim->marketFilter()) {
-        auto mkt_id = mkt.first;
-        auto market = mkt.second;
+    for (auto market : sim->markets()) {
 
         if (not(market->price_unit.covers(money_unit) and money_unit.covers(market->price_unit))) {
             // price_unit is not (or not just) money; we can't handle that, so ignore this market
@@ -94,7 +92,7 @@ bool IncrementalBuyer::oneRound() {
         }
 
         // Cache the value, as we may need it again and ->quantity can be expensive
-        q_cache[mkt_id].emplace(1, qinfo);
+        q_cache[market].emplace(1, qinfo);
 
         Bundle cons = remaining + qinfo.quantity * market->output_unit;
         // If spending hit a constraint, we need to add the unused spending back in (as cash)

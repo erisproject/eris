@@ -81,7 +81,7 @@ double MUPD::calc_mu_per_d(
     return mu / pricing.marginal * price_ratio(mkt);
 }
 
-void MUPD::optimize() {
+void MUPD::intraOptimize() {
 
     auto sim = simulation();
     auto consumer = sim->agent<Consumer::Differentiable>(con_id);
@@ -101,10 +101,7 @@ void MUPD::optimize() {
 
     spending[0] = 0.0; // 0 is the "don't spend"/"hold cash" option
 
-    for (auto &mkt : sim->marketFilter()) {
-        auto mkt_id = mkt.first;
-        auto market = mkt.second;
-
+    for (auto &market : sim->markets()) {
         auto mlock = market->readLock();
 
         if (not(market->price_unit.covers(money_unit) and money_unit.covers(market->price_unit))) {
@@ -123,7 +120,7 @@ void MUPD::optimize() {
         }
 
         // We assign an exact value later, once we know how many eligible markets there are.
-        spending[mkt_id] = 0.0;
+        spending[market] = 0.0;
         need_lock.push_back(market);
     }
 
@@ -292,12 +289,14 @@ void MUPD::optimize() {
     }
 }
 
-void MUPD::reset() {
+void MUPD::intraReset() {
+    auto lock = writeLock();
     reservations.clear();
 }
 
-void MUPD::apply() {
-    auto con = simAgent(con_id);
+void MUPD::intraApply() {
+    auto con = simAgent<Consumer::Differentiable>(con_id);
+    auto lock = writeLock(con);
     Bundle &a = con->assets();
     // Add a tiny bit to cash (to prevent numerical errors causing insufficient assets exceptions),
     // then subtract it off after purchasing.

@@ -2,24 +2,26 @@
 #include <eris/types.hpp>
 #include <eris/Market.hpp>
 #include <eris/firm/QFirm.hpp>
-#include <eris/intraopt/WalrasianPricer.hpp>
+#include <eris/algorithms.hpp>
 #include <limits>
 
 namespace eris { namespace market {
 
 /** This class handles a "quantity" market, where at the beginning of the period firms provide a
  * fixed quantity.  In each period, the price changes based on whether there was a surplus or
- * shortage in the previous period.
+ * shortage at the previous price level.
  *
- * Price adjustments occur through the WalrasianPricer intra-period optimizer class, which is automatically
- * added to a simulation when the quantity market object is added.
+ * The class is its own intra-period pricing optimizer, taking a configurable number of steps to try
+ * to find a (roughly) correct market price.  It relies on the quantity of market reservations made
+ * in the intraOptimize() of other optimizers to try to determine the price that just exactly sells
+ * out the market.
  */
-class QMarket : public Market {
+class QMarket : public Market, public virtual intraopt::Initialize, public virtual intraopt::Reoptimize {
     public:
         /// Default initial price, if not given in constructor
         static constexpr double default_initial_price = 1.0;
         /// Default WalrasianPricer tries, if not given in constructor
-        static constexpr int default_qmpricer_tries = intraopt::WalrasianPricer::default_tries;
+        static constexpr int default_qmpricer_tries = 5;
 
         /** Constructs a new quantity market, with a specified unit of output and unit of input
          * (price) per unit of output.
@@ -34,15 +36,17 @@ class QMarket : public Market {
          * this market.  Defaults to 1; must be > 0.  This is typically adjusted up or down by QMStepper (or a
          * similar inter-period optimizer) between periods.
          *
-         * \param qmpricer_tries if greater than 0, this specifies the number of tries given to
-         * the automatically-created WalrasianPricer intra-period optimizer.  If 0 (or negative), the
-         * WalrasianPricer is not automatically created, in which case a WalrasianPricer (or equivalent) optimizer
-         * must be added separately to govern the market's price changes.
+         * \param qmpricer_tries if greater than 0, this specifies the number of tries to try a
+         * price during intra-period optimization.  This generally causes an reset of the entire
+         * intraopt stage, and can thus be quite expensive, but is needed for the market to act as
+         * if governed by a sort of Walrasian pricer.  If 0, the market will not attempt to adjust
+         * its price, in which case some external intraopt object must be created to manage the
+         * market's price.
          */
         QMarket(Bundle output_unit,
                 Bundle price_unit,
                 double initial_price = default_initial_price,
-                int qmpricer_tries = default_qmpricer_tries);
+                unsigned int qmpricer_tries = default_qmpricer_tries);
 
         /// Returns the pricing information for purchasing q units in this market.
         virtual price_info price(double q) const override;
@@ -83,7 +87,7 @@ class QMarket : public Market {
         eris_id_t optimizer = 0;
 
         /// Reserves q units, paying at most p_max for them.
-        virtual Reservation reserve(SharedMember<Agent> agent, double q, double p_max = std::numeric_limits<double>::infinity()) override;
+        virtual Reservation reserve(SharedMember<AssetAgent> agent, double q, double p_max = std::numeric_limits<double>::infinity()) override;
 
 
         /// Adds a firm to this market.  The Firm must be a QFirm object (or subclass)
@@ -93,20 +97,39 @@ class QMarket : public Market {
          * market's price.
          */
         virtual void setPrice(double p);
+
+        /// Resets the number of tries used up for this period to 0.
+        virtual void intraInitialize() override;
+
+        /** Figures out a new price to try for this market.  If this is the first try, we take a
+         * relative step (based on the current step size) up (if the market sold out) or down (if the
+         * market had a surplus).
+         *
+         * If the most recent step got a different result (i.e. excess capacity versus no excess
+         * capacity) than the previous (or initial) price, cut the step size in half and reverse
+         * direction.  If we see `increase_count` steps in the same direction, double the step size.
+         *
+         * If the previous step was a price decrease, but excess capacity either increased or stayed
+         * the same, assume we've hit some sort of market saturation, and so increase the price
+         * (contradicting the rule above, saying we should decrease it further).
+         *
+         * If this has already been called `tries` times in this period, it does nothing and simply
+         * returns false.
+         */
+        virtual bool intraReoptimize() override;
+
     protected:
         /// The current price of the good as a multiple of price_unit
         double price_;
 
-        /** When added to a simulation, this market automatically also adds a WalrasianPricer intra-period
-         * optimizer to handle pricing adjustments.  This can be skipped by specifying
-         * qmpricer_tries=0 in the constructor, but in such a case care must be taken to add a
-         * WalrasianPricer (or equivalent) optimizer to control price in this market.
-         */
-        virtual void added() override;
-
-    private:
-        int qmpricer_tries_ = 0;
-
+        /// The Stepper object used for calculating price steps
+        Stepper stepper_;
+        /// The number of times we adjust price each period
+        int tries_ = 0;
+        /// The number of times we have already tried to adjust in the current period
+        int tried_ = 0;
+        /// The excess capacity we found in the previous iteration
+        double last_excess_ = 0.0;
 };
 
 } }
