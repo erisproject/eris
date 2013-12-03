@@ -21,22 +21,22 @@ double Position::distance(const Position &other) const {
     requireSameDimensions(other, "Position::distance");
 
     if (dimensions == 1)
-        return fabs(at(0) - other[0]);
+        return fabs(operator[](0) - other[0]);
 
     if (dimensions == 2)
-        return hypot(at(0) - other[0], at(1) - other[1]);
+        return hypot(operator[](0) - other[0], operator[](1) - other[1]);
 
     // NB: could protect this against underflow/overflow by adapting the hypot algorithm to 3+
     // dimensions; see http://en.wikipedia.org/wiki/Hypot
     double dsq = 0;
     for (int i = 0; i < dimensions; ++i)
-        dsq += pow(at(i) - other[i], 2);
+        dsq += pow(operator[](i) - other[i], 2);
     return sqrt(dsq);
 }
 
 double Position::length() const {
-    if (dimensions == 1) return fabs(at(0));
-    if (dimensions == 2) return hypot(at(0), at(1));
+    if (dimensions == 1) return fabs(operator[](0));
+    if (dimensions == 2) return hypot(operator[](0), operator[](1));
 
     // NB: could protect this against underflow/overflow by adapting the hypot algorithm to 3+
     // dimensions; see http://en.wikipedia.org/wiki/Hypot
@@ -53,7 +53,7 @@ Position Position::mean(const Position &other, const double &weight) const {
     double our_weight = 1.0-weight;
 
     for (int i = 0; i < dimensions; i++)
-        result[i] = our_weight*at(i) + weight*other[i];
+        result[i] = our_weight*operator[](i) + weight*other[i];
 
     return result;
 }
@@ -73,7 +73,7 @@ Position& Position::operator=(const Position &new_pos) {
     requireSameDimensions(new_pos, "Position::operator=");
 
     for (int i = 0; i < dimensions; i++)
-        at(i) = new_pos[i];
+        operator[](i) = new_pos[i];
 
     return *this;
 }
@@ -82,7 +82,7 @@ bool Position::operator==(const Position &other) const {
     requireSameDimensions(other, "Position::operator==");
 
     for (int i = 0; i < dimensions; i++)
-        if (at(i) != other[i]) return false;
+        if (operator[](i) != other[i]) return false;
 
     return true;
 }
@@ -102,7 +102,7 @@ Position Position::operator+(const Position &add) const {
 Position& Position::operator+=(const Position &add) {
     requireSameDimensions(add, "Position::operator+=");
     for (int i = 0; i < dimensions; i++)
-        at(i) += add[i];
+        operator[](i) += add[i];
 
     return *this;
 }
@@ -117,7 +117,7 @@ Position Position::operator-(const Position &subtract) const {
 Position& Position::operator-=(const Position &subtract) {
     requireSameDimensions(subtract, "Position::operator-=");
     for (int i = 0; i < dimensions; i++)
-        at(i) -= subtract[i];
+        operator[](i) -= subtract[i];
 
     return *this;
 }
@@ -135,7 +135,7 @@ Position Position::operator*(const double &scale) const noexcept {
 // Mutator version of scaling.
 Position& Position::operator*=(const double &scale) noexcept {
     for (int i = 0; i < dimensions; i++)
-        at(i) *= scale;
+        operator[](i) *= scale;
 
     return *this;
 }
