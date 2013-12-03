@@ -44,7 +44,7 @@ class QFStepper : public ProfitStepper {
         /** If quantity sold in the previous period was half of the firm's capacity or less (but
          * greater than 0), we cut capacity in half.
          */
-        virtual bool should_jump() const override;
+        virtual bool should_jump() override;
 
         /** Sets the capacity to whatever we sold in the previous period.
          * \sa should_jump()
@@ -53,7 +53,7 @@ class QFStepper : public ProfitStepper {
 
     private:
         eris_id_t firm_;
-        mutable double jump_cap_;
+        double jump_cap_;
 };
 
 } }

@@ -25,11 +25,10 @@ namespace interopt {
 class Optimize {
     public:
         /** This method is intended to calculate changed to be applied in an interApply() method,
-         * but does not apply them.  It is deliberately marked const to make it clear that it
-         * shouldn't change the object; an object storing information for apply will need to use a
-         * mutable property for this purpose.
+         * but should not apply them in a way visible to outside objects; instead it should store
+         * them and enact the changes in an interApply optimizer.
          */
-        virtual void interOptimize() const = 0;
+        virtual void interOptimize() = 0;
     protected:
         ~Optimize() = default;
 };

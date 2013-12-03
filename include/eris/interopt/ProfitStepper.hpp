@@ -64,7 +64,7 @@ class ProfitStepper : public InterStepper {
          * direction.  If profits stay exactly the same (often at 0), the value will take a step
          * downward, regardless of the previous direction.
          */
-        virtual bool should_increase() const override;
+        virtual bool should_increase() override;
 
         virtual void take_step(double relative) override = 0;
 
@@ -82,8 +82,8 @@ class ProfitStepper : public InterStepper {
         const Bundle profit_basis_;
 
     private:
-        mutable double prev_profit_ = 0;
-        mutable double curr_profit_ = 0;
+        double prev_profit_ = 0;
+        double curr_profit_ = 0;
 
 };
 

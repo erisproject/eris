@@ -17,7 +17,7 @@ ProfitStepper::ProfitStepper(
         int period
         ) : ProfitStepper(firm, firm.price(), step, increase_count, period) {}
 
-bool ProfitStepper::should_increase() const {
+bool ProfitStepper::should_increase() {
     auto firm = simAgent<Firm>(firm_);
     curr_profit_ = firm->assets().multiples(profit_basis_);
 

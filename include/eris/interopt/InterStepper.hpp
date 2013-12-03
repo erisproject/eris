@@ -78,7 +78,7 @@ class InterStepper : public Member, public virtual OptApply {
         /** Determines whether the value should go up or down, and by how much.  Calls
          * (unimplemented) method should_increase() to determine the direction of change.
          */
-        virtual void interOptimize() const override;
+        virtual void interOptimize() override;
 
         /** Applies the value change calculated in optimize().  This will call take_step() with the
          * relative value change (e.g. 1.25 to increase value by 25%).
@@ -93,7 +93,7 @@ class InterStepper : public Member, public virtual OptApply {
          * value indicates that a value increase should be tried, false indicates a decrease.  This
          * typically makes use of the prev_up and same members as required.
          */
-        virtual bool should_increase() const = 0;
+        virtual bool should_increase() = 0;
 
         /** Called to change the value to the given multiple of the current value, or to change the
          * value by the given amount (see the `rel_steps` parameter for Stepper).  This is called by
@@ -112,7 +112,7 @@ class InterStepper : public Member, public virtual OptApply {
          * If a jump occurs, the Stepper `same` parameter is reset to 0, and the period counter (for
          * stepping that doesn't occur in every period) is reset.
          */
-        virtual bool should_jump() const;
+        virtual bool should_jump();
 
         /** Called when should_jump() returned true when applying the interopt change.
          *
@@ -121,16 +121,16 @@ class InterStepper : public Member, public virtual OptApply {
         virtual void take_jump();
 
         /// Whether we are going to step up.  Calculated in optimize(), given to stepper_ in apply()
-        mutable bool curr_up_ = false;
+        bool curr_up_ = false;
         /// The period; we only try to take a step every `period_` times.  1 means always.
         const int period_;
         /// The offset; we take a step in periods in which `last_step_ % period_ == period_offset_`
         const int period_offset_;
-        mutable long last_step_ = 0;
+        long last_step_ = 0;
         /// True if we're going to step this round.  Will be always true if `period_ == 1`.
-        mutable bool stepping_ = false;
+        bool stepping_ = false;
         /// True if we're going to jump this round instead of stepping.
-        mutable bool jump_ = false;
+        bool jump_ = false;
 };
 
 
