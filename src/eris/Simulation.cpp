@@ -62,7 +62,7 @@ void Simulation::remove(const eris_id_t &id) {
 }
 
 void Simulation::insertOptimizers(const SharedMember<Member> &member) {
-    std::lock_guard<std::recursive_mutex> lock(member_mutex_);\
+    std::lock_guard<std::recursive_mutex> lock(member_mutex_);
     Member *mem = member.ptr_.get();
 #define ERIS_SIM_INSERT_OPTIMIZER(TYPE, STAGE)\
     if (dynamic_cast<TYPE##opt::STAGE*>(mem)) {\
@@ -82,7 +82,7 @@ void Simulation::insertOptimizers(const SharedMember<Member> &member) {
 #undef ERIS_SIM_INSERT_OPTIMIZER
 }
 void Simulation::removeOptimizers(const SharedMember<Member> &member) {
-    std::lock_guard<std::recursive_mutex> lock(member_mutex_);\
+    std::lock_guard<std::recursive_mutex> lock(member_mutex_);
     for (int i = optimizers_.size()-1; i >= 0; i--) {
         if (optimizers_[i].erase(member) > 0) {
             shared_q_cache_[i].reset();
