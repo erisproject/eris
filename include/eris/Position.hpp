@@ -12,13 +12,15 @@ class Position final {
         Position() = delete;
         /** Creates a new Position object at the given position.  The dimension is determined from
          * the number of values provided to the constructor.  At least one value must be given.
+         *
+         * Example: Position({3.0, -4.1})
          */
         Position(std::initializer_list<double> position);
 
         /** Creates a new Position object of the given number of dimensions (>= 1) with initial
          * position of 0 for all dimensions.
          */
-        Position(const int &dimensions);
+        Position(const size_t &dimensions);
 
         Position(double) = delete;
 
@@ -49,19 +51,33 @@ class Position final {
          */
         Position mean(const Position &other, const double &weight = 0.5) const;
 
-        /** Accesses the Position's `d`th coordinate, where `d=0` is the first dimension, etc.
+        /** Returns a new Position whose dimensions are determined by the given dimension indices
+         * (which may be repeated).  Thus the dimensionality of the returned Position can be larger
+         * or smaller than the source.  At least one dimension index must be given.
          *
-         * \throws std::out_of_range exception for `d >= dimensions`.
+         * For example, Position({12, -4, 15, 100}).subdimensions({3,1,1}) returns a Position({100,-4,-4}).
+         *
+         * \throws std::out_of_range exception if any of the given dimension indices are larger than
+         * the dimensionality of the caller Position.
+         */
+        Position subdimensions(std::initializer_list<double> dimensions) const;
+
+        /** Accesses the Position's `d`th coordinate, where `d=0` is the first dimension, etc.
+         * No bounds checking is performed.
          */
         double& operator[](int d);
 
-        /// Alias for `obj[d]`
+        /* Accesses the Position's `d`th coordinate, with `d=0` is the first
+         * dimension, with bounds checking.
+         *
+         * \throws std::out_of_range exception for `d >= dimensions`.
+         */
         double& at(int d);
 
-        /// Const access to Position coordinates.
+        /// Const access to Position coordinates.  No bounds checking.
         const double& operator[](int d) const;
 
-        /// Alias for `const obj[d]`
+        /// Const access to Position coordinates, with bounds checking.
         const double& at(int d) const;
 
         /// Equality; true iff all coordinates have the same value.
@@ -119,8 +135,7 @@ class Position final {
          * 1, and cannot be changed.
          */
         // (Declared here because it depends on pos_, which gets initialized during construction)
-        const int dimensions = pos_.size();
-
+        const size_t dimensions = pos_.size();
 };
 
 inline void Position::requireSameDimensions(const Position &other, const std::string &method) const {
@@ -128,9 +143,9 @@ inline void Position::requireSameDimensions(const Position &other, const std::st
         throw std::length_error(method + "() called with objects of differing dimensions");
 }
 
-inline double& Position::operator[](int d) { return pos_.at(d); }
+inline double& Position::operator[](int d) { return pos_[d]; }
 inline double& Position::at(int d)         { return pos_.at(d); }
-inline const double& Position::operator[](int d) const { return pos_.at(d); }
+inline const double& Position::operator[](int d) const { return pos_[d]; }
 inline const double& Position::at(int d)         const { return pos_.at(d); }
 
 }

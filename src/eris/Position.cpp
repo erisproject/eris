@@ -8,7 +8,7 @@ Position::Position(std::initializer_list<double> position) : pos_(position) {
         throw std::out_of_range("Cannot initialize a Position with 0 dimensions");
 }
 
-Position::Position(const int &dimensions) : pos_(dimensions, 0) {
+Position::Position(const size_t &dimensions) : pos_(dimensions, 0) {
     if (not dimensions)
         throw std::out_of_range("Cannot initialize a Position with 0 dimensions");
 }
@@ -56,6 +56,17 @@ Position Position::mean(const Position &other, const double &weight) const {
         result[i] = our_weight*at(i) + weight*other[i];
 
     return result;
+}
+
+Position Position::subdimensions(std::initializer_list<double> dims) const {
+    Position p(dims.size());
+    size_t i = 0;
+    for (const double &d : dims) {
+        if (d >= dimensions)
+            throw std::out_of_range("Invalid subdimensions call: attempt to use invalid dimension");
+        p[i++] = operator[](d);
+    }
+    return p;
 }
 
 Position& Position::operator=(const Position &new_pos) {
