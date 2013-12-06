@@ -21,19 +21,13 @@ class PositionalAgent : public Agent {
          */
         PositionalAgent(const Position &p, const Position &boundary1, const Position &boundary2);
 
+        /** Rvalue reference version of three-position constructor.
+         */
+        PositionalAgent(const Position &&p, const Position &&boundary1, const Position &&boundary2);
+
         /** Constructs a PositionalAgent at location `p` whose movements are not constrained.
          */
         PositionalAgent(const Position &p);
-
-        /** Constructs an unbounded PositionalAgent at the given coordinates. */
-        PositionalAgent(const std::initializer_list<double> pos);
-
-        /** Constructs an unbounded PositionalAgent at the given coordinates with the given boundary
-         * coordinates. */
-        PositionalAgent(
-                const std::initializer_list<double> pos,
-                const std::initializer_list<double> boundary1,
-                const std::initializer_list<double> boundary2);
 
         /** One-dimensional constructor takes a single position, no bounds. */
         PositionalAgent(double p);

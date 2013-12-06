@@ -10,22 +10,34 @@ namespace eris {
 class Position final {
     public:
         Position() = delete;
+
         /** Creates a new Position object at the given position.  The dimension is determined from
-         * the number of values provided to the constructor.  At least one value must be given.
+         * the length of the provided container.  At least one value must be present.
          *
-         * Example: Position({3.0, -4.1})
+         * Examples:
+         * Position({3.0, -4.1}) // initializer list
+         * Position(v) // v is vector<double> (or any sort of iterable container)
          */
-        Position(std::initializer_list<double> position);
+        template <class Container, typename = typename std::enable_if<std::is_arithmetic<typename Container::value_type>::value>::type>
+        Position(const Container &coordinates) : pos_(coordinates.begin(), coordinates.end()) {
+            if (not dimensions)
+                throw std::out_of_range("Cannot initialize a Position with 0 dimensions");
+        }
+
+        /** Creates a Position at the given vector, taking over the vector for position storage.
+         */
+        Position(std::vector<double> &&coordinates);
+
+        /** Constructs a copy of the given Position object. */
+        Position(const Position &pos);
+
+        /** Moves the given Position's values into this one */
+        Position(Position &&pos);
 
         /** Creates a new Position object of the given number of dimensions (>= 1) with initial
          * position of 0 for all dimensions.
          */
-        Position(const size_t &dimensions);
-
-        Position(double) = delete;
-
-        /** Constructs a copy of the given Position object. */
-        Position(const Position &pos);
+        static Position zero(const size_t &dimensions);
 
         /** Returns the (Euclidean) distance between one position and another.  Throws a
          * std::length_error exception if the two objects are of different dimensions.  The value

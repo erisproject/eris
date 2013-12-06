@@ -3,18 +3,20 @@
 
 namespace eris {
 
-Position::Position(std::initializer_list<double> position) : pos_(position) {
+Position::Position(std::vector<double> &&coordinates) : pos_(coordinates) {
     if (not dimensions)
         throw std::out_of_range("Cannot initialize a Position with 0 dimensions");
 }
 
-Position::Position(const size_t &dimensions) : pos_(dimensions, 0) {
-    if (not dimensions)
-        throw std::out_of_range("Cannot initialize a Position with 0 dimensions");
-}
-
-Position::Position(const Position &pos) : pos_(pos.dimensions, 0) {
+Position::Position(const Position &pos) : pos_(pos.pos_) {
     *this = pos;
+}
+
+Position::Position(Position &&pos) : pos_(std::move(pos.pos_)) {
+}
+
+Position Position::zero(const size_t &dimensions) {
+    return Position(std::vector<double>(dimensions, 0.0));
 }
 
 double Position::distance(const Position &other) const {
@@ -29,7 +31,7 @@ double Position::distance(const Position &other) const {
     // NB: could protect this against underflow/overflow by adapting the hypot algorithm to 3+
     // dimensions; see http://en.wikipedia.org/wiki/Hypot
     double dsq = 0;
-    for (int i = 0; i < dimensions; ++i)
+    for (size_t i = 0; i < dimensions; ++i)
         dsq += pow(operator[](i) - other[i], 2);
     return sqrt(dsq);
 }
@@ -49,17 +51,17 @@ double Position::length() const {
 Position Position::mean(const Position &other, const double &weight) const {
     requireSameDimensions(other, "Position::mean");
 
-    Position result(dimensions);
+    Position result = zero(dimensions);
     double our_weight = 1.0-weight;
 
-    for (int i = 0; i < dimensions; i++)
+    for (size_t i = 0; i < dimensions; i++)
         result[i] = our_weight*operator[](i) + weight*other[i];
 
     return result;
 }
 
 Position Position::subdimensions(std::initializer_list<double> dims) const {
-    Position p(dims.size());
+    Position p = zero(dims.size());
     size_t i = 0;
     for (const double &d : dims) {
         if (d >= dimensions)
@@ -72,7 +74,7 @@ Position Position::subdimensions(std::initializer_list<double> dims) const {
 Position& Position::operator=(const Position &new_pos) {
     requireSameDimensions(new_pos, "Position::operator=");
 
-    for (int i = 0; i < dimensions; i++)
+    for (size_t i = 0; i < dimensions; i++)
         operator[](i) = new_pos[i];
 
     return *this;
@@ -81,7 +83,7 @@ Position& Position::operator=(const Position &new_pos) {
 bool Position::operator==(const Position &other) const {
     requireSameDimensions(other, "Position::operator==");
 
-    for (int i = 0; i < dimensions; i++)
+    for (size_t i = 0; i < dimensions; i++)
         if (operator[](i) != other[i]) return false;
 
     return true;
@@ -101,7 +103,7 @@ Position Position::operator+(const Position &add) const {
 // Mutator version of addition
 Position& Position::operator+=(const Position &add) {
     requireSameDimensions(add, "Position::operator+=");
-    for (int i = 0; i < dimensions; i++)
+    for (size_t i = 0; i < dimensions; i++)
         operator[](i) += add[i];
 
     return *this;
@@ -116,7 +118,7 @@ Position Position::operator-(const Position &subtract) const {
 // Mutator version of subtraction.
 Position& Position::operator-=(const Position &subtract) {
     requireSameDimensions(subtract, "Position::operator-=");
-    for (int i = 0; i < dimensions; i++)
+    for (size_t i = 0; i < dimensions; i++)
         operator[](i) -= subtract[i];
 
     return *this;
@@ -134,7 +136,7 @@ Position Position::operator*(const double &scale) const noexcept {
 
 // Mutator version of scaling.
 Position& Position::operator*=(const double &scale) noexcept {
-    for (int i = 0; i < dimensions; i++)
+    for (size_t i = 0; i < dimensions; i++)
         operator[](i) *= scale;
 
     return *this;
@@ -152,7 +154,7 @@ Position& Position::operator/=(const double &inv_scale) noexcept {
 
 std::ostream& operator<<(std::ostream &os, const Position &p) {
     os << "Position[" << p[0];
-    for (int i = 1; i < p.dimensions; i++)
+    for (size_t i = 1; i < p.dimensions; i++)
         os << ", " << p[i];
     os << "]";
     return os;
