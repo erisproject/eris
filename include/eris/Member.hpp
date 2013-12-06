@@ -224,7 +224,7 @@ class Member {
         template <class Container>
         Lock readLock(const Container &plus,
                 typename std::enable_if<
-                    std::is_base_of<Member, typename decltype(std::declval<Container>().begin())::value_type::member_type>::value
+                    std::is_base_of<Member, typename Container::value_type::member_type>::value
                 >::type* = 0) const {
             if (maxThreads() == 0) return Member::Lock(false); // Fake lock
             std::vector<SharedMember<Member>> members;
@@ -291,7 +291,7 @@ class Member {
         template <class Container>
         Lock writeLock(const Container &plus,
                 typename std::enable_if<
-                    std::is_base_of<Member, typename decltype(std::declval<Container>().begin())::value_type::member_type>::value
+                    std::is_base_of<Member, typename Container::value_type::member_type>::value
                 >::type* = 0) const {
             if (maxThreads() == 0) return Member::Lock(true); // Fake lock
             std::vector<SharedMember<Member>> members;
