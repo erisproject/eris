@@ -3,6 +3,8 @@
 
 namespace eris {
 
+Position::Position(const std::initializer_list<double> &coordinates) : Position(std::vector<double>(coordinates)) {}
+
 Position::Position(std::vector<double> &&coordinates) : pos_(coordinates) {
     if (not dimensions)
         throw std::out_of_range("Cannot initialize a Position with 0 dimensions");

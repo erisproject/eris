@@ -5,7 +5,7 @@
 namespace eris { namespace agent {
 
 PositionalAgent::PositionalAgent(const Position &p, const Position &boundary1, const Position &boundary2)
-    : position_(p), bounded_(true), lower_bound_(Position::zero(p.dimensions)), upper_bound_(Position::zero(p.dimensions)) {
+    : position_(p), bounded_(true) {
     if (p.dimensions != boundary1.dimensions or p.dimensions != boundary2.dimensions)
         throw std::length_error("position and boundary points have different dimensions");
 
@@ -23,13 +23,6 @@ PositionalAgent::PositionalAgent(const Position &p)
         upper_bound_[d] = std::numeric_limits<double>::infinity();
     }
 }
-
-PositionalAgent::PositionalAgent(double p, double b1, double b2)
-    : PositionalAgent(Position({p}), Position({b1}), Position({b2})) {}
-PositionalAgent::PositionalAgent(double px, double py)
-    : PositionalAgent(Position({px, py})) {}
-PositionalAgent::PositionalAgent(double px, double py, double b1x, double b1y, double b2x, double b2y)
-    : PositionalAgent(Position({px, py}), Position({b1x, b1y}), Position({b2x, b2y})) {}
 
 double PositionalAgent::distance(const PositionalAgent &other) const {
     return position().distance(other.position());
@@ -70,11 +63,11 @@ bool PositionalAgent::bindingUpper() const noexcept {
     return false;
 }
 
-const Position& PositionalAgent::lowerBound() const noexcept {
+Position PositionalAgent::lowerBound() const noexcept {
     return lower_bound_;
 }
 
-const Position& PositionalAgent::upperBound() const noexcept {
+Position PositionalAgent::upperBound() const noexcept {
     return upper_bound_;
 }
 
@@ -91,27 +84,11 @@ bool PositionalAgent::moveTo(Position p) {
     return not corrected;
 }
 
-bool PositionalAgent::moveTo(const double &x) {
-    return moveTo(Position({x}));
-}
-
-bool PositionalAgent::moveTo(const double &x, const double &y) {
-    return moveTo(Position({x, y}));
-}
-
 bool PositionalAgent::moveBy(const Position &relative) {
     if (relative.dimensions != position_.dimensions)
         throw std::length_error("position and moveBy coordinates have different dimensions");
 
     return moveTo(position_ + relative);
-}
-
-bool PositionalAgent::moveBy(const double &x) {
-    return moveBy(Position({x}));
-}
-
-bool PositionalAgent::moveBy(const double &x, const double &y) {
-    return moveBy(Position({x, y}));
 }
 
 Position PositionalAgent::toBoundary(Position pos) const {

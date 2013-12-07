@@ -13,6 +13,7 @@ set(eris_tests
     mupd-test
     sim-setup-test
     lock-test
+    pos-agent-test
     )
 
 foreach(t ${eris_tests})

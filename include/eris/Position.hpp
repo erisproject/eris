@@ -11,6 +11,9 @@ class Position final {
     public:
         Position() = delete;
 
+        /// Initialize from initializer_list
+        Position(const std::initializer_list<double> &coordinates);
+
         /** Creates a new Position object at the given position.  The dimension is determined from
          * the length of the provided container.  At least one value must be present.
          *
