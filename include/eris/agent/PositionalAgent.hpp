@@ -7,7 +7,7 @@ namespace eris { namespace agent {
 
 /** Agent subclass that adds a position and optional bounding box to an agent.  This is intended for
  * use in models where spatial location matters, such as political economy voting models. */
-class PositionalAgent : public Agent {
+class PositionalAgent : public virtual Agent {
     public:
         PositionalAgent() = delete;
 

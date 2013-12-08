@@ -7,7 +7,7 @@ namespace eris { namespace agent {
 /** This is a simple extension of the base Agent class that adds an assets bundle to the agent
  * plus an advance() method that clears the assets bundle in every period.
  */
-class AssetAgent : public Agent, public virtual interopt::Advance {
+class AssetAgent : public virtual Agent, public virtual interopt::Advance {
     public:
         /// Returns a Bundle reference to the agent's current assets.
         virtual Bundle& assets() noexcept { return assets_; }
