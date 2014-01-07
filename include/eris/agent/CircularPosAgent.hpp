@@ -104,7 +104,7 @@ class CircularPosAgent : public PositionalAgent {
             for (auto &dim : dimensions) {
                 // The below ("<= and not ==") is needed to avoid a warning for "dim < 0" when dim
                 // is an unsigned type 
-                if ((dim <= 0 and not dim == 0) or dim >= (decltype(dim)) position_.dimensions)
+                if ((dim <= 0 and not (dim == 0)) or dim >= (decltype(dim)) position_.dimensions)
                     throw std::out_of_range("Invalid dimension passed to CircularPosAgent::wrap(const Container&)");
                 wrap(dim);
             }
