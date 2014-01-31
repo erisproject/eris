@@ -75,6 +75,9 @@ class MUPD : public Member, public virtual OptApplyReset {
          * \param mkt_id the market id for which to calculate
          * \param a the allocation as returned by spending_allocation
          * \param b the Bundle at which to evaluate marginal utility
+         *
+         * Note that this method is not, by itself, thread-safe: calling code should have already
+         * locked the consumer and relevant markets.
          */
         double calc_mu_per_d(
                 const SharedMember<Consumer::Differentiable> &con,
