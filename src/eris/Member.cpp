@@ -220,4 +220,62 @@ bool Member::Lock::isWrite() {
     return data->write;
 }
 
+void Member::Lock::transfer(Member::Lock &source) {
+    if (isWrite() != source.isWrite() or isLocked() != source.isLocked()) {
+        throw Member::Lock::mismatch_error();
+    }
+
+    // Copy source's members
+    data->members.insert(data->members.end(), source.data->members.begin(), source.data->members.end());
+    // Delete source's members
+    source.data->members.clear();
+}
+
+void Member::Lock::add(SharedMember<Member> member) {
+
+    bool need_release = false; // Will be true if we fail to get a non-blocking lock
+
+    if (isLocked()) {
+        // First try to see if we can obtain a (non-blocking) lock on the new member.  If we can, great,
+        // just hold that lock and add the new member to the set of locked members.  If not, we have to
+        // release the existing lock, add the new one into the member list, then do a blocking lock on
+        // the entire (old + new) set of members.
+        auto &mutex = member->wmutex_;
+        if (mutex.try_lock()) {
+            // Got the mutex lock right away
+            if (isWrite()) {
+                // But we need a write lock
+                if (member->readlocks_ > 0) {
+                    // Outstanding read locks, so we didn't really get a write lock
+                    mutex.unlock();
+                    need_release = true;
+                }
+            }
+            else {
+                // Read lock
+                member->readlocks_++;
+                mutex.unlock();
+            }
+        }
+        else {
+            // The mutex lock would blocked, so we need to release everything before going for the
+            // blocking lock.
+            need_release = true;
+        }
+    }
+
+    if (need_release) {
+        // We failed to obtain a lock on the new member, so we need to release the current lock,
+        // add the new member, then try for a lock on all members.
+        release();
+        data->members.push_back(member);
+        lock();
+    }
+    else {
+        // Either the lock isn't active, or we got the lock without blocking, so all that's left is
+        // adding the new member into the list of locked members.
+        data->members.push_back(member);
+    }
+}
+
 }

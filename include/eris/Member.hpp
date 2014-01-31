@@ -164,6 +164,33 @@ class Member {
                  * otherwise.  Note that this status is shared among all copies of a Lock object.
                  */
                 bool isLocked();
+
+                /** Adds the given member to the current set of locked members.  If a lock on the
+                 * given member cannot be obtained immediately, all locks currently held by the
+                 * Lock object are released until a lock on all objects (current plus new) can be
+                 * obtained.
+                 *
+                 * If the object is currently not locked, this takes out no lock, but adds the given
+                 * member to the set of members that will be locked when lock() is called.
+                 */
+                void add(SharedMember<Member> member);
+
+                /** Transfers the locked members of `source` into the called lock.  After the call,
+                 * the calling object will own the locks of its current members and all the members
+                 * of `source`, while `source` (including copies of the lock object) will be an
+                 * empty lock.
+                 *
+                 * Both locks must be of the same type (read or write), and in the same state
+                 * (locked or released); otherwise a Member::Lock::mismatch_error exception is
+                 * thrown.
+                 */
+                void transfer(Lock &other);
+
+                class mismatch_error : public std::runtime_error {
+                    public:
+                        mismatch_error() : std::runtime_error("Lock transfer() failed: recipient and source have different lock states") {}
+                };
+
             private:
                 /** Constructs a fake lock.  This is equivalent to create a Lock with no members.
                  * This is used by Member.readLock and .writeLock when the simulation doesn't use
@@ -185,7 +212,7 @@ class Member {
                         Data() = delete;
                         Data(std::vector<SharedMember<Member>> &&members, bool write, bool locked = false)
                             : members(std::forward<std::vector<SharedMember<Member>>>(members)), write(write), locked(locked) {}
-                        const std::vector<SharedMember<Member>> members;
+                        std::vector<SharedMember<Member>> members;
                         bool write;
                         bool locked;
                         bool fake;
