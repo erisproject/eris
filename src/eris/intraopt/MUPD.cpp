@@ -21,7 +21,7 @@ MUPD::allocation MUPD::spending_allocation(const unordered_map<eris_id_t, double
 
     auto sim = simulation();
 
-    for (auto m : spending) {
+    for (auto &m : spending) {
         if (m.second > 0) {
             if (m.first == 0) {
                 // Holding cash
@@ -31,7 +31,6 @@ MUPD::allocation MUPD::spending_allocation(const unordered_map<eris_id_t, double
             else {
                 // Otherwise query the market for the resulting quantity
                 auto mkt = sim->market(m.first);
-                auto lock = mkt->readLock();
 
                 auto q = mkt->quantity(m.second * price_ratio(mkt));
 
@@ -64,8 +63,6 @@ double MUPD::calc_mu_per_d(
     auto sim = simulation();
     auto mkt = sim->market(mkt_id);
 
-    auto mlock = mkt->readLock();
-
     double mu = 0.0;
     // Add together all of the marginal utilities weighted by the output level, since the market may
     // produce more than one good, and quantities may not equal 1.
@@ -75,8 +72,9 @@ double MUPD::calc_mu_per_d(
     double q = alloc.quantity.count(mkt) ? alloc.quantity.at(mkt) : 0;
     auto pricing = mkt->price(q);
 
-    // FIXME: check feasible
-    if (!pricing.feasible) throw "FIXME: check feasible";
+    if (!pricing.feasible) {
+        throw std::runtime_error("MUPD::calc_mu_per_d encountered non-feasible market, which shouldn't be possible.");
+    }
 
     return mu / pricing.marginal * price_ratio(mkt);
 }
@@ -114,11 +112,6 @@ void MUPD::intraOptimize() {
             continue;
         }
 
-        if (!market->price(0).feasible) {
-            // The market cannot produce any output (i.e. it is exhausted/constrained).
-            continue;
-        }
-
         // We assign an exact value later, once we know how many eligible markets there are.
         spending[market] = 0.0;
         need_lock.push_back(market);
@@ -132,6 +125,24 @@ void MUPD::intraOptimize() {
     // Now hold a big write lock on the consumer and all the markets in question
     auto big_lock = consumer->writeLock(need_lock);
 
+    std::vector<eris_id_t> exhausted;
+    // Check all the markets we're going to consider, and prune out any that are exhausted
+    for (auto &m : spending) {
+        if (m.first == 0) continue;
+        auto market = sim->market(m.first);
+        if (!market->price(0).feasible) {
+            // The market cannot produce any output (i.e. it is exhausted/constrained), so remove it
+            // from consideration.
+            exhausted.push_back(market);
+        }
+    }
+
+    for (eris_id_t &remove : exhausted)
+        spending.erase(remove);
+
+    markets = spending.size()-1; // -1 for the id=0 cash pseudo-market
+    if (markets == 0) return;
+
     Bundle &a = consumer->assets();
     Bundle a_no_money = a;
     double cash = a_no_money.remove(money);
@@ -140,6 +151,8 @@ void MUPD::intraOptimize() {
         return;
     }
 
+    // Start out with equal spending in every market, no spending in the 0 (don't spend)
+    // pseudo-market
     // Start out with equal spending in every market, no spending in the 0 (don't spend)
     // pseudo-market
     for (auto &m : spending) {
