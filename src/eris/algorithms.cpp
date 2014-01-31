@@ -1,8 +1,8 @@
 #include <eris/algorithms.hpp>
 namespace eris {
 
-Stepper::Stepper(double step, int increase_count, double min_step, bool rel_steps)
-    : increase(increase_count), min_step(min_step), relative_steps(rel_steps), step_size(step) {}
+Stepper::Stepper(double step, int increase_count, double min_step, double max_step, bool rel_steps)
+    : increase(increase_count), min_step(min_step), max_step(max_step), relative_steps(rel_steps), step_size(step) {}
 
 double Stepper::step(bool up) {
     bool first_time = same == 0;
@@ -16,11 +16,16 @@ double Stepper::step(bool up) {
         step_size /= 2;
         if (step_size < min_step) step_size = min_step;
     }
-    else if (same >= increase) {
+    else if (same >= increase and step_size < max_step) {
         // We've taken several steps in the same direction, so double the step size
         step_size *= 2;
+
+        if (step_size > max_step) step_size = max_step;
+
         // We just doubled the step size, so, in terms of the new step size, only half of the
-        // previous steps count as increasing steps:
+        // previous steps count as increasing steps.  This could be slightly off if we had to
+        // correct to the max_step size, but in that case the value of same won't matter anyway,
+        // since we won't be increasing step size any more.
         same /= 2;
     }
 

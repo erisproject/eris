@@ -119,6 +119,7 @@ class Stepper final {
         static constexpr double default_initial_step = 1.0/32.0;
         static constexpr int    default_increase_count = 4;
         static constexpr double default_min_step = std::numeric_limits<double>::epsilon();
+        static constexpr double default_max_step = 0.5;
         static constexpr bool   default_relative_steps = true;
 
         /** Constructs a new Stepper object.
@@ -142,6 +143,9 @@ class Stepper final {
          * machine epsilon (i.e. the smallest value v such that 1 + v is a value distinct from 1),
          * which is the smallest value possible for a step.
          *
+         * \param max_step is the maximum step size that can be taken.  The default is equal to 0.5,
+         * corresponding to an an increase of 50% or a decrease of 33% (when `rel_steps` is true).
+         *
          * \param rel_steps specifies whether the steps taken are relative to the current value, or
          * absolute changes.  The default (relative steps) is suitable for things like prices and
          * quantities, when relative changes are more important than absolute values; specifying
@@ -153,6 +157,7 @@ class Stepper final {
         Stepper(double initial_step = default_initial_step,
                 int increase_count = default_increase_count,
                 double min_step = default_min_step,
+                double max_step = default_max_step,
                 bool rel_steps = default_relative_steps);
 
         /** Called to signal that a step increase (`up=true`) or decrease (`up=false`) should be
@@ -179,6 +184,9 @@ class Stepper final {
 
         /// The minimum (relative) step size allowed, specified in the constructor.
         const double min_step;
+
+        /// The maximum (relative) step size allowed, specified in the constructor.
+        const double max_step;
 
         /** If true, steps are relative; if false, steps are absolute.
          *
