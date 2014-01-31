@@ -25,18 +25,99 @@ std::shared_ptr<Simulation> Member::simulation() const {
 void Member::added() {}
 void Member::removed() {}
 
-Member::Lock::Lock(bool write) : Lock(write, std::vector<SharedMember<Member>>()) {}
-Member::Lock::Lock(bool write, SharedMember<Member> member) : Lock(write, std::vector<SharedMember<Member>>(1, member)) {}
-Member::Lock::Lock(bool write, std::vector<SharedMember<Member>> &&members)
-    : data(new Data(std::forward<std::vector<SharedMember<Member>>>(members), write)) {
+Member::Lock Member::readLock() const {
+    if (maxThreads() == 0) return Member::Lock(false); // Fake lock
+    std::multiset<SharedMember<Member>> members;
+    members.insert(sharedSelf());
+    return Member::Lock(false, std::move(members));
+}
 
+Member::Lock Member::writeLock() {
+    if (maxThreads() == 0) return Member::Lock(true); // Fake lock
+    std::multiset<SharedMember<Member>> members;
+    members.insert(sharedSelf());
+    return Member::Lock(true, std::move(members));
+}
+
+Member::Lock::Lock(bool write, bool locked) : Lock(write, locked, std::multiset<SharedMember<Member>>()) {}
+Member::Lock::Lock(bool write, std::multiset<SharedMember<Member>> &&members)
+    : data(new Data(std::forward<std::multiset<SharedMember<Member>>>(members), write)) {
     lock();
 }
+Member::Lock::Lock(bool write, bool locked, std::multiset<SharedMember<Member>> &&members)
+    : data(new Data(std::forward<std::multiset<SharedMember<Member>>>(members), write, locked)) {}
 
 Member::Lock::Lock(const Lock &l) : data(l.data) {}
 
 Member::Lock::~Lock() {
     if (data.unique()) release();
+}
+
+void Member::Lock::mutex_lock_(bool write) {
+    // Not currently locked
+    auto &members = data->members;
+    auto mem_begin = members.begin();
+    auto mem_end = members.end();
+    auto holding_it = mem_end;
+    while (true) {
+        auto unwind_it = mem_end;
+        for (auto it = mem_begin; it != mem_end; ++it) {
+            if (holding_it == it) continue; // We're already holding this mutex lock from the previous attempt
+
+            auto &mutex = (*it)->wmutex_;
+
+            bool got_lock = mutex.try_lock();
+            // If we're getting a write lock, we need to check not only that we got the mutex lock,
+            // but also that we got it when readlocks_ equals 0; otherwise, we only really have a
+            // shared (i.e. read) lock, so need to release it and try again.
+            if (write and got_lock and (*it)->readlocks_ > 0) {
+                mutex.unlock();
+                got_lock = false;
+            }
+
+            if (not got_lock) {
+                unwind_it = it;
+                break;
+            }
+        }
+
+        if (unwind_it == mem_end) {
+            // Hurray, we got all the locks!
+            break;
+        }
+
+        bool undid_holding = false;
+
+        // Otherwise unwind from the beginning up to the unwind iterator, unlocking all the
+        // locks we acquired
+        for (auto undoit = mem_begin; undoit != unwind_it; ++undoit) { // Undo [begin,unwind)
+            auto &mem = *undoit;
+            mem->wmutex_.unlock();
+            if (undoit == holding_it) undid_holding = true;
+        }
+
+        // If we're also holding a lock from the previous time through that didn't just get
+        // undone, release it too
+        if (holding_it != mem_end and not undid_holding) {
+            (*holding_it)->wmutex_.unlock();
+            holding_it = mem_end;
+        }
+
+        auto unwind = *unwind_it;
+
+        // Now block waiting for unwind's lock, then repeat the whole procedure.
+        unwind->wmutex_.lock();
+
+        // If we're looking for a readlock, we need to release and wait on the readlocks_cv_ until
+        // we get the lock *and* readlocks_ == 0.
+        if (write) {
+            unwind->readlock_cv_.wait(unwind->wmutex_, [&] { return unwind->readlocks_ == 0; });
+        }
+
+        // We've now got a lock on the member that was giving us trouble while trying to get all the
+        // locks without blocking, so try again.
+        holding_it = unwind_it;
+    }
 }
 
 
@@ -49,7 +130,8 @@ void Member::Lock::read() {
     else if (isLocked()) {
         // Already locked
         if (isWrite()) {
-            // Write lock established; downgrade all locks to read locks
+            // Write lock already established; downgrade all locks to read locks by incrementing
+            // readlocks_ and releasing the member mutexes
             for (auto &m : data->members) {
                 m->readlocks_++;
                 m->wmutex_.unlock();
@@ -59,42 +141,9 @@ void Member::Lock::read() {
         // Otherwise we don't care: calling read() on an active readlock does nothing.
     }
     else {
-        // Not currently locked
-        int holding = -1;
-        auto &members = data->members;
-        while (true) {
-            int unwind = -1;
-            for (int i = 0; i < (int) members.size(); i++) {
-                if (holding == i) continue; // We're already holding this lock
+        mutex_lock_(false);
 
-                auto &mutex = members.at(i)->wmutex_;
-
-                if (not mutex.try_lock()) {
-                    unwind = i;
-                    break;
-                }
-            }
-
-            if (unwind == -1) {
-                // Hurray, we got all the locks!
-                break;
-            }
-
-            // Otherwise unlock all the locks we acquired up to unwind
-            for (int i = 0; i < unwind; i++) {
-                members.at(i)->wmutex_.unlock();
-            }
-            // If we're also holding a lock from the previous time through that didn't just get
-            // undone, release it too
-            if (holding >= unwind)
-                members.at(holding)->wmutex_.unlock();
-
-            // Now block waiting for unwind's lock, then repeat the whole procedure.
-            members.at(unwind)->wmutex_.lock();
-            holding = unwind;
-        }
-
-        for (auto &m : members) {
+        for (auto &m : data->members) {
             m->readlocks_++;
             m->wmutex_.unlock();
         }
@@ -119,63 +168,8 @@ void Member::Lock::write() {
             release();
     }
 
+    mutex_lock_(true); // When this returns, we have an exclusive lock on all members
 
-    int holding = -1;
-    auto &members = data->members;
-    while (true) {
-        int unwind = -1;
-        for (int i = 0; i < (int) members.size(); i++) {
-            if (i == holding) continue; // We're already holding this write lock
-
-            auto &lock = members.at(i)->wmutex_;
-            auto &readlocks = members.at(i)->readlocks_;
-
-            // Try to get a mutex lock, then check to see if readlocks_ is 0: if we get a lock on
-            // wmutex_ but readlocks_ is non-zero, we don't have an exclusive (write) lock yet, so
-            // back off.  If we fail to get the exclusive lock (because wmutex_ is held, or because
-            // readlocks_ > 0), we need to unwind any locks we already got up to this point.  Then
-            // we'll wait on the one we didn't get, then try the whole thing again.
-            if (lock.try_lock()) {
-                if (readlocks > 0) {
-                    lock.unlock();
-                    unwind = i;
-                    break;
-                }
-                // Else we got the lock and readlocks is 0: i.e. we got the desired write lock; just
-                // hold onto it and keep going.
-            }
-            else {
-                // Failed to obtain a mutex lock, so unwind any we did get along the way
-                unwind = i;
-                break;
-            }
-        }
-
-        if (unwind == -1) {
-            // If unwind is still -1, we got through the entire loop without a lock failure, so
-            // we're done.
-            break;
-        }
-
-        // Otherwise, we have to unlock all the mutex locks we aquired up to (but not including) `unwind':
-        for (int i = 0; i < unwind; i++) {
-            members.at(i)->wmutex_.unlock();
-        }
-        // If we're also holding a lock from the previous time through that didn't just get
-        // undone, release it too
-        if (holding >= unwind)
-            members.at(holding)->wmutex_.unlock();
-
-        // Now wait on  `unwind's lock mutex until it is granted *and* readlocks_ hits 0
-        members.at(unwind)->wmutex_.lock();
-        members.at(unwind)->readlock_cv_.wait(members.at(unwind)->wmutex_,
-                [&] { return members.at(unwind)->readlocks_ == 0; });
-
-        // The object giving us problems is free, so let's try the whole thing again
-        holding = unwind;
-    }
-
-    // We have exclusive locks on everything: great!
     data->locked = true;
     data->write = true;
 }
@@ -220,15 +214,15 @@ bool Member::Lock::isWrite() {
     return data->write;
 }
 
-void Member::Lock::transfer(Member::Lock &source) {
-    if (isWrite() != source.isWrite() or isLocked() != source.isLocked()) {
+void Member::Lock::transfer(Member::Lock &from) {
+    if (isWrite() != from.isWrite() or isLocked() != from.isLocked()) {
         throw Member::Lock::mismatch_error();
     }
 
-    // Copy source's members
-    data->members.insert(data->members.end(), source.data->members.begin(), source.data->members.end());
-    // Delete source's members
-    source.data->members.clear();
+    // Copy from's members
+    data->members.insert(from.data->members.begin(), from.data->members.end());
+    // Delete from's members
+    from.data->members.clear();
 }
 
 void Member::Lock::add(SharedMember<Member> member) {
@@ -268,13 +262,13 @@ void Member::Lock::add(SharedMember<Member> member) {
         // We failed to obtain a lock on the new member, so we need to release the current lock,
         // add the new member, then try for a lock on all members.
         release();
-        data->members.push_back(member);
+        data->members.insert(member);
         lock();
     }
     else {
         // Either the lock isn't active, or we got the lock without blocking, so all that's left is
         // adding the new member into the list of locked members.
-        data->members.push_back(member);
+        data->members.insert(member);
     }
 }
 

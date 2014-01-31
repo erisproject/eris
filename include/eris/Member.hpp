@@ -6,9 +6,8 @@
 #include <memory>
 #include <mutex>
 #include <atomic>
-#include <vector>
+#include <set>
 #include <condition_variable>
-#include <unordered_map>
 #include <type_traits>
 
 namespace eris {
@@ -83,6 +82,10 @@ class Member {
          * for more precise lock control.
          *
          * It is not recommended (or supported) to access a Lock object from multiple threads.
+         *
+         * If the simulation is not using threads at all (that is, maxThreads() is 0), the methods
+         * of this class do nothing substantial: no actual locking operations are performed thus
+         * eliminating locking overhead when locking is pointless.
          *
          * Implementation details:
          *
@@ -168,41 +171,109 @@ class Member {
                 /** Adds the given member to the current set of locked members.  If a lock on the
                  * given member cannot be obtained immediately, all locks currently held by the
                  * Lock object are released until a lock on all objects (current plus new) can be
-                 * obtained.
+                 * obtained.  If the current lock already contains the given member, this does
+                 * nothing.
                  *
                  * If the object is currently not locked, this takes out no lock, but adds the given
                  * member to the set of members that will be locked when lock() is called.
                  */
                 void add(SharedMember<Member> member);
 
-                /** Transfers the locked members of `source` into the called lock.  After the call,
+                /** Transfers the locked members of `from` into the called lock.  After the call,
                  * the calling object will own the locks of its current members and all the members
-                 * of `source`, while `source` (including copies of the lock object) will be an
+                 * of `from`, while `from` (including copies of the lock object) will be an
                  * empty lock.
                  *
                  * Both locks must be of the same type (read or write), and in the same state
                  * (locked or released); otherwise a Member::Lock::mismatch_error exception is
                  * thrown.
                  */
-                void transfer(Lock &other);
+                void transfer(Lock &from);
 
+                /** Exception class thrown by transfer(Lock) if the source and destination locks are
+                 * in different read/write and/or locked/released states.
+                 */
                 class mismatch_error : public std::runtime_error {
                     public:
                         mismatch_error() : std::runtime_error("Lock transfer() failed: recipient and source have different lock states") {}
                 };
 
+                /** Removes the given member from the current lock, transferring it to a new lock
+                 * of the same type and status as the current lock without releasing the lock (if
+                 * active).  Thus this method cannot block.  If the returned lock is not stored, it
+                 * expires immediately and so this also serves to remove and release the lock on
+                 * given members.
+                 *
+                 * \throws std::out_of_range if the lock doesn't contain the given member.
+                 */
+                Lock remove(SharedMember<Member> member);
+
+                /** Removes the given members from the current lock, transferring them to a new lock
+                 * of the same type and status as the current lock without releasing the locks on
+                 * those members (if active).  Since this method does not take out any new locks, it
+                 * cannot block.  If the returned lock is not stored, it expires immediately, thus
+                 * releasing the locks held on the given objects.  If the given container is empty,
+                 * this will return a fake lock (i.e. a lock with no members).
+                 *
+                 * If a requested member is in the lock multiple times, only one instance of the
+                 * member is removed per copy of the member in the passed-in list.  As a result, it
+                 * is possible that the original lock still has a lock on passed-in members if the
+                 * given member was added multiple times.
+                 *
+                 * \throws std::out_of_range if the lock doesn't contain one or more of the given
+                 * members.
+                 */
+                template <class Container>
+                Lock remove(const Container &members,
+                        typename std::enable_if<
+                            std::is_base_of<Member, typename Container::value_type::member_type>::value
+                        >::type* = 0) {
+                    if (members.empty()) return Lock(isWrite(), isLocked()); // Fake lock
+
+                    std::multiset<SharedMember<Member>> new_lock_members;
+                    for (auto &mem : members) {
+                        auto found = data->members.find(mem);
+                        if (found == data->members.end())
+                            throw std::out_of_range("Member passed to Lock.remove() is not contained in the lock");
+
+                        new_lock_members.insert(*found);
+                        data->members.erase(found);
+                    }
+                    return Member::Lock(isWrite(), isLocked(), std::move(new_lock_members));
+                }
+
             private:
                 /** Constructs a fake lock.  This is equivalent to create a Lock with no members.
                  * This is used by Member.readLock and .writeLock when the simulation doesn't use
-                 * threading so avoids all the actual lock code.
+                 * threading so avoids all the actual lock code, or when attempting to remove an
+                 * empty list of members from a lock via remove().  A fake lock still has
+                 * read/write and locked/released states which are maintained appropriately through
+                 * calls to lock()/unlock()/write()/read(), though all locking/releasing action does
+                 * nothing other than keeping track of the state.
                  */
-                Lock(bool write);
-                /** Creates a lock that applies to a single member. Calls read() or write() before
-                 * returning. */
-                Lock(bool write, SharedMember<Member> member);
-                /** Creates a lock that applies to a vector of members. Calls lock() (which calls
+                Lock(bool write, bool locked = true);
+
+                /** Creates a lock that applies to a multiset of members. Calls lock() (which calls
                  * read() or write()) before returning. */
-                Lock(bool write, std::vector<SharedMember<Member>> &&members);
+                Lock(bool write, std::multiset<SharedMember<Member>> &&members);
+
+                /** Creates a lock that applies to a multiset of members, initially in the given
+                 * lock status.  Note that this does *not* establish a lock, even if `lock` is true:
+                 * this method is primarily intended for use by remove() to split a Lock into
+                 * multiple Locks without requiring an intermediate release and relocking.
+                 */
+                Lock(bool write, bool locked, std::multiset<SharedMember<Member>> &&members);
+
+                /** Obtains a mutex lock on all members.  If `write` is true, each mutex lock must
+                 * additionally have readlocks_ (otherwise the mutex lock is considered failed and
+                 * immediately released).  This method blocks until a mutex is held on all members,
+                 * but never blocks while holding any mutex lock.  When this method returns, a mutex
+                 * lock is held on every member.
+                 *
+                 * This code is the core simultaneous locking code used by read() and write() to
+                 * establish a lock on all members.
+                 */
+                void mutex_lock_(bool write);
 
                 friend class Member;
 
@@ -210,9 +281,9 @@ class Member {
                     public:
                         /** Default constructor explicitly deleted. */
                         Data() = delete;
-                        Data(std::vector<SharedMember<Member>> &&members, bool write, bool locked = false)
-                            : members(std::forward<std::vector<SharedMember<Member>>>(members)), write(write), locked(locked) {}
-                        std::vector<SharedMember<Member>> members;
+                        Data(std::multiset<SharedMember<Member>> &&members, bool write, bool locked = false)
+                            : members(std::forward<std::multiset<SharedMember<Member>>>(members)), write(write), locked(locked) {}
+                        std::multiset<SharedMember<Member>> members;
                         bool write;
                         bool locked;
                         bool fake;
@@ -226,10 +297,7 @@ class Member {
          *
          * \sa readLock(const Container&)
          */
-        Lock readLock() const {
-            if (maxThreads() == 0) return Member::Lock(false); // Fake lock
-            return Member::Lock(false, sharedSelf());
-        }
+        Lock readLock() const;
 
         /** Obtains a read lock for the current object *plus* all the objects passed in via the
          * given container.  This will block until a read lock can be obtained on all objects.
@@ -254,9 +322,9 @@ class Member {
                     std::is_base_of<Member, typename Container::value_type::member_type>::value
                 >::type* = 0) const {
             if (maxThreads() == 0) return Member::Lock(false); // Fake lock
-            std::vector<SharedMember<Member>> members;
-            members.push_back(sharedSelf());
-            members.insert(members.end(), plus.begin(), plus.end());
+            std::multiset<SharedMember<Member>> members;
+            members.insert(sharedSelf());
+            members.insert(plus.begin(), plus.end());
             return Member::Lock(false, std::move(members));
         }
 
@@ -266,9 +334,9 @@ class Member {
         template <class... Args>
         Lock readLock(SharedMember<Member> plus, Args... more) const {
             if (maxThreads() == 0) return Member::Lock(false); // Fake lock
-            std::vector<SharedMember<Member>> members;
-            members.push_back(sharedSelf());
-            members.push_back(plus);
+            std::multiset<SharedMember<Member>> members;
+            members.insert(sharedSelf());
+            members.insert(plus);
             member_zip_(members, more...);
             return Member::Lock(false, std::move(members));
         }
@@ -289,13 +357,7 @@ class Member {
          * The lock provided is advisory: it is still possible for a thread without a write lock to
          * invoke changes on the locked object, but such should be considered a serious error.
          */
-
-        Lock writeLock() {
-            if (maxThreads() == 0) return Member::Lock(true); // Fake lock
-            auto s = sharedSelf();
-            auto l = Member::Lock(true, sharedSelf());
-            return l;
-        }
+        Lock writeLock();
 
         /** Obtains a write lock for the current object *plus* all the objects passed in.  This will
          * block until a write lock can be obtained on all objects.
@@ -321,9 +383,9 @@ class Member {
                     std::is_base_of<Member, typename Container::value_type::member_type>::value
                 >::type* = 0) const {
             if (maxThreads() == 0) return Member::Lock(true); // Fake lock
-            std::vector<SharedMember<Member>> members;
-            members.push_back(sharedSelf());
-            members.insert(members.end(), plus.begin(), plus.end());
+            std::multiset<SharedMember<Member>> members;
+            members.insert(sharedSelf());
+            members.insert(plus.begin(), plus.end());
             return Member::Lock(true, std::move(members));
         }
 
@@ -333,9 +395,9 @@ class Member {
         template <class... Args>
         Lock writeLock(SharedMember<Member> plus, Args... more) const {
             if (maxThreads() == 0) return Member::Lock(true); // Fake lock
-            std::vector<SharedMember<Member>> members;
-            members.push_back(sharedSelf());
-            members.push_back(plus);
+            std::multiset<SharedMember<Member>> members;
+            members.insert(sharedSelf());
+            members.insert(plus);
             member_zip_(members, more...);
             return Member::Lock(true, std::move(members));
         }
@@ -417,17 +479,17 @@ class Member {
         void unlock_(bool write);
 
         /** Called during Lock destruction to release the locks on the current object and
-         * provided vector of objects
+         * provided set of objects
          */
-        void unlock_many_(bool write, const std::vector<SharedMember<Member>> &plus);
+        void unlock_many_(bool write, const std::multiset<SharedMember<Member>> &plus);
 
-        /** Sticks the passed-in SharedMember<T> objects into the passed-in std::vector */
+        /** Sticks the passed-in SharedMember<T> objects into the passed-in std::multiset */
         template <class... Args>
-        void member_zip_(std::vector<SharedMember<Member>> &zip, SharedMember<Member> add, Args... more) const {
-            zip.push_back(add);
+        void member_zip_(std::multiset<SharedMember<Member>> &zip, SharedMember<Member> add, Args... more) const {
+            zip.insert(add);
             member_zip_(zip, more...);
         }
-        void member_zip_(std::vector<SharedMember<Member>> &zip) const {}
+        void member_zip_(std::multiset<SharedMember<Member>> &zip) const {}
 };
 
 }
