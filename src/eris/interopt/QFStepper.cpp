@@ -3,7 +3,7 @@
 namespace eris { namespace interopt {
 
 QFStepper::QFStepper(const QFirm &qf, const Bundle &profit_basis, double step, int increase_count) :
-    ProfitStepper(qf, profit_basis, step, increase_count, 1), firm_(qf) {}
+    ProfitStepper(qf, profit_basis, step, increase_count, 3), firm_(qf) {}
 
 void QFStepper::take_step(double relative) {
     auto firm = simAgent<QFirm>(firm_);
@@ -23,7 +23,7 @@ bool QFStepper::should_jump() {
 }
 
 void QFStepper::take_jump() {
-auto firm = simAgent<QFirm>(firm_);
+    auto firm = simAgent<QFirm>(firm_);
     firm->capacity = jump_cap_;
 }
 
