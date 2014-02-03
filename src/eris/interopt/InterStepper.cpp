@@ -27,6 +27,7 @@ void InterStepper::interOptimize() {
 void InterStepper::interApply() {
     if (jump_) {
         stepper_.same = 0;
+        stepper_.step_size /= 2;
         take_jump();
     }
     else if (stepping_) {
