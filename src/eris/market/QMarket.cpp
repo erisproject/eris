@@ -1,5 +1,4 @@
 #include <eris/market/QMarket.hpp>
-//#include <eris/Simulation.hpp>
 #include <unordered_map>
 
 namespace eris { namespace market {
