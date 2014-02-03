@@ -47,6 +47,17 @@ class MUPD : public Member, public virtual OptApplyReset {
         /** The relative tolerance level at which optimization stops. */
         double tolerance;
 
+        /** Exception class thrown if attempting to perform an action in a market that can't be done
+         * because the market is exhausted.  A typical example of this is trying to compute the
+         * market's marginal utility per dollar (calc_mu_per_d()) on an exhausted market.
+         */
+        class market_exhausted_error : public std::runtime_error {
+            public:
+                market_exhausted_error(eris_id_t mkt) : std::runtime_error("Cannot computed MU/$ in exhausted market"), market(mkt) {}
+
+                const eris_id_t market;
+        };
+
     protected:
         const eris_id_t con_id;
         const eris_id_t money;
@@ -72,6 +83,7 @@ class MUPD : public Member, public virtual OptApplyReset {
 
         /** Calculates the marginal utility per money unit evaluated at the given Bundle.
          * \param con the shared consumer object
+         * \param an active write lock on the consumer
          * \param mkt_id the market id for which to calculate
          * \param a the allocation as returned by spending_allocation
          * \param b the Bundle at which to evaluate marginal utility
@@ -81,6 +93,7 @@ class MUPD : public Member, public virtual OptApplyReset {
          */
         double calc_mu_per_d(
                 const SharedMember<Consumer::Differentiable> &con,
+                Member::Lock &lock,
                 const eris_id_t &mkt_id,
                 const allocation &a,
                 const Bundle &b) const;

@@ -53,6 +53,7 @@ MUPD::allocation MUPD::spending_allocation(const unordered_map<eris_id_t, double
 
 double MUPD::calc_mu_per_d(
         const SharedMember<Consumer::Differentiable> &con,
+        Member::Lock &lock,
         const eris_id_t &mkt_id,
         const allocation &alloc,
         const Bundle &b) const {
@@ -62,6 +63,7 @@ double MUPD::calc_mu_per_d(
 
     auto sim = simulation();
     auto mkt = sim->market(mkt_id);
+    lock.add(mkt);
 
     double mu = 0.0;
     // Add together all of the marginal utilities weighted by the output level, since the market may
@@ -72,8 +74,10 @@ double MUPD::calc_mu_per_d(
     double q = alloc.quantity.count(mkt) ? alloc.quantity.at(mkt) : 0;
     auto pricing = mkt->price(q);
 
+    lock.remove(mkt);
+
     if (!pricing.feasible) {
-        throw std::runtime_error("MUPD::calc_mu_per_d encountered non-feasible market, which shouldn't be possible.");
+        throw market_exhausted_error(mkt_id);
     }
 
     return mu / pricing.marginal * price_ratio(mkt);
@@ -92,9 +96,6 @@ void MUPD::intraOptimize() {
             return;
     }
 
-    std::vector<SharedMember<Member>> need_lock;
-
-
     unordered_map<eris_id_t, double> spending;
 
     spending[0] = 0.0; // 0 is the "don't spend"/"hold cash" option
@@ -112,9 +113,14 @@ void MUPD::intraOptimize() {
             continue;
         }
 
+        if (not market->price(0).feasible) {
+            // The market cannot produce any output (i.e. it is exhausted/constrained), so don't
+            // consider it.
+            continue;
+        }
+
         // We assign an exact value later, once we know how many eligible markets there are.
         spending[market] = 0.0;
-        need_lock.push_back(market);
     }
 
     unsigned int markets = spending.size()-1; // -1 to account for the cash non-market (id=0)
@@ -122,23 +128,8 @@ void MUPD::intraOptimize() {
     // If there are no viable markets, there's nothing to do.
     if (markets == 0) return;
 
-    // Now hold a big write lock on the consumer and all the markets in question
-    auto big_lock = consumer->writeLock(need_lock);
-
-    std::vector<eris_id_t> exhausted;
-    // Check all the markets we're going to consider, and prune out any that are exhausted
-    for (auto &m : spending) {
-        if (m.first == 0) continue;
-        auto market = sim->market(m.first);
-        if (!market->price(0).feasible) {
-            // The market cannot produce any output (i.e. it is exhausted/constrained), so remove it
-            // from consideration.
-            exhausted.push_back(market);
-        }
-    }
-
-    for (eris_id_t &remove : exhausted)
-        spending.erase(remove);
+    // Now hold a write lock on this optimizer and the consumer.  We'll add and remove market locks to this as needed.
+    auto big_lock = writeLock(consumer);
 
     markets = spending.size()-1; // -1 for the id=0 cash pseudo-market
     if (markets == 0) return;
@@ -153,8 +144,6 @@ void MUPD::intraOptimize() {
 
     // Start out with equal spending in every market, no spending in the 0 (don't spend)
     // pseudo-market
-    // Start out with equal spending in every market, no spending in the 0 (don't spend)
-    // pseudo-market
     for (auto &m : spending) {
         if (m.first != 0)
             m.second = cash / markets;
@@ -165,145 +154,179 @@ void MUPD::intraOptimize() {
     allocation final_alloc = {};
 
     while (true) {
-        allocation alloc = spending_allocation(spending);
-        Bundle tryout = a_no_money + alloc.bundle;
+        while (true) {
+            try {
+                allocation alloc = spending_allocation(spending);
+                Bundle tryout = a_no_money + alloc.bundle;
 
-        for (auto m : spending) {
-            mu_per_d[m.first] = calc_mu_per_d(consumer, m.first, alloc, tryout);
-        }
-
-        eris_id_t highest = 0, lowest = 0;
-        double highest_u = mu_per_d[0], lowest_u = std::numeric_limits<double>::infinity();
-        for (auto m : mu_per_d) {
-            // Consider all markets (even eligible ones that we aren't currently spending in) for
-            // best return, but exclude markets that are constrained (since we can't spend any more
-            // in them).
-            // FIXME: do this last bit?
-            if (m.second > highest_u) {
-                highest = m.first;
-                highest_u = m.second;
-            }
-            // Only count markets where we are actually spending positive amounts as "lowest", since
-            // we can't transfer away from a market without any expenditure.
-            if (spending[m.first] > 0 and m.second < lowest_u) {
-                lowest = m.first;
-                lowest_u = m.second;
-            }
-        }
-
-        if (highest_u <= lowest_u or (highest_u - lowest_u) / highest_u < tolerance) {
-            final_alloc = alloc;
-            break; // Nothing more to optimize
-        }
-
-        double baseU = consumer->utility(tryout);
-        // Attempt to transfer all of the low utility spending to the high-utility market.  If MU/$
-        // are equal, we're done; if the lower utility is still lower, transfer 3/4, otherwise
-        // transfer 1/4.  Repeat.
-        //
-        // We do have to be careful, however: transferring everything might screw things up (e.g.
-        // consider u = xyz^2: setting z=0 will result in MU=0 for all three goods.  So we need to
-        // check not just the marginal utilities, but that this reallocation actually increases
-        // overall utility.
-        unordered_map<eris_id_t, double> try_spending = spending;
-
-        try_spending[highest] = spending[highest] + spending[lowest];
-        try_spending[lowest] = 0;
-
-        alloc = spending_allocation(try_spending);
-        tryout = a_no_money + alloc.bundle;
-        if (consumer->utility(tryout) < baseU or
-                calc_mu_per_d(consumer, highest, alloc, tryout) < calc_mu_per_d(consumer, lowest, alloc, tryout)) {
-            // Transferring *everything* from lowest to highest is too much (MU/$ for the highest
-            // good would end up lower than the lowest good, post-transfer, or else overall utility
-            // goes down entirely).
-            //
-            // We need to transfer less than everything, so use a binary search to figure out the
-            // optimum transfer.
-            //
-            // Take 10 binary steps (which means we get granularity of 1/1024).  However, since
-            // we'll probably come in here again (comparing this good to other goods) before
-            // optimize() finishes, this gets amplified.
-            //
-            // FIXME: this is a very good target for optimization; typically this loop will run
-            // around 53 times (which makes perfect sense, as that's about where step_size runs off
-            // the end of the least precise double bit--sometimes a bit more, if the transfer ratio
-            // is a very small number).
-            double step_size = 0.25;
-            double last_transfer = 1.0;
-            double transfer = 0.5;
-
-            int debugiters = 0;
-            for (int i = 0; transfer != last_transfer and i < 100; ++i) {
-                debugiters++;
-                last_transfer = transfer;
-
-                double pre_try_h = try_spending[highest], pre_try_l = try_spending[lowest];
-
-                try_spending[highest] = spending[highest] + transfer * spending[lowest];
-                try_spending[lowest] = (1-transfer) * spending[lowest];
-
-                if (try_spending[highest] == pre_try_h and try_spending[lowest] == pre_try_l) {
-                    // The transfer is too small to numerically affect things, so we're done.
-                    break;
+                for (auto m : spending) {
+                    mu_per_d[m.first] = calc_mu_per_d(consumer, big_lock, m.first, alloc, tryout);
                 }
+
+                eris_id_t highest = 0, lowest = 0;
+                double highest_u = mu_per_d[0], lowest_u = std::numeric_limits<double>::infinity();
+                for (auto m : mu_per_d) {
+                    // Consider all markets (even eligible ones that we aren't currently spending in) for
+                    // best return, but exclude markets that are constrained (since we can't spend any more
+                    // in them).
+                    // FIXME: do this last bit?
+                    if (m.second > highest_u) {
+                        highest = m.first;
+                        highest_u = m.second;
+                    }
+                    // Only count markets where we are actually spending positive amounts as "lowest", since
+                    // we can't transfer away from a market without any expenditure.
+                    if (spending[m.first] > 0 and m.second < lowest_u) {
+                        lowest = m.first;
+                        lowest_u = m.second;
+                    }
+                }
+
+                if (highest_u <= lowest_u or (highest_u - lowest_u) / highest_u < tolerance) {
+                    final_alloc = alloc;
+                    break; // Nothing more to optimize
+                }
+
+                double baseU = consumer->utility(tryout);
+                // Attempt to transfer all of the low utility spending to the high-utility market.  If MU/$
+                // are equal, we're done; if the lower utility is still lower, transfer 3/4, otherwise
+                // transfer 1/4.  Repeat.
+                //
+                // We do have to be careful, however: transferring everything might screw things up (e.g.
+                // consider u = xyz^2: setting z=0 will result in MU=0 for all three goods.  So we need to
+                // check not just the marginal utilities, but that this reallocation actually increases
+                // overall utility.
+                unordered_map<eris_id_t, double> try_spending = spending;
+
+                try_spending[highest] = spending[highest] + spending[lowest];
+                try_spending[lowest] = 0;
 
                 alloc = spending_allocation(try_spending);
                 tryout = a_no_money + alloc.bundle;
-                double delta = calc_mu_per_d(consumer, highest, alloc, tryout) - calc_mu_per_d(consumer, lowest, alloc, tryout);
-                if (delta == 0)
-                    // We equalized MU/$.  Done.
+                if (consumer->utility(tryout) < baseU or
+                        calc_mu_per_d(consumer, big_lock, highest, alloc, tryout) < calc_mu_per_d(consumer, big_lock, lowest, alloc, tryout)) {
+                    // Transferring *everything* from lowest to highest is too much (MU/$ for the highest
+                    // good would end up lower than the lowest good, post-transfer, or else overall utility
+                    // goes down entirely).
+                    //
+                    // We need to transfer less than everything, so use a binary search to figure out the
+                    // optimum transfer.
+                    //
+                    // Take 10 binary steps (which means we get granularity of 1/1024).  However, since
+                    // we'll probably come in here again (comparing this good to other goods) before
+                    // optimize() finishes, this gets amplified.
+                    //
+                    // FIXME: this is a very good target for optimization; typically this loop will run
+                    // around 53 times (which makes perfect sense, as that's about where step_size runs off
+                    // the end of the least precise double bit--sometimes a bit more, if the transfer ratio
+                    // is a very small number).
+                    double step_size = 0.25;
+                    double last_transfer = 1.0;
+                    double transfer = 0.5;
+
+                    for (int i = 0; transfer != last_transfer and i < 100; ++i) {
+                        last_transfer = transfer;
+
+                        double pre_try_h = try_spending[highest], pre_try_l = try_spending[lowest];
+
+                        try_spending[highest] = spending[highest] + transfer * spending[lowest];
+                        try_spending[lowest] = (1-transfer) * spending[lowest];
+
+                        if (try_spending[highest] == pre_try_h and try_spending[lowest] == pre_try_l) {
+                            // The transfer is too small to numerically affect things, so we're done.
+                            break;
+                        }
+
+                        alloc = spending_allocation(try_spending);
+                        tryout = a_no_money + alloc.bundle;
+                        double delta = calc_mu_per_d(consumer, big_lock, highest, alloc, tryout) - calc_mu_per_d(consumer, big_lock, lowest, alloc, tryout);
+                        if (delta == 0)
+                            // We equalized MU/$.  Done.
+                            break;
+                        else if (delta > 0)
+                            // MU/$ is still higher for `highest', so transfer more
+                            transfer += step_size;
+                        else
+                            // Otherwise transfer less
+                            transfer -= step_size;
+                        // Eventually this step_size will become too small to change transfer
+                        step_size /= 2;
+                    }
+                }
+
+                final_alloc = alloc;
+
+                if (spending[highest] == try_spending[highest] or spending[lowest] == try_spending[lowest]) {
+                    // What we just identified isn't actually a change, probably because we're hitting the
+                    // boundaries of storable double values, so end.
                     break;
-                else if (delta > 0)
-                    // MU/$ is still higher for `highest', so transfer more
-                    transfer += step_size;
-                else
-                    // Otherwise transfer less
-                    transfer -= step_size;
-                // Eventually this step_size will become too small to change transfer
-                step_size /= 2;
+                }
+
+                spending[highest] = try_spending[highest];
+                spending[lowest] = try_spending[lowest];
+            }
+            catch (market_exhausted_error &e) {
+                // One of the markets has become exhausted.  If it's completely exhausted, take it out
+                // of the spending set; otherwise just restart the whole thing (the new limit will be
+                // taken care of in the initial spending_allocation() call).
+
+                if (not sim->market(e.market)->price(0).feasible) {
+                    // Completely exhausted market: transfer its spending to cash
+                    spending[0] += spending[e.market];
+                    spending.erase(e.market);
+                    markets = spending.size() - 1;
+                    if (markets == 0) return;
+                }
             }
         }
 
-        final_alloc = alloc;
-
-        if (spending[highest] == try_spending[highest] or spending[lowest] == try_spending[lowest]) {
-            // What we just identified isn't actually a change, probably because we're hitting the
-            // boundaries of storable double values, so end.
-            break;
+        // Safety check: make sure we're actually increasing utility; if not, don't do anything.
+        if (consumer->utility(a_no_money + final_alloc.bundle) <= consumer->currUtility()) {
+            return;
         }
 
-        spending[highest] = try_spending[highest];
-        spending[lowest] = try_spending[lowest];
-    }
-
-    // Safety check: make sure we're actually increasing utility; if not, don't do anything.
-    if (consumer->utility(a_no_money + final_alloc.bundle) <= consumer->currUtility()) {
-        return;
-    }
-
-    // If we haven't held back on any spending, add a tiny fraction of the amount of cash we are
-    // spending to assets (to prevent numerical errors causing insufficient assets exceptions), then
-    // subtract it off (if possible) after reserving.
-    double extra = 0;
-    if (spending[0] == 0.0) {
-        extra = cash * 1e-13;
-        a += extra * money_unit;
-    }
-
-    for (auto &m : final_alloc.quantity) {
-        if (m.first != 0 and m.second > 0) {
-            reservations.push_front(sim->market(m.first)->reserve(consumer, m.second));
+        // If we haven't held back on any spending, add a tiny fraction of the amount of cash we are
+        // spending to assets (to prevent numerical errors causing insufficient assets exceptions), then
+        // subtract it off (if possible) after reserving.
+        double extra = 0;
+        if (spending[0] == 0.0) {
+            extra = cash * 1e-13;
+            a += extra * money_unit;
         }
-    }
 
-    if (extra > 0) {
-        a -= extra * money_unit;
+        bool restart = false; // Will become true if a reservation fails
+
+        for (auto &m : final_alloc.quantity) {
+            if (m.first != 0 and m.second > 0) {
+                auto market = sim->market(m.first);
+                big_lock.add(market);
+                try {
+                    reservations.push_front(market->reserve(consumer, m.second));
+                }
+                catch (Market::output_infeasible &e) {
+                    restart = true;
+                }
+                catch (Market::insufficient_assets &e) {
+                    restart = true;
+                }
+                big_lock.remove(market);
+                if (restart) break;
+            }
+        }
+
+        if (extra > 0) {
+            a -= extra * money_unit;
+        }
+
+        if (not restart) break;
+        // Else abort any established reservations and repeat the entire loop
+        reservations.clear();
     }
 }
 
 void MUPD::intraReset() {
-    auto lock = writeLock();
+    auto lock = writeLock(simulation()->agent<Consumer::Differentiable>(con_id));
+
     reservations.clear();
 }
 
@@ -326,6 +349,8 @@ void MUPD::intraApply() {
     else
         // Otherwise subtract off the tiny amount we added, above.
         a -= tiny_extra;
+
+    reservations.clear();
 }
 
 void MUPD::added() {
