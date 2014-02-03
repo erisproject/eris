@@ -62,7 +62,7 @@ int main() {
 
     sim->maxThreads(4);
 
-    for (int i = 0; i < 30; i++) {
+    for (int i = 0; i < 300; i++) {
         std::cout << "Running iteration " << i << "...\n";
         sim->run();
 
@@ -77,8 +77,10 @@ int main() {
         std::cout << "    Profit: " << Q*qmkt->price() << ", direct: " << firm->assets()[m] << "\n";
         std::cout << "    Capacity: " << firm->capacity << "\n";
         std::cout << "    Q[x]: " << Q << "\n";
-        for (auto c: consumers) {
-            std::cout << "    q[" << c->id() << "] = " << c->assets()[x] << "\n";
-        }
+    }
+
+    std::cout << "Final quantities:\n";
+    for (auto c: consumers) {
+        std::cout << "    q[" << c->id() << "] = " << c->assets()[x] << "\n";
     }
 }
