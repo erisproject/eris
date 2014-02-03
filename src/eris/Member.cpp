@@ -272,4 +272,8 @@ void Member::Lock::add(SharedMember<Member> member) {
     }
 }
 
+Member::Lock Member::Lock::remove(SharedMember<Member> member) {
+    return remove(std::vector<SharedMember<Member>>(1, member));
+}
+
 }
