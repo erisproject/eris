@@ -82,7 +82,7 @@ class Firm : public agent::AssetAgent {
                  * obj->transfer(a) is equivalent to calling `obj->firm->transfer(obj, a)`.
                  */
                 void transfer(Bundle &to);
-                /** Calls release() on the market.  This is equivalent to calling
+                /** Calls release() on the firm.  This is equivalent to calling
                  * `obj->firm->release(obj)`.
                  */
                 void release();
