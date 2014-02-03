@@ -109,7 +109,7 @@ Firm::Reservation Firm::reserve(const BundleNegative &reserve) {
 
     // Transfer any assets we matched above into reserves
     if (common != 0) {
-        assets().transferApprox(common, reserves_);
+        assets().transferApprox(common, reserves_, epsilon);
     }
 
     return createReservation(reserve);
@@ -223,7 +223,7 @@ void Firm::release_(Reservation_ &res) {
 
     // Anything left should be transferrable from reserves to assets.  This could throw a negativity
     // exception if something got screwed up.
-    reserves_.transferApprox(res_pos, assets());
+    reserves_.transferApprox(res_pos, assets(), epsilon);
 
     reduceProduction();
 }
