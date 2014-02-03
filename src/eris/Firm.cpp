@@ -156,11 +156,10 @@ void Firm::produceReserved(const Bundle &b) {
 }
 
 void Firm::transfer_(Reservation_ &res, Bundle &to) {
-    if (!res.active)
-        throw Reservation_::inactive_exception();
+    if (res.state != ReservationState::pending)
+        throw Reservation_::non_pending_exception();
 
-    res.active = false;
-    res.completed = true;
+    res.state = ReservationState::complete;
 
     to.beginTransaction();
     assets().beginTransaction();
@@ -199,11 +198,10 @@ void Firm::transfer_(Reservation_ &res, Bundle &to) {
 }
 
 void Firm::release_(Reservation_ &res) {
-    if (!res.active)
-        throw Reservation_::inactive_exception();
+    if (res.state != ReservationState::pending)
+        throw Reservation_::non_pending_exception();
 
-    res.active = false;
-    res.completed = true;
+    res.state = ReservationState::aborted;
 
     Bundle res_pos = res.bundle.positive();
     if (res_pos == 0) // Nothing to do
@@ -274,7 +272,7 @@ Firm::Reservation_::Reservation_(SharedMember<Firm> firm, BundleNegative bundle)
     : bundle(bundle), firm(firm) {}
 
 Firm::Reservation_::~Reservation_() {
-    if (!completed)
+    if (state == ReservationState::pending)
         release();
 }
 

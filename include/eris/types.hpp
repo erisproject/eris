@@ -39,4 +39,9 @@ namespace eris {
     /// The highest RunStage value
     const RunStage RunStage_LAST = RunStage::intra_Apply;
 
+    /** enum of reservation states for market-level and firm-level reservations.  A reservation can
+     * either be pending, complete, or aborted.
+     */
+    enum class ReservationState { pending, complete, aborted };
+
 }

@@ -70,12 +70,8 @@ class Firm : public agent::AssetAgent {
                  * (via transfer() or release()), it will be aborted (by calling release() on its Firm).
                  */
                 ~Reservation_();
-                /// True if the Reservation has not yet been completed or aborted.
-                bool active = true;
-                /** If active is false, this value will be true if the Reservation was completed, false if
-                 * aborted.  The value of this parameter should not be used if active is true.
-                 */
-                bool completed = false;
+                /// The state of this reservation.
+                ReservationState state = ReservationState::pending;
                 /** The Bundle that is reserved.  Positive amounts are transferred out of the firm;
                  * negative amounts are transferred into the firm.
                  */
@@ -94,8 +90,8 @@ class Firm : public agent::AssetAgent {
                 /** Exception class thrown if attempting to transfer or release a Reservation that has
                  * already been transferred or released.
                  */
-                class inactive_exception : public std::exception {
-                    public: const char* what() const noexcept override { return "Attempt to transfer/release an inactive firm Reservation"; }
+                class non_pending_exception : public std::exception {
+                    public: const char* what() const noexcept override { return "Attempt to transfer/release a non-pending firm Reservation"; }
                 };
         };
 

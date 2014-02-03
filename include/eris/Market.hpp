@@ -103,12 +103,8 @@ class Market : public Member {
                  * (via buy() or release()), it will be aborted (by calling release() on its Market).
                  */
                 ~Reservation_();
-                /// True if the Reservation has not yet been completed or aborted.
-                bool active = true;
-                /** If active is false, this value will be true if the Reservation was completed, false if
-                 * aborted.  The value is not defined if active is true.
-                 */
-                bool completed = false;
+                /// The state (pending, completed, or aborted) of this Reservation
+                ReservationState state = ReservationState::pending;
                 /// The quantity (as a multiple of the Market's output Bundle) that this reservation is for.
                 const double quantity;
                 /// The price (as a multiple of the Market's price Bundle) of this reservation.
@@ -135,8 +131,8 @@ class Market : public Member {
                 /** Exception class thrown if attempting to buy or release a Reservation that has
                  * already been bought or released.
                  */
-                class inactive_exception : public std::exception {
-                    public: const char* what() const noexcept override { return "Attempt to buy/release an inactive market Reservation"; }
+                class non_pending_exception : public std::exception {
+                    public: const char* what() const noexcept override { return "Attempt to buy/release a non-pending market Reservation"; }
                 };
         };
 

@@ -17,8 +17,8 @@ void Market::buy(Reservation &res) {
     buy_(*res);
 }
 void Market::buy_(Reservation_ &res) {
-    if (!res.active)
-        throw Reservation_::inactive_exception();
+    if (res.state != ReservationState::pending)
+        throw Reservation_::non_pending_exception();
 
     // Lock this market, the agent, and all the firm's involved in the reservation:
     std::vector<SharedMember<Member>> to_lock;
@@ -26,8 +26,8 @@ void Market::buy_(Reservation_ &res) {
     for (auto &firm_res: res.firm_reservations_) to_lock.push_back(firm_res->firm);
     auto lock = writeLock(to_lock);
 
-    res.completed = true;
-    res.active = false;
+    res.state = ReservationState::complete;
+
     // Currently b_ contains the total payment; do firm transfers
     for (auto &firm_res: res.firm_reservations_)
         firm_res->transfer(res.b_);
@@ -38,8 +38,8 @@ void Market::buy_(Reservation_ &res) {
 }
 
 void Market::release_(Reservation_ &res) {
-    if (!res.active)
-        throw Reservation_::inactive_exception();
+    if (res.state != ReservationState::pending)
+        throw Reservation_::non_pending_exception();
 
     // Lock this market, the agent, and all the firm's involved in the reservation:
     std::vector<SharedMember<Member>> to_lock;
@@ -47,8 +47,7 @@ void Market::release_(Reservation_ &res) {
     for (auto &firm_res: res.firm_reservations_) to_lock.push_back(firm_res->firm);
     auto lock = writeLock(to_lock);
 
-    res.completed = false;
-    res.active = false;
+    res.state = ReservationState::aborted;
 
     for (auto &firm_res: res.firm_reservations_)
         firm_res->release();
@@ -68,7 +67,7 @@ Market::Reservation_::Reservation_(SharedMember<Market> mkt, SharedMember<AssetA
 }
 
 Market::Reservation_::~Reservation_() {
-    if (!completed)
+    if (state == ReservationState::pending)
         release();
 }
 
