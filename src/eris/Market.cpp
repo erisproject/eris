@@ -59,7 +59,7 @@ void Market::release_(Reservation_ &res) {
 
 Market::Reservation_::Reservation_(SharedMember<Market> mkt, SharedMember<AssetAgent> agt, double qty, double pr)
     : quantity(qty), price(pr), market(mkt), agent(agt) {
-    auto lock = agent->writeLock(std::vector<SharedMember<Member>>({ market }));
+    auto lock = agent->writeLock(market);
 
     Bundle payment = price * market->price_unit;
     agent->assets() -= payment;
