@@ -116,7 +116,7 @@ int main() {
     sim->maxThreads(10);
 
     for (int i = 0; i < 10; i++) {
-        c.push_back(sim->createAgent<Quadratic>());
+        c.push_back(sim->create<Quadratic>());
     }
 
     int seq1 = 0, seq2 = 0;
