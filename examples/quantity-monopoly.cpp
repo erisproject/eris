@@ -37,8 +37,6 @@ int main() {
     auto qmkt = sim->create<QMarket>(x1, m1, 1.0, 7);
     qmkt->addFirm(firm);
 
-    std::cout << "qmkt->optimizer=" << qmkt->optimizer << "\n";
-
     std::list<SharedMember<Quadratic>> consumers;
 
     // Set up some agents, from 1 to 100, which agent j having utility m + x - x^2/(2j).
@@ -52,19 +50,21 @@ int main() {
 
         // Use MUPD for optimization
         eris_id_t z = sim->create<MUPD>(c, m);
-        std::cout << "MUPD: " << z << "\n";
 
         // Give them some income:
         c->assets() += 100*m1;
         z = sim->create<FixedIncome>(c, 100*m1);
-        std::cout << "FixedIncome: " << z << "\n";
     }
 
     sim->maxThreads(4);
 
     for (int i = 0; i < 300; i++) {
         std::cout << "Running iteration " << i << "...\n";
+        try {
         sim->run();
+        }
+        catch (std::string e) { std::cerr << "EXCEPTION: " << e << "\n" << std::flush; }
+        catch (std::exception e) { std::cerr << "EXCEPTION: " << e.what() << "\n" << std::flush; }
 
         std::cout << "done. (" << sim->intraopt_count << " intraopt loops)\n";
 
