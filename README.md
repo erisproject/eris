@@ -36,5 +36,4 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 ## Author
 
-Jason Rhinelander <jason@imaginary.ca>
-https://imaginary.ca
+Jason Rhinelander -- [e-mail](jason@imaginary.ca), [homepage](https://imaginary.ca)
