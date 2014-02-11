@@ -5,7 +5,7 @@
 namespace eris { namespace agent {
 
 /** This is a simple extension of the base Agent class that adds an assets bundle to the agent
- * plus an advance() method that clears the assets bundle in every period.
+ * plus an interAdvance() method that clears the assets bundle in every period.
  */
 class AssetAgent : public virtual Agent, public virtual interopt::Advance {
     public:
@@ -16,8 +16,8 @@ class AssetAgent : public virtual Agent, public virtual interopt::Advance {
         virtual const Bundle& assets() const noexcept { return assets_; }
 
         /** Called when advancing a period.  Subclasses are intended to override (or enhance) as
-         * required.  This could, for example, reset costs, reset costs, discard perishable output,
-         * depreciate capital, etc.
+         * required.  This could, for example, reset costs, discard perishable output, depreciate
+         * capital, etc.
          *
          * By default this clears the agent's assets bundle.
          */
