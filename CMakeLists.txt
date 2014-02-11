@@ -55,5 +55,3 @@ enable_testing()
 add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND})
 add_subdirectory(tests EXCLUDE_FROM_ALL)
 
-add_custom_target(examples)
-add_subdirectory(examples EXCLUDE_FROM_ALL)
