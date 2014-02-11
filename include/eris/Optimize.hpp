@@ -18,7 +18,7 @@ namespace interopt {
 /** Interface for an inter-optimizing member with an interOptimize() method.  This will called
  * before starting a new period, before interApply().
  *
- * You should implement this class by inheriting it as `public virtual`.
+ * This class must be implemented by inheriting it as `public virtual`.
  *
  * \sa Simulation::run()
  */
@@ -36,7 +36,7 @@ class Optimize {
 /** Interface for an inter-optimizing member with an interApply() method.  This will called
  * before starting a new period, after interOptimize() and before interAdvance().
  *
- * You should implement this class by inheriting it as `public virtual`.
+ * This class must be implemented by inheriting it as `public virtual`.
  *
  * \sa Simulation::run()
  */
@@ -52,10 +52,18 @@ class Apply {
  */
 class OptApply : public virtual Optimize, public virtual Apply {};
 
-/** Interface for an inter-optimizing member with an interAdvance() method.  This will called
- * before starting a new period, after interApply() and before interPostAdvance().
+/** Called at the end of an inter-period optimization round, just before beginning the next period.
+ * This class will be invoked immediately before intraopt::Initialize (except for the first
+ * iteration, when the interopt classes are not invoked at all); as such the technical difference
+ * between the two is minimal.  Conceptually, however, this class is meant to be backwards-looking
+ * (that is, deal with past events) while Initialize is intended to be forward-looking (that is,
+ * starting up the next period).
  *
- * You should implement this class by inheriting it as `public virtual`.
+ * This optimization stage is typically intended for cleaning up after the last period: for example,
+ * by depreciating or clearing assets.  Though production for the next period can be performed here,
+ * it is better placed in a intraopt::Initialize implementor.
+ *
+ * This class must be implemented by inheriting it as `public virtual`.
  *
  * \sa Simulation::run()
  */
@@ -70,23 +78,6 @@ class Advance {
         ~Advance() = default;
 };
 
-/** Interface for an inter-optimizing member with an interPostAdvance() method.  This will called
- * before starting a new period, after interAdvance().
- *
- * You should implement this class by inheriting it as `public virtual`.
- *
- * \sa Simulation::run()
- */
-class PostAdvance {
-    public:
-        /** This method is an extra stage that takes place after interAdvance and can be used to
-         * perform extra advance tasks that depend on completion of the Advance stage.
-         */
-        virtual void interPostAdvance() = 0;
-    protected:
-        ~PostAdvance() = default;
-};
-
 }
 
 /** Namespace for intra-period optimization implementations, and for the generic interfaces for the
@@ -97,7 +88,10 @@ namespace intraopt {
 /** Interface for an intra-optimizing member with an intraInitialize() method.  This will called
  * once at the beginning of a new period, after inter-period optimization has completed.
  *
- * You should implement this class by inheriting it as `public virtual`.
+ * This method is intended to do things like produce (for firms without instantaneous production),
+ * provide (exogenous) income, or determine stochastic values for the upcoming period.
+ *
+ * This class must be implemented by inheriting it as `public virtual`.
  *
  * \sa Simulation::run()
  */
@@ -115,7 +109,11 @@ class Initialize {
  * intraInitialize(), and may be called after intraReoptimize() to reset the initialization
  * procedure.
  *
- * You should implement this class by inheriting it as `public virtual`.
+ * This class is intended to clean up anything that may have been determined in Optimize or
+ * Reoptimize.  It may be invoked many times if some classes induce a restart of the optimization
+ * phase via Reoptimize.
+ *
+ * This class must be implemented by inheriting it as `public virtual`.
  *
  * \sa Simulation::run()
  */
@@ -133,7 +131,7 @@ class Reset {
  * after intraReset() to calculate an optimum decision for the period that will be finalized in
  * intraApply() or aborted by intraReset().
  *
- * You should implement this class by inheriting it as `public virtual`.
+ * This class must be implemented by inheriting it as `public virtual`.
  *
  * \sa Simulation::run()
  */
@@ -169,7 +167,7 @@ class Optimize {
  * called on every implementing class, regardless of whether earlier implementors returned a true
  * value.
  *
- * You should implement this class by inheriting it as `public virtual`.
+ * This class must be implemented by inheriting it as `public virtual`.
  *
  * \sa Simulation::run()
  */
@@ -196,7 +194,7 @@ class Reoptimize {
 /** Called after Reoptimize, when all Reoptimize-implementors returned false, indicating that no
  * further reoptimization is required.
  *
- * You should implement this class by inheriting it as `public virtual`.
+ * This class must be implemented by inheriting it as `public virtual`.
  *
  * \sa Simulation::run()
  */
@@ -213,6 +211,18 @@ class Apply {
 class OptApplyReset : public virtual Optimize, public virtual Apply, public virtual Reset {};
 /// Shortcut for inheriting from intraopt::Optimize intraopt::Apply
 class OptApply : public virtual Optimize, public virtual Apply {};
+
+/** Called at the end of a period after all optimizations have been applied.  This is the last stage
+ * before the run() method returns.
+ */
+class Finish {
+    public:
+        /** Called at the end of the intraopt stage.
+         */
+        virtual void intraFinish() = 0;
+    protected:
+        ~Finish() = default;
+};
 
 }
 }

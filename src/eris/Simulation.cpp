@@ -72,13 +72,13 @@ void Simulation::insertOptimizers(const SharedMember<Member> &member) {
     ERIS_SIM_INSERT_OPTIMIZER(inter, Optimize)
     ERIS_SIM_INSERT_OPTIMIZER(inter, Apply)
     ERIS_SIM_INSERT_OPTIMIZER(inter, Advance)
-    ERIS_SIM_INSERT_OPTIMIZER(inter, PostAdvance)
 
     ERIS_SIM_INSERT_OPTIMIZER(intra, Initialize)
     ERIS_SIM_INSERT_OPTIMIZER(intra, Reset)
     ERIS_SIM_INSERT_OPTIMIZER(intra, Optimize)
     ERIS_SIM_INSERT_OPTIMIZER(intra, Reoptimize)
     ERIS_SIM_INSERT_OPTIMIZER(intra, Apply)
+    ERIS_SIM_INSERT_OPTIMIZER(intra, Finish)
 #undef ERIS_SIM_INSERT_OPTIMIZER
 }
 void Simulation::removeOptimizers(const SharedMember<Member> &member) {
@@ -154,13 +154,13 @@ void Simulation::thr_loop() {
             ERIS_SIM_STAGE_CASE(inter, Optimize);
             ERIS_SIM_STAGE_CASE(inter, Apply);
             ERIS_SIM_STAGE_CASE(inter, Advance);
-            ERIS_SIM_STAGE_CASE(inter, PostAdvance);
 
             // Intra-period optimizer stages
             ERIS_SIM_STAGE_CASE(intra, Initialize);
             ERIS_SIM_STAGE_CASE(intra, Reset);
             ERIS_SIM_STAGE_CASE(intra, Optimize);
             ERIS_SIM_STAGE_CASE(intra, Apply);
+            ERIS_SIM_STAGE_CASE(intra, Finish);
 #undef ERIS_SIM_STAGE_CASE
             case RunStage::intra_Reoptimize:
                 // Slightly trickier than the others: we need to signal a redo on the intra-optimizers
@@ -189,12 +189,12 @@ void Simulation::thr_stage(const RunStage &stage) {
         case RunStage::inter_Optimize:
         case RunStage::inter_Apply:
         case RunStage::inter_Advance:
-        case RunStage::inter_PostAdvance:
         case RunStage::intra_Initialize:
         case RunStage::intra_Reset:
         case RunStage::intra_Optimize:
         case RunStage::intra_Reoptimize:
         case RunStage::intra_Apply:
+        case RunStage::intra_Finish:
             {
                 std::lock_guard<std::recursive_mutex> lock(member_mutex_);
 
@@ -223,12 +223,12 @@ void Simulation::thr_stage(const RunStage &stage) {
             ERIS_SIM_NOTHR_WORK(inter, Optimize)
             ERIS_SIM_NOTHR_WORK(inter, Apply)
             ERIS_SIM_NOTHR_WORK(inter, Advance)
-            ERIS_SIM_NOTHR_WORK(inter, PostAdvance)
 
             ERIS_SIM_NOTHR_WORK(intra, Initialize)
             ERIS_SIM_NOTHR_WORK(intra, Reset)
             ERIS_SIM_NOTHR_WORK(intra, Optimize)
             ERIS_SIM_NOTHR_WORK(intra, Apply)
+            ERIS_SIM_NOTHR_WORK(intra, Finish)
 #undef ERIS_SIM_NOTHR_WORK
             case RunStage::intra_Reoptimize:
                 thr_work<intraopt::Reoptimize>([this](intraopt::Reoptimize &opt) {
@@ -308,7 +308,6 @@ void Simulation::run() {
         thr_stage(RunStage::inter_Optimize);
         thr_stage(RunStage::inter_Apply);
         thr_stage(RunStage::inter_Advance);
-        thr_stage(RunStage::inter_PostAdvance);
     }
 
     intraopt_count = 0;
@@ -325,6 +324,7 @@ void Simulation::run() {
     }
 
     thr_stage(RunStage::intra_Apply);
+    thr_stage(RunStage::intra_Finish);
 
     stage_ = RunStage::idle;
     running_ = false;

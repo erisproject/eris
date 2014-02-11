@@ -3,12 +3,12 @@
 #include <eris/Bundle.hpp>
 #include <eris/Optimize.hpp>
 
-namespace eris { namespace interopt {
+namespace eris { namespace intraopt {
 
-/** Simple inter-period "optimization" class that simply adds a fixed bundle (i.e. income) to its
- * agent's assets at the beginning of each period.
+/** Simple period initializer that adds a fixed bundle (i.e. income) to its agent's assets at the
+ * beginning of each period.
  */
-class FixedIncome : public Member, public virtual PostAdvance {
+class FixedIncome : public Member, public virtual Initialize {
     public:
         /** Creates a new FixedIncome optimizer that adds the bundle income to the given agent at
          * the beginning of each period.
@@ -16,7 +16,7 @@ class FixedIncome : public Member, public virtual PostAdvance {
         FixedIncome(const agent::AssetAgent &agent, Bundle income);
 
         /** Adds the income bundle to the agent's assets. */
-        virtual void interPostAdvance() override;
+        virtual void intraInitialize() override;
 
         /** The bundle that is added at the beginning of each period. */
         Bundle income;

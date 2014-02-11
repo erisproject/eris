@@ -1,4 +1,5 @@
 #include <eris/firm/QFirm.hpp>
+#include <cmath>
 
 namespace eris { namespace firm {
 
@@ -34,18 +35,18 @@ void QFirm::interAdvance() {
     Bundle leftover = depreciate();
     FirmNoProd::interAdvance(); // Clears assets
     assets() += leftover;
-    ensureNext(capacity * output());
-    updateStarted();
 }
 
-void QFirm::added() {
+void QFirm::intraInitialize() {
     ensureNext(capacity * output());
     updateStarted();
 }
 
 void QFirm::produceNext(const Bundle &b) {
-    Bundle need = b - Bundle::common(b, assets());
-    assets() += need.coverage(output()) * output();
+    double quantity = b.coverage(output());
+    if (not std::isfinite(quantity))
+        throw supply_mismatch();
+    assets() += quantity * output();
 }
 
 void QFirm::updateStarted() {

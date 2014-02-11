@@ -1,10 +1,10 @@
-#include <eris/interopt/FixedIncome.hpp>
+#include <eris/intraopt/FixedIncome.hpp>
 
-namespace eris { namespace interopt {
+namespace eris { namespace intraopt {
 
 FixedIncome::FixedIncome(const agent::AssetAgent &agent, Bundle income) : income(income), agent_id_(agent) {}
 
-void FixedIncome::interPostAdvance() {
+void FixedIncome::intraInitialize() {
     simAgent<agent::AssetAgent>(agent_id_)->assets() += income;
 }
 

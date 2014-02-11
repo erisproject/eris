@@ -183,7 +183,6 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
          *   - All inter-period optimizers have interOptimize() called.
          *   - All inter-period optimizers have interApply() called.
          *   - All inter-period optimizers have interAdvance() called.
-         *   - All inter-period optimizers have interPostAdvance() called.
          * - Intra-period optimization:
          *   - All intra-period optimizers have intraInitialize() called.
          *   - All intra-period optimizers have intraReset() called.
@@ -196,6 +195,8 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
          *       reoptimization is needed.
          *   - If no intra-period optimizer requested a reoptimization,
          *     all intra-period optimizers have their intraApply() method called.
+         *   - All intra-period optimizers have their intraFinish() method called to indicate the
+         *     end of the period.
          *
          * \throws std::runtime_error if attempting to call run() recursively (i.e. during a run()
          * call).

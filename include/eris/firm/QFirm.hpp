@@ -12,16 +12,15 @@ namespace eris { namespace firm {
  * This class is ideally coupled with an inter-period optimizer such as QFStepper that adjusts the
  * production level each period based on the previous period's results.
  */
-class QFirm : public FirmNoProd {
+class QFirm : public FirmNoProd, public virtual interopt::Advance, public virtual intraopt::Initialize {
     public:
         /** Constructs a QFirm that produces multiples of Bundle out and sells to the given market.
          *
          * \param out the Bundle of output the firm produces multiples of.
          *
-         * \param initial_quantity the quantity to produce initially when the Firm is added to the
-         * simulation.  For future periods this value will be adjusted (typically by QFStepper)
-         * upwards or downwards depending on the previous period's results and change in market
-         * price.
+         * \param initial_quantity the quantity to produce at the beginning of the next period.  For
+         * future periods this value will typically be adjusted (by QFStepper or similar) upwards or
+         * downwards depending on the previous period's results and change in market price.
          *
          * \param depreciation the depreciation that applies to unsold quantity, a value between 0
          * and 1 (inclusive).  1 means all returned quantity will be destroyed; 0 means all returned
@@ -29,10 +28,11 @@ class QFirm : public FirmNoProd {
          */
         QFirm(Bundle out, double initial_capacity, double depreciation = 1.0);
 
-        /** Advances to the next period, calling depreciate() and produceNext().
-         * When called, any unsold output is depreciated (according
-         * to the depreciation parameter given during construction), and the next period's quantity
-         * is produced.  Typically there will be a QFStepper controlling the changes to the
+        /** Prepares to advances to the next period, calling depreciate().  When called, any unsold
+         * output is depreciated (according to the depreciation parameter given during
+         * construction).
+         *
+         * Typically there will be a QFStepper controlling the changes to the
          * production level parameter.
          *
          * Note that the production level will take account of undepreciated stock; thus if the
@@ -48,15 +48,16 @@ class QFirm : public FirmNoProd {
          */
         virtual Bundle depreciate() const;
 
+        /** Begins a new period by producing (if needed) to make sure the required quantity of
+         * output is on hand.  Calls produceNext().
+         */
+        virtual void intraInitialize() override;
+
         /** Called to produce at least b for next period.  This is typically called indirectly via
          * ensureNext().  The default implementation produces multiples of output() at no cost;
-         * this is intended to be subclassed and overridden.
+         * this is intended to be subclassed and overridden for everything except trivial cases.
          */
         virtual void produceNext(const Bundle &b) override;
-
-        /** Calls produceNext() when added to a simulation to produce the initial period's output.
-         */
-        virtual void added() override;
 
         /** The capacity for the next period, as a multiple of the output bundle.  The firm will
          * ensure its assets contains at least capacity times the output bundle given in the
