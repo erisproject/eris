@@ -18,9 +18,8 @@ class Firm : public agent::AssetAgent {
         /** Returns true if the firm is able to supply the given Bundle.  Returning false thus 
          * indicates that the firm either cannot supply some of the items in the Bundle, or else
          * that producing the given quantities exceeds some production limit.  By default, this
-         * checks whether assets has enough to supply the request; if not, it calls canProduce with
-         * the extra amount needed to fulfill the request.  simply calls canSupplyAny, and returns
-         * true of false depending on whether canSupplyAny returned a value >= 1.
+         * simply calls canSupplyAny, and returns true or false depending on whether canSupplyAny
+         * returned a value >= 1.
         */
         virtual bool canSupply(const Bundle &b) const noexcept;
 
@@ -424,8 +423,9 @@ class FirmNoProd : public Firm {
         virtual void ensureNext(const Bundle &b);
 
         /** Called to produce at least b for next period.  This is typically called indirectly
-         * through ensureNext(), which takes into account current (undepreciated) assets to hit a
-         * target capacity, which is typically updated by an optimizer such as QFStepper.
+         * through ensureNext(), which takes into account current assets to hit a target capacity.
+         * Thus this method must not take into account the current level of assets(): the passed-in
+         * Bundle is the *additional* amount of production required.
          *
          * \param b the (minimum) Bundle to be produced and added to current assets().
          *
