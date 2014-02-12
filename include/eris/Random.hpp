@@ -41,7 +41,7 @@ class Random final {
          * environment variable ERIS_RNG_SEED.  If that isn't set, it attempts to generate one in a
          * unique way using the current process and/or system environment.
          */
-        inline static const rng_t::result_type seed() {
+        inline static const rng_t::result_type& seed() {
             if (!_seed) _reseed();
             return _seed;
         }

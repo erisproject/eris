@@ -489,7 +489,7 @@ class Member {
             zip.insert(add);
             member_zip_(zip, more...);
         }
-        void member_zip_(std::multiset<SharedMember<Member>> &zip) const {}
+        void member_zip_(std::multiset<SharedMember<Member>>&) const {}
 };
 
 }

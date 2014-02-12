@@ -63,8 +63,8 @@ double Quadratic::d(const BundleNegative &b, const eris_id_t &g) const {
 }
 
 // The second derivative is really easy: it's just the coefficient for off-diagonals, and double the
-// coefficient for diagonals.
-double Quadratic::d2(const BundleNegative &b, const eris_id_t &g1, const eris_id_t &g2) const {
+// coefficient for diagonals; it doesn't depend on the bundle at all.
+double Quadratic::d2(const BundleNegative&, const eris_id_t &g1, const eris_id_t &g2) const {
     double upp = coef(g1, g2);
     if (g1 == g2) upp *= 2.0;
     return upp;

@@ -330,7 +330,7 @@ void Simulation::run() {
     running_ = false;
 }
 
-const RunStage Simulation::runStage() const {
+RunStage Simulation::runStage() const {
     return stage_;
 }
 

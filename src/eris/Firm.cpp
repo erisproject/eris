@@ -30,7 +30,7 @@ bool Firm::canProduce(const Bundle &b) const noexcept {
     return canProduceAny(b) >= 1.0;
 }
 
-double Firm::canProduceAny(const Bundle &b) const noexcept {
+double Firm::canProduceAny(const Bundle&) const noexcept {
     return 0.0;
 }
 
@@ -243,7 +243,7 @@ Firm::Reservation Firm::createReservation(BundleNegative bundle) {
     return Reservation(new Reservation_(simulation()->agent(*this), bundle));
 }
 
-Bundle FirmNoProd::produce(const Bundle &b) {
+Bundle FirmNoProd::produce(const Bundle&) {
     throw production_unavailable();
 }
 
@@ -260,7 +260,7 @@ void FirmNoProd::ensureNext(const Bundle &b) {
         produceNext(b - Bundle::common(assets(), b));
 }
 
-void FirmNoProd::reserveProduction(const Bundle &reserve) {
+void FirmNoProd::reserveProduction(const Bundle&) {
     throw production_unavailable();
 }
 

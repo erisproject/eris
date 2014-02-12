@@ -213,7 +213,7 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
 
         /** The current stage of the simulation.
          */
-        const RunStage runStage() const;
+        RunStage runStage() const;
 
         /** Contains the number of rounds of the intra-period optimizers in the previous run() call.
          * A round is defined by a intraReset() call, a set of intraOptimize() calls, and a set of
