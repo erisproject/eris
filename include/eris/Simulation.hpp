@@ -231,7 +231,8 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         MemberMap<Market> markets_;
         MemberMap<Member> others_;
 
-        // insert decides which of insertAgent, insertGood, etc. to call and calls it.
+        // insert() decides which of following insertAgent, insertGood, etc. methods to call and
+        // calls it.  Called from the public create() and clone() methods.
         void insert(const SharedMember<Member> &member);
 
         void insertAgent(const SharedMember<Agent> &agent);
@@ -239,6 +240,8 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         void insertMarket(const SharedMember<Market> &market);
         void insertOther(const SharedMember<Member> &other);
 
+        // Internal method to remove one of the various types.  Called by the public remove()
+        // method, which figures out which type the removal request is for.
         void removeAgent(const eris_id_t &aid);
         void removeGood(const eris_id_t &gid);
         void removeMarket(const eris_id_t &mid);
