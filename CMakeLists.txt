@@ -18,7 +18,6 @@ set(LIBERIS_AGE      "0")
 set(LIBERIS_REVISION "0")
 
 
-
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_INCLUDE_DIRECTORIES_PROJECT_BEFORE ON)
 #set(CMAKE_VERBOSE_MAKEFILE ON)
@@ -33,7 +32,8 @@ include_directories(include)
 file(GLOB_RECURSE eris_src src/*.cpp)
 file(GLOB_RECURSE eris_include include/*.h include/*.hpp)
 
-add_definitions(-std=c++11 -Wall -Werror)
+set(CMAKE_CXX_FLAGS "-std=c++11 -march=native -O3 ${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0")
 
 find_package(Threads)
 
