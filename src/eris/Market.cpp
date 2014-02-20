@@ -6,11 +6,13 @@ namespace eris {
 Market::Market(Bundle output_unit, Bundle price_unit) : output_unit(output_unit), price_unit(price_unit) {}
 
 void Market::addFirm(SharedMember<Firm> f) {
+    auto lock = writeLock();
     suppliers_.insert(f);
     dependsWeaklyOn(f);
 }
 
 void Market::removeFirm(eris_id_t fid) {
+    auto lock = writeLock();
     suppliers_.erase(fid);
 }
 
