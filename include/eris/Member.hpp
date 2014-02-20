@@ -39,10 +39,14 @@ class Member {
          */
         operator eris_id_t() const { return id_; }
 
-        /** Creates and returns a shared pointer to the simulation this object belongs.  Returns a
-         * null shared_ptr if there is no (current) simulation.
+        /** Returns true if this member belongs to a simulation, false otherwise.
          */
-        virtual std::shared_ptr<Simulation> simulation() const;
+        bool hasSimulation() const;
+
+        /** Creates and returns a shared pointer to the simulation this object belongs.  If the
+         * member does not belong to a simulation, throws a no_simulation_error exception.
+         */
+        std::shared_ptr<Simulation> simulation() const;
 
         /** Shortcut for `member.simulation()->agent<A>()` */
         template <class A = Agent> SharedMember<A> simAgent(eris_id_t aid) const;
@@ -426,6 +430,14 @@ class Member {
             member_zip_(members, more...);
             return Member::Lock(true, std::move(members));
         }
+
+        /** Error class throw when attempting to perform a member action requiring a simulation when
+         * the member is not currently a member of a simulation.
+         */
+        class no_simulation_error : public std::runtime_error {
+            public:
+                no_simulation_error() : std::runtime_error("Action requires a simulation but the member does not belong to a simulation") {}
+        };
 
     protected:
         /** Called (by Simulation) to store a weak pointer to the simulation this member belongs to

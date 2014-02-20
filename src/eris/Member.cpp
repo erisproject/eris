@@ -22,8 +22,13 @@ void Member::simulation(const std::shared_ptr<Simulation> &sim, const eris_id_t 
     if (id > 0) added();
 }
 
+bool Member::hasSimulation() const {
+    return !(simulation_.expired());
+}
 
 std::shared_ptr<Simulation> Member::simulation() const {
+    if (simulation_.expired())
+        throw no_simulation_error();
     return simulation_.lock();
 }
 
