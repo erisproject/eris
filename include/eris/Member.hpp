@@ -1,4 +1,5 @@
 #pragma once
+#include <eris/Simulation.hpp>
 #include <eris/types.hpp>
 #include <eris/SharedMember.hpp>
 #include <stdexcept>
@@ -540,13 +541,6 @@ class Member {
         void member_zip_(std::multiset<SharedMember<Member>>&) const {}
 };
 
-}
-
-// This has to be down here because there is a circular dependency between Simulation and Member:
-// each has templated methods requiring the definition of the other.
-#include <eris/Simulation.hpp>
-
-namespace eris {
 template <class A> SharedMember<A> Member::simAgent(eris_id_t aid) const {
     return simulation()->agent<A>(aid);
 }

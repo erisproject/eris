@@ -17,7 +17,7 @@
 
 namespace eris {
 
-// Forward declarations
+// Forward declarations (to avoid header include loops)
 class Member;
 class Agent;
 class Good;
@@ -378,12 +378,6 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         void thr_wait(const RunStage &curr_stage);
 };
 
-}
-
-// This has to be included here, because its templated methods require the Simulation class.
-#include <eris/Member.hpp>
-
-namespace eris {
 
 template <class T, typename... Args, class> SharedMember<T> Simulation::create(Args&&... args) {
     SharedMember<T> member(std::make_shared<T>(std::forward<Args>(args)...));
