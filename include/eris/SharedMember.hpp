@@ -5,6 +5,8 @@
 
 namespace eris {
 
+// Forward declarations (to avoid header include loops)
+class Simulation;
 class Member;
 
 /** Wrapper around std::shared_ptr<T> that adds automatic T and eris_id_t cast conversion.  Since
