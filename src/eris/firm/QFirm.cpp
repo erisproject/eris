@@ -32,9 +32,8 @@ const Bundle& QFirm::output() const noexcept {
 }
 
 void QFirm::interAdvance() {
-    Bundle leftover = depreciate();
-    FirmNoProd::interAdvance(); // Clears assets
-    assets() += leftover;
+    // Clear everything except what is left by depreciation
+    assets() = depreciate();
 }
 
 void QFirm::intraInitialize() {
