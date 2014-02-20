@@ -8,9 +8,6 @@
 
 namespace eris {
 
-// Assign an ID, set it, store the simulator, and insert into the good map
-// This should be the *ONLY* place anything is ever added into goods_
-
 void Simulation::registerDependency(const eris_id_t &member, const eris_id_t &depends_on) {
     std::lock_guard<std::recursive_mutex> lock(member_mutex_);
     depends_on_[depends_on].insert(member);
@@ -34,6 +31,10 @@ void Simulation::insert(const SharedMember<Member> &member) {
 // associated filter cache.  When removing, we need to undo all of the above.
 // This should be the *ONLY* place anything is ever added or removed from agents_, goods_, markets_,
 // and others_
+//
+// Searching help:
+// insertAgent() insertGood() insertMarket() insertOther()
+// removeAgent() removeGood() removeMarket() removeOther()
 #define ERIS_SIM_INSERT_REMOVE_MEMBER(TYPE, CLASS, MAP)\
 void Simulation::insert##TYPE(const SharedMember<CLASS> &member) {\
     std::lock_guard<std::recursive_mutex> mbr_lock(member_mutex_);\
@@ -58,6 +59,9 @@ ERIS_SIM_INSERT_REMOVE_MEMBER(Good,   Good,   goods_)
 ERIS_SIM_INSERT_REMOVE_MEMBER(Market, Market, markets_)
 ERIS_SIM_INSERT_REMOVE_MEMBER(Other,  Member, others_)
 #undef ERIS_SIM_INSERT_REMOVE_MEMBER
+
+// More searching help: these are in eris/Simulation.hpp:
+// agent() agents() good() goods() market() markets() other() others()
 
 void Simulation::remove(const eris_id_t &id) {
     if (agents_.count(id)) removeAgent(id);

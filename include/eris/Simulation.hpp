@@ -291,6 +291,7 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         // Notifies weak dependents
         void notifyWeakDeps(SharedMember<Member> member, const eris_id_t &old_id);
 
+        // Tracks the iteration number, can be accessed via t().
         unsigned long iteration_ = 0;
 
         /* Threading variables */
@@ -392,8 +393,11 @@ template <class T, class> SharedMember<T> Simulation::clone(const T &member) {
 }
 
 // These methods are all basically identical for the four core types (agent, good, market, other),
-// so use a macro.  The first argument is the lower-case name (e.g. agent). the second is the
-// upper-case version (e.g. Agent).
+// so use a macro.  TYPE (agent, good, etc.) is used to create a TYPE and a TYPEs method (e.g.
+// agent() and agents()).
+//
+// Searching help:
+// agent() agents() good() goods() market() markets() other() others()
 #define ERIS_SIM_TYPE_METHODS(TYPE)\
 template <class T> SharedMember<T> Simulation::TYPE(const eris_id_t &id) const {\
     std::lock_guard<std::recursive_mutex> lock(member_mutex_);\
