@@ -1,6 +1,7 @@
 #pragma once
 #include <eris/types.hpp>
 #include <eris/SharedMember.hpp>
+#include <eris/debug.hpp>
 #include <functional>
 #include <memory>
 #include <unordered_map>

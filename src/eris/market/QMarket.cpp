@@ -44,7 +44,9 @@ Market::Reservation QMarket::reserve(SharedMember<AssetAgent> agent, double q, d
     for (auto &sid : suppliers_) {
         supply.push_back(simAgent<firm::QFirm>(sid));
     }
+    DEBUG("getting supply writelock");
     agent->writeLock(supply);
+    DEBUG("got supply writelock");
 
     double available = firmQuantities(q);
     if (q > available)
@@ -64,6 +66,7 @@ Market::Reservation QMarket::reserve(SharedMember<AssetAgent> agent, double q, d
     std::unordered_map<eris_id_t, BundleNegative> firm_transfers;
 
     while (q > 0) {
+        DEBUGVAR(q);
         qfirm.clear();
         double qmin = 0; // Will store the maximum quantity that all firms can supply
         for (auto f : suppliers_) {
@@ -123,6 +126,8 @@ bool QMarket::intraReoptimize() {
     double excess_capacity = firmQuantities();
 
     bool last_was_decrease = not stepper_.prev_up;
+    DEBUGVAR(excess_capacity);
+
     bool increase_price = excess_capacity <= 0;
 
     if (not first_try and last_was_decrease and not increase_price and excess_capacity >= last_excess_) {
@@ -134,6 +139,8 @@ bool QMarket::intraReoptimize() {
     last_excess_ = excess_capacity;
 
     double new_price = stepper_.step(increase_price);
+
+    DEBUG("Changing price from " << price() << " to " << new_price << "*" << price() << "=" << new_price*price());
 
     if (new_price != 1) {
         setPrice(new_price * price());
