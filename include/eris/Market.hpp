@@ -266,6 +266,10 @@ class Market : public Member {
          * firm exits the market but stays in the simulation. */
         virtual void removeFirm(eris_id_t fid);
 
+        /** Returns the std::unordered_set of the eris_id_t's of firms supplying this market.
+         */
+        virtual const std::unordered_set<eris_id_t>& firms();
+
         /** Exception class thrown when a quantity that exceeds the market capacity has been
          * requested.
          */

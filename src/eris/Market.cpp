@@ -14,6 +14,10 @@ void Market::removeFirm(eris_id_t fid) {
     suppliers_.erase(fid);
 }
 
+const std::unordered_set<eris_id_t>& Market::firms() {
+    return suppliers_;
+}
+
 void Market::weakDepRemoved(SharedMember<Member>, const eris_id_t &old_id) {
     removeFirm(old_id);
 }
