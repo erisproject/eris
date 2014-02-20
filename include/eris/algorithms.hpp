@@ -165,8 +165,9 @@ class Stepper final {
          *
          * If relative_steps is true, this returns the relative step value, where 1 indicates no
          * change, 1.2 indicates a 20% increase, etc.  The relative step multiple will always be a
-         * strictly positive value.  If \f$s\f$ is the current step size, the returned value will be
-         * either \f$1+s\f$ for an upward step or \f$\frac{1}{1+s}\f$ for a downward step.
+         * strictly positive value not equal to 1.  If \f$s\f$ is the current step size, the
+         * returned value will be either \f$1+s\f$ for an upward step or \f$\frac{1}{1+s}\f$ for a
+         * downward step.
          *
          * If relative_steps is false, this returns the absolute change in the current value, which
          * could be any positive or negative value; the returned value is the amount by which the
@@ -176,17 +177,21 @@ class Stepper final {
          * `increase` steps in the same direction have occured, the step size is doubled (and the
          * count of previous steps in this direction is halved); if the last step was in the
          * opposite direction, the step size is halved.
+         *
+         * After this is called, you may optionally consider the `oscillating_min' value, which will
+         * tell you how many of the previous steps have simply oscillated around the minimum step
+         * size (and thus aren't doing anything useful).
          */
         double step(bool up);
 
         /// The number of steps in the same direction required to double the step size
-        const int increase;
+        int increase;
 
-        /// The minimum (relative) step size allowed, specified in the constructor.
-        const double min_step;
+        /// The minimum (relative) step size allowed, as specified in the constructor.
+        double min_step;
 
-        /// The maximum (relative) step size allowed, specified in the constructor.
-        const double max_step;
+        /// The maximum (relative) step size allowed, as specified in the constructor.
+        double max_step;
 
         /** If true, steps are relative; if false, steps are absolute.
          *
@@ -202,13 +207,20 @@ class Stepper final {
          * when this value is false, the value passed to take_step will be the absolute change,
          * *not* a multiple of the current value.
          */
-        const bool relative_steps;
+        bool relative_steps;
 
-        /// The most recent step size
+        /// The most recent step size.  If no step has been taken yet, this is the initial step.
         double step_size;
 
         /// The most recent step direction: true if the last step was positive, false if negative.
         bool prev_up = true;
+
+        /** Will be set to the number of times the step direction has oscillated back and forth
+         * while at the minimum step size, and thus the normal action of reducing the step size
+         * can't be taken.  As soon as two steps occur in the same directory, this will be reset to
+         * 0.
+         */
+        unsigned int oscillating_min = 0;
 
         /** The number of steps that have occurred in the same direction.  When a step size doubling
          * occurs, this value is halved (since the previous steps are only half the size of current

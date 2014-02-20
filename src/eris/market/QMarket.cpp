@@ -3,8 +3,8 @@
 
 namespace eris { namespace market {
 
-QMarket::QMarket(Bundle output_unit, Bundle price_unit, double initial_price, unsigned int qmpricer_tries) :
-    Market(output_unit, price_unit), tries_(qmpricer_tries) {
+QMarket::QMarket(Bundle output_unit, Bundle price_unit, double initial_price, unsigned int pricing_tries, unsigned int pricing_tries_first) :
+    Market(output_unit, price_unit), tries_(pricing_tries), tries_first_(pricing_tries_first) {
     price_ = initial_price <= 0 ? 1 : initial_price;
 }
 
@@ -65,7 +65,9 @@ Market::Reservation QMarket::reserve(SharedMember<AssetAgent> agent, double q, d
 
     std::unordered_map<eris_id_t, BundleNegative> firm_transfers;
 
-    while (q > 0) {
+    const double threshold = q * std::numeric_limits<double>::epsilon();
+
+    while (q > threshold) {
         DEBUGVAR(q);
         qfirm.clear();
         double qmin = 0; // Will store the maximum quantity that all firms can supply
@@ -117,28 +119,42 @@ void QMarket::intraInitialize() {
 }
 
 bool QMarket::intraReoptimize() {
+    // If there are no firms, there's nothing to do
+    if (firms().empty()) return false;
+
     bool first_try = tried_ == 0;
 
+    unsigned int max_tries = first_period_ ? tries_first_ : tries_;
+
+    DEBUG("QMarket trying some optimization...");
+    DEBUGVAR(firmQuantities());
+
+    if (tried_ >= max_tries)
+        DEBUG(tried_ << " > " << max_tries << ", stopping");
+
     // If we're all out of adjustments, don't change the price
-    if (++tried_ > tries_) return false;
+    if (++tried_ > max_tries) return false;
 
     auto qlock = writeLock();
     double excess_capacity = firmQuantities();
 
-    bool last_was_decrease = not stepper_.prev_up;
     DEBUGVAR(excess_capacity);
 
+    bool last_was_decrease = not stepper.prev_up;
     bool increase_price = excess_capacity <= 0;
 
-    if (not first_try and last_was_decrease and not increase_price and excess_capacity >= last_excess_) {
-        // Decreasing the price last time didn't help anything--perhaps noise from other market
-        // adjustments, but it could also mean that we've hit market satiation, in which case
-        // decreasing price further won't help.
-        increase_price = true;
-    }
     last_excess_ = excess_capacity;
 
-    double new_price = stepper_.step(increase_price);
+    double new_price = stepper.step(increase_price);
+
+    // If we're just stepping back and forth by the minimum step size, we're basically done; prefer
+    // the slightly lower price (by not taking a minimum positive step).  The ending price won't be
+    // lower by much: the minimum step size is very small, but assume firms would rather have no
+    // excess inventory than a tiny bit of excess inventory.
+    if (stepper.oscillating_min > 0 and new_price > 1) {
+        DEBUG("Detected oscillation: ending optimization.");
+        return false;
+    }
 
     DEBUG("Changing price from " << price() << " to " << new_price << "*" << price() << "=" << new_price*price());
 
@@ -148,5 +164,16 @@ bool QMarket::intraReoptimize() {
     }
     return false;
 }
+
+void QMarket::added() {
+    Market::added();
+    first_period_ = true;
+}
+
+void QMarket::intraFinish() {
+    if (not firms().empty())
+        first_period_ = false;
+}
+
 
 } }

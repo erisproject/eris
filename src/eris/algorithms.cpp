@@ -11,10 +11,20 @@ double Stepper::step(bool up) {
     else
         same = 1;
 
+    bool around_min = false;
+
     if (up != prev_up and not first_time) {
         // Changing directions, cut the step size in half
-        step_size /= 2;
-        if (step_size < min_step) step_size = min_step;
+
+        if (step_size == min_step) {
+            // If we're already at the minimum, and we're changing direction, we're just oscillating
+            // around the optimal value, so set that flag.
+            around_min = true;
+        }
+        else {
+            step_size /= 2;
+            if (step_size < min_step) step_size = min_step;
+        }
     }
     else if (same >= increase and step_size < max_step) {
         // We've taken several steps in the same direction, so double the step size
@@ -28,6 +38,11 @@ double Stepper::step(bool up) {
         // since we won't be increasing step size any more.
         same /= 2;
     }
+
+    if (around_min)
+        oscillating_min++;
+    else
+        oscillating_min = 0;
 
     prev_up = up;
 

@@ -16,12 +16,17 @@ namespace eris { namespace market {
  * in the intraOptimize() of other optimizers to try to determine the price that just exactly sells
  * out the market.
  */
-class QMarket : public Market, public virtual intraopt::Initialize, public virtual intraopt::Reoptimize {
+class QMarket : public Market,
+    public virtual intraopt::Initialize,
+    public virtual intraopt::Reoptimize,
+    public virtual intraopt::Finish {
     public:
         /// Default initial price, if not given in constructor
         static constexpr double default_initial_price = 1.0;
-        /// Default WalrasianPricer tries, if not given in constructor
-        static constexpr int default_qmpricer_tries = 5;
+        /// Default repricing tries, if not given in constructor
+        static constexpr unsigned int default_pricing_tries = 5;
+        /// Default initial round repricing tries, if not given in constructor
+        static constexpr unsigned int default_pricing_tries_first = 25;
 
         /** Constructs a new quantity market, with a specified unit of output and unit of input
          * (price) per unit of output.
@@ -33,20 +38,31 @@ class QMarket : public Market, public virtual intraopt::Initialize, public virtu
          * calculated and exchanged in the market are multiples of this bundle.
          *
          * \param initial_price the initial per-unit price (as a multiple of price_unit) of goods in
-         * this market.  Defaults to 1; must be > 0.  This is typically adjusted up or down by QMStepper (or a
-         * similar inter-period optimizer) between periods.
+         * this market.  Defaults to 1; must be > 0.  This will be adjusted during periods to get
+         * close to having no excess supply/demand for the firms' quantities, depending on the
+         * following settings.
          *
-         * \param qmpricer_tries if greater than 0, this specifies the number of tries to try a
-         * price during intra-period optimization.  This generally causes an reset of the entire
-         * intraopt stage, and can thus be quite expensive, but is needed for the market to act as
-         * if governed by a sort of Walrasian pricer.  If 0, the market will not attempt to adjust
-         * its price, in which case some external intraopt object must be created to manage the
-         * market's price.
+         * \param pricing_tries if greater than 0, this specifies the number of tries to try a
+         * price during intra-period optimization.  Values of this parameter greater than 1 mean
+         * multiple prices will be tried in a period.  Each retry causes an reset of the entire
+         * intraopt stage, and can thus be computationally expensive, but are needed for the market
+         * to act as if governed by a sort of (imperfect) Walrasian pricer.  If 0, the market will
+         * not attempt to adjust its price, in which case some external mechanism should be created
+         * to manage the market's price.  Higher values give "better" prices (in the sense of being
+         * closer to equilibrium), at the cost of increased computational time (since every retry
+         * requires reoptimization of *every* agent).
+         *
+         * \param pricing_tries_first just like pricing_tries, but applies to the first optimization
+         * after the market is added to a simulation.  This should typically be much higher than
+         * pricing_tries to deal with the fact than an initial price is often arbitrary, while
+         * prices in later periods at least have the current price (i.e. from the previous period)
+         * as a useful reference point.
          */
         QMarket(Bundle output_unit,
                 Bundle price_unit,
                 double initial_price = default_initial_price,
-                unsigned int qmpricer_tries = default_qmpricer_tries);
+                unsigned int pricing_tries = default_pricing_tries,
+                unsigned int pricing_tries_first = default_pricing_tries_first);
 
         /// Returns the pricing information for purchasing q units in this market.
         virtual price_info price(double q) const override;
@@ -54,8 +70,7 @@ class QMarket : public Market, public virtual intraopt::Initialize, public virtu
         /** Returns the current price of 1 output unit in this market.  Note that this does not take
          * into account whether any quantity is actually available, it simply returns the going
          * price (as a multiple of price_unit) for 1 unit of the output_unit Bundle.  This typically
-         * changes from one period to the next, but is constant within a period for this market
-         * type.
+         * changes within periods as the market tries to get close to a market clearing price.
          */
         virtual double price() const;
 
@@ -81,14 +96,8 @@ class QMarket : public Market, public virtual intraopt::Initialize, public virtu
          */
         double firmQuantities(double max = std::numeric_limits<double>::infinity()) const;
 
-        /** The ID of the automatically-created WalrasianPricer intra-period optimizer attached to this
-         * market.  Will be 0 if no such optimizer has been created.
-         */
-        eris_id_t optimizer = 0;
-
         /// Reserves q units, paying at most p_max for them.
         virtual Reservation reserve(SharedMember<AssetAgent> agent, double q, double p_max = std::numeric_limits<double>::infinity()) override;
-
 
         /// Adds a firm to this market.  The Firm must be a QFirm object (or subclass)
         virtual void addFirm(SharedMember<Firm> f) override;
@@ -118,18 +127,33 @@ class QMarket : public Market, public virtual intraopt::Initialize, public virtu
          */
         virtual bool intraReoptimize() override;
 
+        /** Resets the first-period state once a period is successfully finished.
+         */
+        virtual void intraFinish() override;
+
+        /** The Stepper object used for this market.  This is public so that the stepper parameters
+         * can be changed; the default stepper object uses Stepper default values, except for the
+         * minimum step size which is overridden to 1/65536 (thus the minimum step size is about
+         * 0.0015% of the current price)
+         */
+        Stepper stepper {Stepper::default_initial_step, Stepper::default_increase_count, 1.0/65536.0};
+
     protected:
         /// The current price of the good as a multiple of price_unit
         double price_;
 
-        /// The Stepper object used for calculating price steps
-        Stepper stepper_;
         /// The number of times we adjust price each period
-        int tries_ = 0;
+        unsigned int tries_, tries_first_;
         /// The number of times we have already tried to adjust in the current period
-        int tried_ = 0;
+        unsigned int tried_ = 0;
         /// The excess capacity we found in the previous iteration
         double last_excess_ = 0.0;
+
+        /// Tracks whether this is the first period or not
+        bool first_period_ = true;
+
+        /// Resets first_period_ to true when added to a simulation.
+        virtual void added() override;
 };
 
 } }
