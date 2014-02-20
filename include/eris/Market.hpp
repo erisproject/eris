@@ -261,7 +261,9 @@ class Market : public Member {
          */
         virtual void addFirm(SharedMember<Firm> f);
 
-        /** Removes f from the firms supplying in this market. */
+        /** Removes f from the firms supplying in this market.  This is called automatically if a
+         * firm passed to addFirm is removed from the simulation; manual calling is only needed if a
+         * firm exits the market but stays in the simulation. */
         virtual void removeFirm(eris_id_t fid);
 
         /** Exception class thrown when a quantity that exceeds the market capacity has been
@@ -302,6 +304,12 @@ class Market : public Member {
          * in the Reservation until completed or cancelled.
          */
         Reservation createReservation(SharedMember<AssetAgent> agent, double q, double p);
+
+        /** Overridden to automatically remove a firm from the market when the firm is removed from
+         * the simulation.
+         */
+        virtual void weakDepRemoved(SharedMember<Member>, const eris_id_t &old_id) override;
+
 };
 
 

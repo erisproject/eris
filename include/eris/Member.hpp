@@ -54,16 +54,41 @@ class Member {
         template <class O = Member> SharedMember<O> simOther(eris_id_t oid) const;
 
         /** Records a dependency with the Simulation object.  This should not be called until after
-         * simulation() has been called, and is typically invoked in an overridden added() method.
+         * the member has been added to a simulation, and is typically invoked in an overridden
+         * added() method.
          *
          * This is simply an alias for Simulation::registerDependency; the two following statements
          * are exactly equivalent:
          *
-         *     shared_member->dependsOn(other_member);
-         *     shared_member->simulation()->registerDependency(shared_member, other_member);
+         *     member->dependsOn(other_member);
+         *     member->simulation()->registerDependency(member, other_member);
+         *
+         * As a result of the dependency, this object will be removed from the simulation if the
+         * depended upon object is removed.
+         *
+         * \sa Simulation::registerDependency()
+         * \sa dependsWeaklyOn()
          */
         void dependsOn(const eris_id_t &id);
 
+        /** Records a dependency with the Simulation object.  This should not be called until after
+         * the member has been added to a simulation, and is typically invoked in an overridden
+         * added() method.
+         *
+         * This is simply an alias for Simulation::registerWeakDependency; the two following
+         * statements are exactly equivalent:
+         *
+         *     member->dependsWeaklyOn(other_member);
+         *     member->simulation()->registerWeakDependency(member, other_member);
+         *
+         * As a result of the weak dependency, this object's weakDepRemoved() method will be called
+         * if the target member is removed from the simulation.
+         *
+         * \sa Simulation::registerWeakDependency()
+         * \sa dependsOn()
+         * \sa weakDepRemoved()
+         */
+        void dependsWeaklyOn(const eris_id_t &id);
 
         /** A locking class for holding one or more simultaneous Member locks.  Locks are
          * established during object construction and released when the object is destroyed.  A
@@ -436,6 +461,17 @@ class Member {
         void requireInstanceOf(const SharedMember<C> &obj, const std::string &error) {
             if (!dynamic_cast<B*>(obj.ptr().get())) throw std::invalid_argument(error);
         }
+
+        /** Called when a weak dependent of this object is removed from the simulation.  The default
+         * implementation does nothing.
+         *
+         * \param removed is the dependency that was just removed
+         * \param old_id is the eris_id_t of that removed dependency (its stored id is set to 0 when
+         * removed).
+         * \sa dependsWeaklyOn()
+         * \sa Simulation::registerWeakDependency()
+         */
+        virtual void weakDepRemoved(SharedMember<Member> removed, const eris_id_t &old_id);
 
         /** Returns a SharedMember wrapper around the current object, obtained through the
          * Simulation object (so that the shared_ptr is properly shared with everything else that

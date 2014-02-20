@@ -7,10 +7,15 @@ Market::Market(Bundle output_unit, Bundle price_unit) : output_unit(output_unit)
 
 void Market::addFirm(SharedMember<Firm> f) {
     suppliers_.insert(f);
+    dependsWeaklyOn(f);
 }
 
 void Market::removeFirm(eris_id_t fid) {
     suppliers_.erase(fid);
+}
+
+void Market::weakDepRemoved(SharedMember<Member>, const eris_id_t &old_id) {
+    removeFirm(old_id);
 }
 
 void Market::buy(Reservation &res) {

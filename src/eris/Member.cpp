@@ -9,6 +9,11 @@ void Member::dependsOn(const eris_id_t &id) {
     simulation()->registerDependency(*this, id);
 }
 
+void Member::dependsWeaklyOn(const eris_id_t &id) {
+    simulation()->registerWeakDependency(*this, id);
+}
+
+void Member::weakDepRemoved(SharedMember<Member>, const eris_id_t&) {}
 
 void Member::simulation(const std::shared_ptr<Simulation> &sim, const eris_id_t &id) {
     if (id == 0) removed();

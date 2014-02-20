@@ -16,6 +16,11 @@ void Simulation::registerDependency(const eris_id_t &member, const eris_id_t &de
     depends_on_[depends_on].insert(member);
 }
 
+void Simulation::registerWeakDependency(const eris_id_t &member, const eris_id_t &depends_on) {
+    std::lock_guard<std::recursive_mutex> lock(member_mutex_);
+    weak_dep_[depends_on].insert(member);
+}
+
 void Simulation::insert(const SharedMember<Member> &member) {
     if (dynamic_cast<Agent*>(member.ptr_.get())) insertAgent(member);
     else if (dynamic_cast<Good*>(member.ptr_.get())) insertGood(member);
@@ -45,6 +50,7 @@ void Simulation::remove##TYPE(const eris_id_t &id) {\
     member->simulation(nullptr, 0);\
     MAP.erase(id);\
     removeDeps(id);\
+    notifyWeakDeps(member, id);\
     invalidateCache<CLASS>();\
 }
 ERIS_SIM_INSERT_REMOVE_MEMBER(Agent,  Agent,  agents_)
@@ -106,6 +112,27 @@ void Simulation::removeDeps(const eris_id_t &member) {
         else if ( others_.count(dep))  removeOther(dep);
         // Otherwise it's already removed (possibly because of some nested dependencies), so don't
         // worry about it.
+    }
+}
+
+void Simulation::notifyWeakDeps(SharedMember<Member> member, const eris_id_t &old_id) {
+    std::lock_guard<std::recursive_mutex> lock(member_mutex_);
+
+    if (!weak_dep_.count(old_id)) return;
+
+    // member is already removed, so now clean it out of the weak_dep_
+    const auto weak_deps = weak_dep_[old_id];
+    weak_dep_.erase(old_id);
+
+    for (const auto &dep : weak_deps) {
+        SharedMember<Member> dep_mem;
+        if      ( agents_.count(dep)) dep_mem = agents_[dep];
+        else if (  goods_.count(dep)) dep_mem = goods_[dep];
+        else if (markets_.count(dep)) dep_mem = markets_[dep];
+        else if ( others_.count(dep)) dep_mem = others_[dep];
+        else continue; // The weak dep is no longer around
+
+        dep_mem->weakDepRemoved(member, old_id);
     }
 }
 

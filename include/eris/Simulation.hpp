@@ -139,6 +139,15 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
          */
         void registerDependency(const eris_id_t &member, const eris_id_t &depends_on);
 
+        /** Records already-stored member `depends_on' is a weak dependency of `member'.  In
+         * contrast to a non-weak dependency, the member is only notified of the removal of the
+         * dependent, it is not removed itself.
+         *
+         * When `depends_on' is removed from the simulation, `member' will have its depRemoved()
+         * method called with the just-removed (but still not destroyed) member.
+         */
+        void registerWeakDependency(const eris_id_t &member, const eris_id_t &depends_on);
+
         /** Sets the maximum number of threads to use for subsequent calls to run().  The default
          * value is 0 (which uses no threads at all, see below).  If this is lowered between calls
          * to run(), excess threads (if any) will be killed off at the beginning of the next run()
@@ -273,8 +282,13 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
                   >::type>
         void invalidateCache();
 
-        DepMap depends_on_;
+        DepMap depends_on_, weak_dep_;
+
+        // Removes hard dependents
         void removeDeps(const eris_id_t &member);
+
+        // Notifies weak dependents
+        void notifyWeakDeps(SharedMember<Member> member, const eris_id_t &old_id);
 
         unsigned long iteration_ = 0;
 
