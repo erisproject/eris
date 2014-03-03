@@ -30,6 +30,15 @@ class InterOptimizer;
  */
 class Member {
     public:
+        /// Default constructor.
+        Member() = default;
+
+        /** Copy constructor explicitly deleted.  Members are not copyable, since they have unique
+         * simulation properties (id, locks, etc.).  You probably want a SharedMember<Member>
+         * reference wrapper instead.
+         */
+        Member(const Member&) = delete;
+
         virtual ~Member() = default;
         /** Returns the eris_id_t ID of this member.  Returns 0 if this Member instance has not yet
          * been added to a Simulation.

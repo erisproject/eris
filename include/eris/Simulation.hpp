@@ -77,17 +77,6 @@ class Simulation final : public std::enable_shared_from_this<Simulation> {
         template <class T, typename... Args, class = typename std::enable_if<std::is_base_of<Member, T>::value>::type>
         SharedMember<T> create(Args&&... args);
 
-        /** Makes a copy of the given T object, adds the copy to the simulation, and returns a
-         * SharedMember<T> referencing it.  T must be a subclass of Member, and must be a subclass
-         * of Agent, Good, or Market to be treated as one of those types.
-         *
-         * Example:
-         *     auto good1 = sim->create<Good::Continuous>("x");
-         *     auto good2 = sim->clone(good1);
-         */
-        template <class T, class = typename std::enable_if<std::is_base_of<Member, T>::value>::type>
-        SharedMember<T> clone(const T &a);
-
         /** Removes the given member (and any dependencies) from this simulation.
          *
          * \throws std::out_of_range if the given id does not belong to this simulation.
@@ -232,6 +221,17 @@ class Simulation final : public std::enable_shared_from_this<Simulation> {
          */
         int intraopt_count = -1;
 
+#ifdef ERIS_TESTS
+        /** Exposes the internal dependency map structure for testing purposes.  This method is not
+         * available normally (requires compilation with -DERIS_TESTS).
+         */
+        const DepMap __deps() { return depends_on_; }
+        /** Exposes the internal weak dependency map structure for testing purposes.  This method is
+         * not available normally (requires compilation with -DERIS_TESTS).
+         */
+        const DepMap __weakDeps() { return weak_dep_; }
+#endif
+
     private:
         unsigned long max_threads_ = 0;
         bool running_ = false;
@@ -242,7 +242,7 @@ class Simulation final : public std::enable_shared_from_this<Simulation> {
         MemberMap<Member> others_;
 
         // insert() decides which of following insertAgent, insertGood, etc. methods to call and
-        // calls it.  Called from the public create() and clone() methods.
+        // calls it.  Called from the public create() methods.
         void insert(const SharedMember<Member> &member);
 
         void insertAgent(const SharedMember<Agent> &agent);
@@ -384,12 +384,6 @@ template <class T, typename... Args, class> SharedMember<T> Simulation::create(A
     SharedMember<T> member(std::make_shared<T>(std::forward<Args>(args)...));
     insert(member);
     return member;
-}
-
-template <class T, class> SharedMember<T> Simulation::clone(const T &member) {
-    SharedMember<T> clone(std::make_shared<T>(member));
-    insert(clone);
-    return clone;
 }
 
 // These methods are all basically identical for the four core types (agent, good, market, other),

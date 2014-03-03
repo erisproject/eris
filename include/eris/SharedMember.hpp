@@ -22,8 +22,7 @@ class Member;
  * container.
  *
  * Note that SharedMember instances *cannot* be constructed directly (except when copying from
- * another compatible SharedMember instance), but are created via the various add* and clone*
- * methods of Simulation.
+ * another compatible SharedMember instance), but are created via the Simulation::create method.
  */
 template<class T>
 class SharedMember final {
