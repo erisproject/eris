@@ -150,7 +150,7 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
         void registerWeakDependency(const eris_id_t &member, const eris_id_t &depends_on);
 
         /** Sets the maximum number of threads to use for subsequent calls to run().  The default
-         * value is 0 (which uses no threads at all, see below).  If this is lowered between calls
+         * value is 0 (which uses no threads at all; see below).  If this is lowered between calls
          * to run(), excess threads (if any) will be killed off at the beginning of the next run()
          * call; if raised, new threads will be allowed to spawn as needed: `maxThreads(100)` will
          * not create 100 threads unless there are at least 100 tasks to be performed
