@@ -125,8 +125,6 @@ void MUPD::intraOptimize() {
 
     unsigned int markets = spending.size()-1; // -1 to account for the cash non-market (id=0)
 
-    DEBUG(markets << " markets being considered in MUPD");
-
     // If there are no viable markets, there's nothing to do.
     if (markets == 0) return;
 
