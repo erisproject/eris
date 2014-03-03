@@ -315,7 +315,14 @@ void MUPD::intraOptimize() {
         }
 
         if (extra > 0) {
-            a -= extra * money_unit;
+            // Subtract up to 2 times the tiny extra amount.  Thus for [0,extra) we're handling
+            // numerical imprecision that resulted in the reservations taking slightly more than was
+            // available; for (extra,2*extra] we're correcting for reservations taking not quite
+            // enough.  In either case, extra is a very small number (1e-13 times the money we
+            // started with--i.e. 10 cents for a trillionaire); this is mainly just cleaning up to
+            // have nice 0 values in assets instead of stupidly small values.
+            if (2*extra >= a[money]) a.set(money, 0);
+            else a -= extra * money_unit;
         }
 
         if (not restart) break;
@@ -333,22 +340,10 @@ void MUPD::intraReset() {
 void MUPD::intraApply() {
     auto con = simAgent<Consumer::Differentiable>(con_id);
     auto lock = writeLock(con);
-    Bundle &a = con->assets();
-    // Add a tiny bit to cash (to prevent numerical errors causing insufficient assets exceptions),
-    // then subtract it off after purchasing.
-    const Bundle tiny_extra = 1e-12 * a[money] * money_unit;
-    a += tiny_extra;
+
     for (auto &res: reservations) {
         res->buy();
     }
-
-    if (a[money] < 2*tiny_extra[money])
-        // If leftover money isn't at least "2 epsilons" above 0, assume it's a numerical error and
-        // reset it to zero.
-        a.set(money, 0);
-    else
-        // Otherwise subtract off the tiny amount we added, above.
-        a -= tiny_extra;
 
     reservations.clear();
 }
