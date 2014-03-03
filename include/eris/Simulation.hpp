@@ -32,7 +32,7 @@ class Market;
  * In short, this is the central piece of the Eris framework that dictates how all the other pieces
  * interact.
  */
-class Simulation : public std::enable_shared_from_this<Simulation> {
+class Simulation final : public std::enable_shared_from_this<Simulation> {
     public:
         /// Constructs a new simulation
         Simulation() = default;
