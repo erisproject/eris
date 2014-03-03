@@ -122,8 +122,6 @@ bool QMarket::intraReoptimize() {
     // If there are no firms, there's nothing to do
     if (firms().empty()) return false;
 
-    bool first_try = tried_ == 0;
-
     unsigned int max_tries = first_period_ ? tries_first_ : tries_;
 
     DEBUG("QMarket trying some optimization...");
@@ -140,7 +138,6 @@ bool QMarket::intraReoptimize() {
 
     DEBUGVAR(excess_capacity);
 
-    bool last_was_decrease = not stepper.prev_up;
     bool increase_price = excess_capacity <= 0;
 
     last_excess_ = excess_capacity;
