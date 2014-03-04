@@ -1,7 +1,6 @@
 
 project(eris_test)
 
-remove_definitions(-Wall -Werror)
 include(AddGTest)
 
 add_definitions(-DERIS_TESTS)

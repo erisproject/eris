@@ -32,7 +32,7 @@ include_directories(include)
 file(GLOB_RECURSE eris_src src/*.cpp)
 file(GLOB_RECURSE eris_include include/*.h include/*.hpp)
 
-set(CMAKE_CXX_FLAGS "-std=c++11 -march=native -O3 ${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror")
+set(CMAKE_CXX_FLAGS "-std=c++11 -march=native -O3 ${CMAKE_CXX_FLAGS} -Wall -Wextra")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -DERIS_DEBUG")
 
 find_package(Threads)
