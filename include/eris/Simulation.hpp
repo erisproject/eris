@@ -18,6 +18,7 @@
 namespace eris {
 
 // Forward declarations (to avoid header include loops)
+template<class S> class Eris;
 class Member;
 class Agent;
 class Good;
@@ -34,8 +35,6 @@ class Market;
  */
 class Simulation final : public std::enable_shared_from_this<Simulation> {
     public:
-        /// Constructs a new simulation
-        Simulation() = default;
         /// Destructor.  When destruction occurs, any outstanding threads are killed and rejoined.
         virtual ~Simulation();
 
@@ -231,6 +230,14 @@ class Simulation final : public std::enable_shared_from_this<Simulation> {
          */
         const DepMap __weakDeps() { return weak_dep_; }
 #endif
+
+    protected:
+        /** Constructs a new simulation.  This is protected because it must be called via
+         * Eris<Simulation> wrapper.  (This is needed because there must be a shared_ptr active on
+         * the simulation at all times).
+         */
+        Simulation() = default;
+        friend class Eris<Simulation>;
 
     private:
         unsigned long max_threads_ = 0;
