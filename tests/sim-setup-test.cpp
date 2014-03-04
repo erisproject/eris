@@ -44,16 +44,22 @@ std::string as_string(const unordered_map<eris_id_t, unordered_set<eris_id_t>> &
     return s.str();
 }
 
+#define MEMBERS(id, type, Type) \
+    sim->type##s<Type>([&](const Type &m) { return m == id; })
+#define AGENTS(id) MEMBERS(id, agent, Agent)
+#define GOODS(id) MEMBERS(id, good, Good)
+#define OTHERS(id) MEMBERS(id, other, Member)
+
 TEST(Dependencies, Create) {
 
     Eris<Simulation> sim;
 
     // Create some goods and agents
-    auto m = sim->createGood<Good::Continuous>("Money");
-    auto x = sim->createGood<Good::Continuous>("x");
-    auto y = sim->createGood<Good::Continuous>("y");
+    auto m = sim->create<Good::Continuous>("Money");
+    auto x = sim->create<Good::Continuous>("x");
+    auto y = sim->create<Good::Continuous>("y");
 
-    auto con = sim->createAgent<Polynomial>();
+    auto con = sim->create<Polynomial>();
     con->coef(x, 1) = 1; // u(x) = x
 
     // Declare some dependencies
@@ -64,7 +70,7 @@ TEST(Dependencies, Create) {
 
     // a MUPD optimizer should declare a dependency on both the consumer and
     // the money good:
-    auto opt = sim->createIntraOpt<MUPD>(con, m);
+    auto opt = sim->create<MUPD>(con, m);
 
     // Store these as they will become 0 when the members are removed
     auto mid = m->id();
@@ -80,15 +86,15 @@ TEST(Dependencies, Create) {
         { yid, { cid, xid } },
     };
 
-    EXPECT_EQ(as_string(want), as_string(sim->deps()));
+    EXPECT_EQ(as_string(want), as_string(sim->__deps()));
 
     EXPECT_EQ(xid, x->id());
     EXPECT_EQ(yid, y->id());
-    EXPECT_EQ(1, sim->goods().count(mid));
-    EXPECT_EQ(1, sim->goods().count(xid));
-    EXPECT_EQ(1, sim->goods().count(yid));
-    EXPECT_EQ(1, sim->agents().count(cid));
-    EXPECT_EQ(1, sim->intraOpts().count(oid));
+    EXPECT_EQ(1, GOODS(mid).size());
+    EXPECT_EQ(1, GOODS(xid).size());
+    EXPECT_EQ(1, GOODS(yid).size());
+    EXPECT_EQ(1, AGENTS(cid).size());
+    EXPECT_EQ(1, OTHERS(oid).size());
 }
 
 TEST(Dependencies, Delete) {
@@ -96,18 +102,18 @@ TEST(Dependencies, Delete) {
     Eris<Simulation> sim;
 
     // Create some goods and agents
-    auto m = sim->createGood<Good::Continuous>("Money");
-    auto x = sim->createGood<Good::Continuous>("x");
-    auto y = sim->createGood<Good::Continuous>("y");
+    auto m = sim->create<Good::Continuous>("Money");
+    auto x = sim->create<Good::Continuous>("x");
+    auto y = sim->create<Good::Continuous>("y");
 
-    auto con = sim->createAgent<Polynomial>();
+    auto con = sim->create<Polynomial>();
     con->coef(x, 1) = 1; // u(x) = x
 
     sim->registerDependency(y, x);
 
     // a MUPD optimizer should declare a dependency on both the consumer and
     // the money good:
-    auto opt = sim->createIntraOpt<MUPD>(con, m);
+    auto opt = sim->create<MUPD>(con, m);
 
     // Store these as they will become 0 when the members are removed
     auto mid = m->id();
@@ -116,7 +122,7 @@ TEST(Dependencies, Delete) {
     auto cid = con->id();
     auto oid = opt->id();
 
-    sim->removeGood(x);
+    sim->remove(x);
 
     Simulation::DepMap want = {
         { cid, { oid } },
@@ -124,17 +130,17 @@ TEST(Dependencies, Delete) {
 //        { xid, { yid } }
     };
 
-    EXPECT_EQ(as_string(want), as_string(sim->deps()));
+    EXPECT_EQ(as_string(want), as_string(sim->__deps()));
 
     EXPECT_EQ(0, x->id());
     EXPECT_EQ(0, y->id());
-    EXPECT_EQ(0, sim->goods().count(xid));
-    EXPECT_EQ(0, sim->goods().count(yid));
-    EXPECT_EQ(1, sim->goods().count(mid));
-    EXPECT_EQ(1, sim->agents().count(cid));
-    EXPECT_EQ(1, sim->intraOpts().count(oid));
+    EXPECT_EQ(0, GOODS(xid).size());
+    EXPECT_EQ(0, GOODS(yid).size());
+    EXPECT_EQ(1, GOODS(mid).size());
+    EXPECT_EQ(cid, sim->agent(cid));
+    EXPECT_EQ(oid, sim->other(oid));
 
-    sim->removeGood(m);
+    sim->remove(m);
 
     want = {
         { cid, { oid } }, // Stale, but okay.
@@ -142,16 +148,16 @@ TEST(Dependencies, Delete) {
 //        { xid, { yid } }
     };
 
-    EXPECT_EQ(as_string(want), as_string(sim->deps()));
+    EXPECT_EQ(as_string(want), as_string(sim->__deps()));
 
     EXPECT_EQ(0, x->id());
     EXPECT_EQ(0, y->id());
     EXPECT_EQ(0, m->id());
-    EXPECT_EQ(0, sim->goods().count(xid));
-    EXPECT_EQ(0, sim->goods().count(yid));
-    EXPECT_EQ(0, sim->goods().count(mid));
-    EXPECT_EQ(1, sim->agents().count(cid));
-    EXPECT_EQ(0, sim->intraOpts().count(oid));
+    EXPECT_EQ(0, GOODS(xid).size());
+    EXPECT_EQ(0, GOODS(yid).size());
+    EXPECT_EQ(0, GOODS(mid).size());
+    EXPECT_EQ(1, AGENTS(cid).size());
+    EXPECT_EQ(0, OTHERS(oid).size());
 }
 
 TEST(Dependencies, DeleteChain) {
@@ -159,16 +165,16 @@ TEST(Dependencies, DeleteChain) {
     Eris<Simulation> sim;
 
     // Create some goods and agents
-    auto m = sim->createGood<Good::Continuous>("Money");
-    auto x = sim->createGood<Good::Continuous>("x");
-    auto y = sim->createGood<Good::Continuous>("y");
+    auto m = sim->create<Good::Continuous>("Money");
+    auto x = sim->create<Good::Continuous>("x");
+    auto y = sim->create<Good::Continuous>("y");
 
-    auto con = sim->createAgent<Polynomial>();
+    auto con = sim->create<Polynomial>();
     con->coef(x, 1) = 1; // u(x) = x
 
     // a MUPD optimizer should declare a dependency on both the consumer and
     // the money good:
-    auto opt = sim->createIntraOpt<MUPD>(con, m);
+    auto opt = sim->create<MUPD>(con, m);
 
     // Declare some dependencies
     sim->registerDependency(x, y);
@@ -184,20 +190,23 @@ TEST(Dependencies, DeleteChain) {
     auto oid = opt->id();
 
     // Everything now depends (directly or indirectly) on m, so let's delete it:
-    sim->removeGood(m);
+    sim->remove(m);
 
-    EXPECT_EQ("", as_string(sim->deps()));
+    EXPECT_EQ("", as_string(sim->__deps()));
 
     EXPECT_EQ(0, x->id());
     EXPECT_EQ(0, y->id());
     EXPECT_EQ(0, m->id());
     EXPECT_EQ(0, con->id());
     EXPECT_EQ(0, opt->id());
-    EXPECT_EQ(0, sim->goods().count(xid));
-    EXPECT_EQ(0, sim->goods().count(yid));
-    EXPECT_EQ(0, sim->goods().count(mid));
-    EXPECT_EQ(0, sim->agents().count(cid));
-    EXPECT_EQ(0, sim->intraOpts().count(oid));
+    EXPECT_EQ(0, GOODS(xid).size());
+    EXPECT_EQ(0, GOODS(yid).size());
+    EXPECT_EQ(0, GOODS(mid).size());
+    EXPECT_EQ(0, sim->goods().size());
+    EXPECT_EQ(0, AGENTS(cid).size());
+    EXPECT_EQ(0, sim->agents().size());
+    EXPECT_EQ(0, OTHERS(oid).size());
+    EXPECT_EQ(0, sim->others().size());
 
 }
 

@@ -7,7 +7,7 @@
 #include <eris/interopt/QFStepper.hpp>
 #include <eris/consumer/Quadratic.hpp>
 #include <eris/intraopt/MUPD.hpp>
-#include <eris/interopt/FixedIncome.hpp>
+#include <eris/intraopt/FixedIncome.hpp>
 #include <iostream>
 #include <list>
 #include <vector>
@@ -144,9 +144,11 @@ int main() {
         }
         else {
             std::cout << "Lock test FAILED (incorrect ordering: ";
-            for (int i = 0; i < order.size(); i++) {
-                if (i > 0) std::cout << "-";
-                std::cout << order.at(i);
+            bool first = true;
+            for (auto &i : order) {
+                if (first) first = false;
+                else std::cout << "-";
+                std::cout << i;
             }
             std::cout << ")\n";
         }

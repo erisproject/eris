@@ -6,6 +6,7 @@ remove_definitions(-Wall -Werror)
 add_subdirectory(gtest-1.6.0)
 
 include_directories(${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
+add_definitions(-DERIS_TESTS)
 
 set(eris_tests
     bundle-test

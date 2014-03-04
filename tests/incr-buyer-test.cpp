@@ -72,11 +72,12 @@ using namespace eris::intraopt;
 
 #define SETUP_SIM \
     Eris<Simulation> sim; \
+    sim->maxThreads(0);\
     \
-    auto m = sim->createGood<Good::Continuous>("Money"); \
-    auto x = sim->createGood<Good::Continuous>("x"); \
-    auto y = sim->createGood<Good::Continuous>("y"); \
-    auto z = sim->createGood<Good::Continuous>("z"); \
+    auto m = sim->create<Good::Continuous>("Money"); \
+    auto x = sim->create<Good::Continuous>("x"); \
+    auto y = sim->create<Good::Continuous>("y"); \
+    auto z = sim->create<Good::Continuous>("z"); \
     \
     Bundle m1(m, 1); \
     Bundle m6(m, 6); \
@@ -84,80 +85,75 @@ using namespace eris::intraopt;
     Bundle y1(y, 1); \
     Bundle z1(z, 1); \
     \
-    auto fX1 = sim->createAgent<PriceFirm>(x1, m1); \
-    auto fX6 = sim->createAgent<PriceFirm>(x1, m6); \
-    auto fY1 = sim->createAgent<PriceFirm>(y1, m1); \
-    auto fY6 = sim->createAgent<PriceFirm>(y1, m6); \
-    auto fZ1 = sim->createAgent<PriceFirm>(z1, m1); \
-    auto fZ6 = sim->createAgent<PriceFirm>(z1, m6); \
-    \
-    /* Create 6 test markets, for {px,py,pz}={1,6} \
-     * NB: Can't add these to the simulation because different tests need different markets. */ \
-    auto mX1 = Bertrand(x1, m1); mX1.addFirm(fX1); \
-    auto mX6 = Bertrand(x1, m1); mX6.addFirm(fX6); \
-    auto mY1 = Bertrand(y1, m1); mY1.addFirm(fY1); \
-    auto mY6 = Bertrand(y1, m1); mY6.addFirm(fY6); \
-    auto mZ1 = Bertrand(z1, m1); mZ1.addFirm(fZ1); \
-    auto mZ6 = Bertrand(z1, m1); mZ6.addFirm(fZ6); \
-    \
-    int rounds = 0;
+    auto fx1 = sim->create<PriceFirm>(x1, m1); \
+    auto fx6 = sim->create<PriceFirm>(x1, m6); \
+    auto fy1 = sim->create<PriceFirm>(y1, m1); \
+    auto fy6 = sim->create<PriceFirm>(y1, m6); \
+    auto fz1 = sim->create<PriceFirm>(z1, m1); \
+    auto fz6 = sim->create<PriceFirm>(z1, m6);
+
+
+// Creates a market for bundle {x,y,z}1 and adds one of the 6 f{x,y,z}{1,6} firms to serve it.
+#define MKT(a,n) auto m##a##n = sim->create<Bertrand>(a##1, m1); m##a##n->addFirm(f##a##n);
+
+#define intraResetOptApply(opt) opt->intraReset(); DEBUG("ASDF"); opt->intraOptimize(); DEBUG("VVVV"); opt->intraApply();
+
 
 
 TEST(Case01_OneGood, Linear) {
     SETUP_SIM;
 
-    auto con = sim->createAgent<Polynomial>();
+    auto con = sim->create<Polynomial>();
     con->coef(x, 1) = 1; // u(x) = x
 
-    auto opt = sim->createIntraOpt<IncrementalBuyer>(con, m, 100);
+    auto opt = sim->create<IncrementalBuyer>(con, m, 100);
 
     // Give the agents some income:
     con->assets() += 100 * m1;
 
-    sim->cloneMarket(mX1); // px=1
+    MKT(x,1);
 
-    opt->reset();
-    while (opt->optimize()) { ++rounds; }
-    EXPECT_EQ(100, rounds);
+
+    intraResetOptApply(opt);
+
     EXPECT_EQ(100*x1, con->assets());
     EXPECT_DOUBLE_EQ(100, con->currUtility());
 }
 TEST(Case01_OneGood, Sqrt) {
     SETUP_SIM;
 
-    auto con = sim->createAgent<CobbDouglas>(x, 0.5);
+    auto con = sim->create<CobbDouglas>(x, 0.5);
     // con: u(x) = sqrt(x)
-    auto opt = sim->createIntraOpt<IncrementalBuyer>(con, m, 100);
+    auto opt = sim->create<IncrementalBuyer>(con, m, 100);
 
     // Give the agents some income:
     con->assets() += 150 * m1;
 
-    opt->reset();
+    MKT(x,1); // px=1
 
-    sim->cloneMarket(mX1); // px=1
+    DEBUG("asdfasdf");
+    intraResetOptApply(opt);
+    DEBUG("vvv");
 
-    while (opt->optimize()) { ++rounds; }
-    EXPECT_EQ(100, rounds);
     EXPECT_EQ(150*x1, con->assets());
     EXPECT_DOUBLE_EQ(sqrt(150), con->currUtility());
+    std::cout << "vvv\n";
 }
 TEST(Case01_OneGood, Squared) {
     SETUP_SIM;
 
-    auto con = sim->createAgent<Polynomial>();
+    auto con = sim->create<Polynomial>();
     con->coef(x, 2) = 1; // u(x) = x^2
-    auto opt = sim->createIntraOpt<IncrementalBuyer>(con, m, 100);
-    //auto opt = sim->createIntraOpt<IncrementalBuyer>(con, m, 100);
+    auto opt = sim->create<IncrementalBuyer>(con, m, 100);
+    //auto opt = sim->create<IncrementalBuyer>(con, m, 100);
 
     // Give the agents some income:
     con->assets() += 180 * m1;
 
-    opt->reset();
+    MKT(x,6); // px=6
 
-    sim->cloneMarket(mX6); // px=6
+    intraResetOptApply(opt);
 
-    while (opt->optimize()) { ++rounds; }
-    EXPECT_EQ(100, rounds);
     EXPECT_NEAR(30, con->assets()[x], 1e-12);
     EXPECT_EQ(0, con->assets() - Bundle(x, con->assets()[x]));
     EXPECT_NEAR(900, con->currUtility(), 1e-11);
@@ -165,58 +161,53 @@ TEST(Case01_OneGood, Squared) {
 
 #define SETUP_CASE2 \
     SETUP_SIM; \
-    auto con = sim->createAgent<Polynomial>(); \
+    auto con = sim->create<Polynomial>(); \
     con->coef(x, 1) = 2; \
     con->coef(y, 1) = 1; \
     con->assets() += 100 * m1; \
-    auto opt = sim->createIntraOpt<IncrementalBuyer>(con, m, 100); \
-    opt->reset();
+    auto opt = sim->create<IncrementalBuyer>(con, m, 100);
 
 TEST(Case02_Linear, Px1_Py1) {
     SETUP_CASE2;
 
-    sim->cloneMarket(mX1);
-    sim->cloneMarket(mY1);
+    MKT(x,1);
+    MKT(y,1);
 
-    while (opt->optimize()) { ++rounds; }
+    intraResetOptApply(opt);
 
-    EXPECT_EQ(100, rounds);
     EXPECT_EQ(100*x1, con->assets());
     EXPECT_DOUBLE_EQ(200, con->currUtility());
 }
 TEST(Case02_Linear, Px1_Py6) {
     SETUP_CASE2;
 
-    sim->cloneMarket(mX1);
-    sim->cloneMarket(mY6);
+    MKT(x,1);
+    MKT(y,6);
 
-    while (opt->optimize()) { ++rounds; }
+    intraResetOptApply(opt);
 
-    EXPECT_EQ(100, rounds);
     EXPECT_EQ(100*x1, con->assets());
     EXPECT_DOUBLE_EQ(200, con->currUtility());
 }
 TEST(Case02_Linear, Px6_Py1) {
     SETUP_CASE2;
 
-    sim->cloneMarket(mX6);
-    sim->cloneMarket(mY1);
+    MKT(x,6);
+    MKT(y,1);
 
-    while (opt->optimize()) { ++rounds; }
+    intraResetOptApply(opt);
 
-    EXPECT_EQ(100, rounds);
     EXPECT_EQ(100*y1, con->assets());
     EXPECT_DOUBLE_EQ(100, con->currUtility());
 }
 TEST(Case02_Linear, Px6_Py6) {
     SETUP_CASE2;
 
-    sim->cloneMarket(mX6);
-    sim->cloneMarket(mY6);
+    MKT(x,6);
+    MKT(y,6);
 
-    while (opt->optimize()) { ++rounds; }
+    intraResetOptApply(opt);
 
-    EXPECT_EQ(100, rounds);
     Bundle a = con->assets();
     EXPECT_NEAR(100.0/6.0, a.remove(x), 1e-13);
     EXPECT_EQ(0, a);
@@ -226,19 +217,17 @@ TEST(Case02_Linear, Px6_Py6) {
 TEST(Case03_CobbDouglas, Px1_Py1_Pz1__a1_b1_c1) {
     SETUP_SIM;
 
-    auto con = sim->createAgent<CobbDouglas>(x, 1.0, y, 1.0, z, 1.0);
+    auto con = sim->create<CobbDouglas>(x, 1.0, y, 1.0, z, 1.0);
     con->assets() += 300*m1;
 
-    auto opt = sim->createIntraOpt<IncrementalBuyer>(con, m, 600);
-    opt->reset();
+    auto opt = sim->create<IncrementalBuyer>(con, m, 600);
 
-    sim->cloneMarket(mX1);
-    sim->cloneMarket(mY1);
-    sim->cloneMarket(mZ1);
+    MKT(x,1);
+    MKT(y,1);
+    MKT(z,1);
 
-    while (opt->optimize()) { ++rounds; }
+    intraResetOptApply(opt);
 
-    EXPECT_EQ(600, rounds);
     Bundle a = con->assets();
     EXPECT_NEAR(100, a.remove(x), 1e-12);
     EXPECT_NEAR(100, a.remove(y), 1e-12);
@@ -249,20 +238,18 @@ TEST(Case03_CobbDouglas, Px1_Py1_Pz1__a1_b1_c1) {
 TEST(Case03_CobbDouglas, Px6_Py1_Pz1__a1_b1_c2) {
     SETUP_SIM;
 
-    auto con = sim->createAgent<CobbDouglas>(x, 1, y, 1, z, 2);
+    auto con = sim->create<CobbDouglas>(x, 1, y, 1, z, 2);
     con->assets() += 300*m1;
 
-    auto opt = sim->createIntraOpt<IncrementalBuyer>(con, m, 600);
+    auto opt = sim->create<IncrementalBuyer>(con, m, 600);
     opt->permuteThreshold(0.5);
-    opt->reset();
 
-    sim->cloneMarket(mX6);
-    sim->cloneMarket(mY1);
-    sim->cloneMarket(mZ1);
+    MKT(x,6);
+    MKT(y,1);
+    MKT(z,1);
 
-    while (opt->optimize()) { ++rounds; }
+    intraResetOptApply(opt);
 
-    EXPECT_EQ(600, rounds);
     Bundle a = con->assets();
     // These can be off by quite a bit, since the algorithm typically works by
     // alternating between them at each step.  In the above, this won't happen
@@ -277,20 +264,18 @@ TEST(Case03_CobbDouglas, Px6_Py1_Pz1__a1_b1_c2) {
 TEST(Case03_CobbDouglas, Px1_Py1_Pz6__a0_b1_c3) {
     SETUP_SIM;
 
-    auto con = sim->createAgent<CobbDouglas>(x, 0, y, 1, z, 3);
+    auto con = sim->create<CobbDouglas>(x, 0, y, 1, z, 3);
     con->assets() += 300*m1;
 
-    auto opt = sim->createIntraOpt<IncrementalBuyer>(con, m, 600);
+    auto opt = sim->create<IncrementalBuyer>(con, m, 600);
     opt->permuteThreshold(0.5);
-    opt->reset();
 
-    sim->cloneMarket(mX1);
-    sim->cloneMarket(mY1);
-    sim->cloneMarket(mZ6);
+    MKT(x,1);
+    MKT(y,1);
+    MKT(z,6);
 
-    while (opt->optimize()) { ++rounds; }
+    intraResetOptApply(opt);
 
-    EXPECT_EQ(600, rounds);
     Bundle a = con->assets();
     // Should get 1/4 of spending on y, 3/4 on z, none on x
     EXPECT_EQ(0, a[x]);
@@ -302,20 +287,18 @@ TEST(Case03_CobbDouglas, Px1_Py1_Pz6__a0_b1_c3) {
 TEST(Case03_CobbDouglas, Px1_Py6_Pz6__a1_b23_c13) {
     SETUP_SIM;
 
-    auto con = sim->createAgent<CobbDouglas>(x, 1, y, 2.0/3, z, 1.0/3);
+    auto con = sim->create<CobbDouglas>(x, 1, y, 2.0/3, z, 1.0/3);
     con->assets() += 300*m1;
 
-    auto opt = sim->createIntraOpt<IncrementalBuyer>(con, m, 600);
+    auto opt = sim->create<IncrementalBuyer>(con, m, 600);
     opt->permuteThreshold(0.5);
-    opt->reset();
 
-    sim->cloneMarket(mX1);
-    sim->cloneMarket(mY6);
-    sim->cloneMarket(mZ6);
+    MKT(x,1);
+    MKT(y,6);
+    MKT(z,6);
 
-    while (opt->optimize()) { ++rounds; }
+    intraResetOptApply(opt);
 
-    EXPECT_EQ(600, rounds);
     Bundle a = con->assets();
     // Should get 1/2 of spending on x, 1/3 on y, 1/6 on z
     double goodX, goodY, goodZ;
@@ -330,64 +313,58 @@ TEST(Case03_CobbDouglas, Px1_Py6_Pz6__a1_b23_c13) {
 TEST(Case04_Bliss, Constant) {
     SETUP_SIM;
 
-    auto con = sim->createAgent<Polynomial>(-13.0);
+    auto con = sim->create<Polynomial>(-13.0);
 
     con->assets() += 123*m1;
 
-    auto opt = sim->createIntraOpt<IncrementalBuyer>(con, m, 15);
-    opt->reset();
+    auto opt = sim->create<IncrementalBuyer>(con, m, 15);
 
-    sim->cloneMarket(mX1);
-    sim->cloneMarket(mY6);
-    sim->cloneMarket(mZ6);
+    MKT(x,1);
+    MKT(y,6);
+    MKT(z,6);
 
-    while (opt->optimize()) ++rounds;
+    intraResetOptApply(opt);
 
-    EXPECT_EQ(0, rounds);
     EXPECT_EQ(123*m1, con->assets());
     EXPECT_EQ(-13, con->currUtility());
 }
 TEST(Case04_Bliss, ConstantMinusEach) {
     SETUP_SIM;
 
-    auto con = sim->createAgent<Polynomial>(5.0);
+    auto con = sim->create<Polynomial>(5.0);
     con->coef(x, 1) = -1;
     con->coef(y, 1) = -1;
     con->coef(z, 1) = -1;
 
     con->assets() += m1;
 
-    auto opt = sim->createIntraOpt<IncrementalBuyer>(con, m, 100);
-    opt->reset();
+    auto opt = sim->create<IncrementalBuyer>(con, m, 100);
 
-    sim->cloneMarket(mX1);
-    sim->cloneMarket(mY1);
-    sim->cloneMarket(mZ1);
+    MKT(x,1);
+    MKT(y,1);
+    MKT(z,1);
 
-    while (opt->optimize()) ++rounds;
+    intraResetOptApply(opt);
 
-    EXPECT_EQ(0, rounds);
     EXPECT_EQ(m1, con->assets());
     EXPECT_EQ(5.0, con->currUtility());
 }
 TEST(Case04_Bliss, ConstantMinusProd) {
     SETUP_SIM;
 
-    //auto con = sim->createAgent<Consumer::Simple>([&](const BundleNegative &b) { return -3.0-b[x]*b[y]*b[z]; });
-    auto con = sim->createAgent<CompoundSum>(new Polynomial(-3), new CobbDouglas(x, 1, y, 1, z, 1, -1.0));
+    //auto con = sim->create<Consumer::Simple>([&](const BundleNegative &b) { return -3.0-b[x]*b[y]*b[z]; });
+    auto con = sim->create<CompoundSum>(new Polynomial(-3), new CobbDouglas(x, 1, y, 1, z, 1, -1.0));
 
     con->assets() += 3*m1;
 
-    auto opt = sim->createIntraOpt<IncrementalBuyer>(con, m, 15);
-    opt->reset();
+    auto opt = sim->create<IncrementalBuyer>(con, m, 15);
 
-    sim->cloneMarket(mX1);
-    sim->cloneMarket(mY6);
-    sim->cloneMarket(mZ6);
+    MKT(x,1);
+    MKT(y,6);
+    MKT(z,6);
 
-    while (opt->optimize()) ++rounds;
+    intraResetOptApply(opt);
 
-    EXPECT_EQ(0, rounds);
     EXPECT_EQ(3*m1, con->assets());
     EXPECT_EQ(-3.0, con->currUtility());
 }
@@ -395,22 +372,20 @@ TEST(Case04_Bliss, ConstantMinusProd) {
 TEST(Case05_Leontief, Px1_Py6) {
     SETUP_SIM;
 
-    auto con = sim->createAgent<Consumer::Simple>([&](const BundleNegative &b) {
+    auto con = sim->create<Consumer::Simple>([&](const BundleNegative &b) {
             return fmin(b[x], 2*b[y]);
             });
 
     con->assets() += 14*m1;
 
-    auto opt = sim->createIntraOpt<IncrementalBuyer>(con, m, 1000);
+    auto opt = sim->create<IncrementalBuyer>(con, m, 1000);
     opt->permuteZeros(true);
-    opt->reset();
 
-    sim->cloneMarket(mX1);
-    sim->cloneMarket(mY6);
+    MKT(x,1);
+    MKT(y,6);
 
-    while (opt->optimize()) ++rounds;
+    intraResetOptApply(opt);
 
-    EXPECT_EQ(1000, rounds);
     Bundle a = con->assets();
     EXPECT_NEAR(3.50, a.remove(x), 1e-13);
     EXPECT_NEAR(1.75, a.remove(y), 1e-13);
@@ -420,23 +395,21 @@ TEST(Case05_Leontief, Px1_Py6) {
 TEST(Case05_Leontief, Px1_Py1_Pz1) {
     SETUP_SIM;
 
-    auto con = sim->createAgent<Consumer::Simple>([&](const BundleNegative &b) {
+    auto con = sim->create<Consumer::Simple>([&](const BundleNegative &b) {
             return fmin(b[x], 2*b[y]) + b[z];
             });
 
     con->assets() += 14*m1;
 
-    auto opt = sim->createIntraOpt<IncrementalBuyer>(con, m, 100);
+    auto opt = sim->create<IncrementalBuyer>(con, m, 100);
     opt->permuteZeros(true);
-    opt->reset();
 
-    sim->cloneMarket(mX1);
-    sim->cloneMarket(mY1);
-    sim->cloneMarket(mZ1);
+    MKT(x,1);
+    MKT(y,1);
+    MKT(z,1);
 
-    while (opt->optimize()) ++rounds;
+    intraResetOptApply(opt);
 
-    EXPECT_EQ(100, rounds);
     Bundle a = con->assets();
     EXPECT_NEAR(14, a.remove(z), 1e-13);
     EXPECT_EQ(0, a);
@@ -445,26 +418,24 @@ TEST(Case05_Leontief, Px1_Py1_Pz1) {
 
 #define SETUP_CASE6 \
     SETUP_SIM; \
-    auto con = sim->createAgent<Quadratic>(7.5); \
+    auto con = sim->create<Quadratic>(7.5); \
     con->coef(m) = 1; \
     con->coef(x) = 5; \
     con->coef(y) = 4; \
     con->coef(x, x) = -0.5; \
     con->coef(y, y) = -0.5; \
-    auto opt = sim->createIntraOpt<IncrementalBuyer>(con, m); \
-    opt->reset();
+    auto opt = sim->create<IncrementalBuyer>(con, m);
 
 TEST(Case06_Numeraire, Px1_Py6) {
     SETUP_CASE6;
 
     con->assets() += 100*m1;
 
-    sim->cloneMarket(mX1);
-    sim->cloneMarket(mY6);
+    MKT(x,1);
+    MKT(y,6);
 
-    while (opt->optimize()) ++rounds;
+    intraResetOptApply(opt);
 
-    EXPECT_EQ(4, rounds);
     Bundle a = con->assets();
     EXPECT_NEAR(4, a.remove(x), 1e-13);
     EXPECT_NEAR(96, a.remove(m), 1e-13);
@@ -476,12 +447,11 @@ TEST(Case06_Numeraire, Px6_Py1) {
 
     con->assets() += 100*m1;
 
-    sim->cloneMarket(mX6);
-    sim->cloneMarket(mY1);
+    MKT(x,6);
+    MKT(y,1);
 
-    while (opt->optimize()) ++rounds;
+    intraResetOptApply(opt);
 
-    EXPECT_EQ(3, rounds);
     Bundle a = con->assets();
     EXPECT_NEAR(3, a.remove(y), 1e-13);
     EXPECT_NEAR(97, a.remove(m), 1e-13);
@@ -493,12 +463,11 @@ TEST(Case06_Numeraire, Px1_Py1) {
 
     con->assets() += 100*m1;
 
-    sim->cloneMarket(mX1);
-    sim->cloneMarket(mY1);
+    MKT(x,1);
+    MKT(y,1);
 
-    while (opt->optimize()) ++rounds;
+    intraResetOptApply(opt);
 
-    EXPECT_EQ(7, rounds);
     Bundle a = con->assets();
     EXPECT_NEAR(4, a.remove(x), 1e-13);
     EXPECT_NEAR(3, a.remove(y), 1e-13);
@@ -511,12 +480,11 @@ TEST(Case06_Numeraire, Px6_Py6) {
 
     con->assets() += 100*m1;
 
-    sim->cloneMarket(mX6);
-    sim->cloneMarket(mY6);
+    MKT(x,6);
+    MKT(y,6);
 
-    while (opt->optimize()) ++rounds;
+    intraResetOptApply(opt);
 
-    EXPECT_EQ(0, rounds);
     EXPECT_EQ(100*m1, con->assets());
     EXPECT_EQ(107.5, con->currUtility());
 }
@@ -525,12 +493,11 @@ TEST(Case06_Numeraire, Px1_Py1_I2) {
 
     con->assets() += 2*m1;
 
-    sim->cloneMarket(mX1);
-    sim->cloneMarket(mY1);
+    MKT(x,1);
+    MKT(y,1);
 
-    while (opt->optimize()) ++rounds;
+    intraResetOptApply(opt);
 
-    EXPECT_EQ(100, rounds);
     Bundle a = con->assets();
     EXPECT_NEAR(1.5, a.remove(x), 1e-14);
     EXPECT_NEAR(0.5, a.remove(y), 1e-14);
@@ -542,15 +509,14 @@ TEST(Case06_Numeraire, Px1_Py1_I69) {
 
     con->assets() += 6.9*m1;
 
-    sim->cloneMarket(mX1);
-    sim->cloneMarket(mY1);
+    MKT(x,1);
+    MKT(y,1);
 
-    // Using the default 100 rounds won't let us get all those close: we'll spend .069 each time,
+    // Using the default 100 rounds won't let us get all that close: we'll spend .069 each time,
     // and the closest we can get to optimal with that is 57*.069 units of x, 43*.069 units of y.
 
-    while (opt->optimize()) ++rounds;
+    intraResetOptApply(opt);
 
-    EXPECT_EQ(100, rounds);
     Bundle a = con->assets();
     const double expX = 0.57*6.9, expY = 0.43*6.9;
     EXPECT_NEAR(expX, a.remove(x), 1e-13);
@@ -561,12 +527,10 @@ TEST(Case06_Numeraire, Px1_Py1_I69) {
     // We can cheat a little bit by using 138: this will result in increments of 0.05, which should
     // allow IncrementalBuyer to get within numerical precision error of 3.95/2.95.
     con->assets() = 6.9*m1;
-    int rounds2 = 0;
-    auto opt2 = sim->createIntraOpt<IncrementalBuyer>(con, m, 138);
-    opt2->reset();
-    while (opt2->optimize()) ++rounds2;
 
-    EXPECT_EQ(138, rounds2);
+    auto opt2 = sim->create<IncrementalBuyer>(con, m, 138);
+    intraResetOptApply(opt2);
+
     Bundle b = con->assets();
     EXPECT_NEAR(3.95, b.remove(x), 1e-13);
     EXPECT_NEAR(2.95, b.remove(y), 1e-13);
@@ -579,7 +543,7 @@ TEST(Case07_UBB, Test1) {
 
     double alpha = 1000, beta = 20, gamma = 5;
 
-    auto con = sim->createAgent<Quadratic>();
+    auto con = sim->create<Quadratic>();
     con->coef(m) = 1;
     con->coef(x) = alpha;
     con->coef(y) = alpha;
@@ -593,19 +557,17 @@ TEST(Case07_UBB, Test1) {
 
     con->assets() += 200*m1;
 
-    auto opt = sim->createIntraOpt<IncrementalBuyer>(con, m, 2000);
-    opt->reset();
+    auto opt = sim->create<IncrementalBuyer>(con, m, 2000);
 
-    sim->cloneMarket(mX1);
-    sim->cloneMarket(mY1);
-    sim->cloneMarket(mZ1);
+    MKT(x,1);
+    MKT(y,1);
+    MKT(z,1);
 
     opt->permuteAll();
-    while (opt->optimize()) ++rounds;
+    intraResetOptApply(opt);
 
     double denom1 = (beta + 2*gamma) * (beta - gamma);
 
-    EXPECT_EQ(999, rounds);
     Bundle b = con->assets();
     EXPECT_NEAR(b.remove(x), alpha/(beta+2*gamma) - (beta+gamma) / denom1 * 1
             + gamma / denom1 * (1 + 1), 1e-11);
@@ -635,7 +597,7 @@ TEST(Case07_UBB, Test2) {
     // Try with a different parameterization
     double alpha = 100, beta = 1, gamma = 0.8;
 
-    auto con = sim->createAgent<Quadratic>();
+    auto con = sim->create<Quadratic>();
     con->coef(m) = 1;
     con->coef(x) = alpha;
     con->coef(y) = alpha;
@@ -649,20 +611,18 @@ TEST(Case07_UBB, Test2) {
 
     con->assets() = 300*m1;
 
-    auto opt = sim->createIntraOpt<IncrementalBuyer>(con, m, 3000);
-    opt->reset();
+    auto opt = sim->create<IncrementalBuyer>(con, m, 3000);
 
-    sim->cloneMarket(mX1);
-    sim->cloneMarket(mY6); // changed
-    sim->cloneMarket(mZ1);
+    MKT(x,1);
+    MKT(y,6); // changed
+    MKT(z,1);
 
     opt->permuteAll();
-    while (opt->optimize()) ++rounds;
-
-    double denom1 = (beta + 2*gamma) * (beta - gamma);
+    intraResetOptApply(opt);
 
     // These are what x,y,z should be, if the consumer was perfectly optimizing:
     /*
+    double denom1 = (beta + 2*gamma) * (beta - gamma);
     double trueX = alpha/(beta+2*gamma) - (beta+gamma) / denom1 * 1
             + gamma / denom1 * (6 + 1);
     double trueY = alpha/(beta+2*gamma) - (beta+gamma) / denom1 * 6
@@ -675,7 +635,6 @@ TEST(Case07_UBB, Test2) {
     double simpX = 54.35, simpZ = 54.35, simpY = 211.0/30;
     double simpM = 300 - 1*simpX - 6*simpY - 1*simpZ;
 
-    EXPECT_EQ(1509, rounds);
     Bundle b = con->assets();
     EXPECT_NEAR(simpX, b.remove(x), 1e-11);
     EXPECT_NEAR(simpY, b.remove(y), 1e-11);
