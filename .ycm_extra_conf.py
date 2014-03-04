@@ -4,9 +4,9 @@ import ycm_core
 flags = [
         '-Wall',
         '-Wextra',
-        '-Werror',
         '-std=c++11',
-        '-I', 'include'
+        '-I', 'include',
+        '-DERIS_TESTS' # Needed for test scripts to compile
         ]
 
 def DirectoryOfThisScript():
