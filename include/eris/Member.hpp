@@ -517,7 +517,7 @@ class Member {
 
         /// Helper class doing all the grunt work of the Container version of readLock/writeLock.
         template <class Container>
-        Lock rwLock_(bool write, const Container &plus,
+        Lock rwLock_(const bool &write, const Container &plus,
                 typename std::enable_if<
                     std::is_base_of<Member, typename Container::value_type::member_type>::value
                 >::type* = 0) const {
@@ -537,7 +537,7 @@ class Member {
 
         /// Helper class doing all the grunt work of the varargs version of readLock/writeLock.
         template <class... Args>
-        Lock rwLock_(bool write, Args... more) const {
+        Lock rwLock_(const bool &write, Args... more) const {
             const bool has_sim = hasSimulation();
             if (has_sim and maxThreads() == 0) return Member::Lock(write); // Fake lock
             std::multiset<SharedMember<Member>> members;
