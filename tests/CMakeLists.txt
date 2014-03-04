@@ -2,10 +2,8 @@
 project(eris_test)
 
 remove_definitions(-Wall -Werror)
+include(AddGTest)
 
-add_subdirectory(gtest-1.6.0)
-
-include_directories(${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
 add_definitions(-DERIS_TESTS)
 
 set(eris_tests
@@ -23,4 +21,3 @@ foreach(t ${eris_tests})
     add_test("${t}-run" "${t}" --gtest_color=yes)
     add_dependencies(check "${t}")
 endforeach()
-
