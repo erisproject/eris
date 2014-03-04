@@ -27,27 +27,14 @@ bool Member::hasSimulation() const {
 }
 
 std::shared_ptr<Simulation> Member::simulation() const {
-    if (simulation_.expired())
+    if (simulation_.expired()) {
         throw no_simulation_error();
+    }
     return simulation_.lock();
 }
 
 void Member::added() {}
 void Member::removed() {}
-
-Member::Lock Member::readLock() const {
-    if (maxThreads() == 0) return Member::Lock(false); // Fake lock
-    std::multiset<SharedMember<Member>> members;
-    members.insert(sharedSelf());
-    return Member::Lock(false, std::move(members));
-}
-
-Member::Lock Member::writeLock() {
-    if (maxThreads() == 0) return Member::Lock(true); // Fake lock
-    std::multiset<SharedMember<Member>> members;
-    members.insert(sharedSelf());
-    return Member::Lock(true, std::move(members));
-}
 
 Member::Lock::Lock(bool write, bool locked) : Lock(write, locked, std::multiset<SharedMember<Member>>()) {}
 Member::Lock::Lock(bool write, std::multiset<SharedMember<Member>> &&members)

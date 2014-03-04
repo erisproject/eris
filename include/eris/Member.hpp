@@ -331,13 +331,6 @@ class Member {
                 std::shared_ptr<Data> data;
         };
 
-        /** Obtains a read lock for the current object, returns a Member::Lock object.  This is
-         * equivalent to calling the other readLock methods with an empty container.
-         *
-         * \sa readLock(const Container&)
-         */
-        Lock readLock() const;
-
         /** Obtains a read lock for the current object *plus* all the objects passed in via the
          * given container.  This will block until a read lock can be obtained on all objects.
          *
@@ -351,6 +344,11 @@ class Member {
          * The lock will be released automatically when the returned object is destroyed, typically
          * by going out of scope.  It can also be explicitly controlled.
          *
+         * If the calling object is not a Simulation member, the lock won't be enforced on the
+         * caller.  (In such a case there is no reliable way to obtain a SharedMember wrapper around
+         * the caller).  This is unlikely to be an issue as it only typically comes up during
+         * destruction phases.
+         *
          * \param plus any iterable object containing SharedMember<T> objects
          *
          * \sa Member::Lock
@@ -360,46 +358,43 @@ class Member {
                 typename std::enable_if<
                     std::is_base_of<Member, typename Container::value_type::member_type>::value
                 >::type* = 0) const {
-            if (maxThreads() == 0) return Member::Lock(false); // Fake lock
+            const bool has_sim = hasSimulation();
+            if (has_sim and maxThreads() == 0) return Member::Lock(false); // Fake lock
             std::multiset<SharedMember<Member>> members;
-            members.insert(sharedSelf());
+            if (has_sim)
+                members.insert(sharedSelf());
             members.insert(plus.begin(), plus.end());
+
+            // members could be empty if we tried to get a writeLock on just an object that isn't in
+            // the simulation (e.g. during some destructions)
+            if (members.empty()) return Member::Lock(false);
+
             return Member::Lock(false, std::move(members));
         }
 
-        /** Obtains a read lock for the current objects *plus* the all the SharedMember<T> values
+        /** Obtains a read lock for the current object plus any number of SharedMember<T> members
          * passed in.
+         *
+         * \sa readLock(const Container&)
          */
         template <class... Args>
-        Lock readLock(SharedMember<Member> plus, Args... more) const {
-            if (maxThreads() == 0) return Member::Lock(false); // Fake lock
+        Lock readLock(Args... more) const {
+            const bool has_sim = hasSimulation();
+            if (has_sim and maxThreads() == 0) return Member::Lock(false); // Fake lock
             std::multiset<SharedMember<Member>> members;
-            members.insert(sharedSelf());
-            members.insert(plus);
+            if (has_sim)
+                members.insert(sharedSelf());
             member_zip_(members, more...);
+
+            // members could be empty if we tried to get a writeLock on just an object that isn't in
+            // the simulation (e.g. during some destructions)
+            if (members.empty()) return Member::Lock(false);
+
             return Member::Lock(false, std::move(members));
         }
 
-        /** Obtains an exclusive read/write lock for the current object, returning a Member::Lock
-         * object.  The write lock lasts until the returned Lock object is destroyed (typically by
-         * going out of scope), or is explicitly unlocked via Lock methods.
-         *
-         * You can safely (i.e. without deadlocking) obtain multiple write locks on the same object
-         * from the same thread, but attempting to obtain a write lock over top of a read lock in
-         * the same thread will deadlock: don't do that.  You may also safely obtain read locks over
-         * top of write locks so long as no write lock is obtained until all the thread's read locks
-         * are released.
-         *
-         * This held lock will always be an exclusive lock: no other read locks or write locks will
-         * be active.
-         *
-         * The lock provided is advisory: it is still possible for a thread without a write lock to
-         * invoke changes on the locked object, but such should be considered a serious error.
-         */
-        Lock writeLock();
-
-        /** Obtains a write lock for the current object *plus* all the objects passed in.  This will
-         * block until a write lock can be obtained on all objects.
+        /** Obtains a write lock for the current object plus all the objects passed in via the
+         * provided container.  This will block until a write lock can be obtained on all objects.
          *
          * Like readLock, this method is deadlock safe if used properly: it will not block
          * waiting for a lock while holding any other locks, and, because of the use of a recursive
@@ -415,29 +410,54 @@ class Member {
          *
          * The lock will be released when the returned object is destroyed, typically by going out
          * of scope.
+         *
+         * If the calling object is not a Simulation member, the lock won't be enforced on the
+         * caller.  (In such a case there is no reliable way to obtain a SharedMember wrapper around
+         * the caller).  This is unlikely to be an issue as it only typically comes up during
+         * destruction phases.
+         *
+         * \param plus any iterable object containing SharedMember<T> objects
+         *
+         * \sa Member::Lock
          */
         template <class Container>
         Lock writeLock(const Container &plus,
                 typename std::enable_if<
                     std::is_base_of<Member, typename Container::value_type::member_type>::value
                 >::type* = 0) const {
-            if (maxThreads() == 0) return Member::Lock(true); // Fake lock
+            const bool has_sim = hasSimulation();
+            if (has_sim and maxThreads() == 0) return Member::Lock(true); // Fake lock
             std::multiset<SharedMember<Member>> members;
-            members.insert(sharedSelf());
+            if (has_sim)
+                members.insert(sharedSelf());
             members.insert(plus.begin(), plus.end());
+
+            // members could be empty if we tried to get a writeLock on just an object that isn't in
+            // the simulation (e.g. during some destructions)
+            if (members.empty()) return Member::Lock(false);
+
             return Member::Lock(true, std::move(members));
         }
 
         /** Obtains a write lock for the current objects *plus* the all the SharedMember<T> values
-         * passed in.
+         * passed in.  If no additional objects are passed-in, the lock applies only to the calling
+         * object.
+         *
+         * \sa writeLock(const Container&)
          */
         template <class... Args>
-        Lock writeLock(SharedMember<Member> plus, Args... more) const {
-            if (maxThreads() == 0) return Member::Lock(true); // Fake lock
+        Lock writeLock(Args... more) const {
+            const bool has_sim = hasSimulation();
+            if (has_sim and maxThreads() == 0) return Member::Lock(true); // Fake lock
             std::multiset<SharedMember<Member>> members;
-            members.insert(sharedSelf());
-            members.insert(plus);
+            if (has_sim)
+                members.insert(sharedSelf());
             member_zip_(members, more...);
+
+            // members could be empty if we tried to get a writeLock on just an object that isn't in
+            // the simulation (e.g. during some destructions)
+            if (members.empty()) return Member::Lock(false);
+
             return Member::Lock(true, std::move(members));
         }
 
