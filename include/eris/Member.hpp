@@ -354,22 +354,8 @@ class Member {
          * \sa Member::Lock
          */
         template <class Container>
-        Lock readLock(const Container &plus,
-                typename std::enable_if<
-                    std::is_base_of<Member, typename Container::value_type::member_type>::value
-                >::type* = 0) const {
-            const bool has_sim = hasSimulation();
-            if (has_sim and maxThreads() == 0) return Member::Lock(false); // Fake lock
-            std::multiset<SharedMember<Member>> members;
-            if (has_sim)
-                members.insert(sharedSelf());
-            members.insert(plus.begin(), plus.end());
-
-            // members could be empty if we tried to get a writeLock on just an object that isn't in
-            // the simulation (e.g. during some destructions)
-            if (members.empty()) return Member::Lock(false);
-
-            return Member::Lock(false, std::move(members));
+        Lock readLock(const Container &plus) {
+            return rwLock_(false, plus);
         }
 
         /** Obtains a read lock for the current object plus any number of SharedMember<T> members
@@ -379,19 +365,9 @@ class Member {
          */
         template <class... Args>
         Lock readLock(Args... more) const {
-            const bool has_sim = hasSimulation();
-            if (has_sim and maxThreads() == 0) return Member::Lock(false); // Fake lock
-            std::multiset<SharedMember<Member>> members;
-            if (has_sim)
-                members.insert(sharedSelf());
-            member_zip_(members, more...);
-
-            // members could be empty if we tried to get a writeLock on just an object that isn't in
-            // the simulation (e.g. during some destructions)
-            if (members.empty()) return Member::Lock(false);
-
-            return Member::Lock(false, std::move(members));
+            return rwLock_(false, more...);
         }
+
 
         /** Obtains a write lock for the current object plus all the objects passed in via the
          * provided container.  This will block until a write lock can be obtained on all objects.
@@ -425,18 +401,7 @@ class Member {
                 typename std::enable_if<
                     std::is_base_of<Member, typename Container::value_type::member_type>::value
                 >::type* = 0) const {
-            const bool has_sim = hasSimulation();
-            if (has_sim and maxThreads() == 0) return Member::Lock(true); // Fake lock
-            std::multiset<SharedMember<Member>> members;
-            if (has_sim)
-                members.insert(sharedSelf());
-            members.insert(plus.begin(), plus.end());
-
-            // members could be empty if we tried to get a writeLock on just an object that isn't in
-            // the simulation (e.g. during some destructions)
-            if (members.empty()) return Member::Lock(false);
-
-            return Member::Lock(true, std::move(members));
+            return rwLock_(true, plus);
         }
 
         /** Obtains a write lock for the current objects *plus* the all the SharedMember<T> values
@@ -447,18 +412,7 @@ class Member {
          */
         template <class... Args>
         Lock writeLock(Args... more) const {
-            const bool has_sim = hasSimulation();
-            if (has_sim and maxThreads() == 0) return Member::Lock(true); // Fake lock
-            std::multiset<SharedMember<Member>> members;
-            if (has_sim)
-                members.insert(sharedSelf());
-            member_zip_(members, more...);
-
-            // members could be empty if we tried to get a writeLock on just an object that isn't in
-            // the simulation (e.g. during some destructions)
-            if (members.empty()) return Member::Lock(false);
-
-            return Member::Lock(true, std::move(members));
+            return rwLock_(true, more...);
         }
 
         /** Error class throw when attempting to perform a member action requiring a simulation when
@@ -560,6 +514,43 @@ class Member {
          * provided set of objects
          */
         void unlock_many_(bool write, const std::multiset<SharedMember<Member>> &plus);
+
+        /// Helper class doing all the grunt work of the Container version of readLock/writeLock.
+        template <class Container>
+        Lock rwLock_(bool write, const Container &plus,
+                typename std::enable_if<
+                    std::is_base_of<Member, typename Container::value_type::member_type>::value
+                >::type* = 0) const {
+            const bool has_sim = hasSimulation();
+            if (has_sim and maxThreads() == 0) return Member::Lock(write); // Fake lock
+            std::multiset<SharedMember<Member>> members;
+            if (has_sim)
+                members.insert(sharedSelf());
+            members.insert(plus.begin(), plus.end());
+
+            // members could be empty if we tried to get a writeLock on just an object that isn't in
+            // the simulation (e.g. during some destructions)
+            if (members.empty()) return Member::Lock(write);
+
+            return Member::Lock(write, std::move(members));
+        }
+
+        /// Helper class doing all the grunt work of the varargs version of readLock/writeLock.
+        template <class... Args>
+        Lock rwLock_(bool write, Args... more) const {
+            const bool has_sim = hasSimulation();
+            if (has_sim and maxThreads() == 0) return Member::Lock(write); // Fake lock
+            std::multiset<SharedMember<Member>> members;
+            if (has_sim)
+                members.insert(sharedSelf());
+            member_zip_(members, more...);
+
+            // members could be empty if we tried to get a writeLock on just an object that isn't in
+            // the simulation (e.g. during some destructions)
+            if (members.empty()) return Member::Lock(write);
+
+            return Member::Lock(write, std::move(members));
+        }
 
         /** Sticks the passed-in SharedMember<T> objects into the passed-in std::multiset */
         template <class... Args>
