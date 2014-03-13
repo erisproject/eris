@@ -98,21 +98,21 @@ class Simulation final : public std::enable_shared_from_this<Simulation> {
          */
         template <class A = Agent>
         std::vector<SharedMember<A>> agents(const std::function<bool(const A &agent)> &filter = nullptr) const;
-        /** Provides a filtered map of simulation goods.  This works just like agents(), but for
+        /** Provides a filtered vector of simulation goods.  This works just like agents(), but for
          * goods.
          *
          * \sa agents()
          */
         template <class G = Good>
         std::vector<SharedMember<G>> goods(const std::function<bool(const G &good)> &filter = nullptr) const;
-        /** Provides a filtered map of simulation markets.  This works just like agents(), but
+        /** Provides a filtered vector of simulation markets.  This works just like agents(), but
          * for markets.
          *
          * \sa agents()
          */
         template <class M = Market>
         std::vector<SharedMember<M>> markets(const std::function<bool(const M &market)> &filter = nullptr) const;
-        /** Provides a filtered map of non-agent/good/market simulation objects.  This works just like
+        /** Provides a filtered vector of non-agent/good/market simulation objects.  This works just like
          * agentFilter, but for non-agent/good/market members.
          *
          * \sa agentFilter
