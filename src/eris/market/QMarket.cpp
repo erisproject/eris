@@ -45,7 +45,7 @@ Market::Reservation QMarket::reserve(SharedMember<AssetAgent> agent, double q, d
         supply.push_back(simAgent<firm::QFirm>(sid));
     }
     DEBUG("getting supply writelock");
-    agent->writeLock(supply);
+    auto lock = agent->writeLock(supply);
     DEBUG("got supply writelock");
 
     double available = firmQuantities(q);
