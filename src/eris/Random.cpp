@@ -4,6 +4,19 @@
 
 namespace eris {
 
+std::mutex Random::lock_;
+bool Random::init_done_ = false;
+bool Random::init_use_base_;
+Random::rng_t::result_type Random::init_base_;
+unsigned int Random::init_count_ = 0;
+
+thread_local bool Random::seeded_ = false;
+thread_local std::unique_ptr<Random::rng_t> Random::rng_;
+thread_local Random::rng_t::result_type Random::seed_;
+
+
+
+
 const std::mt19937_64::result_type& Random::seed() {
     if (!seeded_) {
         // Lock out other threads: we're setting the global things
@@ -27,6 +40,7 @@ const std::mt19937_64::result_type& Random::seed() {
             ? init_base_ + init_count_++
             : std::random_device{}();
         seeded_ = true;
+        lock_.unlock();
     }
 
     return seed_;

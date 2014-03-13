@@ -2,7 +2,7 @@
 #include <random>
 #include <thread>
 #include <mutex>
-#include <unordered_map>
+#include <memory>
 
 namespace eris {
 
@@ -41,7 +41,7 @@ class Random final {
          *     double draw = t30gen(Random::rng());
          */
         inline static rng_t& rng() {
-            if (!rng_) rng_ = new rng_t(seed());
+            if (!rng_) rng_ = std::unique_ptr<rng_t>(new rng_t(seed()));
             return *rng_;
         }
 
@@ -77,7 +77,7 @@ class Random final {
 
         // Pointer to the random number generator
         thread_local static bool seeded_;
-        thread_local static rng_t *rng_;
+        thread_local static std::unique_ptr<rng_t> rng_;
         thread_local static rng_t::result_type seed_;
 };
 
