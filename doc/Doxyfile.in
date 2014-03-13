@@ -5,7 +5,7 @@ DOXYFILE_ENCODING      = UTF-8
 PROJECT_NAME           = @PROJECT_NAME@
 PROJECT_NUMBER         = v@ERIS_VERSION_MAJOR@.@ERIS_VERSION_MINOR@.@ERIS_VERSION_PATCH@
 PROJECT_BRIEF          = "agent-based economic modelling library"
-INPUT                  = @CMAKE_CURRENT_SOURCE_DIR@/../include @CMAKE_CURRENT_SOURCE_DIR@/../src
+INPUT                  = README.md include src
 INPUT_ENCODING         = UTF-8
 FILE_PATTERNS          = *.cpp *.hpp
 RECURSIVE              = YES
@@ -14,13 +14,14 @@ OUTPUT_DIRECTORY       = @CMAKE_CURRENT_BINARY_DIR@
 QUIET                  = YES
 
 FULL_PATH_NAMES        = YES
-STRIP_FROM_PATH        = @CMAKE_CURRENT_SOURCE_DIR@/..
-STRIP_FROM_INC_PATH    = @CMAKE_CURRENT_SOURCE_DIR@/../include
+STRIP_FROM_PATH        = @CMAKE_SOURCE_DIR@/include
+STRIP_FROM_PATH        = @CMAKE_SOURCE_DIR@/src
+STRIP_FROM_INC_PATH    = @CMAKE_SOURCE_DIR@/include
 
 JAVADOC_AUTOBRIEF      = YES
 
 GENERATE_HTML          = YES
-HTML_FILE_EXTENSION    = .xhtml
+HTML_FILE_EXTENSION    = .html
 HTML_OUTPUT            = api
 LAYOUT_FILE            = DoxygenLayout.xml
 
@@ -34,7 +35,7 @@ HAVE_DOT               = YES
 DOT_IMAGE_FORMAT       = svg
 
 USE_MATHJAX            = YES
-MATHJAX_RELPATH        = ../MathJax
+MATHJAX_RELPATH        = @mathjax_usable_path@
 
 CLASS_GRAPH            = YES
 COLLABORATION_GRAPH    = YES
