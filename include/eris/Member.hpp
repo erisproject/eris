@@ -354,7 +354,7 @@ class Member {
          * \sa Member::Lock
          */
         template <class Container>
-        Lock readLock(const Container &plus) {
+        [[gnu::warn_unused_result]] Lock readLock(const Container &plus) {
             return rwLock_(false, plus);
         }
 
@@ -364,7 +364,7 @@ class Member {
          * \sa readLock(const Container&)
          */
         template <class... Args>
-        Lock readLock(Args... more) const {
+        [[gnu::warn_unused_result]] Lock readLock(Args... more) const {
             return rwLock_(false, more...);
         }
 
@@ -397,7 +397,7 @@ class Member {
          * \sa Member::Lock
          */
         template <class Container>
-        Lock writeLock(const Container &plus,
+        [[gnu::warn_unused_result]] Lock writeLock(const Container &plus,
                 typename std::enable_if<
                     std::is_base_of<Member, typename Container::value_type::member_type>::value
                 >::type* = 0) const {
@@ -411,7 +411,7 @@ class Member {
          * \sa writeLock(const Container&)
          */
         template <class... Args>
-        Lock writeLock(Args... more) const {
+        [[gnu::warn_unused_result]] Lock writeLock(Args... more) const {
             return rwLock_(true, more...);
         }
 
