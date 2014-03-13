@@ -16,12 +16,11 @@ Market::quantity_info Bertrand::quantity(double price) const {
     // Keys are prices, values are aggregate quantities available
     std::unordered_map<double, double> price_quantity;
 
-    std::vector<SharedMember<Member>> to_lock;
-    auto suppliers = simulation()->agents<firm::PriceFirm>([this] (const firm::PriceFirm &f) {
-            return suppliers_.count(f) > 0; });
-    for (auto &f : suppliers) to_lock.push_back(f);
+    std::vector<SharedMember<firm::PriceFirm>> suppliers;
+    for (auto &fid : suppliers_) suppliers.push_back(simAgent(fid));
 
-    readLock(to_lock);
+    // Lock the market and firms
+    auto lock = readLock(suppliers);
 
     for (auto &firm : suppliers) {
         double s = firm->canSupplyAny(output_unit);
@@ -53,16 +52,22 @@ Market::quantity_info Bertrand::quantity(double price) const {
 }
 
 Bertrand::allocation Bertrand::allocate(double q) const {
+    // Lock the market; we'll add firms to this lock as needed
+    auto lock = readLock();
+
     // Keys are prices, values are fraction of q*output_unit available at that price
     std::unordered_map<double, double> price_agg_q;
-    // Keys are prices, values are maps of <firm -> fraction of q*output_unit available>
-    std::unordered_map<double, std::vector<std::pair<eris_id_t, double>>> price_firm;
+
+    // Keys are prices, values are maps of <firm -> fraction of q*output_unit available> available
+    // at that price.
+    std::unordered_map<double, std::vector<std::pair<eris_id_t, double>>> schedule;
 
     double agg_quantity = 0.0;
     Bundle q_bundle = q * output_unit;
 
     for (auto f : suppliers_) {
         auto firm = simAgent<firm::PriceFirm>(f);
+        lock.add(firm);
         // Make sure the "price" object in this market can pay for the units the firm wants
         if (price_unit.covers(firm->price())) {
             double productivity = firm->canSupplyAny(q_bundle);
@@ -80,9 +85,10 @@ Bertrand::allocation Bertrand::allocate(double q) const {
                 // other (see Bundle.hpp's description of Bundle division)
                 double firm_price = output_unit.coverage(firm->output()) * firm->price().coverage(price_unit);
                 price_agg_q[firm_price] += productivity;
-                price_firm[firm_price].push_back(std::pair<eris_id_t,double>(firm, productivity));
+                schedule[firm_price].push_back(std::pair<eris_id_t,double>(firm, productivity));
             }
         }
+        lock.remove(firm);
     }
 
     // Figure out how we're going to allocate this.
@@ -90,7 +96,7 @@ Bertrand::allocation Bertrand::allocate(double q) const {
 
     double need_q = q;
     bool first_price = true;
-    for (auto pf : price_firm) {
+    for (auto pf : schedule) {
         double price = pf.first;
         if (first_price) {
             a.p.marginalFirst = price;
@@ -133,6 +139,7 @@ Bertrand::allocation Bertrand::allocate(double q) const {
                     // though: if the firm we randomly select doesn't have enough capacity, we use up
                     // its capacity and them randomly select from the remaining firms until we have the
                     // needed capacity.
+                    // (NB: can't move this outside the loop because nFirms changes each iteration)
                     std::uniform_int_distribution<unsigned int> randFirmDist(0, nFirms-1);
                     int luckyFirm = randFirmDist(Random::rng());
                     auto f = firms[luckyFirm];
@@ -215,8 +222,14 @@ Bertrand::allocation Bertrand::allocate(double q) const {
 }
 
 Market::Reservation Bertrand::reserve(SharedMember<AssetAgent> agent, double q, double p_max) {
-    // FIXME: need to lock the economy until this transaction completes; otherwise supply() could
-    // fail.
+    // Lock the market and the agent, and the market's firms
+    std::vector<SharedMember<Member>> to_lock;
+    to_lock.push_back(agent);
+    for (auto &fid : suppliers_)
+        to_lock.push_back(simAgent<Member>(fid));
+
+    auto lock = writeLock(to_lock);
+
     allocation a = allocate(q);
     if (!a.p.feasible) throw output_infeasible();
 
