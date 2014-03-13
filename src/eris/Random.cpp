@@ -1,28 +1,35 @@
 #include <eris/Random.hpp>
-#include <eris/cycle.h>
 #include <string>
 #include <cstdlib>
 
 namespace eris {
 
-std::mt19937_64 *Random::_rng = nullptr;
-std::mt19937_64::result_type Random::_seed = 0;
+const std::mt19937_64::result_type& Random::seed() {
+    if (!seeded_) {
+        // Lock out other threads: we're setting the global things
+        lock_.lock();
+        if (!init_done_) {
+            char *envseed = getenv("ERIS_RNG_SEED");
+            if (envseed) {
+                std::string seedstr(envseed);
+                if (seedstr != "") {
+                    init_base_ = std::stoull(seedstr);
+                    init_use_base_ = true;
+                    init_count_ = 0;
+                }
+            }
+            // If no ERIS_RNG_SEED, init_base_base_ stays false
 
-std::mt19937_64::result_type Random::_reseed() {
-    _seed = 0;
-    char *envseed = getenv("ERIS_RNG_SEED");
-    if (envseed)
-        try { _seed = std::stoull(envseed); } catch (std::exception e) {}
+            init_done_ = true;
+        }
 
-    if (!_seed) {
-#ifdef HAVE_TICK_COUNTER
-        _seed = getticks();
-#else
-        // The above is more random, but this shouldn't be too terrible:
-        _seed ||= srand((time(NULL) & 0xFFFF) | (getpid() << 16));
-#endif
+        seed_ = init_use_base_
+            ? init_base_ + init_count_++
+            : std::random_device{}();
+        seeded_ = true;
     }
-    return _seed;
+
+    return seed_;
 }
 
 }
