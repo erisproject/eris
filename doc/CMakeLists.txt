@@ -38,3 +38,9 @@ set_property(DIRECTORY APPEND PROPERTY
 
 
 add_dependencies(doc api_doc)
+
+
+
+install(DIRECTORY api
+    DESTINATION "${CMAKE_INSTALL_DOCDIR}"
+    COMPONENT doc)
