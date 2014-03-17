@@ -2,6 +2,7 @@
 #include <eris/types.hpp>
 #include <eris/SharedMember.hpp>
 #include <eris/debug.hpp>
+#include <eris/noncopyable.hpp>
 #include <functional>
 #include <memory>
 #include <unordered_map>
@@ -33,13 +34,10 @@ class Market;
  * In short, this is the central piece of the Eris framework that dictates how all the other pieces
  * interact.
  */
-class Simulation final : public std::enable_shared_from_this<Simulation> {
+class Simulation final : public std::enable_shared_from_this<Simulation>, private noncopyable {
     public:
         /// Destructor.  When destruction occurs, any outstanding threads are killed and rejoined.
         virtual ~Simulation();
-
-        /// Copy constructor explicitly deleted
-        Simulation(const Simulation &) = delete;
 
         /// Alias for a map of eris_id_t to SharedMember<A> of arbitrary type A
         template <class T> using MemberMap = std::unordered_map<eris_id_t, SharedMember<T>>;

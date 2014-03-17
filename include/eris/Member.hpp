@@ -2,6 +2,7 @@
 #include <eris/Simulation.hpp>
 #include <eris/types.hpp>
 #include <eris/SharedMember.hpp>
+#include <eris/noncopyable.hpp>
 #include <stdexcept>
 #include <thread>
 #include <memory>
@@ -28,16 +29,10 @@ class InterOptimizer;
  * and Markets (see those classes for details).  It is also used for other, generic members that are
  * none of the above such as optimization classes.
  */
-class Member {
+class Member : private noncopyable {
     public:
         /// Default constructor.
         Member() = default;
-
-        /** Copy constructor explicitly deleted.  Members are not copyable, since they have unique
-         * simulation properties (id, locks, etc.).  You probably want a SharedMember<Member>
-         * reference wrapper instead.
-         */
-        Member(const Member&) = delete;
 
         virtual ~Member() = default;
         /** Returns the eris_id_t ID of this member.  Returns 0 if this Member instance has not yet
@@ -487,7 +482,7 @@ class Member {
         unsigned long maxThreads() const;
 
     private:
-        eris_id_t id_ = 0;
+        eris_id_t id_{0};
         /** Stores a weak pointer to the simulation this Member belongs to. */
         std::weak_ptr<eris::Simulation> simulation_;
 

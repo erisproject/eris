@@ -56,14 +56,14 @@ class Firm : public agent::AssetAgent {
          * This object is not intended to be used directly, but rather through the Reservation
          * unique_ptr typedef.
          */
-        class Reservation_ final {
+        class Reservation_ final : private eris::noncopyable {
             private:
                 Reservation_(SharedMember<Firm> firm, BundleNegative transfer);
                 friend class Firm;
 
-                // Disable empty and copy constructors
+                // Disable default constructor
                 Reservation_() = delete;
-                Reservation_(const Reservation_ &res) = delete;
+
             public:
                 /** Destructor.  If this Reservation is destroyed without having been completed or aborted
                  * (via transfer() or release()), it will be aborted (by calling release() on its Firm).

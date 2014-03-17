@@ -84,15 +84,14 @@ class Market : public Member {
          * This object is not intended to be used directly, but rather through the Reservation
          * unique_ptr typedef.
          */
-        class Reservation_ final {
+        class Reservation_ final : private eris::noncopyable {
             private:
                 friend class Market;
 
                 Reservation_(SharedMember<Market> market, SharedMember<AssetAgent> agent, double quantity, double price);
 
-                // Disable empty and copy constructors
+                // Disable default constructors
                 Reservation_() = delete;
-                Reservation_(const Reservation_ &res) = delete;
 
                 std::forward_list<Firm::Reservation> firm_reservations_;
 
