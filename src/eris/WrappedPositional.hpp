@@ -1,32 +1,32 @@
-#include <eris/agent/CircularPosAgent.hpp>
+#include <eris/WrappedPositional.hpp>
 #include <algorithm>
 #include <limits>
 #include <cmath>
 
-namespace eris { namespace agent {
+namespace eris {
 
-CircularPosAgent::CircularPosAgent(const Position &p, const Position &boundary1, const Position &boundary2)
-    : PositionalAgent(p, boundary1, boundary2) {
+WrappedPositionalBase::WrappedPositionalBase(const Position &p, const Position &boundary1, const Position &boundary2)
+    : PositionalBase(p, boundary1, boundary2) {
     for (size_t d = 0; d < p.dimensions; d++)
         wrap(d);
     wrap(position_);
 }
 
-CircularPosAgent::CircularPosAgent(const Position &p) : PositionalAgent(p) {}
+WrappedPositionalBase::WrappedPositionalBase(const Position &p) : PositionalBase(p) {}
 
-CircularPosAgent::CircularPosAgent(const Position &p, const Position &boundary1, const Position &boundary2, const std::initializer_list<size_t> &dims)
-    : PositionalAgent(p, boundary1, boundary2) {
+WrappedPositionalBase::WrappedPositionalBase(const Position &p, const Position &boundary1, const Position &boundary2, const std::initializer_list<size_t> &dims)
+    : PositionalBase(p, boundary1, boundary2) {
     wrap(dims);
     wrap(position_);
 }
 
-bool CircularPosAgent::wrapped(const size_t &dim) const {
+bool WrappedPositionalBase::wrapped(const size_t &dim) const {
     return wrapped_.count(dim) > 0;
 }
 
-void CircularPosAgent::wrap(const size_t &dim) {
+void WrappedPositionalBase::wrap(const size_t &dim) {
     if (dim >= position_.dimensions)
-        throw std::out_of_range("Invalid dimension passed to CircularPosAgent::wrap(const size_t&)");
+        throw std::out_of_range("Invalid dimension passed to WrappedPositionalBase::wrap(const size_t&)");
 
     if (wrapped_.count(dim) > 0) return; // Already wrapping
 
@@ -39,15 +39,15 @@ void CircularPosAgent::wrap(const size_t &dim) {
     wrapped_.insert(dim);
 }
 
-Position CircularPosAgent::wrap(const Position &pos) const {
+Position WrappedPositionalBase::wrap(const Position &pos) const {
     Position p(pos);
     wrap(p);
     return p;
 }
 
-void CircularPosAgent::wrap(Position &pos) const {
+void WrappedPositionalBase::wrap(Position &pos) const {
     if (pos.dimensions != position_.dimensions)
-        throw std::length_error("position() and given pos have different dimensions in CircularPosAgent::wrap(pos)");
+        throw std::length_error("position() and given pos have different dimensions in WrappedPositionalBase::wrap(pos)");
     for (auto &dim : wrapped_) {
         const double &left = lower_bound_[dim], &right = upper_bound_[dim];
         double &x = pos[dim];
@@ -77,7 +77,7 @@ void CircularPosAgent::wrap(Position &pos) const {
     }
 }
 
-double CircularPosAgent::distance(const PositionalAgent &other) const {
+double WrappedPositionalBase::distance(const PositionalBase &other) const {
     // Build the nearest virtual position of the other agent, starting at their current position
     // (wrapped by *our* wrapping parameters).
     Position v(wrap(other.position()));
@@ -110,7 +110,7 @@ double CircularPosAgent::distance(const PositionalAgent &other) const {
     return position().distance(v);
 }
 
-bool CircularPosAgent::bounded() const noexcept {
+bool WrappedPositionalBase::bounded() const noexcept {
     for (size_t d = 0; d < position_.dimensions; d++) {
         if (not wrapped_.count(d) and (std::isfinite(lower_bound_[d]) or std::isfinite(upper_bound_[d])))
             return true; // Not wrapped and has a non-finite bound
@@ -118,7 +118,7 @@ bool CircularPosAgent::bounded() const noexcept {
     return false;
 }
 
-bool CircularPosAgent::binding() const noexcept {
+bool WrappedPositionalBase::binding() const noexcept {
     if (not bounded_) return false;
 
     for (size_t d = 0; d < position_.dimensions; d++) {
@@ -131,7 +131,7 @@ bool CircularPosAgent::binding() const noexcept {
     return false;
 }
 
-bool CircularPosAgent::bindingLower() const noexcept {
+bool WrappedPositionalBase::bindingLower() const noexcept {
     if (not bounded_) return false;
 
     for (size_t d = 0; d < position_.dimensions; d++) {
@@ -143,7 +143,7 @@ bool CircularPosAgent::bindingLower() const noexcept {
     return false;
 }
 
-bool CircularPosAgent::bindingUpper() const noexcept {
+bool WrappedPositionalBase::bindingUpper() const noexcept {
     if (not bounded_) return false;
 
     for (size_t d = 0; d < position_.dimensions; d++) {
@@ -155,7 +155,7 @@ bool CircularPosAgent::bindingUpper() const noexcept {
     return false;
 }
 
-Position CircularPosAgent::lowerBound() const noexcept {
+Position WrappedPositionalBase::lowerBound() const noexcept {
     Position lower(lower_bound_);
 
     for (size_t d = 0; d < position_.dimensions; d++)
@@ -164,7 +164,7 @@ Position CircularPosAgent::lowerBound() const noexcept {
     return lower;
 }
 
-Position CircularPosAgent::upperBound() const noexcept {
+Position WrappedPositionalBase::upperBound() const noexcept {
     Position upper(upper_bound_);
 
     for (size_t d = 0; d < position_.dimensions; d++)
@@ -173,37 +173,20 @@ Position CircularPosAgent::upperBound() const noexcept {
     return upper;
 }
 
-Position CircularPosAgent::wrapLowerBound() const noexcept {
+Position WrappedPositionalBase::wrapLowerBound() const noexcept {
     return lower_bound_;
 }
 
-Position CircularPosAgent::wrapUpperBound() const noexcept {
+Position WrappedPositionalBase::wrapUpperBound() const noexcept {
     return upper_bound_;
 }
 
-bool CircularPosAgent::truncate(Position &pos, bool throw_on_truncation) const {
+bool WrappedPositionalBase::truncate(Position &pos, bool throw_on_truncation) const {
     if (!bounded_) return false;
     wrap(pos);
-
-    bool truncated = false;
-    for (size_t d = 0; d < pos.dimensions; d++) {
-        double &x = pos[d];
-
-        if (x < lower_bound_[d]) {
-            if (throw_on_truncation) throw boundary_error();
-            x = lower_bound_[d];
-            truncated = true;
-        }
-        else if (x > upper_bound_[d]) {
-            if (throw_on_truncation) throw boundary_error();
-            x = upper_bound_[d];
-            truncated = true;
-        }
-    }
-
-    return truncated;
+    return PositionalBase::truncate(pos, throw_on_truncation);
 }
 
-} }
+}
 
 // vim:tw=100

@@ -1,30 +1,22 @@
 #pragma once
-#include <eris/Agent.hpp>
 #include <eris/Position.hpp>
+#include <eris/noncopyable.hpp>
 #include <stdexcept>
 
-namespace eris { namespace agent {
+namespace eris {
 
-/** Agent subclass that adds a position and optional bounding box to an agent.  This is intended for
- * use in models where spatial location matters, such as political economy voting models. */
-class PositionalAgent : public virtual Agent {
+/// Exception class thrown if attempting to move to a point outside the bounding box.
+class PositionalBoundaryError : public std::range_error {
     public:
-        PositionalAgent() = delete;
+        PositionalBoundaryError() : std::range_error("Cannot move outside bounding box") {}
+};
 
-        /** Constructs a PositionalAgent at location `p` who is bounded by the bounding box defined
-         * by the two boundary vertex positions.
-         *
-         * p, boundary1, and boundary2 must be of the same dimensions.  p is not required to be
-         * inside the bounding box (though subsequent moves will be).
-         *
-         * \throws std::length_error if p, boundary1, and boundary2 are not of the same dimension.
-         */
-        PositionalAgent(const Position &p, const Position &boundary1, const Position &boundary2);
+class WrappedPositionalBase;
 
-        /** Constructs a PositionalAgent at location `p` whose movements are not constrained.
-         */
-        PositionalAgent(const Position &p);
-
+/** Handles positioning.  Should not be used directly but rather by inheriting from Positional<T>.
+ */
+class PositionalBase {
+    public:
         /** Returns the current position. */
         const Position& position() const noexcept;
 
@@ -32,7 +24,7 @@ class PositionalAgent : public virtual Agent {
          * is simply an alias for obj.position().distance(target.position()), though subclasses
          * could override.
          */
-        virtual double distance(const PositionalAgent &other) const;
+        virtual double distance(const PositionalBase &other) const;
 
         /** Returns true if a boundary applies to the position of this agent.
          */
@@ -78,14 +70,14 @@ class PositionalAgent : public virtual Agent {
 
         /** Moves to the given position.  If the position is outside the bounding box,
          * `moveToBoundary()` is checked: if true, the agent moves to the boundary point closest to
-         * the destination; if false, a boundary_error exception is thrown.
+         * the destination; if false, a PositionalBoundaryError exception is thrown.
          *
          * This method is also invoked for a call to moveBy(), and so subclasses seeking to change
          * movement behaviour need only override this method.
          *
          * \returns true if the move was completed as requested, false if the move was corrected to
          * the nearest boundary point.
-         * \throws PositionalAgent::boundary_error if moveToBoundary() was false and the destination
+         * \throws PositionalBoundaryError if moveToBoundary() was false and the destination
          * was outside the boundary.
          * \throws std::length_error if p does not have the same dimensions as the agent's position.
          *
@@ -98,7 +90,7 @@ class PositionalAgent : public virtual Agent {
          *
          * \returns true if the move was completed as requested, false if the move was corrected to
          * the nearest boundary point.
-         * \throws PositionalAgent::boundary_error if moveToBoundary() was false and the destination
+         * \throws PositionalBoundaryError if moveToBoundary() was false and the destination
          * was outside the boundary.
          * \throws std::length_error if `relative` does not have the same dimensions as the agent's
          * position.
@@ -112,13 +104,16 @@ class PositionalAgent : public virtual Agent {
          */
         virtual Position toBoundary(Position pos) const;
 
-        /// Exception class thrown if attempting to move to a point outside the bounding box.
-        class boundary_error : public std::range_error {
-            public:
-                boundary_error() : std::range_error("Cannot move outside bounding box") {}
-        };
-
     protected:
+        /// Constructs a PositionalBase for the given point and boundaries.
+        PositionalBase(const Position &p, const Position &boundary1, const Position &boundary2);
+        /// Constructs an unbounded PositionalBase at the given point
+        PositionalBase(const Position &p);
+
+        /// Destructor (protected to prevent creating/copying PositionalBase objects)
+        ~PositionalBase() = default;
+    private:
+        friend class WrappedPositionalBase;
         /// The current position.
         Position position_;
         /// True if a bounding box applies, false otherwise.
@@ -130,14 +125,68 @@ class PositionalAgent : public virtual Agent {
 
         /** Truncates the given Position object, updating (or throwing an exception) if required.
          * Returns true if truncation was necessary and allowed, false if no changes were needed,
-         * and throws a boundary_error exception if throw_on_truncation is true if changes are
-         * needed but not allowed.
+         * and throws a PositionalBoundaryError exception if throw_on_truncation is true if changes
+         * are needed but not allowed.
          */
         virtual bool truncate(Position &pos, bool throw_on_truncation = false) const;
 };
 
-inline const Position& PositionalAgent::position() const noexcept { return position_; }
+inline const Position& PositionalBase::position() const noexcept { return position_; }
 
-} }
+/** Generic subclass that adds a position and optional bounding box to a base type.  This is
+ * intended for use in models involving spatial locations of simulation objects.  Positional<T> is a
+ * type that inherits from PositionalBase (giving you its methods) and T, essentially adding
+ * positional handling to a T object.
+ *
+ * For example, Positional<Agent> gives you an agent with a position; Positional<Good::Discrete>
+ * gives you a good with a position.
+ *
+ * The second template parameter, B, controls the base class that contains the various positional
+ * methods.  It must be PositionalBase (the default) or a subclass thereof.  If B requires a
+ * constructor other than the one-Position or three-Position constructors handled by this class, you
+ * must use the r-value move constructor.
+ */
+template <class T, class B = PositionalBase,
+         typename = typename std::enable_if<std::is_base_of<PositionalBase, B>::value>::type>
+class Positional : public B, public T, private noncopyable {
+    public:
+        /// No default constructor
+        Positional() = delete;
 
-// vim:tw=100
+        /** Constructs a Positional<T> at location `p` who is bounded by the bounding box defined
+         * by the two boundary vertex positions.
+         *
+         * `p`, `boundary1`, and `boundary2` must be of the same dimensions.  `p` is not required to be
+         * inside the bounding box (though subsequent moves will be).
+         *
+         * Any extra arguments are forwarded to T's constructor.
+         *
+         * \throws std::length_error if `p`, `boundary1`, and `boundary2` are not of the same
+         * dimension.
+         */
+        template <typename... Args>
+        Positional(const Position &p, const Position &boundary1, const Position &boundary2, Args&&... T_args)
+            : B(p, boundary1, boundary2),
+            T(std::forward<Args>(T_args)...)
+        {}
+
+        /** Constructs a Positional<T> at location `p` whose movements are not constrained.
+         *
+         * Any extra arguments are forwarded to T's constructor.
+         */
+        template <typename... Args>
+        Positional(const Position &p, Args&&... T_args)
+            : B(p), T(std::forward<Args>(T_args)...)
+        {}
+
+        /** Constructs a Positional<T,B> using the given T rvalue and passing the remaining
+         * arguments to the B base class.  Used for Positional<T,B> where B is not PositionalBase and requires
+         * constructor arguments different from the two forms given above.
+         */
+        template <typename... BArgs>
+        Positional(T &&t, BArgs&&... B_args)
+            : B(std::forward<BArgs>(B_args)...), T(std::move(t))
+        {}
+};
+
+}

@@ -1,38 +1,40 @@
-#include <eris/agent/PositionalAgent.hpp>
+#include <eris/Positional.hpp>
 #include <algorithm>
 #include <limits>
 
-namespace eris { namespace agent {
+namespace eris {
 
-PositionalAgent::PositionalAgent(const Position &p, const Position &boundary1, const Position &boundary2)
+PositionalBase::PositionalBase(const Position &p, const Position &boundary1, const Position &boundary2)
     : position_(p), bounded_(true) {
-    if (p.dimensions != boundary1.dimensions or p.dimensions != boundary2.dimensions)
+    if (position_.dimensions != boundary1.dimensions or position_.dimensions != boundary2.dimensions)
         throw std::length_error("position and boundary points have different dimensions");
 
-    for (size_t d = 0; d < p.dimensions; d++) {
+    for (size_t d = 0; d < position_.dimensions; d++) {
         lower_bound_[d] = std::min(boundary1[d], boundary2[d]);
         upper_bound_[d] = std::max(boundary1[d], boundary2[d]);
     }
 }
 
-PositionalAgent::PositionalAgent(const Position &p)
-    : position_(p), bounded_(false), lower_bound_(Position::zero(p.dimensions)), upper_bound_(Position::zero(p.dimensions)) {
+PositionalBase::PositionalBase(const Position &p)
+    : position_(p), bounded_(false),
+    lower_bound_(Position::zero(position_.dimensions)),
+    upper_bound_(Position::zero(position_.dimensions)) {
 
-    for (size_t d = 0; d < p.dimensions; d++) {
+    for (size_t d = 0; d < position_.dimensions; d++) {
         lower_bound_[d] = -std::numeric_limits<double>::infinity();
         upper_bound_[d] = std::numeric_limits<double>::infinity();
     }
 }
 
-double PositionalAgent::distance(const PositionalAgent &other) const {
+double PositionalBase::distance(const PositionalBase &other) const {
     return position().distance(other.position());
 }
 
-bool PositionalAgent::bounded() const noexcept {
+bool PositionalBase::bounded() const noexcept {
     return bounded_;
 }
 
-bool PositionalAgent::binding() const noexcept {
+bool PositionalBase::binding() const noexcept {
     if (not bounded_) return false;
 
     for (size_t d = 0; d < position_.dimensions; d++) {
@@ -43,7 +45,7 @@ bool PositionalAgent::binding() const noexcept {
     return false;
 }
 
-bool PositionalAgent::bindingLower() const noexcept {
+bool PositionalBase::bindingLower() const noexcept {
     if (not bounded_) return false;
 
     for (size_t d = 0; d < position_.dimensions; d++) {
@@ -53,7 +55,7 @@ bool PositionalAgent::bindingLower() const noexcept {
     return false;
 }
 
-bool PositionalAgent::bindingUpper() const noexcept {
+bool PositionalBase::bindingUpper() const noexcept {
     if (not bounded_) return false;
 
     for (size_t d = 0; d < position_.dimensions; d++) {
@@ -63,15 +65,15 @@ bool PositionalAgent::bindingUpper() const noexcept {
     return false;
 }
 
-Position PositionalAgent::lowerBound() const noexcept {
+Position PositionalBase::lowerBound() const noexcept {
     return lower_bound_;
 }
 
-Position PositionalAgent::upperBound() const noexcept {
+Position PositionalBase::upperBound() const noexcept {
     return upper_bound_;
 }
 
-bool PositionalAgent::moveTo(Position p) {
+bool PositionalBase::moveTo(Position p) {
     if (p.dimensions != position_.dimensions)
         throw std::length_error("position and moveTo coordinates have different dimensions");
     bool corrected = false;
@@ -84,31 +86,31 @@ bool PositionalAgent::moveTo(Position p) {
     return not corrected;
 }
 
-bool PositionalAgent::moveBy(const Position &relative) {
+bool PositionalBase::moveBy(const Position &relative) {
     if (relative.dimensions != position_.dimensions)
         throw std::length_error("position and moveBy coordinates have different dimensions");
 
     return moveTo(position_ + relative);
 }
 
-Position PositionalAgent::toBoundary(Position pos) const {
+Position PositionalBase::toBoundary(Position pos) const {
     truncate(pos);
     return pos;
 }
 
-bool PositionalAgent::truncate(Position &pos, bool throw_on_truncation) const {
+bool PositionalBase::truncate(Position &pos, bool throw_on_truncation) const {
     if (!bounded_) return false;
 
     bool truncated = false;
     for (size_t d = 0; d < pos.dimensions; d++) {
         double &x = pos[d];
         if (x < lower_bound_[d]) {
-            if (throw_on_truncation) throw boundary_error();
+            if (throw_on_truncation) throw PositionalBoundaryError();
             x = lower_bound_[d];
             truncated = true;
         }
         else if (x > upper_bound_[d]) {
-            if (throw_on_truncation) throw boundary_error();
+            if (throw_on_truncation) throw PositionalBoundaryError();
             x = upper_bound_[d];
             truncated = true;
         }
@@ -117,4 +119,5 @@ bool PositionalAgent::truncate(Position &pos, bool throw_on_truncation) const {
     return truncated;
 }
 
-} }
+}
+
