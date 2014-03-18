@@ -17,60 +17,64 @@ namespace eris {
  * \class Bundle
  * \brief A Bundle represents a set of goods with each good containing a non-negative quantity.
  *
- * Accessing quantities is done through the [] operation (e.g. bundle[gid]).  Accessing a good that
- * is not contained in the Bundle returns a value of 0.
+ * Accessing quantities is done through the operator (e.g. `bundle[gid]`).  Accessing a good that is
+ * not contained in the Bundle returns a value of 0.
  *
- * Setting values is done through the set(id, value) method, *not* using the [] operator (since
+ * Setting values is done through the \ref set() method, *not* using the [] operator (since
  * assignment may require checking, e.g. for positive quantities).
  *
- * You can iterate through goods via the usual begin()/end() pattern; note that these get mapped to
- * through to the underlying std::unordered_map<eris_id_t,double>'s cbegin()/cend() methods, and so
- * are immutable.
+ * You can iterate through goods via the usual begin() / end() pattern; note that these get mapped
+ * to through to the underlying std::unordered_map<eris_id_t,double>'s cbegin() and cend() methods,
+ * and so are immutable.
  *
- * The usual +, -, *, / operators as overloaded as expected for adding/scaling bundles, plus the
- * analogous +=, -=, *=, and /= operators.  After addition or subtraction, the result will contain
- * all goods that existed in either good, even if those goods had quantities of 0.  Unary negative
- * is defined, but always returns a BundleNegative (even for a Bundle).  Adding and subtracting two
- * Bundles returns a Bundle; if either of the bundles being added or subtracted are BundleNegative
- * objects, a BundleNegative is returned.
+ * The usual `+`, `-`, `*`, `/` operators are overloaded as expected for adding/scaling bundles,
+ * plus the analogous `+=`, `-=`, `*=`, and `/=` operators.  After addition or subtraction, the
+ * result will contain all goods that existed in either good, even if those goods had quantities of
+ * 0.  Unary negative is defined, but always returns a BundleNegative (even for a Bundle).  Adding
+ * and subtracting two Bundles returns a Bundle; if either of the bundles being added or subtracted
+ * are BundleNegative objects, a BundleNegative is returned.
  *
- * Comparison operators are also overloaded.  Each of ==, >, >=, <, and <= is true iff all the
- * inequality relation is satisfied for the quantities of every good in either bundle.  Note that !=
- * is also overloaded, but different from the above: a != b is equivalent to !(a == b).  Goods that
- * are missing from one bundle or the other are implicitly assumed to have value 0.  Comparison can
- * also be done against a constant in which case the quantity of each good must satisfy the relation
- * against the provided constant (again except for !=, which is the negation of ==).
+ * Comparison operators are also overloaded.  Each of `==`, `>`, `>=`, `<`, and `<=` returns true
+ * iff all the inequality relation is satisfied for the quantities of every good in either bundle.
+ * Goods that are missing from one bundle or the other are implicitly assumed to have value 0.  Note
+ * that `!=` is also overloaded, but different from the above: a != b is equivalent to !(a == b).
+ * Comparison can also be done against a constant in which case the quantity of each good must
+ * satisfy the relation against the provided constant (again except for `!=`, which is still the
+ * negation of `==`).
  *
  * Some implications of this behaviour:
- * - a >= b is *not* equivalent to (a > b || a == b).  e.g. a=(2,2), b=(2,1).
- * - a > b does not imply a <= b (though the contrapositive *does* hold)
- * - >= (and <=) are not total (in economics terms, ``complete''): (a >= b) and (b >= a) can both be
- *   false.  e.g. a=(1,2), b=(2,1).
- * - a == 0 tests whether a good is empty (this is, has no goods at all, or has only goods with
- *   quantities of 0).
- *
+ * - `a >= b` is *not* equivalent to `(a > b || a == b)`.  For example:
+ *       Bundle a {{1, 2}, {2, 2}};
+ *       Bundle b {{1, 2}, {2, 1}};
+ *       a >= b; // TRUE
+ *       a > b;  // FALSE
+ *       a == b; // FALSE
+ * - `!(a > b)` is not equivalent to `a <= b`.
+ * - `>=` (and `<=`) are not total (in economics terms, "complete"): `(a >= b)` and `(b >= a)` can
+ *   both be false.  For example,  a=(1,2), b=(2,1).
+ * - `a == 0` tests whether a good is "empty" in the sense of having no non-zero quantities.  This
+ *   is different from the empty() method, which returns true if the Bundle has no quantities at all
+ *   (not even ones with a value of 0).
  *
  * Comparison operators w.r.t. a double are also defined, and return true if the comparison to the
- * double holds for every existing quantity in the Bundle, and all are always true for an empty
- * bundle.  Note that this behaviour may not do what you expect if goods that you care about aren't
- * actually in the bundle.  For example, if a=(x=1,y=2) and b=(x=1,y=1,z=1), a >= 1 will be true,
- * though a-b will result in a potentially unexpected negative (and illegal, if using Bundle instead
- * of NegativeBundle) quantity.  If in doubt, always compare to fixed Bundle that has known
+ * double holds for every existing quantity in the Bundle, and are always true for an empty bundle.
+ * Note that this behaviour may not do what you expect if goods that you care about aren't actually
+ * in the bundle.  For example, if a=(x=1,y=2) and b=(x=1,y=1,z=1), a >= 1 will be true, though a-b
+ * will result in a potentially unexpected negative (and illegal, if using Bundle instead of
+ * BundleNegative) quantity.  If in doubt, always compare to fixed Bundle that has known
  * (significant) quantities.
  *
  * Attempting to do something to a Bundle that would induce a negative quantity for one of the
  * Bundle's goods will throw a Bundle::negativity_error exception (which is a subclass of
  * std::range_error).
  *
- * Note that these class is not aware of a Good's increment parameter; any class directly modifying
- * a Bundle should thus ensure that the increment is respected.
+ * Note that these class is not aware of any Good class restrictions: it is best thought of a simple
+ * container for id-value pairs with appropriate mathematical and logical operators defined.  Thus
+ * any Good quantity restrictions must take place of any class using a Bundle.
  */
 
 class Bundle;
 class BundleNegative {
-    protected:
-        typedef std::initializer_list<std::pair<eris_id_t, double>> init_list;
-
     public:
         /// Constructs a new BundleNegative with no initial good/quantity values.
         BundleNegative();
@@ -81,7 +85,7 @@ class BundleNegative {
          * Since an initializer_list requires constant values, this is primary useful for debugging
          * purposes.
          */
-        BundleNegative(const init_list &init);
+        BundleNegative(const std::initializer_list<std::pair<eris_id_t, double>> &init);
         /** Creates a new Bundle by copying quantities from another Bundle.  If the other Bundle is
          * currently in a transaction, only the current values are copied; the transactions and
          * pre-transactions values are not.
@@ -119,8 +123,7 @@ class BundleNegative {
 
         /** Returns true iff size() == 0.  Note that empty() is not true for a bundle with explicit
          * quantities of 0; for testing whether a bundle is empty in the sense of all quantities
-         * being 0 (explicitly or implicitly by omission), use the (b == 0) operator, discussed
-         * below.
+         * being 0 (explicitly or implicitly by omission), use the `b == 0` comparison.
          */
         bool empty() const;
 
@@ -166,9 +169,13 @@ class BundleNegative {
          */
         Bundle zeros() const noexcept;
 
+        /// Adds the values of one BundleNegative to the current BundleNegative.
         BundleNegative& operator += (const BundleNegative &b);
+        /// Subtracts the values of one BundleNegative from the current BundleNegative.
         BundleNegative& operator -= (const BundleNegative &b);
+        /// Scales a BundleNegative's quantites by `m`
         BundleNegative& operator *= (const double &m);
+        /// Scales a BundleNegative's quantities by `1/d`
         BundleNegative& operator /= (const double &d);
 
         /// The default epsilon for transferApprox(), if not specified.
@@ -209,9 +216,15 @@ class BundleNegative {
          * from the object into `to`; negative quantities are transferred frin `to` into the object.
          * \param to the Bundle (or BundleNegative) to transfer positive amounts to, and negative
          * amounts from.
-         * \returns the exact amount transferred, which may be slightly different from `amount`.
+         * \param epsilon the threshold (relative to initial value) below which quantities in the
+         * `amount` and `to` bundles will be truncated to 0.
+         *
+         * \returns the exact amount transferred, which may be slightly different from `amount`
+         * because of numerical pricision handling.
+         *
          * \throws Bundle::negativity_error if either the caller or `to` are actually Bundle objects
-         * with insufficient quantities to approximately satisfy the transfer.
+         * (rather than BundleNegative objects) with insufficient quantities to approximately
+         * satisfy the transfer.
          */
         BundleNegative transferApprox(const BundleNegative &amount, BundleNegative &to, double epsilon = default_transfer_epsilon);
 
@@ -219,38 +232,92 @@ class BundleNegative {
          * like the above 3-argument transferApprox(const BundleNegative&, BundleNegative&, double)
          * except that the amount is not transferred into a target Bundle.  Like the 3-argument
          * version, negative transfer amounts are added to the object.
+         *
+         * \param amount the amount to transfer from *this.
+         * \param epsilon the threshold (relative to initial value) below which quantities in the
+         * `amount` bundle will be truncated to 0.
+         *
+         * \returns the exact amount transferred out of *this, which may be slightly different from
+         * `amount` because of numerical pricision handling.
+         *
+         * \throws Bundle::negativity_error if either the caller is actually a Bundle object (rather
+         * than BundleNegative) with insufficient quantities to approximately satisfy the transfer.
          */
         BundleNegative transferApprox(const BundleNegative &amount, double epsilon = default_transfer_epsilon);
 
+        /// Adds two BundleNegative objects together and returns the result.
         BundleNegative operator + (const BundleNegative &b) const;
+        /// Subtracts one BundleNegative from another and returns the result.
         BundleNegative operator - (const BundleNegative &b) const;
+        /// Negates all quantities of a BundleNegative and returns the result.
         BundleNegative operator - () const;
+        /// Scales all BundleNegative quantities by `m` and returns the result.
         BundleNegative operator * (const double &m) const;
+        /// Scales all BundleNegative quantities by `1/d` and returns the result.
         BundleNegative operator / (const double &d) const;
+        /// Scales all BundleNegative quantities by `m` and returns the result.
         friend BundleNegative operator * (const double &m, const BundleNegative &b);
 
         // Bundle <-> Bundle comparisons:
+        
+        /** Returns true if all quantities in the LHS bundle exceed those in the RHS bundle.  If one
+         * of the two bundles is missing values contained in the other, those values are considered
+         * to exist with numeric value 0 for the purpose of the comparison. */
         bool operator >  (const BundleNegative &b) const noexcept;
+        /** Returns true if all quantities in the LHS bundle are at least as large as those in the
+         * RHS bundle.  If one of the two bundles is missing values contained in the other, those
+         * values are considered to exist with numeric value 0 for the purpose of the comparison. */
         bool operator >= (const BundleNegative &b) const noexcept;
+        /** Returns true if all quantities in the LHS bundle are exactly equal to those in the RHS
+         * bundle.  If one of the two bundles is missing values contained in the other, those
+         * values are considered to exist with numeric value 0 for the purpose of the comparison. */
         bool operator == (const BundleNegative &b) const noexcept;
+        /** Returns true if any quantities in the LHS bundle are not equal to those in the RHS
+         * bundle.  If one of the two bundles is missing values contained in the other, those
+         * values are considered to exist with numeric value 0 for the purpose of the comparison.
+         * Note that `a != b` is equivalent to `!(a == b). */
         bool operator != (const BundleNegative &b) const noexcept;
+        /** Returns true if all quantities in the RHS bundle exceed those in the LHS bundle.  If one
+         * of the two bundles is missing values contained in the other, those values are considered
+         * to exist with numeric value 0 for the purpose of the comparison. */
         bool operator <  (const BundleNegative &b) const noexcept;
+        /** Returns true if all quantities in the RHS bundle are at least as large as those in the
+         * LHS bundle.  If one of the two bundles is missing values contained in the other, those
+         * values are considered to exist with numeric value 0 for the purpose of the comparison. */
         bool operator <= (const BundleNegative &b) const noexcept;
 
         // Bundle <-> constant comparisons:
+        /** Returns true if every quantity that exists in this BundleNegative exceeds `q`.  Returns
+         * true if the BundleNegative is empty. */
         bool operator >  (const double &q) const noexcept;
+        /** Returns true if every quantity that exists in this BundleNegative equals or exceeds `q`.
+         * Returns true if the BundleNegative is empty. */
         bool operator >= (const double &q) const noexcept;
+        /** Returns true if every quantity that exists in this BundleNegative equals or exceeds `q`.
+         * Returns true if the BundleNegative is empty. */
         bool operator == (const double &q) const noexcept;
+        /** Returns true if any quantity that exists in this BundleNegative does not equal `q`.
+         * Returns false if the BundleNegative is empty.  `a != 4` is equivalent to `!(a == 4)`. */
         bool operator != (const double &q) const noexcept;
+        /** Returns true if every quantity that exists in this BundleNegative is less than `q`.
+         * Returns true if the BundleNegative is empty. */
         bool operator <  (const double &q) const noexcept;
+        /** Returns true if every quantity that exists in this BundleNegative is less than or equal
+         * to `q`.  Returns true if the BundleNegative is empty. */
         bool operator <= (const double &q) const noexcept;
 
         // constant <-> Bundle comparisons:
+        /// `q > bundle` is equivalent to `bundle < q`
         friend bool operator >  (const double &q, const BundleNegative &b) noexcept;
+        /// `q >= bundle` is equivalent to `bundle <= q`
         friend bool operator >= (const double &q, const BundleNegative &b) noexcept;
+        /// `q == bundle` is equivalent to `bundle == q`
         friend bool operator == (const double &q, const BundleNegative &b) noexcept;
+        /// `q != bundle` is equivalent to `bundle != q`
         friend bool operator != (const double &q, const BundleNegative &b) noexcept;
+        /// `q < bundle` is equivalent to `bundle > q`
         friend bool operator <  (const double &q, const BundleNegative &b) noexcept;
+        /// `q <= bundle` is equivalent to `bundle >= q`
         friend bool operator <= (const double &q, const BundleNegative &b) noexcept;
 
         /** Begins a transaction for this bundle.  When a transaction is in progress, all Bundle
@@ -281,7 +348,7 @@ class BundleNegative {
          * started inside an encompassing transaction (or fake transaction started by
          * beginEncompassing()).
          *
-         * \throws no_transaction_exception if no transaction is currently active on this object.
+         * \throws Bundle::no_transaction_exception if no transaction is currently active on this object.
          */
         void abortTransaction();
 
@@ -293,7 +360,7 @@ class BundleNegative {
          * started inside an encompassing transaction (or fake transaction started by
          * beginEncompassing()).
          *
-         * \throws no_transaction_exception if no transaction is currently active on this object.
+         * \throws Bundle::no_transaction_exception if no transaction is currently active on this object.
          */
         void commitTransaction();
 
@@ -316,7 +383,7 @@ class BundleNegative {
 
         /** Ends a fake encompassing transaction started by beginEncompassing().
          *
-         * \throws no_transaction_exception if there is still an outstanding (encompassed)
+         * \throws Bundle::no_transaction_exception if there is still an outstanding (encompassed)
          * transaction that hasn't been committed or aborted, or if beginEncompassing() wasn't
          * called.
          */
@@ -329,7 +396,8 @@ class BundleNegative {
          */
         class no_transaction_exception : public std::logic_error {
             public:
-                no_transaction_exception(std::string what) : std::logic_error(what) {}
+                /// no_transaction_exception constructor.  \param what an error message
+                no_transaction_exception(const std::string &what) : std::logic_error(what) {}
                 no_transaction_exception() = delete;
         };
 
@@ -368,7 +436,7 @@ class Bundle final : public BundleNegative {
         /// Creates a new Bundle containing a single good of the given quantity.
         Bundle(const eris_id_t &g, const double &q);
         /// Creates a new Bundle from an initializer list of goods and quantities.
-        Bundle(const init_list &init);
+        Bundle(const std::initializer_list<std::pair<eris_id_t, double>> &init);
         /** Creates a new Bundle by copying quantities from another Bundle (or BundleNegative).  If
          * the other Bundle is currently in a transaction, only the current values are copied; the
          * transactions and pre-transactions values are not.
@@ -378,17 +446,29 @@ class Bundle final : public BundleNegative {
         Bundle(const BundleNegative &b);
 
         using BundleNegative::set;
+        /** Sets the quantitity associated with good `gid` to `quantity`.
+         *
+         * \throws Bundle::negativity_error if quantity is negative.
+         */
         void set(const eris_id_t &gid, const double &quantity) override;
 
+        /** Scales a bundle by `m`.
+         *
+         * \throws Bundle::negativity_error if `m` is negative.
+         */
         Bundle& operator *= (const double &m);
+        /** Scales a bundle by `1/d`.
+         *
+         * \throws Bundle::negativity_error if `d` is negative.
+         */
         Bundle& operator /= (const double &d);
 
         // Inherit the BundleNegative versions of these:
         using BundleNegative::operator +;
         using BundleNegative::operator -;
-        /** Adding two Bundle objects returns a Bundle object.  Note that it is the visible type,
-         * not the actual type, that governs this behaviour.  In other words, in the following code
-         * `c` will be a Bundle and `d` will be a BundleNegative:
+        /** Adding two Bundle objects returns a Bundle object.  Note that this operator is only
+         * invoked when the visible type of both Bundles is Bundle.  In other words, in the
+         * following code `c` will be a Bundle and `d` will be a BundleNegative:
          *
          *     Bundle a = ...;
          *     Bundle b = ...;
@@ -409,17 +489,22 @@ class Bundle final : public BundleNegative {
          *     auto neg2 = -b + a;                 // Same
          *     auto neg3 = a - b; // Oops: throws eris::Bundle::negativity_error
          *
-         * The neg1 calculation is slightly more efficient than neg2 as it doesn't need to create
-         * the intermediate `-b` BundleNegative object.
+         * The `neg1` calculation above is slightly more efficient than neg2 as it doesn't need to
+         * create the intermediate `-b` BundleNegative object.
          */
         Bundle operator - (const Bundle &b) const;
         /** Multiplying a Bundle by a constant returns a Bundle with quantities scaled by the
          * constant.
          *
-         * \throws Bundle::negativity_error if m < 0.  If you need a negative, first cast the Bundle
-         * as a BundleNegative, such as: `auto neg = -3 * (BundleNegative) b;`
+         * \throws Bundle::negativity_error if `m < 0`.  If you need a negative, first cast the Bundle
+         * as a BundleNegative, such as: `auto neg = ((BundleNegative) b) * -3;`
          */
         Bundle operator * (const double &m) const;
+        /** Scales all BundleNegative quantities by `m` and returns the result.
+         *
+         * \throws Bundle::negativity_error if `m < 0`.  If you need a negative, first cast the Bundle
+         * as a BundleNegative, such as: `auto neg = -3 * (BundleNegative) b;`
+         */
         friend Bundle operator * (const double &m, const Bundle &a);
         /** Dividing a Bundle by a constant returns a Bundle with quantities scaled by the inverse
          * of the constant.
@@ -548,14 +633,26 @@ class Bundle final : public BundleNegative {
          */
         class negativity_error : public std::range_error {
             public:
+                /** Constructor for a generic negativity exception for a negative quantity.
+                 *
+                 * \param good the id of the good that was assigned a negative value
+                 * \param value the negative value that was assigned
+                 */
                 negativity_error(const eris_id_t &good, const double &value) :
                     std::range_error("eris_id_t=" + std::to_string(good) + " assigned illegal negative value "
                             + std::to_string(value) + " in Bundle."), good(good), value(value) {}
+                /** Constructor for a negativity exception for a negative quantity with a given
+                 * error message.
+                 *
+                 * \param what_arg the error message
+                 * \param good the id of the good that was assigned a negative value
+                 * \param value the negative value that was assigned
+                 */
                 negativity_error(const std::string& what_arg, const eris_id_t &good, const double &value) :
                     std::range_error(what_arg), good(good), value(value) {}
-                negativity_error(const char* what_arg, const eris_id_t &good, const double &value) :
-                    std::range_error(what_arg), good(good), value(value) {}
+                /// The id of the good that caused the error
                 const eris_id_t good;
+                /// The illegal value that caused the error
                 const double value;
         };
 };
@@ -680,9 +777,12 @@ inline BundleNegative BundleNegative::operator * (const double &m) const {
     ret.endEncompassing();
     return ret;
 }
+// Doxygen bug: doxygen erroneously warns about non-inlined friend methods
+/// \cond
 inline BundleNegative operator * (const double &m, const BundleNegative &b) {
     return b * m;
 }
+/// \endcond
 inline Bundle Bundle::operator * (const double &m) const {
     Bundle ret(*this);
     ret.beginEncompassing();

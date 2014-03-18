@@ -10,10 +10,10 @@
 
 namespace eris {
 
-BundleNegative::BundleNegative(const init_list &init) {
+BundleNegative::BundleNegative(const std::initializer_list<std::pair<eris_id_t, double>> &init) {
     for (auto &g : init) set(g.first, g.second);
 }
-Bundle::Bundle(const init_list &init) {
+Bundle::Bundle(const std::initializer_list<std::pair<eris_id_t, double>> &init) {
     for (auto &g : init) set(g.first, g.second);
 }
 void BundleNegative::clearZeros() {
@@ -172,9 +172,12 @@ bool BundleNegative::operator != (const BundleNegative &b) const noexcept {
 bool BundleNegative::operator != (const double &q) const noexcept {
     return !(*this == q);
 }
+// doxygen bug (at least as of 2.3): thinks this is a new method because it's not marked friend
+/// \cond
 bool operator != (const double &q, const BundleNegative &b) noexcept {
-    return b != q;
+    return !(b == q);
 }
+/// \endcond
 
 BundleNegative BundleNegative::transferApprox(const BundleNegative &amount, BundleNegative &to, double epsilon) {
     beginTransaction(true);
