@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8)
 
 # The C here is misleading, but FindThreads needs it
-project(Eris CXX C)
+project(eris CXX C)
 
 include(GNUInstallDirs)
 
@@ -9,6 +9,11 @@ include(GNUInstallDirs)
 set(ERIS_VERSION_MAJOR "0")
 set(ERIS_VERSION_MINOR "1")
 set(ERIS_VERSION_PATCH "0")
+set(ERIS_VERSION "${ERIS_VERSION_MAJOR}.${ERIS_VERSION_MINOR}.${ERIS_VERSION_PATCH}")
+
+set(eris_author "Jason Rhinelander <jason@imaginary.ca>")
+set(eris_url "https://github.com/erisproject/eris")
+set(eris_description "Agent-based economic modelling library")
 
 # eris library version (CURRENT.REVISION.AGE), which is totally separate
 # from the above.  See http://www.sourceware.org/autobook/autobook/autobook_91.html
@@ -44,7 +49,7 @@ file(GLOB_RECURSE eris_include include/*.h include/*.hpp)
 set(CMAKE_CXX_FLAGS "-std=c++11 -march=native -O3 ${CMAKE_CXX_FLAGS} -Wall -Wextra")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -DERIS_DEBUG")
 
-find_package(Threads)
+find_package(Threads REQUIRED)
 
 add_library(eris SHARED ${eris_src})
 
@@ -57,13 +62,85 @@ target_link_libraries(eris ${CMAKE_THREAD_LIBS_INIT})
 
 add_subdirectory(scratch)
 
-add_subdirectory(doc EXCLUDE_FROM_ALL)
+add_subdirectory(doc)
 
 enable_testing()
 
 add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND})
 add_subdirectory(tests EXCLUDE_FROM_ALL)
 
+set(arch ${CMAKE_HOST_SYSTEM_PROCESSOR})
+if (arch STREQUAL x86_64)
+    set(arch amd64)
+endif()
+
+set(eris_package_version ${ERIS_VERSION})
+if(NOT CMAKE_BUILD_TYPE STREQUAL "Release")
+    execute_process(COMMAND git rev-parse --short=10 "@"
+        RESULT_VARIABLE eris_git_rev_result
+        OUTPUT_VARIABLE eris_git_rev
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+    if(NOT eris_git_rev_result EQUAL 0)
+        message(FATAL_ERROR "Unable to determine git revision tag for non-Release build")
+    endif()
+    execute_process(COMMAND date "+%Y%m%d"
+        RESULT_VARIABLE eris_build_date_result
+        OUTPUT_VARIABLE eris_build_date
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+    if(NOT eris_build_date_result EQUAL 0)
+        message(FATAL_ERROR "Unable to determine build date for non-Release build")
+    endif()
+    set(eris_package_version "${eris_package_version}~git${eris_build_date}~${eris_git_rev}")
+endif()
+
+set(CPACK_PACKAGE_VERSION_MAJOR ${ERIS_VERSION_MAJOR})
+set(CPACK_PACKAGE_VERSION_MINOR ${ERIS_VERSION_MINOR})
+set(CPACK_PACKAGE_VERSION_PATCH ${ERIS_VERSION_PATCH})
+
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE")
+if(NOT CPACK_GENERATOR)
+    set(CPACK_GENERATOR DEB)
+endif()
+set(CPACK_PACKAGE_FILE_NAME "eris_${eris_package_version}_${arch}")
+set(CPACK_DEBIAN_PACKAGE_VERSION "${eris_package_version}")
+set(CPACK_DEBIAN_PACKAGE_SECTION libs)
+set(CPACK_DEBIAN_PACKAGE_MAINTAINER "${eris_author}")
+#set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "${eris_url}")
+set(CPACK_DEBIAN_PACKAGE_DESCRIPTION "${eris_description}")
+
+set(CPACK_COMPONENTS_GROUPING ALL_COMPONENTS_IN_ONE)
+
+set(CPACK_PROJECT_CONFIG_FILE ${CMAKE_SOURCE_DIR}/cmake/CPackConfig.cmake)
+
+include(CPack)
+
+message(STATUS "CMIP: ${CPACK_INSTALL_PREFIX}")
+
+
+# Make liberis.pc for the 'make install' target
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/liberis.pc.in
+    ${CMAKE_CURRENT_BINARY_DIR}/liberis.pc
+    @ONLY)
+# And make another, liberis.pc.in, for the cpack targets; this one doesn't
+# replace CMAKE_INSTALL_PREFIX, but leaves it to be replaced during packaging
+# (in cmake/RegenPkgConfig.cmake)
+set(prefix_save ${CMAKE_INSTALL_PREFIX})
+set(CMAKE_INSTALL_PREFIX "\@CMAKE_INSTALL_PREFIX\@")
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/liberis.pc.in
+    ${CMAKE_CURRENT_BINARY_DIR}/liberis.pc.in
+    @ONLY
+)
+set(CMAKE_INSTALL_PREFIX ${prefix_save})
+unset(prefix_save)
+configure_file(${CMAKE_SOURCE_DIR}/cmake/RegenPkgConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/RegenPkgConfig.cmake
+    @ONLY)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/liberis.pc
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig"
+    COMPONENT libs)
 install(TARGETS eris
     DESTINATION "${CMAKE_INSTALL_LIBDIR}"
     COMPONENT libs)
@@ -71,3 +148,5 @@ install(DIRECTORY include/eris/
     DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/eris/"
     COMPONENT headers
     FILES_MATCHING PATTERN "*.hpp" PATTERN "*.h")
+
+install(FILES README.md LICENSE DESTINATION "${CMAKE_INSTALL_DOCDIR}" COMPONENT docs)

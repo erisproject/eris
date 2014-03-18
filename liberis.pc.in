@@ -1,0 +1,10 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+libdir=${prefix}/@CMAKE_INSTALL_LIBDIR@
+includedir=${prefix}/@CMAKE_INSTALL_INCLUDEDIR@
+
+Name: liberis
+Description: @eris_description@
+URL: @eris_url@
+Version: @ERIS_VERSION@
+Libs: -L${libdir} -leris @CMAKE_THREAD_LIBS_INIT@
+Cflags: -std=c++11
