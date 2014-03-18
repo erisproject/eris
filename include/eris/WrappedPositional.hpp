@@ -5,35 +5,9 @@
 namespace eris {
 
 /** Base class for WrappedPositional<T> that works just like Positional<T>'s base class but adds
- * wrapping to one or more of the position dimensions.  In such a model, an attempt to move beyond
- * the wrapping boundary results in a position at the opposite boundary.  For example, a
- * 1-dimensional Positional<T, WrappedPositional> with boundaries at -1 and 1 that moves to 1.2 (or
- * 3.2 or 5.2 or ...) will end up at -0.8.
+ * wrapping to one or more of the position dimensions.
  *
- * Distances also incorporate the wrapped dimensions; continuing the previous example, the distance
- * between a WrappedPositional<T> at 0.9 and -0.9 is 0.2, not 1.8.  Returned distances are always
- * the shortest distance.
- *
- * To use this class, inherit (or use directly) a WrappedPositional<T> wrapper around your desired T
- * object.
- *
- * WrappedPositional<T> objects are compatible with Positional<T> objects for comparisons (e.g.
- * `a.distance(b)` works as expected).
- *
- * Caveats of this class:
- * - Because WrappedPositional<T> objects may have a position on *either* boundary of a wrapped region,
- *   `a.position() == b.position()` implies `a.distance(b) == 0`, but the converse is not
- *   necessarily true: WrappedPositional<T> objects could be at opposite boundaries which are
- *   distance 0 from each other yet are distinct positions.  As such as you always use
- *   `a.distance(b) == 0` to determined whether two positions are effectively the same.
- * - `a.position().distance(b.position())` should not be used as the underlying `Position` object
- *   knows nothing about boundaries.  Instead use `a.distance(b)`.
- * - The wrapping applied for distance calculations is always that of the *calling* object; in other
- *   words, `a.distance(b) == b.distance(a)` need not be true if `a` and `b` have different wrapping
- *   parameters, or if b isn't a WrappedPositional<T> at all.
- * - `a.moveBy(delta); a.moveBy(-delta)` may result in a being at a different position (aside from
- *   numerical imprecision): if the agent starts on a boundary and the first movement wraps, the
- *   agent will end up at the opposite boundary.
+ * \sa WrappedPositional<T>
  */
 class WrappedPositionalBase : public PositionalBase {
     public:
@@ -214,6 +188,40 @@ class WrappedPositionalBase : public PositionalBase {
         std::set<size_t> wrapped_;
 };
 
+/** This class works just like Positional but adds wrapping to one or more dimensions.
+ *
+ * In such a model, an attempt to move beyond the wrapping boundary results in a position at the
+ * opposite boundary.  For example, a 1-dimensional WrappedPositional<T> with boundaries
+ * at -1 and 1 that moves to 1.2 (or 3.2 or 5.2 or ...) will end up at -0.8.
+ *
+ * Distances also incorporate the wrapped dimensions; continuing the previous example, the distance
+ * between a WrappedPositional<T> at 0.9 and -0.9 is 0.2, not 1.8.  Returned distances are always
+ * the shortest distance.
+ *
+ * To use this class, inherit (or use directly) a WrappedPositional<T> wrapper around your desired T
+ * object.
+ *
+ * WrappedPositional<T> objects are compatible with Positional<T> objects for comparisons (e.g.
+ * `a.distance(b)` works as expected).
+ *
+ * Caveats of this class:
+ * - Because WrappedPositional<T> objects may have a position on *either* boundary of a wrapped region,
+ *   `a.position() == b.position()` implies `a.distance(b) == 0`, but the converse is not
+ *   necessarily true: WrappedPositional<T> objects could be at opposite boundaries which are
+ *   distance 0 from each other yet are distinct positions.  As such as you always use
+ *   `a.distance(b) == 0` to determined whether two positions are effectively the same.
+ * - `a.position().distance(b.position())` should not be used as the underlying `Position` object
+ *   knows nothing about boundaries.  Instead use `a.distance(b)`.
+ * - The wrapping applied for distance calculations is always that of the *calling* object; in other
+ *   words, `a.distance(b) == b.distance(a)` need not be true if `a` and `b` have different wrapping
+ *   parameters, or if b isn't a WrappedPositional<T> at all.
+ * - `a.moveBy(delta); a.moveBy(-delta)` may result in a being at a different position (aside from
+ *   numerical imprecision): if the agent starts on a boundary and the first movement wraps, the
+ *   agent will end up at the opposite boundary.
+ *
+ * \sa WrappedPositionalBase
+ * \sa Positional
+ */
 template <class T>
 class WrappedPositional : public WrappedPositionalBase, public T {
     public:
@@ -223,47 +231,81 @@ class WrappedPositional : public WrappedPositionalBase, public T {
          *
          * In one dimension, this is the circumference of a circle; in two dimensions, a doughnut
          * (or torus).  In a general number of dimensions, this is a hypertorus.
+         *
+         * \param p the initial Position.  `p` is not required to be inside the bounding box, but
+         * will be wrapped into the bounding box on any wrapped dimensions.
+         *
+         * \param boundary1 a bounding box vertex Position.  This must be of the same dimensions as
+         * `p`.
+         *
+         * \param boundary2 a bounding box vertex Position.  This must be of the same dimesions as
+         * `p`.
+         *
+         * \param T_args any extra arguments are forwarded to the constructor of class `T`
          */
         template<typename... Args>
         WrappedPositional(const Position &p, const Position &boundary1, const Position &boundary2,
                 Args&&... T_args)
-            : WrappedPositionalBase(p, boundary1, boundary2),
-            T(std::forward<Args>(T_args)...)
+            : WrappedPositionalBase(p, boundary1, boundary2), T(std::forward<Args>(T_args)...)
         {}
 
-        /** Constructs a WrappedPositionalBase at location `p` who is bounded by the bounding box defined
-         * by the two boundary vertex positions with wrapping on one or more dimensions.
+        /** Constructs a WrappedPositional<T> at location `p` who is bounded by the bounding box
+         * defined by the two boundary vertex positions with wrapping on one or more dimensions.
          *
-         * `p`, `boundary`, and `boundary2` must be of the same dimensions.  `p` is not required to
-         * be inside the bounding box, but will be wrapped into the bounding box on any wrapped
-         * dimensions.
+         * \param p the initial Position.  `p` is not required to be inside the bounding box, but
+         * will be wrapped into the bounding box on any wrapped dimensions.
          *
-         * `dimensions` is a container of `size_t` elements specifying the dimensions on which
-         * wrapping applies.  Not that only dimensions for which both bounds are finite and not
-         * equal will wrap.
+         * \param boundary1 a bounding box vertex Position.  This must be of the same dimensions as
+         * `p`.
          *
-         * \throws std::length_error if p, boundary1, and boundary2 are not of the same dimension.
-         * \throws std::out_of_range if any element of `dimensions` is not a valid dimension number.
+         * \param boundary2 a bounding box vertex Position.  This must be of the same dimesions as
+         * `p`.
+         *
+         * \param dimensions any sort of standard iterable container containing integer values of
+         * dimension indexes that should wrap.
+         *
+         * \param T_args any extra arguments are forwarded to the constructor of class `T`
+         *
+         * \throws std::length_error if `p`, `boundary1`, and `boundary2` are not of the same dimension.
+         * \throws std::out_of_range if any element of `dimensions` is not a valid dimension index.
          */
         template <class Container, typename = typename std::enable_if<std::is_integral<typename Container::value_type>::value>::type,
                  typename... Args>
         WrappedPositional(const Position &p, const Position &boundary1, const Position &boundary2, const Container &dimensions,
                 Args&&... T_args)
-            : WrappedPositionalBase(p, boundary1, boundary2, dimensions),
-            T(std::forward<Args>(T_args)...)
+            : WrappedPositionalBase(p, boundary1, boundary2, dimensions), T(std::forward<Args>(T_args)...)
         {}
 
-        /** Same as above, but explicitly with a size_t initializer_list 
+        /** Constructs a WrappedPositional<T> at location `p` which is bounded by the bounding box
+         * defined by the two boundary vertex positions with wrapping on one or more dimensions.
+         *
+         * \param p the initial Position.  `p` is not required to be inside the bounding box, but
+         * will be wrapped into the bounding box on any wrapped dimensions.
+         *
+         * \param boundary1 a bounding box vertex Position.  This must be of the same dimensions as
+         * `p`.
+         *
+         * \param boundary2 a bounding box vertex Position.  This must be of the same dimesions as
+         * `p`.
+         *
+         * \param dims a initializer list of dimensions that should wrap.
+         *
+         * \param T_args any extra arguments are forwarded to the constructor of class `T`
+         *
+         * \throws std::length_error if `p`, `boundary1`, and `boundary2` are not of the same dimension.
+         * \throws std::out_of_range if any element of `dims` is not a valid dimension index.
          */
         template <typename... Args>
         WrappedPositional(const Position &p, const Position &boundary1, const Position &boundary2, const std::initializer_list<size_t> &dims,
                 Args&&... T_args)
-            : WrappedPositionalBase(p, boundary1, boundary2, dims),
-            T(std::forward<Args>(T_args)...)
+            : WrappedPositionalBase(p, boundary1, boundary2, dims), T(std::forward<Args>(T_args)...)
         {}
 
-        /** Constructs a WrappedPositionalBase at location `p` whose movements are not constrained (and
+        /** Constructs a WrappedPositional<T> at location `p` whose movements are not constrained (and
          * thus do not wrap).
+         *
+         * \param p the initial Position
+         * \param T_args any extra arguments are forwarded to the constructor of class `T`
          */
         template <typename... Args>
         WrappedPositional(const Position &p, Args&&... T_args)
