@@ -26,6 +26,8 @@ HTML_FILE_EXTENSION    = .html
 HTML_OUTPUT            = api
 LAYOUT_FILE            = @CMAKE_CURRENT_BINARY_DIR@/DoxygenLayout.xml
 
+USE_MDFILE_AS_MAINPAGE = README.md
+
 GENERATE_LATEX         = NO
 LATEX_OUTPUT           = api-latex
 PDF_HYPERLINKS         = YES
