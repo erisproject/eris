@@ -4,32 +4,36 @@
 
 namespace eris {
 
-/** Base class for Positional<T> that adds wrapping to one or more of the position dimensions.  In
- * such a model, an attempt to move beyond the wrapping boundary results in a position at the
- * opposite boundary.  For example, a 1-dimensional Positional<T, WrappedPositional> with boundaries
- * at -1 and 1 that moves to 1.2 (or 3.2 or 5.2 or ...) will end up at -0.8.
+/** Base class for WrappedPositional<T> that works just like Positional<T>'s base class but adds
+ * wrapping to one or more of the position dimensions.  In such a model, an attempt to move beyond
+ * the wrapping boundary results in a position at the opposite boundary.  For example, a
+ * 1-dimensional Positional<T, WrappedPositional> with boundaries at -1 and 1 that moves to 1.2 (or
+ * 3.2 or 5.2 or ...) will end up at -0.8.
  *
  * Distances also incorporate the wrapped dimensions; continuing the previous example, the distance
  * between a WrappedPositional<T> at 0.9 and -0.9 is 0.2, not 1.8.  Returned distances are always
  * the shortest distance.
  *
- * To use this class, inherit (or use directly) a Positional<T, WrappedPositionalBase> wrapper
- * around your desired T object, or the equivalent typedef: WrappedPositional<T>.
+ * To use this class, inherit (or use directly) a WrappedPositional<T> wrapper around your desired T
+ * object.
+ *
+ * WrappedPositional<T> objects are compatible with Positional<T> objects for comparisons (e.g.
+ * `a.distance(b)` works as expected).
  *
  * Caveats of this class:
- * - Because wrapped Positional<T> objects may have a position on *either* boundary of a wrapped region,
+ * - Because WrappedPositional<T> objects may have a position on *either* boundary of a wrapped region,
  *   `a.position() == b.position()` implies `a.distance(b) == 0`, but the converse is not
- *   necessarily true: Positional<T> objects could be at opposite boundaries which are distance 0
- *   from each other yet are distinct positions.  As such as you always use `a.distance(b) == 0` to
- *   determined whether two positions are effectively the same.
+ *   necessarily true: WrappedPositional<T> objects could be at opposite boundaries which are
+ *   distance 0 from each other yet are distinct positions.  As such as you always use
+ *   `a.distance(b) == 0` to determined whether two positions are effectively the same.
  * - `a.position().distance(b.position())` should not be used as the underlying `Position` object
  *   knows nothing about boundaries.  Instead use `a.distance(b)`.
+ * - The wrapping applied for distance calculations is always that of the *calling* object; in other
+ *   words, `a.distance(b) == b.distance(a)` need not be true if `a` and `b` have different wrapping
+ *   parameters, or if b isn't a WrappedPositional<T> at all.
  * - `a.moveBy(delta); a.moveBy(-delta)` may result in a being at a different position (aside from
  *   numerical imprecision): if the agent starts on a boundary and the first movement wraps, the
  *   agent will end up at the opposite boundary.
- * - The wrapping applied for distance calculations is always that of the *calling* object; in other
- *   words, `a.distance(b) == b.distance(a)` need not be true if `a` and `b` have different wrapping
- *   parameters.
  */
 class WrappedPositionalBase : public PositionalBase {
     public:
@@ -111,9 +115,9 @@ class WrappedPositionalBase : public PositionalBase {
         template <class Container, typename = typename std::enable_if<std::is_integral<typename Container::value_type>::value>::type>
         void wrap(const Container &dimensions) {
             for (auto &dim : dimensions) {
-                // The below ("<= and not ==") is needed to avoid a warning for "dim < 0" when dim
+                // The below ("<= and !=") is needed to avoid a warning for "dim < 0" when dim
                 // is an unsigned type
-                if ((dim <= 0 and not dim == 0) or dim >= (decltype(dim)) position_.dimensions)
+                if ((dim <= 0 and dim != 0) or dim >= (decltype(dim)) position_.dimensions)
                     throw std::out_of_range("Invalid dimension passed to WrappedPositionalBase::wrap(const Container&)");
                 wrap(dim);
             }
@@ -210,9 +214,63 @@ class WrappedPositionalBase : public PositionalBase {
         std::set<size_t> wrapped_;
 };
 
-/// WrappedPositional<T> is an alias for Positional<T, WrappedPositionalBase> for convenience.
-template<class T> using WrappedPositional = Positional<T, WrappedPositionalBase>;
+template <class T>
+class WrappedPositional : public WrappedPositionalBase, public T {
+    public:
+        /** Constructs a WrappedPositional<T> at location `p` who has wrapping boundies in all
+         * non-infinite dimensions given by the bounding box defined by the two boundary vertex
+         * positions.
+         *
+         * In one dimension, this is the circumference of a circle; in two dimensions, a doughnut
+         * (or torus).  In a general number of dimensions, this is a hypertorus.
+         */
+        template<typename... Args>
+        WrappedPositional(const Position &p, const Position &boundary1, const Position &boundary2,
+                Args&&... T_args)
+            : WrappedPositionalBase(p, boundary1, boundary2),
+            T(std::forward<Args>(T_args)...)
+        {}
+
+        /** Constructs a WrappedPositionalBase at location `p` who is bounded by the bounding box defined
+         * by the two boundary vertex positions with wrapping on one or more dimensions.
+         *
+         * `p`, `boundary`, and `boundary2` must be of the same dimensions.  `p` is not required to
+         * be inside the bounding box, but will be wrapped into the bounding box on any wrapped
+         * dimensions.
+         *
+         * `dimensions` is a container of `size_t` elements specifying the dimensions on which
+         * wrapping applies.  Not that only dimensions for which both bounds are finite and not
+         * equal will wrap.
+         *
+         * \throws std::length_error if p, boundary1, and boundary2 are not of the same dimension.
+         * \throws std::out_of_range if any element of `dimensions` is not a valid dimension number.
+         */
+        template <class Container, typename = typename std::enable_if<std::is_integral<typename Container::value_type>::value>::type,
+                 typename... Args>
+        WrappedPositional(const Position &p, const Position &boundary1, const Position &boundary2, const Container &dimensions,
+                Args&&... T_args)
+            : WrappedPositionalBase(p, boundary1, boundary2, dimensions),
+            T(std::forward<Args>(T_args)...)
+        {}
+
+        /** Same as above, but explicitly with a size_t initializer_list 
+         */
+        template <typename... Args>
+        WrappedPositional(const Position &p, const Position &boundary1, const Position &boundary2, const std::initializer_list<size_t> &dims,
+                Args&&... T_args)
+            : WrappedPositionalBase(p, boundary1, boundary2, dims),
+            T(std::forward<Args>(T_args)...)
+        {}
+
+        /** Constructs a WrappedPositionalBase at location `p` whose movements are not constrained (and
+         * thus do not wrap).
+         */
+        template <typename... Args>
+        WrappedPositional(const Position &p, Args&&... T_args)
+            : WrappedPositionalBase(p), T(std::forward<Args>(T_args)...)
+        {}
+
+};
 
 }
-
 // vim:tw=100

@@ -140,15 +140,9 @@ inline const Position& PositionalBase::position() const noexcept { return positi
  *
  * For example, Positional<Agent> gives you an agent with a position; Positional<Good::Discrete>
  * gives you a good with a position.
- *
- * The second template parameter, B, controls the base class that contains the various positional
- * methods.  It must be PositionalBase (the default) or a subclass thereof.  If B requires a
- * constructor other than the one-Position or three-Position constructors handled by this class, you
- * must use the r-value move constructor.
  */
-template <class T, class B = PositionalBase,
-         typename = typename std::enable_if<std::is_base_of<PositionalBase, B>::value>::type>
-class Positional : public B, public T, private noncopyable {
+template <class T>
+class Positional : public PositionalBase, public T {
     public:
         /// No default constructor
         Positional() = delete;
@@ -166,7 +160,7 @@ class Positional : public B, public T, private noncopyable {
          */
         template <typename... Args>
         Positional(const Position &p, const Position &boundary1, const Position &boundary2, Args&&... T_args)
-            : B(p, boundary1, boundary2),
+            : PositionalBase(p, boundary1, boundary2),
             T(std::forward<Args>(T_args)...)
         {}
 
@@ -176,16 +170,7 @@ class Positional : public B, public T, private noncopyable {
          */
         template <typename... Args>
         Positional(const Position &p, Args&&... T_args)
-            : B(p), T(std::forward<Args>(T_args)...)
-        {}
-
-        /** Constructs a Positional<T,B> using the given T rvalue and passing the remaining
-         * arguments to the B base class.  Used for Positional<T,B> where B is not PositionalBase and requires
-         * constructor arguments different from the two forms given above.
-         */
-        template <typename... BArgs>
-        Positional(T &&t, BArgs&&... B_args)
-            : B(std::forward<BArgs>(B_args)...), T(std::move(t))
+            : PositionalBase(p), T(std::forward<Args>(T_args)...)
         {}
 };
 
