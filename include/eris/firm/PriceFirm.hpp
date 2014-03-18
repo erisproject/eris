@@ -21,7 +21,7 @@ namespace eris { namespace firm {
  * can actually produce: the firm will produce, at most, this value and be unable to produce beyond
  * that point until advance() is called to signal a new period.
  */
-class PriceFirm : public Firm {
+class PriceFirm : public Firm, public virtual interopt::Advance {
     public:
         /** Constructs a PriceFirm that produces any multiple of Bundle out for Bundle price, up to
          * a maximum (cumulative) capacity of capacity*out.  If omitted, capacity defaults to

@@ -4,24 +4,19 @@
 
 namespace eris { namespace agent {
 
-/** This is a simple extension of the base Agent class that adds an assets bundle to the agent
- * plus an interAdvance() method that clears the assets bundle in every period.
+/** This is a simple extension of the base Agent class that adds an assets bundle to the agent.
+ *
+ * \sa AssetAgentClearing for a version that also clears the assets bundle at the beginning of each
+ * period.
  */
-class AssetAgent : public virtual Agent, public virtual interopt::Advance {
+class AssetAgent : public virtual Agent {
     public:
         /// Returns a Bundle reference to the agent's current assets.
-        virtual Bundle& assets() noexcept { return assets_; }
+        virtual Bundle& assets() noexcept;
 
         /// `const` access to the agent's current assets.
-        virtual const Bundle& assets() const noexcept { return assets_; }
+        virtual const Bundle& assets() const noexcept;
 
-        /** Called when advancing a period.  Subclasses are intended to override (or enhance) as
-         * required.  This could, for example, reset costs, discard perishable output, depreciate
-         * capital, etc.
-         *
-         * By default this clears the agent's assets bundle.
-         */
-        virtual void interAdvance() override { assets_.clear(); }
 
     private:
         /** The current set of resources.  For a consumer, this could be the things to consume; for
@@ -34,6 +29,20 @@ class AssetAgent : public virtual Agent, public virtual interopt::Advance {
          * Since both firms and consumers typically have some sort of assets, this is provided here.
          */
         Bundle assets_;
+};
+
+/** This is an extension to AssetAgent that adds automatic assets clearing at the end of every
+ * period (via an interopt::Advance implementation).
+ */
+class AssetAgentClearing : public AssetAgent, public virtual interopt::Advance {
+    public:
+        /** Called when advancing a period.  Subclasses are intended to override (or enhance) as
+         * required.  This could, for example, reset costs, discard perishable output, depreciate
+         * capital, etc.
+         *
+         * This method clears the agent's assets.
+         */
+        virtual void interAdvance() override;
 };
 
 } }

@@ -101,7 +101,6 @@ void PriceFirm::reduceExcessProduction() {
 }
 
 void PriceFirm::interAdvance() {
-    Firm::interAdvance();
     capacity_used_ = 0;
 }
 
