@@ -21,6 +21,20 @@ Position Position::zero(const size_t &dimensions) {
     return Position(std::vector<double>(dimensions, 0.0));
 }
 
+double& Position::at(int d) { return pos_.at(d); }
+
+const double& Position::at(int d) const { return pos_.at(d); }
+
+#define POSITIONCPP_ITERATOR_MAP(iterator_type, method) \
+std::vector<double>::iterator_type Position::method() { return pos_.method(); } \
+std::vector<double>::const_##iterator_type Position::method() const { return pos_.method(); } \
+std::vector<double>::const_##iterator_type Position::c##method() const { return pos_.c##method(); }
+POSITIONCPP_ITERATOR_MAP(iterator, begin)
+POSITIONCPP_ITERATOR_MAP(iterator, end)
+POSITIONCPP_ITERATOR_MAP(reverse_iterator, rbegin)
+POSITIONCPP_ITERATOR_MAP(reverse_iterator, rend)
+#undef POSITIONCPP_ITERATOR_MAP
+
 double Position::distance(const Position &other) const {
     requireSameDimensions(other, "Position::distance");
 

@@ -95,6 +95,31 @@ class Position final {
         /// Const access to Position coordinates, with bounds checking.
         const double& at(int d) const;
 
+        ///@{
+        /// Returns an iterator to the beginning of the position values
+        std::vector<double>::iterator begin();
+        std::vector<double>::const_iterator begin() const;
+        std::vector<double>::const_iterator cbegin() const;
+        ///@}
+        ///@{
+        /// Returns an iterator to the end of the position values
+        std::vector<double>::iterator end();
+        std::vector<double>::const_iterator end() const;
+        std::vector<double>::const_iterator cend() const;
+        ///@}
+        ///@{
+        /// Returns an reverse iterator to the beginning of the position values
+        std::vector<double>::reverse_iterator rbegin();
+        std::vector<double>::const_reverse_iterator rbegin() const;
+        std::vector<double>::const_reverse_iterator crbegin() const;
+        ///@}
+        ///@{
+        /// Returns an reverse iterator to the beginning of the position values
+        std::vector<double>::reverse_iterator rend();
+        std::vector<double>::const_reverse_iterator rend() const;
+        std::vector<double>::const_reverse_iterator crend() const;
+        ///@}
+
         /// Equality; true iff all coordinates have the same value.
         bool operator==(const Position &other) const;
 
@@ -159,8 +184,6 @@ inline void Position::requireSameDimensions(const Position &other, const std::st
 }
 
 inline double& Position::operator[](int d) { return pos_[d]; }
-inline double& Position::at(int d)         { return pos_.at(d); }
 inline const double& Position::operator[](int d) const { return pos_[d]; }
-inline const double& Position::at(int d)         const { return pos_.at(d); }
 
 }
