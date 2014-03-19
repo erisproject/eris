@@ -36,7 +36,7 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_INCLUDE_DIRECTORIES_PROJECT_BEFORE ON)
 #set(CMAKE_VERBOSE_MAKEFILE ON)
 
-set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
+set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules)
 
 # No in-source building
 include(MacroEnsureOutOfSourceBuild)
@@ -74,51 +74,30 @@ if (arch STREQUAL x86_64)
     set(arch amd64)
 endif()
 
-set(eris_package_version ${ERIS_VERSION})
-if(NOT CMAKE_BUILD_TYPE STREQUAL "Release")
-    execute_process(COMMAND git rev-parse --short=10 "@"
-        RESULT_VARIABLE eris_git_rev_result
-        OUTPUT_VARIABLE eris_git_rev
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-        )
-    if(NOT eris_git_rev_result EQUAL 0)
-        message(FATAL_ERROR "Unable to determine git revision tag for non-Release build")
-    endif()
-    execute_process(COMMAND date "+%Y%m%d"
-        RESULT_VARIABLE eris_build_date_result
-        OUTPUT_VARIABLE eris_build_date
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-        )
-    if(NOT eris_build_date_result EQUAL 0)
-        message(FATAL_ERROR "Unable to determine build date for non-Release build")
-    endif()
-    set(eris_package_version "${eris_package_version}~git${eris_build_date}~${eris_git_rev}")
-endif()
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CPackProjectConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/CPackProjectConfig.cmake
+    @ONLY)
+set(CPACK_PROJECT_CONFIG_FILE ${CMAKE_CURRENT_BINARY_DIR}/CPackProjectConfig.cmake)
 
-set(CPACK_PACKAGE_VERSION_MAJOR ${ERIS_VERSION_MAJOR})
-set(CPACK_PACKAGE_VERSION_MINOR ${ERIS_VERSION_MINOR})
-set(CPACK_PACKAGE_VERSION_PATCH ${ERIS_VERSION_PATCH})
-
-set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE")
-if(NOT CPACK_GENERATOR)
-    set(CPACK_GENERATOR DEB)
-endif()
-set(CPACK_PACKAGE_FILE_NAME "eris_${eris_package_version}_${arch}")
-set(CPACK_DEBIAN_PACKAGE_VERSION "${eris_package_version}")
 set(CPACK_DEBIAN_PACKAGE_SECTION libs)
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "${eris_author}")
 #set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "${eris_url}")
 set(CPACK_DEBIAN_PACKAGE_DESCRIPTION "${eris_description}")
 
+set(CPACK_PACKAGE_VERSION_MAJOR ${ERIS_VERSION_MAJOR})
+set(CPACK_PACKAGE_VERSION_MINOR ${ERIS_VERSION_MINOR})
+set(CPACK_PACKAGE_VERSION_PATCH ${ERIS_VERSION_PATCH})
+
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+if(NOT CPACK_GENERATOR)
+    set(CPACK_GENERATOR DEB)
+endif()
+
 set(CPACK_COMPONENTS_GROUPING ALL_COMPONENTS_IN_ONE)
 
-set(CPACK_PROJECT_CONFIG_FILE ${CMAKE_SOURCE_DIR}/cmake/CPackConfig.cmake)
 
 include(CPack)
-
-message(STATUS "CMIP: ${CPACK_INSTALL_PREFIX}")
-
 
 # Make liberis.pc for the 'make install' target
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/liberis.pc.in
@@ -126,7 +105,8 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/liberis.pc.in
     @ONLY)
 # And make another, liberis.pc.in, for the cpack targets; this one doesn't
 # replace CMAKE_INSTALL_PREFIX, but leaves it to be replaced during packaging
-# (in cmake/RegenPkgConfig.cmake)
+# (in cmake/RegenPkgConfig.cmake), since the packages install into /usr rather
+# than CMAKE_INSTALL_PREFIX.
 set(prefix_save ${CMAKE_INSTALL_PREFIX})
 set(CMAKE_INSTALL_PREFIX "\@CMAKE_INSTALL_PREFIX\@")
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/liberis.pc.in
@@ -135,7 +115,7 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/liberis.pc.in
 )
 set(CMAKE_INSTALL_PREFIX ${prefix_save})
 unset(prefix_save)
-configure_file(${CMAKE_SOURCE_DIR}/cmake/RegenPkgConfig.cmake.in
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/RegenPkgConfig.cmake.in
     ${CMAKE_CURRENT_BINARY_DIR}/RegenPkgConfig.cmake
     @ONLY)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/liberis.pc

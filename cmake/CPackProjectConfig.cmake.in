@@ -1,0 +1,30 @@
+# We probably need to reconfigure the liberis.pc file: the DEB and RPM targets
+# install to /usr rather than ${CMAKE_INSTALL_PREFIX}
+if(NOT CMAKE_INSTALL_PREFIX STREQUAL /usr)
+    if(CPACK_GENERATOR STREQUAL DEB OR CPACK_GENERATOR STREQUAL RPM)
+        set(CPACK_INSTALL_SCRIPT ${CPACK_PACKAGE_DIRECTORY}/RegenPkgConfig.cmake)
+    endif()
+endif()
+
+set(eris_package_version "@ERIS_VERSION@")
+if(NOT "@CMAKE_BUILD_TYPE@" STREQUAL "Release")
+    execute_process(COMMAND git rev-parse --short=10 "@"
+        RESULT_VARIABLE eris_git_rev_result
+        OUTPUT_VARIABLE eris_git_rev
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+    if(NOT eris_git_rev_result EQUAL 0)
+        message(FATAL_ERROR "Unable to determine git revision tag for non-Release build")
+    endif()
+    execute_process(COMMAND date "+%Y%m%d"
+        RESULT_VARIABLE eris_build_date_result
+        OUTPUT_VARIABLE eris_build_date
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+    if(NOT eris_build_date_result EQUAL 0)
+        message(FATAL_ERROR "Unable to determine build date for non-Release build")
+    endif()
+    set(eris_package_version "${eris_package_version}~git${eris_build_date}~${eris_git_rev}")
+endif()
+set(CPACK_PACKAGE_FILE_NAME "eris_${eris_package_version}_@arch@")
+set(CPACK_DEBIAN_PACKAGE_VERSION "${eris_package_version}")
