@@ -323,10 +323,14 @@ void Simulation::thr_thread_pool() {
 }
 
 
+std::unique_lock<std::mutex> Simulation::runLock() {
+    return std::unique_lock<std::mutex>(run_mutex_);
+}
 
 void Simulation::run() {
     if (running_)
         throw std::runtime_error("Calling Simulation::run() recursively not permitted");
+    auto lock = runLock();
     running_ = true;
 
     stage_ = RunStage::idle;

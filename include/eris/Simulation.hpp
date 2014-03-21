@@ -238,6 +238,13 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
          */
         RunStage runStage() const;
 
+        /** Obtains a lock that, when held, guarantees that a simulation stage is not in progress.
+         * This is designed for external code (e.g. GUI displays) to sychronize code, ensuring that
+         * it does not run simultaneously with an active run call.  This lock is held internally
+         * during run().
+         */
+        std::unique_lock<std::mutex> runLock();
+
         /** Contains the number of rounds of the intra-period optimizers in the previous run() call.
          * A round is defined by a intraReset() call, a set of intraOptimize() calls, and a set of
          * intraReoptimize() calls.  A multi-round optimization will only occur when there are
@@ -339,6 +346,10 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
 
         // Protects member access/updates
         mutable std::recursive_mutex member_mutex_;
+
+        // Mutex held during a run which is available for outside threads to ensure operation not
+        // during an active stage.  See runLock().
+        std::mutex run_mutex_;
 
         // Pool of threads we can use
         std::vector<std::thread> thr_pool_;
