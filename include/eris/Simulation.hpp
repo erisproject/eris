@@ -96,6 +96,13 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
          */
         template <class A = Agent>
         std::vector<SharedMember<A>> agents(const std::function<bool(const A &agent)> &filter = nullptr) const;
+        /** Provides a count of matching simulation agents.  Agents are filtered by class and/or
+         * callable filter and the count of matching agents is returned.  This is equivalent to
+         * agents<A>(filter).size(), but more efficient.
+         */
+        template <class A = Agent>
+        size_t countAgents(const std::function<bool(const A &agent)> &filter = nullptr) const;
+
         /** Provides a filtered vector of simulation goods.  This works just like agents(), but for
          * goods.
          *
@@ -103,6 +110,13 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
          */
         template <class G = Good>
         std::vector<SharedMember<G>> goods(const std::function<bool(const G &good)> &filter = nullptr) const;
+        /** Provides a count of matching simulation goods.  Goods are filtered by class and/or
+         * callable filter and the count of matching goods is returned.  This is equivalent to
+         * goods<G>(filter).size(), but more efficient.
+         */
+        template <class G = Good>
+        size_t countGoods(const std::function<bool(const G &good)> &filter = nullptr) const;
+
         /** Provides a filtered vector of simulation markets.  This works just like agents(), but
          * for markets.
          *
@@ -110,6 +124,13 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
          */
         template <class M = Market>
         std::vector<SharedMember<M>> markets(const std::function<bool(const M &market)> &filter = nullptr) const;
+        /** Provides a count of matching simulation markets.  Markets are filtered by class and/or
+         * callable filter and the count of matching markets is returned.  This is equivalent to
+         * markets<G>(filter).size(), but more efficient.
+         */
+        template <class M = Market>
+        size_t countMarkets(const std::function<bool(const M &good)> &filter = nullptr) const;
+
         /** Provides a filtered vector of non-agent/good/market simulation objects.  This works just like
          * agentFilter, but for non-agent/good/market members.
          *
@@ -117,6 +138,12 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
          */
         template <class O = Member>
         std::vector<SharedMember<O>> others(const std::function<bool(const O &other)> &filter = nullptr) const;
+        /** Provides a count of matching simulation non-agent/good/market members.  Members are
+         * filtered by class and/or callable filter and the count of matching members is returned.
+         * This is equivalent to members<G>(filter).size(), but more efficient.
+         */
+        template <class O = Member>
+        size_t countOthers(const std::function<bool(const O &good)> &filter = nullptr) const;
 
         /** Records already-stored member `depends_on' as a dependency of `member'.  If `depends_on'
          * is removed from the simulation, `member' will be automatically removed as well.
@@ -269,10 +296,19 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
         // Undoes insertOptimizers.
         void removeOptimizers(const SharedMember<Member> &member);
 
+        // The method used by agents(), goods(), etc. to actually do the work
         template <class T, class B>
         std::vector<SharedMember<T>> genericFilter(const MemberMap<B> &map, const std::function<bool(const T &member)> &filter) const;
+        // The method used by countAgents(), countGoods(), etc. to actually do the work
+        template <class T, class B>
+        size_t genericFilterCount(const MemberMap<B> &map, const std::function<bool(const T &member)> &filter) const;
+        // Method used by both of the above to access/create a class filter cache
+        template <class T, class B>
+        const std::vector<SharedMember<Member>>* genericFilterCache(const MemberMap<B> &map) const;
 
         // Typical element: filter_cache_[Agent][PriceFirm] = vector of SharedMember<Member>s which are really PriceFirms.
+        // Mutable because these are built up in const methods, but are only caches and so don't
+        // really change anything.
         mutable std::unordered_map<std::type_index, std::unordered_map<std::type_index,
                 std::vector<SharedMember<Member>>>> filter_cache_;
 
@@ -397,19 +433,50 @@ template <class T, typename... Args, class> SharedMember<T> Simulation::create(A
 //
 // Searching help:
 // agent() agents() good() goods() market() markets() other() others()
-#define ERIS_SIM_TYPE_METHODS(TYPE)\
+#define ERIS_SIM_TYPE_METHODS(TYPE, CAP_TYPE)\
 template <class T> SharedMember<T> Simulation::TYPE(const eris_id_t &id) const {\
     std::lock_guard<std::recursive_mutex> lock(member_mutex_);\
     return SharedMember<T>(TYPE##s_.at(id));\
 }\
 template <class T> std::vector<SharedMember<T>> Simulation::TYPE##s(const std::function<bool(const T &TYPE)> &filter) const {\
     return genericFilter(TYPE##s_, filter);\
+}\
+template <class T> size_t Simulation::count##CAP_TYPE##s(const std::function<bool(const T &TYPE)> &filter) const {\
+    return genericFilterCount(TYPE##s_, filter);\
 }
-ERIS_SIM_TYPE_METHODS(agent)
-ERIS_SIM_TYPE_METHODS(good)
-ERIS_SIM_TYPE_METHODS(market)
-ERIS_SIM_TYPE_METHODS(other)
+ERIS_SIM_TYPE_METHODS(agent, Agent)
+ERIS_SIM_TYPE_METHODS(good, Good)
+ERIS_SIM_TYPE_METHODS(market, Market)
+ERIS_SIM_TYPE_METHODS(other, Other)
 #undef ERIS_SIM_TYPE_METHODS
+
+template <class T, class B>
+const std::vector<SharedMember<Member>>* Simulation::genericFilterCache(
+        const MemberMap<B>& map
+        ) const {
+    const auto &B_t = typeid(B), &T_t = typeid(T);
+
+    // If T equals B we aren't class filtering at all, so there is no cache to build: eligible
+    // elements are the enter set.
+    if (B_t == T_t) return nullptr;
+
+    const std::type_index B_h{B_t}, T_h{T_t};
+
+    if (filter_cache_[B_h].count(T_h) == 0) {
+        // Cache miss: build the [B_h][T_h] cache
+        std::vector<SharedMember<Member>> cache;
+        for (auto &m : map) {
+            if (dynamic_cast<T*>(m.second.ptr_.get())) {
+                // The cast succeeded, so this member is a T
+                cache.push_back(m.second);
+            }
+        }
+
+        filter_cache_[B_h].emplace(std::type_index{T_h}, std::move(cache));
+    }
+    return &filter_cache_[B_h][T_h];
+}
+
 
 // Generic version of the various public ...s() methods that does the actual work.
 template <class T, class B>
@@ -419,44 +486,59 @@ std::vector<SharedMember<T>> Simulation::genericFilter(
 
     std::lock_guard<std::recursive_mutex> lock(member_mutex_);
 
-    std::vector<SharedMember<T>> matched;
-    auto &B_t = typeid(B), &T_t = typeid(T);
-    std::type_index B_h(B_t), T_h(T_t);
-    bool class_filtering = B_t != T_t;
-    bool cache_miss = false;
-    if (class_filtering) {
-        // Look to see if there's a cache for T already; if there isn't, we'll build one in `cache`
-        if (filter_cache_[B_h].count(T_h) == 0) {
-            cache_miss = true;
-        }
-    }
+    auto *cache = genericFilterCache<T>(map); // Returns nullptr if not class filtering
 
-    if (class_filtering and not cache_miss) {
-        for (auto &member : filter_cache_[B_h][T_h]) {
+    std::vector<SharedMember<T>> matched;
+    if (cache) { // Class filtering
+        for (auto &member : *cache) {
             SharedMember<T> recast(member);
             if (not filter or filter(recast))
                 matched.push_back(std::move(recast));
         }
     }
-    else {
-        std::vector<SharedMember<Member>> cache;
+    else { // Not class filtering, but possibly lambda filtering
         for (auto &m : map) {
-            if (dynamic_cast<T*>(m.second.ptr_.get())) {
-                // The cast succeeded, so this member is a T
-                SharedMember<T> recast(m.second);
-                if (cache_miss)
-                    cache.push_back(recast);
-
-                if (not filter or filter(recast))
-                    matched.push_back(std::move(recast));
+            if (T* mem = dynamic_cast<T*>(m.second.ptr_.get())) {
+                // The cast succeeded, so this Member is also a T
+                if (not filter or filter(*mem))
+                    matched.push_back(SharedMember<T>{m.second});
             }
         }
-
-        if (cache_miss) filter_cache_[B_h].emplace(std::move(T_h), std::move(cache));
     }
-    // T_h is (possibly) dead
-
     return matched;
+}
+
+// Same as the above, but only gets a count.
+template <class T, class B>
+size_t Simulation::genericFilterCount(
+        const MemberMap<B>& map,
+        const std::function<bool(const T &member)> &filter) const {
+
+    std::lock_guard<std::recursive_mutex> lock(member_mutex_);
+
+    auto *cache = genericFilterCache<T>(map); // Returns nullptr if not class filtering
+
+    size_t count = 0;
+    if (not filter) { // Without lambda filtering the job is really easy
+        count = cache
+            ? cache->size() // Class filtering
+            : map.size(); // No filtering at all
+    }
+    else if (cache) { // Class & lambda filtering
+        for (auto &member : *cache) {
+            if (filter(*dynamic_cast<T*>(member.ptr_.get()))) count++;
+        }
+    }
+    else {
+        for (auto &m : map) {
+            if (T* mem = dynamic_cast<T*>(m.second.ptr_.get())) {
+                // The cast succeeded, so this Member is also a T
+                if (filter(*mem))
+                    count++;
+            }
+        }
+    }
+    return count;
 }
 
 template <class B, class>
