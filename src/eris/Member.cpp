@@ -15,6 +15,9 @@ void Member::dependsWeaklyOn(const eris_id_t &id) {
 
 void Member::weakDepRemoved(SharedMember<Member>, const eris_id_t&) {}
 
+
+SharedMember<Member> Member::sharedSelf() const { return simOther<Member>(id()); }
+
 void Member::simulation(const std::shared_ptr<Simulation> &sim, const eris_id_t &id) {
     if (id == 0) removed();
     simulation_ = sim;

@@ -1,7 +1,6 @@
 #pragma once
 #include <eris/Simulation.hpp>
 #include <eris/types.hpp>
-#include <eris/SharedMember.hpp>
 #include <eris/noncopyable.hpp>
 #include <stdexcept>
 #include <thread>
@@ -13,13 +12,6 @@
 #include <type_traits>
 
 namespace eris {
-
-class Simulation;
-class Agent;
-class Good;
-class Market;
-class IntraOptimizer;
-class InterOptimizer;
 
 /** Base class for "members" of a simulation: often goods, agents, markets, and optimizers.  This class
  * provides an id, a weak reference to the owning simulation object, a few utility methods, and lock
@@ -474,7 +466,7 @@ class Member : private noncopyable {
          * The default implementation returns a member from the simulation's "other" set; Agent,
          * Good, and Market have overrides to return from the other appropriate sets.
          */
-        virtual SharedMember<Member> sharedSelf() const { return simOther<Member>(id()); }
+        virtual SharedMember<Member> sharedSelf() const;
 
         /** Returns the maximum number of threads in the simulation.  This is simply an alias for
          * simulation()->maxThreads().

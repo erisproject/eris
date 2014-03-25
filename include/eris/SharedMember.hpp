@@ -5,10 +5,6 @@
 
 namespace eris {
 
-// Forward declarations (to avoid header include loops)
-class Simulation;
-class Member;
-
 /** Wrapper around std::shared_ptr<T> that adds automatic T and eris_id_t cast conversion.  Since
  * Member references must be stored both by calling code, the Simulation object, and potentially in
  * other classes, a Simulation's members are stored in std::shared_ptr objects.  This wrapper allows
@@ -18,7 +14,7 @@ class Member;
  * SharedMember<Member>, and the same SharedMember<Member> variable can be cast as a
  * SharedMember<Good>.
  *
- * A less-than comparison operator is provided so that SharedMembers can be stored in an ordered
+ * A less-than comparison operator is provided so that SharedMembers can be stored in a sorted
  * container.
  *
  * Note that SharedMember instances *cannot* be constructed directly (except when copying from
@@ -31,7 +27,7 @@ class SharedMember final {
          * used, but is needed so that, for example, a SharedMember<T> can be the type of values in
          * a std::map (and similar classes).
          */
-        SharedMember() {}
+        SharedMember() = default;
         /** Using as a T gives you the underlying T object */
         operator T& () const { return *ptr_; }
         /** Using as an eris_id_t gives you the object's id */
@@ -53,7 +49,7 @@ class SharedMember final {
             return (ptr_ ? ptr_->id() : 0) < (other.ptr_ ? other.ptr_->id() : 0); }
 
         /** Access to the underlying shared_ptr */
-        const std::shared_ptr<T> ptr() const { return ptr_; }
+        const std::shared_ptr<T>& ptr() const { return ptr_; }
 
         /** The type T that this SharedMember wraps */
         typedef T member_type;
@@ -81,7 +77,19 @@ class SharedMember final {
          * Note that when A and F are the same thing, this is a copy constructor that simply copies
          * the underlying std::shared_ptr.
          */
-        template<class F> SharedMember(const SharedMember<F> &from) : ptr_(std::dynamic_pointer_cast<T,F>(from.ptr())) {
+        template<class F>
+        SharedMember(const SharedMember<F> &from,
+                typename std::enable_if<std::is_base_of<T, F>::value>::type* = 0)
+            : ptr_{std::static_pointer_cast<T,F>(from.ptr())} {}
+
+        /** Same as above, but for downcasting (i.e. when going from SharedMember<Base> to
+         * SharedMember<Derived>). This needs to use a dynamic cast with run-time type checking
+         * because it isn't guaranteed that a particular SharedMember<Base> is actually a
+         * SharedMember<Derived>. */
+        template<class F>
+        SharedMember(const SharedMember<F> &from,
+                typename std::enable_if<std::is_base_of<F, T>::value and not std::is_same<T, F>::value>::type* = 0)
+            : ptr_{std::dynamic_pointer_cast<T,F>(from.ptr())} {
             // Raise an exception if the ptr above gave back a null shared pointer: that means the
             // cast attempted to cast to a derived class, when the actual object is only a base
             // class instance.
@@ -103,7 +111,8 @@ class SharedMember final {
 
 
     private:
-        SharedMember(std::shared_ptr<T> ptr) : ptr_(ptr) {}
+        SharedMember(const std::shared_ptr<T> &ptr) : ptr_{ptr} {}
+        SharedMember(std::shared_ptr<T> &&ptr) : ptr_{std::move(ptr)} {}
 
         std::shared_ptr<T> ptr_;
 
