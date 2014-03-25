@@ -165,12 +165,19 @@ class Market : public Member {
          * price Bundle will purchase.  The information is returned in a quantity_info struct, which
          * has two important fields:
          * - .quantity the quantity that can be bought for the given price
-         * - .constrained will be true if the provided price would hit a supply constraint in this
-         *   market.  In such a case .quantity is the constrained amount and .spend contains the
-         *   actual amount spend (which will be less than the input price).
-         * - .price equals the multiple of the price Bundle required to buy .quantity units of the
-         *   market's output Bundle.  This simply equals the input price when .constrained is false;
+         * - .constrained will be true if the provided price would violate a supply constraint in
+         *   this market.  In such a case .quantity is the constrained amount and .spend contains
+         *   the actual amount spent (which will be less than the input amount).  Note that it is
+         *   possible for .constrained to be false even when not all of p is spent: see below.
+         * - .spent equals the multiple of the price Bundle required to buy .quantity units of the
+         *   market's output Bundle.  This usually equals the input price when .constrained is false;
          *   when .constrained is true this will be a value less than the provided price.
+         * - .unspent is the amount of p that would be leftover.  When .constrained is true, this is
+         *   usually positive, and usually false otherwise.
+         *
+         * .spent and .unspent may differ from the description above in a market of discrete goods.
+         * For example, a market setting integer increments of x for $2 each called with
+         * quantity(13.8) should give {.quantity=6, .constrained=false, .spent=12, .unspent=1.8}.
          */
         virtual quantity_info quantity(double p) const = 0;
 
