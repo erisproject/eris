@@ -259,6 +259,8 @@ class Market : public Member {
          */
         SharedMember<Member> sharedSelf() const override { return simMarket(id()); }
 
+        /** Exposes access to Reservation_.b_ */
+        Bundle& reservationBundle_(Reservation_ &res) { return res.b_; }
 
     public:
         /** Adds f to the firms supplying in this market.  Subclasses that require a particular type
