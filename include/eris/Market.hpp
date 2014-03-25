@@ -250,7 +250,7 @@ class Market : public Member {
 
         /** Returns a SharedMember<Member> for the current object, via the simulation.
          */
-        SharedMember<Member> sharedSelf() const override { return simMarket<Member>(id()); }
+        SharedMember<Member> sharedSelf() const override { return simMarket(id()); }
 
 
     public:

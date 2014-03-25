@@ -16,7 +16,7 @@ namespace agent {}
 class Agent : public Member {
     protected:
         /// Returns a SharedMember<Member> wrapped around the current object
-        SharedMember<Member> sharedSelf() const override { return simAgent<Member>(id()); }
+        SharedMember<Member> sharedSelf() const override { return simAgent(id()); }
 
 };
 

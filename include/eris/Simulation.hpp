@@ -40,19 +40,25 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
         /** Accesses an agent given the agent's eris_id_t.  Templated to allow conversion to
          * a SharedMember of the given Agent subclass; defaults to Agent.
          */
-        template <class A = Agent> SharedMember<A> agent(const eris_id_t &aid) const;
+        template <class A = Agent, typename = typename std::enable_if<std::is_base_of<Agent, A>::value>::type>
+        SharedMember<A> agent(const eris_id_t &aid) const;
         /** Accesses a good given the good's eris_id_t.  Templated to allow conversion to a
          * SharedMember of the given Good subclass; defaults to Good.
          */
-        template <class G = Good> SharedMember<G> good(const eris_id_t &gid) const;
+        template <class G = Good, typename = typename std::enable_if<std::is_base_of<Good, G>::value>::type>
+        SharedMember<G> good(const eris_id_t &gid) const;
         /** Accesses a market given the market's eris_id_t.  Templated to allow conversion to a
          * SharedMember of the given Market subclass; defaults to Market.
          */
-        template <class M = Market> SharedMember<M> market(const eris_id_t &mid) const;
+        template <class M = Market, typename = typename std::enable_if<std::is_base_of<Market, M>::value>::type>
+        SharedMember<M> market(const eris_id_t &mid) const;
         /** Accesses a non-agent/good/market member that has been added to this simulation.  This is
          * typically an optimization object.
          */
-        template <class O = Member> SharedMember<O> other(const eris_id_t &oid) const;
+        template <class O = Member, typename = typename std::enable_if<
+            std::is_base_of<Member, O>::value and not std::is_base_of<Agent, O>::value and not std::is_base_of<Market, O>::value
+            >::type>
+        SharedMember<O> other(const eris_id_t &oid) const;
 
         /** Constructs a new T object using the given constructor arguments Args, adds it to the
          * simulation.  T must be a subclass of Member; if it is also a subclass of Agent, Good, or
@@ -87,13 +93,13 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
          * when searching for agents whose type is only a small subset of the overall set of agents.
          * The cache is invalidated when any agent (of any type) is added or removed.
          */
-        template <class A = Agent>
+        template <class A = Agent, typename = typename std::enable_if<std::is_base_of<Agent, A>::value>::type>
         std::vector<SharedMember<A>> agents(const std::function<bool(const A &agent)> &filter = nullptr) const;
         /** Provides a count of matching simulation agents.  Agents are filtered by class and/or
          * callable filter and the count of matching agents is returned.  This is equivalent to
          * agents<A>(filter).size(), but more efficient.
          */
-        template <class A = Agent>
+        template <class A = Agent, typename = typename std::enable_if<std::is_base_of<Agent, A>::value>::type>
         size_t countAgents(const std::function<bool(const A &agent)> &filter = nullptr) const;
 
         /** Provides a filtered vector of simulation goods.  This works just like agents(), but for
@@ -101,13 +107,13 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
          *
          * \sa agents()
          */
-        template <class G = Good>
+        template <class G = Good, typename = typename std::enable_if<std::is_base_of<Good, G>::value>::type>
         std::vector<SharedMember<G>> goods(const std::function<bool(const G &good)> &filter = nullptr) const;
         /** Provides a count of matching simulation goods.  Goods are filtered by class and/or
          * callable filter and the count of matching goods is returned.  This is equivalent to
          * goods<G>(filter).size(), but more efficient.
          */
-        template <class G = Good>
+        template <class G = Good, typename = typename std::enable_if<std::is_base_of<Good, G>::value>::type>
         size_t countGoods(const std::function<bool(const G &good)> &filter = nullptr) const;
 
         /** Provides a filtered vector of simulation markets.  This works just like agents(), but
@@ -115,13 +121,13 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
          *
          * \sa agents()
          */
-        template <class M = Market>
+        template <class M = Market, typename = typename std::enable_if<std::is_base_of<Market, M>::value>::type>
         std::vector<SharedMember<M>> markets(const std::function<bool(const M &market)> &filter = nullptr) const;
         /** Provides a count of matching simulation markets.  Markets are filtered by class and/or
          * callable filter and the count of matching markets is returned.  This is equivalent to
          * markets<G>(filter).size(), but more efficient.
          */
-        template <class M = Market>
+        template <class M = Market, typename = typename std::enable_if<std::is_base_of<Market, M>::value>::type>
         size_t countMarkets(const std::function<bool(const M &good)> &filter = nullptr) const;
 
         /** Provides a filtered vector of non-agent/good/market simulation objects.  This works just like
@@ -129,13 +135,17 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
          *
          * \sa agentFilter
          */
-        template <class O = Member>
+        template <class O = Member, typename = typename std::enable_if<
+            std::is_base_of<Member, O>::value and not std::is_base_of<Agent, O>::value and not std::is_base_of<Market, O>::value
+            >::type>
         std::vector<SharedMember<O>> others(const std::function<bool(const O &other)> &filter = nullptr) const;
         /** Provides a count of matching simulation non-agent/good/market members.  Members are
          * filtered by class and/or callable filter and the count of matching members is returned.
          * This is equivalent to members<G>(filter).size(), but more efficient.
          */
-        template <class O = Member>
+        template <class O = Member, typename = typename std::enable_if<
+            std::is_base_of<Member, O>::value and not std::is_base_of<Agent, O>::value and not std::is_base_of<Market, O>::value
+            >::type>
         size_t countOthers(const std::function<bool(const O &good)> &filter = nullptr) const;
 
         /** Records already-stored member `depends_on' as a dependency of `member'.  If `depends_on'
@@ -438,14 +448,14 @@ template <class T, typename... Args, class> SharedMember<T> Simulation::create(A
 // Searching help:
 // agent() agents() good() goods() market() markets() other() others()
 #define ERIS_SIM_TYPE_METHODS(TYPE, CAP_TYPE)\
-template <class T> SharedMember<T> Simulation::TYPE(const eris_id_t &id) const {\
+template <class T, typename> SharedMember<T> Simulation::TYPE(const eris_id_t &id) const {\
     std::lock_guard<std::recursive_mutex> lock(member_mutex_);\
     return SharedMember<T>(TYPE##s_.at(id));\
 }\
-template <class T> std::vector<SharedMember<T>> Simulation::TYPE##s(const std::function<bool(const T &TYPE)> &filter) const {\
+template <class T, typename> std::vector<SharedMember<T>> Simulation::TYPE##s(const std::function<bool(const T &TYPE)> &filter) const {\
     return genericFilter(TYPE##s_, filter);\
 }\
-template <class T> size_t Simulation::count##CAP_TYPE##s(const std::function<bool(const T &TYPE)> &filter) const {\
+template <class T, typename> size_t Simulation::count##CAP_TYPE##s(const std::function<bool(const T &TYPE)> &filter) const {\
     return genericFilterCount(TYPE##s_, filter);\
 }
 ERIS_SIM_TYPE_METHODS(agent, Agent)

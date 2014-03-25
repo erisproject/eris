@@ -226,7 +226,7 @@ Market::Reservation Bertrand::reserve(SharedMember<AssetAgent> agent, double q, 
     std::vector<SharedMember<Member>> to_lock;
     to_lock.push_back(agent);
     for (auto &fid : suppliers_)
-        to_lock.push_back(simAgent<Member>(fid));
+        to_lock.push_back(simAgent(fid));
 
     auto lock = writeLock(to_lock);
 
