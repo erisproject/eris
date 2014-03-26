@@ -332,14 +332,13 @@ void MUPD::intraOptimize() {
 }
 
 void MUPD::intraReset() {
-    auto lock = writeLock(simulation()->agent<Consumer::Differentiable>(con_id));
+    auto lock = writeLock(simAgent<Consumer::Differentiable>(con_id));
 
     reservations.clear();
 }
 
 void MUPD::intraApply() {
-    auto con = simAgent<Consumer::Differentiable>(con_id);
-    auto lock = writeLock(con);
+    auto lock = writeLock(simAgent<Consumer::Differentiable>(con_id));
 
     for (auto &res: reservations) {
         res->buy();
