@@ -28,6 +28,13 @@ class SharedMember final {
          * a std::map (and similar classes).
          */
         SharedMember() = default;
+
+        /** Move constructor. */
+        SharedMember(SharedMember<T> &&move) = default;
+
+        /** Copy constructor. */
+        SharedMember(const SharedMember<T> &move) = default;
+
         /** Using as a T gives you the underlying T object */
         operator T& () const { return *ptr_; }
         /** Using as an eris_id_t gives you the object's id */
