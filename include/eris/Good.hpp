@@ -9,8 +9,8 @@ namespace eris {
  */
 class Good : public Member {
     public:
-        /** Returns the increment that this good exists as multiples of. */
-        virtual double increment() = 0;
+        /// Deleted empty constructor; use Good::Discrete or Good::Continuous instead.
+        Good() = delete;
 
         /** The name of the good. */
         std::string name;
@@ -20,41 +20,28 @@ class Good : public Member {
 
     protected:
         /// Superclass constructor that stores the good name
-        Good(std::string name);
+        Good(std::string name) : name(name) {}
 
         SharedMember<Member> sharedSelf() const override { return simGood(id()); }
 };
 
-/** Continuous good.  This is a good with a fixed increment of 0, usable for any good which is
- * (quasi-)infinitely divisible.
+/** Continuous good.  This is a good that is (quasi-)infinitely divisible.
  */
 class Good::Continuous : public Good {
     public:
         /// Constructor; takes an optional name.
-        Continuous(std::string name = "");
-        /// Returns 0.0
-        double increment();
+        Continuous(std::string name = "") : Good(name) {}
 };
 
-/** Discrete good that should only exist as multiples of the given value.
+/** Discrete good that may only take on integer quantities.
  *
- * Note that this class is currently not actually implemented in much of eris; the increment value
- * will not be respected.
+ * Note that this class is currently not actually implemented in much of eris; be sure to only use
+ * this with classes that explicitly support discrete goods.
  */
 class Good::Discrete : public Good {
     public:
-        /// The default increment if not specified in the constructor
-        static constexpr double default_increment = 1.0;
-        /** Constructs a new discrete good with the given increment and name.  Increment must be
-         * non-negative.
-         */
-        Discrete(double increment = default_increment, std::string name = "");
-        /// Updates the increment of the good.  Increment must be >= 0.
-        void setIncrement(double increment);
-        /// Returns the current increment of the good.
-        double increment();
-    private:
-        double incr_ = default_increment;
+        /// Constructor; takes an optional name.
+        Discrete(std::string name = "") : Good(name) {}
 };
 
 
