@@ -2,6 +2,7 @@
 #include <eris/Agent.hpp>
 #include <eris/Good.hpp>
 #include <eris/Market.hpp>
+#include <system_error>
 
 namespace eris {
 
@@ -50,10 +51,10 @@ Member::Lock::Lock(bool write, bool locked, std::multiset<SharedMember<Member>> 
 Member::Lock::Lock(const Lock &l) : data(l.data) {}
 
 Member::Lock::~Lock() {
-    if (data.unique()) release();
+    if (data.unique() and isLocked()) unlock();
 }
 
-void Member::Lock::mutex_lock_(bool write) {
+bool Member::Lock::mutex_lock_(bool write, bool only_try) {
     // Not currently locked
     auto &members = data->members;
     auto mem_begin = members.begin();
@@ -105,6 +106,9 @@ void Member::Lock::mutex_lock_(bool write) {
 
         auto unwind = *unwind_it;
 
+        // If we're only trying, we failed, so return false.
+        if (only_try) return false;
+
         // Now block waiting for unwind's lock, then repeat the whole procedure.
         unwind->wmutex_.lock();
 
@@ -118,10 +122,12 @@ void Member::Lock::mutex_lock_(bool write) {
         // locks without blocking, so try again.
         holding_it = unwind_it;
     }
+
+    return true;
 }
 
 
-void Member::Lock::read() {
+bool Member::Lock::read(bool only_try) {
     if (data->members.empty()) {
         // No members, this is a fake lock
         data->write = false;
@@ -141,47 +147,58 @@ void Member::Lock::read() {
         // Otherwise we don't care: calling read() on an active readlock does nothing.
     }
     else {
-        mutex_lock_(false);
+        bool got_lock = mutex_lock_(false, only_try);
+        data->write = false;
+        data->locked = got_lock;
+
+        if (!got_lock) return false;
 
         for (auto &m : data->members) {
             m->readlocks_++;
             m->wmutex_.unlock();
         }
-
-        data->locked = true;
-        data->write = false;
     }
+    return true;
 }
 
-void Member::Lock::write() {
+bool Member::Lock::write(bool only_try) {
     if (data->members.empty()) {
         // Fake lock
         data->write = true;
         data->locked = true;
-        return;
+        return true;
     }
 
     if (isLocked()) {
         if (isWrite()) // Already an active write lock, nothing to do.
-            return;
+            return true;
         else // Read lock: release it first
-            release();
+            unlock();
     }
 
-    mutex_lock_(true); // When this returns, we have an exclusive lock on all members
-
-    data->locked = true;
+    bool got_lock = mutex_lock_(true, only_try);
     data->write = true;
+    data->locked = got_lock;
+
+    return got_lock;
 }
 
 void Member::Lock::lock() {
-    if (isLocked()) return; // Already locked
+    if (isLocked()) throw std::system_error(std::make_error_code(std::errc::resource_deadlock_would_occur),
+            "Member::Lock::lock: already locked");
     if (isWrite()) write();
     else read();
 }
 
-void Member::Lock::release() {
-    if (!isLocked()) return; // Already released
+bool Member::Lock::try_lock() {
+    if (isLocked()) throw std::system_error(std::make_error_code(std::errc::resource_deadlock_would_occur),
+            "Member::Lock::lock: already locked");
+    return isWrite() ? write(true) : read(true);
+}
+
+void Member::Lock::unlock() {
+    if (not isLocked()) throw std::system_error(std::make_error_code(std::errc::operation_not_permitted),
+            "Member::Lock::unlock: not locked");
     if (data->members.empty()) {
         // Fake lock
     }
@@ -193,7 +210,7 @@ void Member::Lock::release() {
     else {
         // Releasing a read lock requires relocking the mutex, decrementing readlocks_, then
         // releasing the mutex, repeated for each object.  (Since nothing ever holds a mutex except
-        // a write lock--which isn't possible if we're a read lock--and momentary lock attempts,
+        // a write lock (which isn't possible if we're a read lock) and a momentary lock attempt,
         // this may block for brief periods of time, but won't deadlock.
         for (auto &m : data->members) {
             m->wmutex_.lock();
@@ -261,7 +278,7 @@ void Member::Lock::add(SharedMember<Member> member) {
     if (need_release) {
         // We failed to obtain a lock on the new member, so we need to release the current lock,
         // add the new member, then try for a lock on all members.
-        release();
+        unlock();
         data->members.insert(member);
         lock();
     }

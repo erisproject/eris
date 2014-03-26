@@ -96,6 +96,9 @@ class Member : private noncopyable {
          * Lock may be copied, in which case all copies must be destroyed before the lock is
          * automatically released.
          *
+         * This class satisfies the requirements of Lockable (that is, is has lock(), unlock(), and
+         * try_lock() methods).
+         *
          * When locking multiple objects at once, this class is designed to avoid deadlocks: it will
          * not block while waiting for a lock while it holds any open locks; instead if a lock
          * cannot be obtained, any previous locks are released while waiting for the locked object
@@ -112,6 +115,10 @@ class Member : private noncopyable {
          * If the simulation is not using threads at all (that is, maxThreads() is 0), the methods
          * of this class do nothing substantial: no actual locking operations are performed thus
          * eliminating locking overhead when locking is pointless.
+         *
+         * If you need to obtain multiple Member::Locks at once (for example, to hold a read lock on
+         * some members and a write lock on others), you should first unlock all locks, then call
+         * use std::lock() to reobtain locks on all of them.
          *
          * Implementation details:
          *
@@ -159,8 +166,17 @@ class Member : private noncopyable {
                  *
                  * If the lock has been explicitly released (by calling release()), calling this
                  * method reestablishes the lock.
+                 *
+                 * If the optional `only_try` parameter is given and true, the write lock is
+                 * established only if it can be done without blocking.  If blocking would be
+                 * required, the lock is left unlocked (even if it was a previously active read
+                 * lock) and false is returned.  Note that even if it lock fails, the lock will
+                 * still be changed to a write lock if it was previously a read lock.
+                 *
+                 * \returns true if the write lock was established (or already active), false if
+                 * `try_lock = true` was given and the write lock could not be immediately obtained.
                  */
-                void write();
+                bool write(bool only_try = false);
                 /** If the lock is currently a write lock, calling this converts it to a read lock.
                  * If the lock is already a read lock, this does nothing.  Since all copies of this
                  * Lock object share the lock status, they will simultaneously become read locks.
@@ -173,20 +189,41 @@ class Member : private noncopyable {
                  *
                  * If the lock has been explicitly released (by calling release()), calling this
                  * method reestablishes the lock and may block.
+                 *
+                 * If the optional parameter `only_try` is provided and true, the lock is
+                 * established only if it is possible to do so without blocking.  If blocking would
+                 * be required, the lock is left unlocked and false is returned.  Note that even if
+                 * the lock fails, the lock will still be converted to a read lock if it was
+                 * previously a write lock.
+                 *
+                 * \returns true if the read lock was established (or already active), false if
+                 * `try_lock = true` was given and the read lock could not be immediately obtained.
                  */
-                void read();
-                /** Obtains the lock.  This is called automatically when the object is created and
-                 * when switching lock types, but may also be called manually.  If the lock is
-                 * currently active, this has no effect.  Note that this will block if the lock is
-                 * currently not available.
+                bool read(bool only_try = false);
+                /** Obtains the lock.  This is called automatically when the object is created and,
+                 * if needed, when switching lock types, but may also be called manually.  Note that
+                 * this will block if the lock is currently not available.
+                 *
+                 * \throws std::system_error with an error code of
+                 * std::errc::resource_deadlock_would_occur if the lock is already active.
                  */
                 void lock();
-                /** Releases the held lock.  This is called automatically when the object is
-                 * destroyed and when switching lock types, but may also be called manually.  If the
-                 * lock is already inactive, this has no effect.
+                /** Tries to obtain a lock.  If a lock cannot be obtained without blocking, returns
+                 * false; otherwise, if the lock is obtained, returns true.
+                 *
+                 * \throws std::system_error with an error code of
+                 * std::errc::resource_deadlock_would_occur if the lock is already active.
                  */
-                void release();
+                bool try_lock();
+                /** Releases the held lock.  This is called automatically when the object is
+                 * destroyed and when switching lock types, but may also be called manually.
+                 *
+                 * \throws std::system_error with an error code of
+                 * std::errc::operation_not_permitted if the lock is not currently active.
+                 */
+                void unlock();
                 /** Returns true if this lock is currently a write lock, false if it is a read lock.
+                 * Note that this does not distinguish between inactive and active locks.
                  */
                 bool isWrite();
                 /** Returns true if this lock is currently active (i.e. actually a lock), false
@@ -291,15 +328,21 @@ class Member : private noncopyable {
                 Lock(bool write, bool locked, std::multiset<SharedMember<Member>> &&members);
 
                 /** Obtains a mutex lock on all members.  If `write` is true, each mutex lock must
-                 * additionally have readlocks_ (otherwise the mutex lock is considered failed and
-                 * immediately released).  This method blocks until a mutex is held on all members,
-                 * but never blocks while holding any mutex lock.  When this method returns, a mutex
-                 * lock is held on every member.
+                 * additionally have readlocks_ = 0 (otherwise the mutex lock is considered failed
+                 * and immediately released).  This method blocks until a mutex is held on all
+                 * members, but never blocks while holding any mutex lock.  When this method
+                 * returns, a mutex lock is held on every member.
+                 *
+                 * The optional `only_try` parameter changes the behaviour: if provided and true,
+                 * the mutex lock is obtained only if it can be done without blocking.  `true` is
+                 * returned if the mutex locks were established, false if blocking is required.
+                 * When `only_try` is false (the default if omitted), this method always returns
+                 * true.
                  *
                  * This code is the core simultaneous locking code used by read() and write() to
                  * establish a lock on all members.
                  */
-                void mutex_lock_(bool write);
+                bool mutex_lock_(bool write, bool only_try = false);
 
                 friend class Member;
 
