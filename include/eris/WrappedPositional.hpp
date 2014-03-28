@@ -53,12 +53,12 @@ class WrappedPositionalBase : public PositionalBase {
          */
         WrappedPositionalBase(const Position &p);
 
-        /** Returns to distance from this agent's position to the passed-in position.  This
+        /** Returns to distance from this object's position to the passed-in position.  This
          * overrides Positional::distance to incorporate dimension wrapping.  The returned
          * distance is the shortest path between the two points, incorporating wrapping.
          *
          * Note that only the caller's wrapping is applied to both position: if `pos` is from an
-         * agent with different wrapping boundaries, `a.distance(b.position())` and
+         * object with different wrapping boundaries, `a.distance(b.position())` and
          * `b.distance(a.position())` are not necessarily equal.
          */
         virtual double distance(const Position &pos) const override;
@@ -98,7 +98,7 @@ class WrappedPositionalBase : public PositionalBase {
         }
 
         /** Disables wrapping on dimension `dim`.  Dimension `dim` will start acting as a boundary
-         * (as in a traditional PositionalAgent) rather than a wrapped dimension.
+         * (as in a traditional Positional<T>) rather than a wrapped dimension.
          *
          * \throws std::out_of_range if `dim` is not a valid dimension.
          */
@@ -120,27 +120,27 @@ class WrappedPositionalBase : public PositionalBase {
         /** Just like wrap(), above, but directly alters the given Position. */
         virtual void wrap(Position &pos) const;
 
-        /** Returns true if a non-wrapping boundary applies to the position of this agent.
+        /** Returns true if a non-wrapping boundary applies to the position of this object.
          */
         virtual bool bounded() const noexcept override;
 
-        /** Returns true if the agent's position is currently on one of the non-wrapping boundaries,
+        /** Returns true if the object's position is currently on one of the non-wrapping boundaries,
          * false otherwise.
          */
         virtual bool binding() const noexcept override;
 
-        /** Returns true if the agent's position is currently on the lower boundary in any
+        /** Returns true if the object's position is currently on the lower boundary in any
          * non-wrapping dimension, false otherwise.
          *
-         * Note that it is possible for an agent's position to be on both a lower bound and upper
+         * Note that it is possible for an object's position to be on both a lower bound and upper
          * bound simultaneously.
          */
         virtual bool bindingLower() const noexcept override;
 
-        /** Returns true if the agent's position is currently on the upper boundary in any
+        /** Returns true if the object's position is currently on the upper boundary in any
          * non-wrapping dimension, false otherwise.
          *
-         * Note that it is possible for an agent's position to be on both a lower bound and upper
+         * Note that it is possible for an object's position to be on both a lower bound and upper
          * bound simultaneously.
          */
         virtual bool bindingUpper() const noexcept override;
@@ -216,8 +216,8 @@ class WrappedPositionalBase : public PositionalBase {
  *   words, `a.distance(b) == b.distance(a)` need not be true if `a` and `b` have different wrapping
  *   parameters, or if b isn't a WrappedPositional<T> at all.
  * - `a.moveBy(delta); a.moveBy(-delta)` may result in a being at a different position (aside from
- *   numerical imprecision): if the agent starts on a boundary and the first movement wraps, the
- *   agent will end up at the opposite boundary.
+ *   numerical imprecision): if the object starts on a boundary and the first movement wraps, the
+ *   object will end up at the opposite boundary.
  *
  * \sa WrappedPositionalBase
  * \sa Positional
