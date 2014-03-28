@@ -44,9 +44,9 @@ Market::Reservation QMarket::reserve(SharedMember<AssetAgent> agent, double q, d
     for (auto &sid : suppliers_) {
         supply.push_back(simAgent<firm::QFirm>(sid));
     }
-    DEBUG("getting supply writelock");
+    ERIS_DBG("getting supply writelock");
     auto lock = agent->writeLock(supply);
-    DEBUG("got supply writelock");
+    ERIS_DBG("got supply writelock");
 
     double available = firmQuantities(q);
     if (q > available)
@@ -68,7 +68,7 @@ Market::Reservation QMarket::reserve(SharedMember<AssetAgent> agent, double q, d
     const double threshold = q * std::numeric_limits<double>::epsilon();
 
     while (q > threshold) {
-        DEBUGVAR(q);
+        ERIS_DBGVAR(q);
         qfirm.clear();
         double qmin = 0; // Will store the maximum quantity that all firms can supply
         for (auto f : suppliers_) {
@@ -124,11 +124,11 @@ bool QMarket::intraReoptimize() {
 
     unsigned int max_tries = first_period_ ? tries_first_ : tries_;
 
-    DEBUG("QMarket trying some optimization...");
-    DEBUGVAR(firmQuantities());
+    ERIS_DBG("QMarket trying some optimization...");
+    ERIS_DBGVAR(firmQuantities());
 
     if (tried_ >= max_tries)
-        DEBUG(tried_ << " > " << max_tries << ", stopping");
+        ERIS_DBG(tried_ << " > " << max_tries << ", stopping");
 
     // If we're all out of adjustments, don't change the price
     if (++tried_ > max_tries) return false;
@@ -136,7 +136,7 @@ bool QMarket::intraReoptimize() {
     auto qlock = writeLock();
     double excess_capacity = firmQuantities();
 
-    DEBUGVAR(excess_capacity);
+    ERIS_DBGVAR(excess_capacity);
 
     bool increase_price = excess_capacity <= 0;
 
@@ -149,11 +149,11 @@ bool QMarket::intraReoptimize() {
     // lower by much: the minimum step size is very small, but assume firms would rather have no
     // excess inventory than a tiny bit of excess inventory.
     if (stepper.oscillating_min > 0 and new_price > 1) {
-        DEBUG("Detected oscillation: ending optimization.");
+        ERIS_DBG("Detected oscillation: ending optimization.");
         return false;
     }
 
-    DEBUG("Changing price from " << price() << " to " << new_price << "*" << price() << "=" << new_price*price());
+    ERIS_DBG("Changing price from " << price() << " to " << new_price << "*" << price() << "=" << new_price*price());
 
     if (new_price != 1) {
         setPrice(new_price * price());
