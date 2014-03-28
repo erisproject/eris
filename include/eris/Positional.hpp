@@ -24,7 +24,11 @@ class PositionalBase {
          * is simply an alias for obj.position().distance(target.position()), though subclasses
          * could override.
          */
-        virtual double distance(const PositionalBase &other) const;
+        double distance(const PositionalBase &other) const;
+        /** Returns the distance from this object's position to the given position.  This is an
+         * alias for `obj.position().distance(pos)` by default, but subclasses could override that.
+         */
+        virtual double distance(const Position &pos) const;
 
         /** Returns true if a boundary applies to the position of this agent.
          */

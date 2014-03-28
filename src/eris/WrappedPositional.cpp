@@ -84,10 +84,10 @@ void WrappedPositionalBase::wrap(Position &pos) const {
     }
 }
 
-double WrappedPositionalBase::distance(const PositionalBase &other) const {
+double WrappedPositionalBase::distance(const Position &pos) const {
     // Build the nearest virtual position of the other agent, starting at their current position
     // (wrapped by *our* wrapping parameters).
-    Position v(wrap(other.position()));
+    Position v{wrap(pos)};
 
     for (auto &dim : wrapped_) {
         const double &me = position_[dim];

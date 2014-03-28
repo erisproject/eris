@@ -53,15 +53,15 @@ class WrappedPositionalBase : public PositionalBase {
          */
         WrappedPositionalBase(const Position &p);
 
-        /** Returns to distance from this agent's position to the passed-in agent's position.  This
-         * overrides PositionalAgent::distance to incorporate dimension wrapping.  The returned
-         * dimension is the shortest path between the two agents.
+        /** Returns to distance from this agent's position to the passed-in position.  This
+         * overrides Positional::distance to incorporate dimension wrapping.  The returned
+         * distance is the shortest path between the two points, incorporating wrapping.
          *
-         * Note that only the caller's wrapping is applied to both agents' position: if `other` has
-         * different wrapping boundaries, `a.distance(b)` and `b.distance(a)` are not necessarily
-         * equal.
+         * Note that only the caller's wrapping is applied to both position: if `pos` is from an
+         * agent with different wrapping boundaries, `a.distance(b.position())` and
+         * `b.distance(a.position())` are not necessarily equal.
          */
-        virtual double distance(const PositionalBase &other) const override;
+        virtual double distance(const Position &pos) const override;
 
         /** Returns true if the given dimension is effectively wrapped.  To be so, three conditions
          * must be satisfied:
