@@ -179,7 +179,7 @@ bool operator != (const double &q, const BundleNegative &b) noexcept {
 }
 /// \endcond
 
-BundleNegative BundleNegative::transferApprox(const BundleNegative &amount, BundleNegative &to, double epsilon) {
+BundleNegative BundleNegative::transferApprox(BundleNegative amount, BundleNegative &to, double epsilon) {
     beginTransaction(true);
     to.beginTransaction(true);
     BundleNegative actual;
@@ -210,6 +210,9 @@ BundleNegative BundleNegative::transferApprox(const BundleNegative &amount, Bund
                 actual.set(g.first, -abs_transfer);
             }
         }
+        clearZeros();
+        to.clearZeros();
+        actual.clearZeros();
     }
     catch (...) {
         abortTransaction();
@@ -221,7 +224,7 @@ BundleNegative BundleNegative::transferApprox(const BundleNegative &amount, Bund
     return actual;
 }
 
-BundleNegative BundleNegative::transferApprox(const BundleNegative &amount, double epsilon) {
+BundleNegative BundleNegative::transferApprox(BundleNegative amount, double epsilon) {
     beginTransaction(true);
     BundleNegative actual;
     actual.beginEncompassing();
@@ -246,6 +249,7 @@ BundleNegative BundleNegative::transferApprox(const BundleNegative &amount, doub
                 actual.set(g.first, -abs_transfer);
             }
         }
+        clearZeros();
     }
     catch (...) {
         abortTransaction();

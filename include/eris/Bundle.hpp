@@ -199,6 +199,9 @@ class BundleNegative {
          * except for the error tolerance handling, and that the transfer is atomic (i.e. either
          * both transfers happen, or neither do).
          *
+         * After the quantities have been transferred, any 0 values are removed by calling
+         * clearZeros() on *this, `to`, and the returned bundle.
+         *
          * The error handling is particularly useful to avoid problems with numerical imprecision
          * resulting in small negative quantities in Bundles.  In particular it specially does two
          * things:
@@ -215,7 +218,9 @@ class BundleNegative {
          * \param amount the amount to transfer.  Goods with positive quantities are transferred
          * from the object into `to`; negative quantities are transferred frin `to` into the object.
          * \param to the Bundle (or BundleNegative) to transfer positive amounts to, and negative
-         * amounts from.
+         * amounts from.  `from` may be given as `amount` in order to transfer everything from
+         * `from` to `to` (this is particularly useful if `from` is actually a Bundle rather than a
+         * BundleNegative).
          * \param epsilon the threshold (relative to initial value) below which quantities in the
          * `amount` and `to` bundles will be truncated to 0.
          *
@@ -226,14 +231,17 @@ class BundleNegative {
          * (rather than BundleNegative objects) with insufficient quantities to approximately
          * satisfy the transfer.
          */
-        BundleNegative transferApprox(const BundleNegative &amount, BundleNegative &to, double epsilon = default_transfer_epsilon);
+        BundleNegative transferApprox(BundleNegative amount, BundleNegative &to, double epsilon = default_transfer_epsilon);
 
         /** Transfers approximately the given amount from the caller object and returns it.  This is
-         * like the above 3-argument transferApprox(const BundleNegative&, BundleNegative&, double)
-         * except that the amount is not transferred into a target Bundle.  Like the 3-argument
-         * version, negative transfer amounts are added to the object.
+         * like the above 3-argument transferApprox(BundleNegative, BundleNegative&, double)
+         * except that the amount is not transferred into a target Bundle but simply return.  Like
+         * the 3-argument version, negative transfer amounts are added to the calling object and
+         * will be negative in the returned object.
          *
-         * \param amount the amount to transfer from *this.
+         * Any zero-value goods will be removed from `*this` before returning.
+         *
+         * \param amount the amount to transfer from `*this`.
          * \param epsilon the threshold (relative to initial value) below which quantities in the
          * `amount` bundle will be truncated to 0.
          *
@@ -243,7 +251,7 @@ class BundleNegative {
          * \throws Bundle::negativity_error if either the caller is actually a Bundle object (rather
          * than BundleNegative) with insufficient quantities to approximately satisfy the transfer.
          */
-        BundleNegative transferApprox(const BundleNegative &amount, double epsilon = default_transfer_epsilon);
+        BundleNegative transferApprox(BundleNegative amount, double epsilon = default_transfer_epsilon);
 
         /// Adds two BundleNegative objects together and returns the result.
         BundleNegative operator + (const BundleNegative &b) const;
