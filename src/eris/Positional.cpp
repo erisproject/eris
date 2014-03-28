@@ -26,8 +26,12 @@ PositionalBase::PositionalBase(const Position &p)
     }
 }
 
+double PositionalBase::distance(const Position &pos) const {
+    return position().distance(pos);
+}
+
 double PositionalBase::distance(const PositionalBase &other) const {
-    return position().distance(other.position());
+    return distance(other.position());
 }
 
 bool PositionalBase::bounded() const noexcept {
