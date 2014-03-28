@@ -39,5 +39,3 @@ inline const char* _DEBUG__FILE__(const char *f) {
 
 /** Debugging macro for a single variable.  DEBUGVAR(x) is an alias for DEBUG("x = " << x) */
 #define ERIS_DBGVAR(x) ERIS_DBG(#x " = " << x)
-
-#undef ERIS_DEBUG_BOOL
