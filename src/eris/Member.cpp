@@ -40,15 +40,15 @@ std::shared_ptr<Simulation> Member::simulation() const {
 void Member::added() {}
 void Member::removed() {}
 
-Member::Lock::Lock(bool write, bool locked) : Lock(write, locked, std::multiset<SharedMember<Member>>()) {}
+Member::Lock::Lock(bool write, bool locked) : Lock{write, locked, std::multiset<SharedMember<Member>>{}} {}
 Member::Lock::Lock(bool write, std::multiset<SharedMember<Member>> &&members)
-    : data(new Data(std::forward<std::multiset<SharedMember<Member>>>(members), write)) {
+    : data{std::make_shared<Data>(std::move(members), write)} {
     lock();
 }
 Member::Lock::Lock(bool write, bool locked, std::multiset<SharedMember<Member>> &&members)
-    : data(new Data(std::forward<std::multiset<SharedMember<Member>>>(members), write, locked)) {}
+    : data{std::make_shared<Data>(std::move(members), write, locked)} {}
 
-Member::Lock::Lock(const Lock &l) : data(l.data) {}
+Member::Lock::Lock(const Lock &l) : data{l.data} {}
 
 Member::Lock::~Lock() {
     if (data.unique() and isLocked()) unlock();
@@ -290,7 +290,9 @@ void Member::Lock::add(SharedMember<Member> member) {
 }
 
 Member::Lock Member::Lock::remove(SharedMember<Member> member) {
-    return remove(std::vector<SharedMember<Member>>(1, member));
+    std::vector<SharedMember<Member>> to_remove;
+    to_remove.push_back(std::move(member));
+    return remove(to_remove);
 }
 
 }

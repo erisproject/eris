@@ -287,10 +287,8 @@ class Member : private noncopyable {
                  * members.
                  */
                 template <class Container>
-                Lock remove(const Container &members,
-                        typename std::enable_if<
-                            std::is_base_of<Member, typename Container::value_type::member_type>::value
-                        >::type* = 0) {
+                typename std::enable_if<std::is_base_of<Member, typename Container::value_type::member_type>::value, Lock
+                >::type remove(const Container &members) {
                     if (members.empty()) return Lock(isWrite(), isLocked()); // Fake lock
 
                     std::multiset<SharedMember<Member>> new_lock_members;
@@ -314,18 +312,18 @@ class Member : private noncopyable {
                  * calls to lock()/unlock()/write()/read(), though all locking/releasing action does
                  * nothing other than keeping track of the state.
                  */
-                Lock(bool write, bool locked = true);
+                explicit Lock(bool write, bool locked = true);
 
                 /** Creates a lock that applies to a multiset of members. Calls lock() (which calls
                  * read() or write()) before returning. */
-                Lock(bool write, std::multiset<SharedMember<Member>> &&members);
+                explicit Lock(bool write, std::multiset<SharedMember<Member>> &&members);
 
                 /** Creates a lock that applies to a multiset of members, initially in the given
                  * lock status.  Note that this does *not* establish a lock, even if `lock` is true:
                  * this method is primarily intended for use by remove() to split a Lock into
                  * multiple Locks without requiring an intermediate release and relocking.
                  */
-                Lock(bool write, bool locked, std::multiset<SharedMember<Member>> &&members);
+                explicit Lock(bool write, bool locked, std::multiset<SharedMember<Member>> &&members);
 
                 /** Obtains a mutex lock on all members.  If `write` is true, each mutex lock must
                  * additionally have readlocks_ = 0 (otherwise the mutex lock is considered failed
@@ -350,8 +348,9 @@ class Member : private noncopyable {
                     public:
                         /** Default constructor explicitly deleted. */
                         Data() = delete;
-                        Data(std::multiset<SharedMember<Member>> &&members, bool write, bool locked = false)
-                            : members(std::forward<std::multiset<SharedMember<Member>>>(members)), write(write), locked(locked) {}
+                        Data(std::multiset<SharedMember<Member>> &&mbrs, bool wrt, bool lckd = false)
+                            : members{std::move(mbrs)}, write{wrt}, locked{lckd}
+                        {}
                         std::multiset<SharedMember<Member>> members;
                         bool write;
                         bool locked;
