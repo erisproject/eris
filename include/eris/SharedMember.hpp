@@ -166,11 +166,12 @@ class SharedMember final {
 }
 
 namespace std {
-/// std::hash implementation for a SharedMember<T>
+/// std::hash implementation for a SharedMember<T>.  Returns the hash for the underlying shared_ptr.
 template <class T>
 struct hash<eris::SharedMember<T>> {
     public:
-        size_t operator()(const eris::SharedMember<T> &m) const { return std::hash<eris::eris_id_t>()(m); }
+        /// Returns the hash for the SharedMember's underlying ptr
+        size_t operator()(const eris::SharedMember<T> &m) const { return std::hash<std::shared_ptr<T>>()(m.ptr()); }
 };
 
 }
