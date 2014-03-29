@@ -3,6 +3,7 @@
 #include <memory>
 #include <stdexcept>
 #include <typeinfo>
+#include <functional>
 
 namespace eris {
 
@@ -160,6 +161,16 @@ class SharedMember final {
         std::shared_ptr<T> ptr_;
 
         friend class Simulation;
+};
+
+}
+
+namespace std {
+/// std::hash implementation for a SharedMember<T>
+template <class T>
+struct hash<eris::SharedMember<T>> {
+    public:
+        size_t operator()(const eris::SharedMember<T> &m) const { return std::hash<eris::eris_id_t>()(m); }
 };
 
 }
