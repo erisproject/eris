@@ -2,6 +2,7 @@
 #include <eris/types.hpp>
 #include <memory>
 #include <stdexcept>
+#include <typeinfo>
 
 namespace eris {
 
@@ -27,7 +28,7 @@ class SharedMember final {
          * used, but is needed so that, for example, a SharedMember<T> can be the type of values in
          * a std::map (and similar classes).
          */
-        SharedMember() = default;
+        SharedMember() : orig_type{&typeid(T)} {}
 
         /** Using as a T gives you the underlying T object */
         operator T& () const { return *ptr_; }
@@ -55,6 +56,16 @@ class SharedMember final {
         /** The type T that this SharedMember wraps */
         typedef T member_type;
 
+        /** The original type of the pointed-at object.  For example, if the pointed-at object was
+         * created as a R, and R inherits from S and S inherits from T, then any SharedMember<S> or
+         * SharedMember<T> created from casting this SharedMember<R> will have .orig_type =
+         * &typeid(R).
+         *
+         * This is used during copy-assignment to only copy-assignment only when the original types
+         * of the pointed at objects are identical.
+         */
+        const std::type_info *orig_type;
+
         /** Constructing a new SharedMember<A> using an existing SharedMember<F> recasts the F
          * pointer to an A pointer.  This constructor also allows you to do things like:
          * \code
@@ -74,14 +85,12 @@ class SharedMember final {
          * from std::dynamic_cast.  Note that cases where dynamic_cast returns a null pointer
          * (attempting to cast a base instance to a derived class) will also throw a bad_cast
          * exception, unlike std::dynamic_cast.
-         *
-         * Note that when A and F are the same thing, this is a copy constructor that simply copies
-         * the underlying std::shared_ptr.
          */
         template<class F>
         SharedMember(const SharedMember<F> &from,
-                typename std::enable_if<std::is_base_of<T, F>::value>::type* = 0)
-            : ptr_{std::static_pointer_cast<T,F>(from.ptr())} {}
+                typename std::enable_if<std::is_base_of<T, F>::value and not std::is_same<T, F>::value>::type* = 0)
+            : orig_type{from.orig_type}, ptr_{std::static_pointer_cast<T,F>(from.ptr())}
+        {}
 
         /** Same as above, but for downcasting (i.e. when going from SharedMember<Base> to
          * SharedMember<Derived>). This needs to use a dynamic cast with run-time type checking
@@ -90,35 +99,65 @@ class SharedMember final {
         template<class F>
         SharedMember(const SharedMember<F> &from,
                 typename std::enable_if<std::is_base_of<F, T>::value and not std::is_same<T, F>::value>::type* = 0)
-            : ptr_{std::dynamic_pointer_cast<T,F>(from.ptr())} {
+            : orig_type{from.orig_type}, ptr_{std::dynamic_pointer_cast<T,F>(from.ptr())} {
             // Raise an exception if the ptr above gave back a null shared pointer: that means the
             // cast attempted to cast to a derived class, when the actual object is only a base
             // class instance.
-            if (!ptr_) throw std::bad_cast();
+            if (from.ptr() and not ptr_) throw std::bad_cast();
         }
 
-        /** Copy assignment operator.  This is only permitted when the current shared pointer is
-         * null; it is sometimes needed by standard library components (such as when copying
-         * containers).  Since a shared pointer can never be changed once set, this operator can
-         * only be called once.
+        /** Copy constructor. */
+        SharedMember(const SharedMember<T> &from) : orig_type{from.orig_type}, ptr_{from.ptr_}
+        {}
+
+        /** Move constructor. */
+        SharedMember(SharedMember<T> &&from) : SharedMember(from) {}
+
+        /** Copy assignment operator.  This is permitted in only two circumstances: first, when the
+         * current shared pointer is null; this is sometimes needed by standard library components
+         * (such as when copying containers), which need to create a SharedMember<T> with no
+         * arguments then copy-assign into it.
          *
-         * \throws std::runtime_error if the object already has a shared pointer.
+         * The second permitted situation is when the two pointed-at objects are actually of the
+         * same time, regardless of whatever T they are currently cast into.  For example:
+         *
+         *     SharedMember<AssetAgent> aa1 = sim->create<AssetAgent>();
+         *     SharedMember<AssetAgent> aa2 = sim->create<AssetAgent>();
+         *     SharedMember<Positional<AssetAgent>> pa3 = sim->create<Positional<AssetAgent>>();
+         *
+         *     // aa1 and aa2 can be cast to SharedMember<B> for any base class of AssetAgent
+         *     // pa3 can be cast to the same SharedMember<B> and also a SharedMember<AssetAgent>
+         *     // (because AssetAgent is a base class of Positional<AssetAgent>)
+         *
+         *     SharedMember<Agent> agent1 = aa1; // Upcasts SharedMember<AssetAgent> to SharedMember<Agent>
+         *     SharedMember<Member> memb2 = aa2; // Upcasts SharedMember<AssetAgent> to SharedMember<Member>
+         *     SharedMember<Agent> agent3 = pa3; // Upcasts to SharedMember<Agent>
+         *
+         *     memb2 = aa1; // Allowed: both "1" and "2" are really AssetAgent objects
+         *     agent3 = aa2; // Throws runtime_error: "2" and "3" are not the same original type
+         *
+         * \throws std::runtime_error if the object already has a shared pointer and that shared
+         * pointer is not of the same original type as the copied-in object.
          */
         SharedMember<T>& operator=(const SharedMember<T> &t) {
-            if (ptr_) throw std::runtime_error("Cannot reassign SharedMember<T> via assignment operator");
+            if (not ptr_) {
+                // null SharedMember<T> that we're copying into
+                orig_type = t.orig_type;
+            }
+            else if (*t.orig_type != *orig_type) {
+                throw std::runtime_error("Cannot reassign SharedMember<T> via assignment operator when original types differ");
+            }
             ptr_ = t.ptr_;
             return *this;
         }
 
-
     private:
-        SharedMember(const std::shared_ptr<T> &ptr) : ptr_{ptr} {}
-        SharedMember(std::shared_ptr<T> &&ptr) : ptr_{std::move(ptr)} {}
+        SharedMember(const std::shared_ptr<T> &ptr) : orig_type{&typeid(T)}, ptr_{ptr} {}
+        SharedMember(std::shared_ptr<T> &&ptr) : orig_type{&typeid(T)}, ptr_{std::move(ptr)} {}
 
         std::shared_ptr<T> ptr_;
 
         friend class Simulation;
-        friend class Member;
 };
 
 }
