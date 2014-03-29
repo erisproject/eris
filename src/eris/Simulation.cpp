@@ -369,6 +369,31 @@ RunStage Simulation::runStage() const {
     return stage_;
 }
 
+bool Simulation::runStageIntra() const {
+    switch ((RunStage) stage_) {
+        case RunStage::intra_Initialize:
+        case RunStage::intra_Reset:
+        case RunStage::intra_Optimize:
+        case RunStage::intra_Reoptimize:
+        case RunStage::intra_Apply:
+        case RunStage::intra_Finish:
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool Simulation::runStageInter() const {
+    switch ((RunStage) stage_) {
+        case RunStage::inter_Optimize:
+        case RunStage::inter_Apply:
+        case RunStage::inter_Advance:
+            return true;
+        default:
+            return false;
+    }
+}
+
 Simulation::~Simulation() {
     stage_ = RunStage::kill_all;
     thr_cv_stage_.notify_all();

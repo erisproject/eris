@@ -241,6 +241,16 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
          */
         RunStage runStage() const;
 
+        /** Returns true if the simulation is currently in any of the intra-period optimization
+         * stages, false otherwise.
+         */
+        bool runStageIntra() const;
+
+        /** Returns true if the simulation is currently in any of the inter-period optimization
+         * stages, false otherwise.
+         */
+        bool runStageInter() const;
+
         /** Obtains a lock that, when held, guarantees that a simulation stage is not in progress.
          * This is designed for external code (e.g. GUI displays) to sychronize code, ensuring that
          * it does not run simultaneously with an active run call.  This lock is held internally
