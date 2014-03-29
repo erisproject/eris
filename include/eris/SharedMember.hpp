@@ -24,16 +24,20 @@ namespace eris {
 template<class T>
 class SharedMember final {
     public:
-        /** Default constructor; creates a SharedMember around a null shared_ptr. This shouldn't be
-         * used, but is needed so that, for example, a SharedMember<T> can be the type of values in
-         * a std::map (and similar classes).
+        /** Default constructor; creates a SharedMember around a null shared_ptr that refers to no
+         * object.
          */
         SharedMember() : orig_type{&typeid(T)} {}
 
         /** Using as a T gives you the underlying T object */
         operator T& () const { return *ptr_; }
-        /** Using as an eris_id_t gives you the object's id */
-        operator eris_id_t () const { return ptr_->id(); }
+        /** Using as an eris_id_t gives you the object's id.  This returns 0 if the pointer is
+         * a null pointer, or if the object does not belong to a simulation.  (To distinguish
+         * between the two, call .ptr() in a boolean context).
+         *
+         * This method also doubles as a boolean operator.
+         */
+        operator eris_id_t () const { return ptr_ ? ptr_->id() : 0; }
         /** Dereferencing gives you the underlying T */
         T& operator * () const { return *ptr_; }
         /** Dereferencing member access works on the underlying T */
@@ -48,7 +52,8 @@ class SharedMember final {
          */
         template <class O>
         bool operator < (const SharedMember<O> &other) {
-            return (ptr_ ? ptr_->id() : 0) < (other.ptr_ ? other.ptr_->id() : 0); }
+            return (eris_id_t) *this < (eris_id_t) other;
+        }
 
         /** Access to the underlying shared_ptr */
         const std::shared_ptr<T>& ptr() const { return ptr_; }
@@ -109,9 +114,6 @@ class SharedMember final {
         /** Copy constructor. */
         SharedMember(const SharedMember<T> &from) : orig_type{from.orig_type}, ptr_{from.ptr_}
         {}
-
-        /** Move constructor. */
-        SharedMember(SharedMember<T> &&from) : SharedMember(from) {}
 
         /** Copy assignment operator.  This is permitted in only two circumstances: first, when the
          * current shared pointer is null; this is sometimes needed by standard library components
