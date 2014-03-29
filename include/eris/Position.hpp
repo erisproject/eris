@@ -125,6 +125,11 @@ class Position final {
         std::vector<double>::const_reverse_iterator crend() const;
         ///@}
 
+        /** Boolean operator: returns true if the Position has at least one non-zero coordinates.
+         * Logically equivalent to `pos == Position::zero(pos)`, but more efficient.
+         */
+        operator bool() const;
+
         /// Equality; true iff all coordinates have the same value.
         bool operator==(const Position &other) const;
 

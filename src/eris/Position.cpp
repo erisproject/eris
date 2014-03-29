@@ -100,6 +100,12 @@ Position& Position::operator=(const Position &new_pos) {
     return *this;
 }
 
+Position::operator bool() const {
+    for (size_t i = 0; i < dimensions; i++)
+        if (operator[](i) != 0) return true;
+    return false;
+}
+
 bool Position::operator==(const Position &other) const {
     requireSameDimensions(other, "Position::operator==");
 
