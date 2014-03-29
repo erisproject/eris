@@ -21,6 +21,10 @@ Position Position::zero(const size_t &dimensions) {
     return Position(std::vector<double>(dimensions, 0.0));
 }
 
+Position Position::zero(const Position &pos) {
+    return zero(pos.dimensions);
+}
+
 double& Position::at(int d) { return pos_.at(d); }
 
 const double& Position::at(int d) const { return pos_.at(d); }

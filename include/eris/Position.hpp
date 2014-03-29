@@ -42,6 +42,11 @@ class Position final {
          */
         static Position zero(const size_t &dimensions);
 
+        /** Creates a new Position object with the same dimensionality as `pos` with initial
+         * position of 0 for all dimensions.
+         */
+        static Position zero(const Position &pos);
+
         /** Returns the (Euclidean) distance between one position and another.  Throws a
          * std::length_error exception if the two objects are of different dimensions.  The value
          * returned will always be non-negative.
