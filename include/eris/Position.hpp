@@ -128,7 +128,7 @@ class Position final {
         /** Boolean operator: returns true if the Position has at least one non-zero coordinates.
          * Logically equivalent to `pos == Position::zero(pos)`, but more efficient.
          */
-        operator bool() const;
+        explicit operator bool() const;
 
         /// Equality; true iff all coordinates have the same value.
         bool operator==(const Position &other) const;
