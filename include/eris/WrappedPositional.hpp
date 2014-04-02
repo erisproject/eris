@@ -299,18 +299,6 @@ class WrappedPositional : public WrappedPositionalBase, public T {
                 Args&&... T_args)
             : WrappedPositionalBase(p, boundary1, boundary2, dims), T(std::forward<Args>(T_args)...)
         {}
-
-        /** Constructs a WrappedPositional<T> at location `p` whose movements are not constrained (and
-         * thus do not wrap).
-         *
-         * \param p the initial Position
-         * \param T_args any extra arguments are forwarded to the constructor of class `T`
-         */
-        template <typename... Args>
-        WrappedPositional(const Position &p, Args&&... T_args)
-            : WrappedPositionalBase(p), T(std::forward<Args>(T_args)...)
-        {}
-
 };
 
 }

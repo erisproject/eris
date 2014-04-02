@@ -12,8 +12,6 @@ WrappedPositionalBase::WrappedPositionalBase(const Position &p, const Position &
     wrap(position_);
 }
 
-WrappedPositionalBase::WrappedPositionalBase(const Position &p) : PositionalBase(p) {}
-
 WrappedPositionalBase::WrappedPositionalBase(const Position &p, const Position &boundary1, const Position &boundary2, const std::initializer_list<size_t> &dims)
     : PositionalBase(p, boundary1, boundary2) {
     wrap(dims);
