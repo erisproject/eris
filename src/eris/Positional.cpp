@@ -27,11 +27,19 @@ PositionalBase::PositionalBase(const Position &p)
 }
 
 double PositionalBase::distance(const Position &pos) const {
-    return position().distance(pos);
+    return vectorTo(pos).length();
 }
 
 double PositionalBase::distance(const PositionalBase &other) const {
-    return distance(other.position());
+    return vectorTo(other.position()).length();
+}
+
+Position PositionalBase::vectorTo(const Position &pos) const {
+    return pos - position();
+}
+
+Position PositionalBase::vectorTo(const PositionalBase &other) const {
+    return vectorTo(other.position());
 }
 
 bool PositionalBase::bounded() const noexcept {

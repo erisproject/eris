@@ -53,15 +53,14 @@ class WrappedPositionalBase : public PositionalBase {
          */
         WrappedPositionalBase(const Position &p);
 
-        /** Returns to distance from this object's position to the passed-in position.  This
-         * overrides Positional::distance to incorporate dimension wrapping.  The returned
-         * distance is the shortest path between the two points, incorporating wrapping.
-         *
-         * Note that only the caller's wrapping is applied to both position: if `pos` is from an
-         * object with different wrapping boundaries, `a.distance(b.position())` and
-         * `b.distance(a.position())` are not necessarily equal.
+        /** Returns the shortest distance vector from this object to the given position.  Unlike
+         * PositionalBase, this is more complicated because it needs to also consider vectors that
+         * cross boundaries.  The returned vector may, thus, point outside the caller's bounding box
+         * when added to the caller's position.  This is intentional, as that is the shortest path
+         * to the target position (when incorporating wrapping).
          */
-        virtual double distance(const Position &pos) const override;
+        virtual Position vectorTo(const Position &pos) const override;
+        using PositionalBase::vectorTo;
 
         /** Returns true if the given dimension is effectively wrapped.  To be so, three conditions
          * must be satisfied:
@@ -219,7 +218,7 @@ class WrappedPositionalBase : public PositionalBase {
  *   numerical imprecision): if the object starts on a boundary and the first movement wraps, the
  *   object will end up at the opposite boundary.
  *
- * \sa WrappedPositionalBase
+ * \sa WrappedPositionalBase for the available methods to a WrappedPositional<T> object
  * \sa Positional
  */
 template <class T>

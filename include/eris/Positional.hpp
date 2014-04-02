@@ -21,14 +21,26 @@ class PositionalBase {
         const Position& position() const noexcept;
 
         /** Returns the distance from this object's position to the passed-in object's position.
-         * This is simply an alias for `obj.distance(target.position())`.
+         * This is simply an alias for `obj.vectorTo(target.position()).length()`.  Subclasses that
+         * wish to override distance should do so by appropriately overriding vectorTo().
          */
         double distance(const PositionalBase &other) const;
 
         /** Returns the distance from this object's position to the given position.  This is an
-         * alias for `obj.position().distance(pos)` by default, but subclasses could override that.
+         * alias for `obj.vectorTo(pos).length()`.  Subclasses that wish to override distance should
+         * do so by appropriately overriding vectorTo().
          */
-        virtual double distance(const Position &pos) const;
+        double distance(const Position &pos) const;
+
+        /// a.vectorTo(b) is an alias for `a.vectorTo(b.position())`.
+        virtual Position vectorTo(const PositionalBase &other) const;
+
+        /** `a.vectorTo(p)` Returns a vector \f$v\f$ (as a Position object) which is the shortest
+         * vector that, when passed to moveBy(), would result in `a` being at position `p`.  The
+         * default implementation simply returns `p - a.position()`, but subclasses
+         * can (WrappedPositional, in particular, does) override this behaviour.
+         */
+        virtual Position vectorTo(const Position &pos) const;
 
         /** Returns true if a boundary applies to the position of this object.
          */

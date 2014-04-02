@@ -84,7 +84,7 @@ void WrappedPositionalBase::wrap(Position &pos) const {
     }
 }
 
-double WrappedPositionalBase::distance(const Position &pos) const {
+Position WrappedPositionalBase::vectorTo(const Position &pos) const {
     // Build the nearest virtual position of the other agent, starting at their current position
     // (wrapped by *our* wrapping parameters).
     Position v{wrap(pos)};
@@ -114,7 +114,7 @@ double WrappedPositionalBase::distance(const Position &pos) const {
             them = v_alt;
     }
 
-    return position().distance(v);
+    return v - position();
 }
 
 bool WrappedPositionalBase::bounded() const noexcept {

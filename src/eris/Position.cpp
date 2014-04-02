@@ -41,19 +41,7 @@ POSITIONCPP_ITERATOR_MAP(reverse_iterator, rend)
 
 double Position::distance(const Position &other) const {
     requireSameDimensions(other, "Position::distance");
-
-    if (dimensions == 1)
-        return fabs(operator[](0) - other[0]);
-
-    if (dimensions == 2)
-        return hypot(operator[](0) - other[0], operator[](1) - other[1]);
-
-    // NB: could protect this against underflow/overflow by adapting the hypot algorithm to 3+
-    // dimensions; see http://en.wikipedia.org/wiki/Hypot
-    double dsq = 0;
-    for (size_t i = 0; i < dimensions; ++i)
-        dsq += pow(operator[](i) - other[i], 2);
-    return sqrt(dsq);
+    return (*this - other).length();
 }
 
 double Position::length() const {
