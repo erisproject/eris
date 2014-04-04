@@ -91,6 +91,10 @@ class IncrementalBuyer : public Member, public virtual OptApplyReset {
         /** If enabled, in addition to the most preferred (as interpreted using the permuteThreshold() or
          * permuteAll() values) markets, permutations involving markets with a utility change of 0
          * will be considered, even when there are positive utility options.
+         *
+         * This is needed when utility is multiplicative, for example, \f$u = xyz\f$ in which
+         * positive amounts of each of x, y, and z are required before increments in any result in
+         * utility gains.
          */
         void permuteZeros(const bool &pz) noexcept;
 
@@ -109,15 +113,33 @@ class IncrementalBuyer : public Member, public virtual OptApplyReset {
         virtual void intraReset() override;
 
     protected:
+        /// The id of the consumer this optimizer controls
         const eris_id_t con_id;
+        /// The id of the money good in the simulation
         const eris_id_t money;
+        /// A bundle consisting of example 1 of the money good
         const Bundle money_unit;
+        /** The number of rounds to use to use to spend income.  Each round spends (on average)
+         * `1/rounds` of initial income.
+         */
         const int rounds = 100;
+        /// The current round from 0 to `rounds`.
         int round = -1;
+        /// The permutation threshold value.  \sa permuteThreshold()
         double threshold = 1.0 - 1e-8;
+        /** Whether to include goods that individually yield zero utility gain in the considered
+         * good permutations.  \sa permuteZeros()
+         */
         bool permute_zeros = false;
+        /** Market reservations for the goods the agent has decided to buy.  These are established
+         * during intraOptimize(), completed during intraApply(), and cancelled in intraReset().
+         */
         std::forward_list<Market::Reservation> reservations;
 
+        /** Declares a dependency on the consumer and the money good when added to a simulation so
+         * that removing either the consumer or the money good from the simulation will
+         * automatically remove this optimizer.
+         */
         virtual void added() override;
 
         /** Performance one step of optimization, reserving (approximately) 1/rounds of income each

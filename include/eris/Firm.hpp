@@ -90,6 +90,7 @@ class Firm : public agent::AssetAgent {
                  * already been transferred or released.
                  */
                 class non_pending_exception : public std::exception {
+                    /// Overridden to return a default "what" message for the exception
                     public: const char* what() const noexcept override { return "Attempt to transfer/release a non-pending firm Reservation"; }
                 };
         };
@@ -116,6 +117,7 @@ class Firm : public agent::AssetAgent {
          */
         class supply_failure : public std::runtime_error {
             public:
+                /// Exception constructor: takes an error message
                 supply_failure(std::string what);
         };
         /** Exception class indicating that the firm does not supply one of more of the goods in the
@@ -124,7 +126,9 @@ class Firm : public agent::AssetAgent {
          */
         class supply_mismatch : public supply_failure {
             public:
+                /// Exception constructor: takes an error message
                 supply_mismatch(std::string what);
+                /// Exception constructor, default error message
                 supply_mismatch();
         };
          /** Exception class thrown when supplying the requested bundle would exceeds the firm's
@@ -151,6 +155,11 @@ class Firm : public agent::AssetAgent {
                  */
                 production_unavailable();
         };
+        /** Exception class thrown when a firm is requested to produce an amount from production
+         * reserves greater than the amount that has actually been reserved.
+         *
+         * \sa produceReserved
+         */
         class production_unreserved : public supply_failure {
             public:
                 /// Constructs the exception with the specified message

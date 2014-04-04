@@ -131,10 +131,12 @@ class Market : public Member {
                  * already been bought or released.
                  */
                 class non_pending_exception : public std::exception {
+                    /// Overrides what() with an appropriate exception message
                     public: const char* what() const noexcept override { return "Attempt to buy/release a non-pending market Reservation"; }
                 };
         };
 
+        /// Market::Reservation is a unique pointer to the private constructor Reservation_ class.
         typedef std::unique_ptr<Reservation_> Reservation;
 
         /** Returns the price information for buying the given multiple of the output bundle.
@@ -282,18 +284,21 @@ class Market : public Member {
          * requested.
          */
         class output_infeasible : public std::exception {
+            /// Overrides what() with an appropriate exception message
             public: const char* what() const noexcept override { return "Requested output not available"; }
         };
         /** Exception class throw when the market price required exceeds the maximum price
          * specified.
          */
         class low_price : public std::exception {
+            /// Overrides what() with an appropriate exception message
             public: const char* what() const noexcept override { return "Requested output not available for given price"; }
         };
         /** Exception class thrown when the buyer's assets are not sufficient to purchase the
          * requested output.
          */
         class insufficient_assets : public std::exception {
+            /// Overrides what() with an appropriate exception message
             public: const char* what() const noexcept override { return "Assets insufficient for purchasing requested output"; }
         };
 

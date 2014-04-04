@@ -143,7 +143,14 @@ class QMarket : public Market,
         double price_;
 
         /// The number of times we adjust price each period
-        unsigned int tries_, tries_first_;
+        unsigned int tries_;
+        /** The number of times to adjust price in the *first* period.  This is usually considerably
+         * larger than `tries_` so as to be allowed to break free of the given initial value.
+         * Fewer tries for subsequent adjustments is justified on the grounds that variation from
+         * one period to the next is likely much smaller than variation from exogenous initial
+         * parameter to first period value.
+         */
+        unsigned int tries_first_;
         /// The number of times we have already tried to adjust in the current period
         unsigned int tried_ = 0;
         /// The excess capacity we found in the previous iteration

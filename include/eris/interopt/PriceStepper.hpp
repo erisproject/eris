@@ -22,6 +22,10 @@ class PriceStepper : public ProfitStepper {
          * \param firm the PriceFirm object (or subclass thereof) that this optimizer works on.  The
          * PriceFirm must already have an initial price set.
          *
+         * \param step the initial step size
+         *
+         * \param increase_count the number of steps in the same direction required before the step
+         * size is increased.
          */
         PriceStepper(
                 const PriceFirm &firm,

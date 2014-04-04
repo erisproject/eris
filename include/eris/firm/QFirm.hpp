@@ -18,7 +18,7 @@ class QFirm : public FirmNoProd, public virtual interopt::Advance, public virtua
          *
          * \param out the Bundle of output the firm produces multiples of.
          *
-         * \param initial_quantity the quantity to produce at the beginning of the next period.  For
+         * \param initial_capacity the quantity to produce at the beginning of the next period.  For
          * future periods this value will typically be adjusted (by QFStepper or similar) upwards or
          * downwards depending on the previous period's results and change in market price.
          *

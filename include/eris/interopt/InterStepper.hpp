@@ -72,6 +72,10 @@ class InterStepper : public Member, public virtual OptApply {
          * \param stepper Stepper object controlling the steps.
          *
          * \param period same as in InterStepper(double, int, int) constructor.
+         *
+         * \param period_offset when `period > 1` this value controls which simulation periods are
+         * considered for taking steps.  For example, if `period=5` then `period_offset=2` means
+         * steps should be taken in periods 2, 7, 12, etc.
          */
         InterStepper(Stepper stepper, int period = default_period, int period_offset = default_period_offset);
 

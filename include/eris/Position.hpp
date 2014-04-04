@@ -87,8 +87,8 @@ class Position final {
          */
         double& operator[](int d);
 
-        /* Accesses the Position's `d`th coordinate, with `d=0` is the first
-         * dimension, with bounds checking.
+        /** Accesses the Position's `d`th coordinate, with `d=0` is the first dimension, with bounds
+         * checking.
          *
          * \throws std::out_of_range exception for `d >= dimensions`.
          */

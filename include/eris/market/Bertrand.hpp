@@ -42,12 +42,21 @@ class Bertrand : public Market {
         virtual void addFirm(SharedMember<Firm> f) override;
 
     protected:
+        /** Whether to randomize when multiple firms offer the good at exactly the same (lowest)
+         * price.  If true, a random firm supplies the good; if false, the spending is divided
+         * equally between lowest-price firms.
+         */
         bool randomize;
         /** Stores a quantity and a total price that quantity is sold for. */
-        struct share { double q, p; };
+        struct share {
+            double q; ///< The total quantity supplied by a firm
+            double p; ///< The total price to be paid to the firm for the quantity `q`
+        };
         /** Allocation information. */
         struct allocation {
+            /// The Market::price_info associated with the allocation
             price_info p;
+            /// A map of firm id to the quantity/total price `share` value of that firm
             std::unordered_map<eris_id_t, share> shares;
         };
         /** Calculates the allocations across firms for a purchase of q units of the good.

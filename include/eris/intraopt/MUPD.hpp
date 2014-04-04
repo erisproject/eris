@@ -26,6 +26,8 @@ class MUPD : public Member, public virtual OptApplyReset {
 
         /** Constructors a MUPD optimizer given a differentiable consumer instance and a money good.
          *
+         * \param consumer the consumer this MUPD optimizer controls
+         * \param money the money good that the consumer spends
          * \param tolerance the relative tolerance of the algorithm; optimization will stop when the
          * difference between highest and lowest MU/$ values (calculated as \f$ \frac{highest -
          * lowest}{highest} \f$ is smaller than this value.  Defaults to 1.0e-10.
@@ -53,14 +55,21 @@ class MUPD : public Member, public virtual OptApplyReset {
          */
         class market_exhausted_error : public std::runtime_error {
             public:
+                /** Constructor sets an appropriate `what()` message and stores the given market id
+                 * in `market`.
+                 */
                 market_exhausted_error(eris_id_t mkt) : std::runtime_error("Cannot computed MU/$ in exhausted market"), market(mkt) {}
 
+                /// The id of the exhausted market that caused this exception to occur
                 const eris_id_t market;
         };
 
     protected:
+        /// The id of the consumer this optimizer applies to
         const eris_id_t con_id;
+        /// The id of the money good that the consumer spends
         const eris_id_t money;
+        /// A fixed bundle of exactly 1 unit of the money good
         const Bundle money_unit;
 
         /** Stores the quantity allocation information for a particularly spending allocation.
@@ -82,10 +91,10 @@ class MUPD : public Member, public virtual OptApplyReset {
         allocation spending_allocation(const std::unordered_map<eris_id_t, double> &spending) const;
 
         /** Calculates the marginal utility per money unit evaluated at the given Bundle.
-         * \param con the shared consumer object
-         * \param an active write lock on the consumer
-         * \param mkt_id the market id for which to calculate
-         * \param a the allocation as returned by spending_allocation
+         * \param con the consumer
+         * \param lock an already-active write lock on the consumer
+         * \param mkt_id the market id for which to calculate MU/$
+         * \param a the allocation as returned by spending_allocation()
          * \param b the Bundle at which to evaluate marginal utility
          *
          * Note that this method is not, by itself, thread-safe: calling code should have already

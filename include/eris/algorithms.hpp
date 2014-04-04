@@ -35,7 +35,7 @@ namespace eris {
  *        set.  Despite being in a vector, these values should really be treated as a set.  Values
  *        will be in the same order as encountered in the input iterator.
  *
- * \param T the underlying data type template parameter is required, unfortunately.  This shouldn't
+ * \tparam T the underlying data type template parameter is required, unfortunately.  This shouldn't
  *        be necessary at all, since it is obtainable from the class of the given iterator, but gcc
  *        (as of 4.8.1) chokes on that, hence the additional (required) template parameter.
  */
@@ -91,8 +91,11 @@ all_combinations(
 template <class Iter>
 class range_ final : public std::pair<Iter, Iter> {
     public:
+        /// Builds an iteratable range from a start and end iterator
         range_(std::pair<Iter, Iter> const &pair) : std::pair<Iter, Iter>(pair) {}
+        /// Returns the beginning of the range
         Iter begin() const { return this->first;  }
+        /// Returns the end of the range
         Iter end()   const { return this->second; }
 };
 /** Takes a std::pair of iterators that represents a range, and returns an iterable object for that
@@ -116,10 +119,15 @@ range_<Iter> range(std::pair<Iter, Iter> const &pair) {
  */
 class Stepper final {
     public:
+        /// The default (possibly relative) initial step
         static constexpr double default_initial_step = 1.0/32.0;
+        /// The default number of same-direction steps before the step size is increased
         static constexpr int    default_increase_count = 4;
+        /// The smallest (possibly relative) step that will be taken
         static constexpr double default_min_step = std::numeric_limits<double>::epsilon();
+        /// The largest (possibly relative) step that will be taken
         static constexpr double default_max_step = 0.5;
+        /// The default value for whether steps are relative (true) or absolute (false)
         static constexpr bool   default_relative_steps = true;
 
         /** Constructs a new Stepper object.

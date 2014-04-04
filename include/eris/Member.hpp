@@ -459,7 +459,7 @@ class Member : private noncopyable {
          * Simulation.
          */
         void simulation(const std::shared_ptr<Simulation> &sim, const eris_id_t &id);
-        friend eris::Simulation;
+        friend class eris::Simulation;
 
         /** Virtual method called just after the member is added to a Simulation object.  The
          * default implementation does nothing.  This method is typically used to record a

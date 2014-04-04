@@ -21,6 +21,13 @@ namespace eris { namespace consumer {
  *
  * Note that a CompoundSum is *not* differentiable: if your indidividual consumer utilities are
  * differentiable, you should use CompoundSum::Differentiable instead.
+ *
+ * Example:
+ *
+ *     simulation->create<consumer::CompoundSum>(
+ *         new consumer::Polynomial(...),
+ *         new consumer::CobbDouglas(...)
+ *     );
  */
 class CompoundSum : public Consumer {
     public:
@@ -28,26 +35,30 @@ class CompoundSum : public Consumer {
          * to this CompoundSum object and should not be directly used again.  You may, however,
          * reuse the pointers by accessing this objects .a and .b shared pointers.
          */
-        CompoundSum(Consumer *a, Consumer *b) : a(a), b(b) {}
+        CompoundSum(Consumer *first, Consumer *second) : first(first), second(second) {}
 
         /** Constructs a CompoundSum from two shared pointers to Consumer instances.  The consumer
          * instances may have been previously used for another CompoundSum class.
          */
-        CompoundSum(std::shared_ptr<Consumer> a, std::shared_ptr<Consumer> b) : a(a), b(b) {}
+        CompoundSum(std::shared_ptr<Consumer> first, std::shared_ptr<Consumer> second) : first(first), second(second) {}
 
         /// Returns the sum of utilities of the two consumers
         double utility(const BundleNegative &bundle) const override {
-            return a->utility(bundle) + b->utility(bundle);
+            return first->utility(bundle) + second->utility(bundle);
         }
 
         class Differentiable;
 
-        /// The shared pointers to the consumer instances given in the constructor.
-        std::shared_ptr<Consumer> a, b;
+        /// Shared pointer to the first Consumer object given in the constructor.
+        std::shared_ptr<Consumer> first,
+        /// Shared pointer to the second Consumer object given in the constructor.
+            second;
 };
 
-/** Allows you to sum together a pair of Consumer::Differentiable consumer utilities, retaining the
- * differentiability.
+/** This is just like Compound, but restricts the summation to a pair of Consumer::Differentiable
+ * consumer utilities (instead of more general Consumer objects), retaining the differentiability.
+ *
+ * \sa CompoundSum
  */
 class CompoundSum::Differentiable : public Consumer::Differentiable {
     public:
@@ -56,31 +67,34 @@ class CompoundSum::Differentiable : public Consumer::Differentiable {
          * again.  You may, however, reuse the pointers by accessing this objects .a and .b shared
          * pointers.
          */
-        Differentiable(Consumer::Differentiable *a, Consumer::Differentiable *b) : a(a), b(b) {}
+        Differentiable(Consumer::Differentiable *first, Consumer::Differentiable *second) : first(first), second(second) {}
 
         /** Constructs a CompoundSum::Differentiable from two shared pointers to
          * Consumer::Differentiable instances.  The consumer instances may have been used elsewhere
          * before.
          */
-        Differentiable(std::shared_ptr<Consumer::Differentiable> a, std::shared_ptr<Consumer::Differentiable> b) : a(a), b(b) {}
+        Differentiable(std::shared_ptr<Consumer::Differentiable> first, std::shared_ptr<Consumer::Differentiable> second)
+            : first(first), second(second) {}
 
         /// Returns the sum of utilities of the two consumers
         double utility(const BundleNegative &bundle) const override {
-            return a->utility(bundle) + b->utility(bundle);
+            return first->utility(bundle) + second->utility(bundle);
         }
 
         /// Returns the derivative, which is the sum of consumer derivatives.
         double d(const BundleNegative &bundle, const eris_id_t &g) const override {
-            return a->d(bundle, g) + b->d(bundle, g);
+            return first->d(bundle, g) + second->d(bundle, g);
         }
 
         /// Returns the second derivative, which is the sum of consumer second derivatives.
         double d2(const BundleNegative &bundle, const eris_id_t &g1, const eris_id_t &g2) const override {
-            return a->d2(bundle, g1, g2) + b->d2(bundle, g1, g2);
+            return first->d2(bundle, g1, g2) + second->d2(bundle, g1, g2);
         }
 
-        /// The shared pointers to the consumer instances given in the constructor.
-        std::shared_ptr<Consumer::Differentiable> a, b;
+        /// Shared pointer to the first consumer instance given in the constructor.
+        std::shared_ptr<Consumer::Differentiable> first,
+        /// Shared pointer to the second consumer instance given in the constructor.
+            second;
 };
 
 /** Uses two consumer classes together as a product.  You could, for example, represent \f$ u(x,y) =
@@ -97,29 +111,34 @@ class CompoundProduct : public Consumer {
          * to this CompoundProduct object and should not be directly used again.  You may, however,
          * reuse the pointers by accessing this objects .a and .b shared pointers.
          */
-        CompoundProduct(Consumer *a, Consumer *b) : a(a), b(b) {}
+        CompoundProduct(Consumer *first, Consumer *second) : first(first), second(second) {}
 
         /** Constructs a CompoundProduct from two shared pointers to Consumer instances.  The
          * consumer instances may have been previously used for another CompoundProduct (or related)
          * class.
          */
-        CompoundProduct(std::shared_ptr<Consumer> a, std::shared_ptr<Consumer> b) : a(a), b(b) {}
+        CompoundProduct(std::shared_ptr<Consumer> first, std::shared_ptr<Consumer> second) : first(first), second(second) {}
 
         /// Returns the product of utilities
         double utility(const BundleNegative &bundle) const override {
-            double ua = a->utility(bundle);
+            double ua = first->utility(bundle);
             if (ua == 0) return ua; // Short-circuit
-            return ua * b->utility(bundle);
+            return ua * second->utility(bundle);
         }
 
         class Differentiable;
 
-        /// The shared pointers to the consumer instances given in the constructor.
-        std::shared_ptr<Consumer> a, b;
+        /// The first consumer instance given in the constructor.
+        std::shared_ptr<Consumer> first,
+        /// The second consumer instance given in the constructor.
+            second;
 };
 
 /** Multiples together a pair of Consumer::Differentiable consumer utilities, retaining the
  * differentiability.
+ *
+ * \sa CompoundProduct
+ * \sa CompoundSum::Differentiable
  */
 class CompoundProduct::Differentiable : public Consumer::Differentiable {
     public:
@@ -128,19 +147,19 @@ class CompoundProduct::Differentiable : public Consumer::Differentiable {
          * again.  You may, however, reuse the pointers by accessing this objects .a and .b shared
          * pointers.
          */
-        Differentiable(Consumer::Differentiable *a, Consumer::Differentiable *b) : a(a), b(b) {}
+        Differentiable(Consumer::Differentiable *first, Consumer::Differentiable *second) : first(first), second(second) {}
 
         /** Constructs a CompoundProduct::Differentiable from two shared pointers to
          * Consumer::Differentiable instances.  The consumer instances may have been used elsewhere
          * before.
          */
-        Differentiable(std::shared_ptr<Consumer::Differentiable> a, std::shared_ptr<Consumer::Differentiable> b) : a(a), b(b) {}
+        Differentiable(std::shared_ptr<Consumer::Differentiable> first, std::shared_ptr<Consumer::Differentiable> second) : first(first), second(second) {}
 
         /// Returns the product of utilities of the two consumers
         double utility(const BundleNegative &bundle) const override {
-            double ua = a->utility(bundle);
+            double ua = first->utility(bundle);
             if (ua == 0) return ua; // Short-circuit
-            return ua * b->utility(bundle);
+            return ua * second->utility(bundle);
         }
 
         /** Returns the derivative of \f$ u_1(\hdots) u_2(\hdots) \f$, which is, by the product rule,
@@ -148,11 +167,11 @@ class CompoundProduct::Differentiable : public Consumer::Differentiable {
          */
         double d(const BundleNegative &bundle, const eris_id_t &g) const override {
             double grad = 0.0;
-            double aprime = a->d(bundle, g);
-            if (aprime != 0) grad += aprime * b->utility(bundle);
+            double aprime = first->d(bundle, g);
+            if (aprime != 0) grad += aprime * second->utility(bundle);
 
-            double bprime = b->d(bundle, g);
-            if (bprime != 0) grad += bprime * a->utility(bundle);
+            double bprime = second->d(bundle, g);
+            if (bprime != 0) grad += bprime * first->utility(bundle);
 
             return grad;
         }
@@ -165,33 +184,34 @@ class CompoundProduct::Differentiable : public Consumer::Differentiable {
          * u_1 \frac{\partial^2 u_2}{\partial g_1 \partial g_2}
          * \f$.
          */
-        //the sum of consumer second derivatives.
         double d2(const BundleNegative &bundle, const eris_id_t &g1, const eris_id_t &g2) const override {
             double h = 0.0;
-            double a12 = a->d2(bundle, g1, g2);
-            if (a12 != 0) h += a12 * b->utility(bundle);
+            double a12 = first->d2(bundle, g1, g2);
+            if (a12 != 0) h += a12 * second->utility(bundle);
 
-            double a1 = a->d(bundle, g1);
+            double a1 = first->d(bundle, g1);
             if (a1 != 0) {
-                double b2 = b->d(bundle, g2);
+                double b2 = second->d(bundle, g2);
                 h += a1 * b2;
                 if (g1 == g2)
                     h += b2 * a1;
             }
             if (g1 != g2) {
-                double a2 = a->d(bundle, g2);
+                double a2 = first->d(bundle, g2);
                 if (a2 != 0)
-                    h += a2 * b->d(bundle, g1);
+                    h += a2 * second->d(bundle, g1);
             }
 
-            double b12 = b->d2(bundle, g1, g2);
-            if (b12 != 0) h += b12 * a->utility(bundle);
+            double b12 = second->d2(bundle, g1, g2);
+            if (b12 != 0) h += b12 * first->utility(bundle);
 
             return h;
         }
 
-        /// The shared pointers to the consumer instances given in the constructor.
-        std::shared_ptr<Consumer::Differentiable> a, b;
+        /// The first consumer instance given in the constructor.
+        std::shared_ptr<Consumer::Differentiable> first,
+        /// The second consumer instance given in the constructor.
+            second;
 };
 
 } }

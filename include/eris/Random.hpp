@@ -28,7 +28,7 @@ class Random final {
          * mt19937_64 rng, which offers a good balance of randomness and performance.
          *
          * The returned rng is suitable for passing into a distribution, such as those provided in
-         * <random>.
+         * \<random\>.
          *
          * Example:
          *

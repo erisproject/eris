@@ -53,8 +53,14 @@ class PriceFirm : public Firm, public virtual interopt::Advance {
         virtual void interAdvance() override;
 
     protected:
-        Bundle price_, output_;
-        double capacity_, capacity_used_ = 0;
+        /// The base price bundle; the firm accepts multiples of this bundle as payment
+        Bundle price_;
+        /// The output bundle: the firm produces multiples of this bundle as output
+        Bundle output_;
+        /// The per-period capacity of the firm.  May be infinity.
+        double capacity_;
+        /// The capacity of the firm already used up in the current period.
+        double capacity_used_ = 0;
 
         /** Returns the multiple, potentially infinity, of Bundle b that this firm is able to
          * produce before hitting its capacity constraint.  Returns 0 if the firm has already hit
