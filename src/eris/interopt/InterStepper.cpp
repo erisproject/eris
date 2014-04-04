@@ -11,13 +11,11 @@ InterStepper::InterStepper(Stepper stepper, int period, int period_offset)
 void InterStepper::interOptimize() {
     jump_ = should_jump();
 
-    ++last_step_;
-
     if (jump_) {
         stepping_ = false;
     }
     else {
-        stepping_ = last_step_ % period_ == period_offset_;
+        stepping_ = simulation()->t() % period_ == period_offset_;
         if (stepping_) {
             curr_up_ = should_increase();
         }
