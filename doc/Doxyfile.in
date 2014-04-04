@@ -7,7 +7,7 @@ PROJECT_NUMBER         = v@ERIS_VERSION_MAJOR@.@ERIS_VERSION_MINOR@.@ERIS_VERSIO
 PROJECT_BRIEF          = "agent-based economic modelling library"
 INPUT                  = README.md include src
 INPUT_ENCODING         = UTF-8
-FILE_PATTERNS          = *.cpp *.hpp
+FILE_PATTERNS          = *.hpp
 RECURSIVE              = YES
 OUTPUT_DIRECTORY       = @CMAKE_CURRENT_BINARY_DIR@
 
