@@ -238,5 +238,35 @@ class Stepper final {
 
 };
 
+/** Performs a golden section search to find a maximum of a single-peaked function between two
+ * limits.  This function must be called with left and right end points.  This function will not
+ * work reliably if `f()` has multiple maximum in `[left, right]`; you'll just get a local maximum.
+ * It may also fail if the function has perfectly flat sections in the given domain.
+ *
+ * This algorithm works by considering two interior point at proportions \f$2 - \varphi\f$ and
+ * \f$\varphi - 1\f$ between `left` and `right`, where \f$\varphi = \frac{1+\sqrt{5}}{2}\f$, the
+ * golden ratio.  Whichever interior point yields a larger function value becomes one of the new
+ * interior points, while the other becomes the new `left` or `right` value as appropriate.  This
+ * process repeats until the tolerance level is reached (see the `tolerance` argument, below), at
+ * which point whichever of `left`, `right`, and the two midpoints has the greatest `f()` value is
+ * returned.
+ *
+ * Each iteration of this algorithm removes \f$2-\varphi \approx 0.382\f$ of the range and requires
+ * only a single additional function evaluation due to the use of the golden ratio (because one of
+ * the prior midpoints will also be the midpoint of the next iteration, and so the function value
+ * can simply be reused).
+ *
+ * \param f a function-like object that can be called with a single double argument and returns the
+ * function value.
+ * \param left the left edge of the domain to consider
+ * \param right the right edge of the domain to consider
+ * \param tolerance the relative size of the domain at which the algorithm stops.  In particular,
+ * the algorithm stops once \f$\frac{right - left}{max\{\|left\|, \|right\|\}} \leq tolerance\f$.  The default, if the
+ * argument is omitted, is \f$10^{-12}\f$.
+ */
+extern double single_peak_search(
+        const std::function<double(const double &)> &f,
+        const double &left, const double &right,
+        const double &tolerance = 1e-12);
 
 }

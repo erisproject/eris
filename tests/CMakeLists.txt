@@ -12,6 +12,7 @@ set(eris_tests
     sim-setup-test
     lock-test
     pos-agent-test
+    single-peak-search
     )
 
 foreach(t ${eris_tests})
