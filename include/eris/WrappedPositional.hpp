@@ -171,7 +171,7 @@ class WrappedPositionalBase : public PositionalBase {
     protected:
         /** Truncates the given Position object but first applies dimension wrapping by passing the
          * Position to wrap.  Returns true if non-wrapping truncation was necessary and allowed,
-         * false if no changes were needed, and throws a boundary_error exception if
+         * false if no changes were needed, and throws a PositionalBoundaryError exception if
          * throw_on_truncation is true if changes are needed but not allowed.
          *
          * (Since wrapping can be turned on only for particular dimensions, other dimensions might
