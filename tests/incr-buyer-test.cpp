@@ -96,7 +96,7 @@ using namespace eris::intraopt;
 // Creates a market for bundle {x,y,z}1 and adds one of the 6 f{x,y,z}{1,6} firms to serve it.
 #define MKT(a,n) auto m##a##n = sim->create<Bertrand>(a##1, m1); m##a##n->addFirm(f##a##n);
 
-#define intraResetOptApply(opt) opt->intraReset(); DEBUG("ASDF"); opt->intraOptimize(); DEBUG("VVVV"); opt->intraApply();
+#define intraResetOptApply(opt) opt->intraReset(); ERIS_DBG("ASDF"); opt->intraOptimize(); ERIS_DBG("VVVV"); opt->intraApply();
 
 
 
@@ -131,9 +131,9 @@ TEST(Case01_OneGood, Sqrt) {
 
     MKT(x,1); // px=1
 
-    DEBUG("asdfasdf");
+    ERIS_DBG("asdfasdf");
     intraResetOptApply(opt);
-    DEBUG("vvv");
+    ERIS_DBG("vvv");
 
     EXPECT_EQ(150*x1, con->assets());
     EXPECT_DOUBLE_EQ(sqrt(150), con->currUtility());
