@@ -264,7 +264,7 @@ class Stepper final {
  * the algorithm stops once \f$\frac{right - left}{max\{\|left\|, \|right\|\}} \leq tolerance\f$.  The default, if the
  * argument is omitted, is \f$10^{-12}\f$.
  */
-extern double single_peak_search(
+double single_peak_search(
         const std::function<double(const double &)> &f,
         const double &left, const double &right,
         const double &tolerance = 1e-12);
