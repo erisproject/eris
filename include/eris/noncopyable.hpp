@@ -22,4 +22,17 @@ class noncopyable {
         noncopyable& operator=(const noncopyable&) = delete;
 };
 
+/** Simple utility class intended to be inherited (privately) for a class that should not be moved.
+ * This class provides explicitly deleted move and move assignment operators.
+ */
+class nonmovable {
+    protected:
+        /// Default empty constructor
+        nonmovable() = default;
+        /// Deleted move constructor
+        nonmovable(nonmovable&&) = delete;
+        /// Deleted move assignment operator
+        nonmovable& operator=(noncopyable&&) = delete;
+};
+
 }
