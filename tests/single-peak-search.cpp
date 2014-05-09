@@ -48,3 +48,16 @@ TEST(Maximize, PosQuadraticEnd) {
     EXPECT_EQ(-11, single_peak_search(f, -11, -6));
     EXPECT_EQ(-2.875, single_peak_search(f, -11, -2.875));
 }
+
+TEST(Maximize, Zero) {
+    auto f = [] (const double &x) -> double { return -(x*x); };
+
+    EXPECT_EQ(0, single_peak_search(f, 0, 100));
+    EXPECT_NEAR(0, single_peak_search(f, -10, 100, 1e-10, 0), 1e-150);
+    EXPECT_NEAR(0, single_peak_search(f, -10, 100, 0, 1e-10), 1e-10);
+    EXPECT_NEAR(0, single_peak_search(f, -10, 100, 0, 1e-20), 1e-20);
+    EXPECT_NEAR(0, single_peak_search(f, -10, 100, 0, 1e-100), 1e-100);
+    EXPECT_NEAR(0, single_peak_search(f, -10, 100, 0, 0), 1e-150);
+    EXPECT_EQ(0, single_peak_search(f, -1, 0));
+    EXPECT_EQ(0, single_peak_search(f, -1e30, 0));
+}

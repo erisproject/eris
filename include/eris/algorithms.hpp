@@ -260,13 +260,21 @@ class Stepper final {
  * function value.
  * \param left the left edge of the domain to consider
  * \param right the right edge of the domain to consider
- * \param tolerance the relative size of the domain at which the algorithm stops.  In particular,
- * the algorithm stops once \f$\frac{right - left}{max\{\|left\|, \|right\|\}} \leq tolerance\f$.  The default, if the
- * argument is omitted, is \f$10^{-12}\f$.
+ * \param tol_rel the relative size of the domain at which the algorithm stops.  In particular, the
+ * algorithm stops if \f$\frac{right - left}{max\{\|left\|, \|right\|\}} \leq tol_{rel}\f$.  The
+ * default, if the argument is omitted, is \f$10^{-10}\f$.  Note that the algorithm might
+ * alternatively stop because of the `tol_abs` value.  Note also that there is also a numerical
+ * lower bound on this value: if the midpoint calculation results in a midpoint exactly numerically
+ * equal to an end point, the algorithm stops.
+ * \param tol_abs the absolute size of the domain at which the algorithm stops.  In particular, the
+ * algorithm stops if \f$right - left \leq tol_{abs}\f$.  Note that the algorithm might
+ * alternatively stop because of the `tol_rel` value.
  */
 double single_peak_search(
         const std::function<double(const double &)> &f,
-        const double &left, const double &right,
-        const double &tolerance = 1e-12);
+        double left,
+        double right,
+        double tol_rel = 1e-10,
+        double tol_abs = 1e-20);
 
 }

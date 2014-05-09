@@ -58,47 +58,59 @@ const double sps_left_mid_ = 1.5 - std::sqrt(1.25);
 // Relative right midpoint position.  Equal to \f$\varphi - 1\f$.
 const double sps_right_mid_ = 1 - sps_left_mid_;
 
-double sps_(
-        const std::function<double(const double &)> &f,
-        const double &left, const double &midleft, const double &midright, const double &right,
-        const double &fl, const double &fml, const double &fmr, const double &fr,
-        const double &tolerance) {
-    if ((right - left) / std::max(std::fabs(left), std::fabs(right)) <= tolerance) {
-        // Prefer the end-points for ties (the max might legitimate be an end-point), and prefer
-        // left over right (for no particularly good reason).
-        return fl >= fml && fl >= fmr && fl >= fr ? left :
-            fr >= fmr && fr >= fml ? right :
-            fml >= fmr ? midleft : midright;
-    }
-
-    if (fml >= fmr) {
-        // midleft is the higher point, so we can exclude everything right of midright.
-        // midright -> new right
-        // midleft -> new midright
-        // and calculate the new midleft position and evaluate it for the next iteration
-        const double newmidleft = left + (midright - left) * sps_left_mid_;
-        return sps_(f, left, newmidleft, midleft, midright, fl, f(newmidleft), fml, fmr, tolerance);
-    }
-    else {
-        // midright is higher, so exclude everything left of midleft.
-        // midleft -> new left
-        // midright -> new midleft
-        // and calculated the new midright position and evaluate for the next iteration
-        const double newmidright = midleft + (right - midleft) * sps_right_mid_;
-        return sps_(f, midleft, midright, newmidright, right, fml, fmr, f(newmidright), fr, tolerance);
-    }
-}
-
 double single_peak_search(
         const std::function<double(const double &)> &f,
-        const double &left, const double &right,
-        const double &tolerance) {
+        double left,
+        double right,
+        double tol_rel,
+        double tol_abs) {
 
-    const double size = right - left;
-    const double midleft = left + sps_left_mid_*size;
-    const double midright = left + sps_right_mid_*size;
+    if (tol_rel < 0) tol_rel = 0;
+    if (tol_abs < 0) tol_abs = 0;
 
-    return sps_(f, left, midleft, midright, right, f(left), f(midleft), f(midright), f(right), tolerance);
+    double midleft = left + sps_left_mid_*(right - left);
+    double midright = left + sps_right_mid_*(right - left);
+    double fl = f(left), fml = f(midleft), fmr = f(midright), fr = f(right);
+
+    while (
+        tol_abs < right - left
+            and
+        tol_rel < (right - left) / std::max(std::fabs(left), std::fabs(right))
+    ) {
+
+        if (fml >= fmr) {
+            // midleft is the higher point, so we can exclude everything right of midright.
+            right = midright; fr = fmr;
+            midright = midleft; fmr = fml;
+            midleft = left + (right - left) * sps_left_mid_;
+            fml = f(midleft);
+            // If the midpoint is closer to the endpoint than is numerically distinguishable, finish:
+            if (midleft == left) break;
+        }
+        else {
+            // midright is higher, so exclude everything left of midleft.
+            left = midleft; fl = fml;
+            midleft = midright; fml = fmr;
+            midright = left + (right - left) * sps_right_mid_;
+            fmr = f(midright);
+            // If the midpoint is closer to the endpoint than is numerically distinguishable, finish:
+            if (midright == right) break;
+        }
+
+        // Sometimes, we can run into numerical instability that results in midleft > midright,
+        // particular when the optimum is close to 0.  If we encounter that, swap midleft and
+        // midright.
+        if (midleft > midright) {
+            std::swap(midleft, midright);
+            std::swap(fml, fmr);
+        }
+    }
+
+    // Prefer the end-points for ties (the max might legitimate be an end-point), and prefer
+    // left over right (for no particularly good reason).
+    return fl >= fml && fl >= fmr && fl >= fr ? left :
+        fr >= fmr && fr >= fml ? right :
+        fml >= fmr ? midleft : midright;
 }
 
 }
