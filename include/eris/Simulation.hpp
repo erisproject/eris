@@ -229,7 +229,7 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
          */
         void run();
 
-        /** Returns the iteration number, where 1 is the first iteration.  This is incremented
+        /** Returns the iteration number, where 1 is the first iteration.  This is incremented just
          * before inter-period optimizers run, and so, if called from inter-period optimizer code,
          * this will return the t value for the upcoming stage, not the most recent stage.
          *
