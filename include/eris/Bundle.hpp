@@ -682,7 +682,9 @@ inline Bundle::Bundle(const BundleNegative &b) : BundleNegative() {
 
 inline double BundleNegative::operator[] (const eris_id_t &gid) const {
     // Don't want to invoke map's [] operator, because it auto-vivifies the element
-    return count(gid) ? q_stack_.front().at(gid) : 0.0;
+    auto &f = q_stack_.front();
+    auto it = f.find(gid);
+    return it == f.end() ? 0.0 : it->second;
 }
 inline void BundleNegative::set(const eris_id_t &gid, const double &quantity) {
     q_stack_.front()[gid] = quantity;
@@ -708,60 +710,6 @@ inline std::unordered_map<eris_id_t, double>::const_iterator BundleNegative::beg
 inline std::unordered_map<eris_id_t, double>::const_iterator BundleNegative::end() const {
     return q_stack_.front().cend();
 }
-inline BundleNegative& BundleNegative::operator = (const BundleNegative &b) {
-    beginTransaction();
-    try {
-        clear();
-        for (auto &g : b) set(g.first, g.second);
-    }
-    catch (...) { abortTransaction(); throw; }
-    commitTransaction();
-    return *this;
-}
-
-#define _ERIS_BUNDLE_HPP_ADDSUB(OP, OPEQ)\
-inline BundleNegative& BundleNegative::operator OPEQ (const BundleNegative &b) {\
-    beginTransaction();\
-    try { for (auto &g : b) set(g.first, operator[](g.first) OP g.second); }\
-    catch (...) { abortTransaction(); throw; }\
-    commitTransaction();\
-    return *this;\
-}\
-inline BundleNegative BundleNegative::operator OP (const BundleNegative &b) const {\
-    BundleNegative ret(*this);\
-    ret.beginEncompassing();\
-    ret OPEQ b;\
-    ret.endEncompassing();\
-    return ret;\
-}
-
-_ERIS_BUNDLE_HPP_ADDSUB(+, +=)
-_ERIS_BUNDLE_HPP_ADDSUB(-, -=)
-
-#undef _ERIS_BUNDLE_HPP_ADDSUB
-
-inline Bundle Bundle::operator + (const Bundle &b) const {
-    Bundle ret(*this);
-    ret.beginEncompassing();
-    ret += b;
-    ret.endEncompassing();
-    return ret;
-}
-inline Bundle Bundle::operator - (const Bundle &b) const {
-    Bundle ret(*this);
-    ret.beginEncompassing();
-    ret -= b;
-    ret.endEncompassing();
-    return ret;
-}
-
-inline BundleNegative& BundleNegative::operator *= (const double &m) {
-    beginTransaction();
-    try { for (auto &g : *this) set(g.first, g.second * m); }
-    catch (...) { abortTransaction(); throw; }
-    commitTransaction();
-    return *this;
-}
 inline Bundle& Bundle::operator *= (const double &m) {
     if (m < 0) throw negativity_error("Attempt to scale Bundle by negative value " + std::to_string(m), 0, m);
     BundleNegative::operator*=(m);
@@ -778,26 +726,12 @@ inline Bundle& Bundle::operator /= (const double &d) {
 inline BundleNegative BundleNegative::operator - () const {
     return *this * -1.0;
 }
-inline BundleNegative BundleNegative::operator * (const double &m) const {
-    BundleNegative ret(*this);
-    ret.beginEncompassing();
-    ret *= m;
-    ret.endEncompassing();
-    return ret;
-}
 // Doxygen bug: doxygen erroneously warns about non-inlined friend methods
 /// \cond
 inline BundleNegative operator * (const double &m, const BundleNegative &b) {
     return b * m;
 }
 /// \endcond
-inline Bundle Bundle::operator * (const double &m) const {
-    Bundle ret(*this);
-    ret.beginEncompassing();
-    ret *= m;
-    ret.endEncompassing();
-    return ret;
-}
 inline Bundle operator * (const double &m, const Bundle &b) {
     return b * m;
 }
@@ -806,67 +740,6 @@ inline BundleNegative BundleNegative::operator / (const double &d) const {
 }
 inline Bundle Bundle::operator / (const double &d) const {
     return *this * (1.0/d);
-}
-
-inline void BundleNegative::beginTransaction(const bool &encompassing) noexcept {
-    if (not encompassed_.empty()) {
-        encompassed_.push_front(true);
-        return;
-    }
-
-    // Duplicate the most recent Bundle, make it the new front of the stack.
-    q_stack_.push_front(q_stack_.front());
-
-    if (encompassing) encompassed_.push_front(true);
-}
-
-inline void BundleNegative::commitTransaction() {
-    if (not encompassed_.empty()) {
-        if (not encompassed_.front())
-            throw no_transaction_exception("commitTransaction() called to terminate beginEncompassing()");
-
-        encompassed_.pop_front();
-        if (not encompassed_.empty()) return; // Still encompassed
-    }
-    // If we get here, we're not (or no longer) encompassed
-
-    // Make sure there is actually a transaction to commit
-    if (++(q_stack_.cbegin()) == q_stack_.cend())
-        throw no_transaction_exception("commitTransaction() called with no transaction in effect");
-
-    // Remove the *second* element from the stack: the first one is taking it over.
-    q_stack_.erase_after(q_stack_.begin());
-}
-
-inline void BundleNegative::abortTransaction() {
-    if (not encompassed_.empty()) {
-        if (not encompassed_.front())
-            throw no_transaction_exception("abortTransaction() called to terminate beginEncompassing()");
-
-        encompassed_.pop_front();
-        if (not encompassed_.empty()) return; // Still encompassed
-    }
-    // If we get here, we're not (or not longer) encompassed
-
-    // Make sure there is actually a transaction to abort
-    if (++(q_stack_.cbegin()) == q_stack_.cend()) throw no_transaction_exception("abortTransaction() called with no transaction in effect");
-
-    // Remove the first element from the stack: it's been aborted.
-    q_stack_.pop_front();
-}
-
-inline void BundleNegative::beginEncompassing() noexcept {
-    encompassed_.push_front(false);
-}
-
-inline void BundleNegative::endEncompassing() {
-    if (encompassed_.empty())
-        throw no_transaction_exception("endEncompassing() called with no encompassing in effect");
-
-    if (encompassed_.front())
-        throw no_transaction_exception("endEncompassing() called to terminate beginTransaction()");
-
-    encompassed_.pop_front();
 }
 
 }

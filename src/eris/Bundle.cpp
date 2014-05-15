@@ -172,12 +172,142 @@ bool BundleNegative::operator != (const BundleNegative &b) const noexcept {
 bool BundleNegative::operator != (const double &q) const noexcept {
     return !(*this == q);
 }
-// doxygen bug (at least as of 2.3): thinks this is a new method because it's not marked friend
-/// \cond
 bool operator != (const double &q, const BundleNegative &b) noexcept {
     return !(b == q);
 }
-/// \endcond
+
+BundleNegative& BundleNegative::operator = (const BundleNegative &b) {
+    beginTransaction();
+    try {
+        clear();
+        for (auto &g : b) set(g.first, g.second);
+    }
+    catch (...) { abortTransaction(); throw; }
+    commitTransaction();
+    return *this;
+}
+
+#define _ERIS_BUNDLE_CPP_ADDSUB(OP, OPEQ)\
+BundleNegative& BundleNegative::operator OPEQ (const BundleNegative &b) {\
+    beginTransaction();\
+    try { for (auto &g : b) set(g.first, operator[](g.first) OP g.second); }\
+    catch (...) { abortTransaction(); throw; }\
+    commitTransaction();\
+    return *this;\
+}\
+BundleNegative BundleNegative::operator OP (const BundleNegative &b) const {\
+    BundleNegative ret(*this);\
+    ret.beginEncompassing();\
+    ret OPEQ b;\
+    ret.endEncompassing();\
+    return ret;\
+}
+
+_ERIS_BUNDLE_CPP_ADDSUB(+, +=)
+_ERIS_BUNDLE_CPP_ADDSUB(-, -=)
+
+#undef _ERIS_BUNDLE_CPP_ADDSUB
+
+Bundle Bundle::operator + (const Bundle &b) const {
+    Bundle ret(*this);
+    ret.beginEncompassing();
+    ret += b;
+    ret.endEncompassing();
+    return ret;
+}
+Bundle Bundle::operator - (const Bundle &b) const {
+    Bundle ret(*this);
+    ret.beginEncompassing();
+    ret -= b;
+    ret.endEncompassing();
+    return ret;
+}
+
+BundleNegative& BundleNegative::operator *= (const double &m) {
+    beginTransaction();
+    try { for (auto &g : *this) set(g.first, g.second * m); }
+    catch (...) { abortTransaction(); throw; }
+    commitTransaction();
+    return *this;
+}
+
+BundleNegative BundleNegative::operator * (const double &m) const {
+    BundleNegative ret(*this);
+    ret.beginEncompassing();
+    ret *= m;
+    ret.endEncompassing();
+    return ret;
+}
+
+Bundle Bundle::operator * (const double &m) const {
+    Bundle ret(*this);
+    ret.beginEncompassing();
+    ret *= m;
+    ret.endEncompassing();
+    return ret;
+}
+
+void BundleNegative::beginTransaction(const bool &encompassing) noexcept {
+    if (not encompassed_.empty()) {
+        encompassed_.push_front(true);
+        return;
+    }
+
+    // Duplicate the most recent Bundle, make it the new front of the stack.
+    q_stack_.push_front(q_stack_.front());
+
+    if (encompassing) encompassed_.push_front(true);
+}
+
+void BundleNegative::commitTransaction() {
+    if (not encompassed_.empty()) {
+        if (not encompassed_.front())
+            throw no_transaction_exception("commitTransaction() called to terminate beginEncompassing()");
+
+        encompassed_.pop_front();
+        if (not encompassed_.empty()) return; // Still encompassed
+    }
+    // If we get here, we're not (or no longer) encompassed
+
+    // Make sure there is actually a transaction to commit
+    if (++(q_stack_.cbegin()) == q_stack_.cend())
+        throw no_transaction_exception("commitTransaction() called with no transaction in effect");
+
+    // Remove the *second* element from the stack: the first one is taking it over.
+    q_stack_.erase_after(q_stack_.begin());
+}
+
+void BundleNegative::abortTransaction() {
+    if (not encompassed_.empty()) {
+        if (not encompassed_.front())
+            throw no_transaction_exception("abortTransaction() called to terminate beginEncompassing()");
+
+        encompassed_.pop_front();
+        if (not encompassed_.empty()) return; // Still encompassed
+    }
+    // If we get here, we're not (or not longer) encompassed
+
+    // Make sure there is actually a transaction to abort
+    if (++(q_stack_.cbegin()) == q_stack_.cend()) throw no_transaction_exception("abortTransaction() called with no transaction in effect");
+
+    // Remove the first element from the stack: it's been aborted.
+    q_stack_.pop_front();
+}
+
+void BundleNegative::beginEncompassing() noexcept {
+    encompassed_.push_front(false);
+}
+
+void BundleNegative::endEncompassing() {
+    if (encompassed_.empty())
+        throw no_transaction_exception("endEncompassing() called with no encompassing in effect");
+
+    if (encompassed_.front())
+        throw no_transaction_exception("endEncompassing() called to terminate beginTransaction()");
+
+    encompassed_.pop_front();
+}
+
 
 BundleNegative BundleNegative::transferApprox(BundleNegative amount, BundleNegative &to, double epsilon) {
     beginTransaction(true);
