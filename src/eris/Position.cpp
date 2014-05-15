@@ -1,4 +1,5 @@
-#include "eris/Position.hpp"
+#include <eris/Position.hpp>
+#include <eris/Random.hpp>
 #include <cmath>
 
 namespace eris {
@@ -17,12 +18,24 @@ Position::Position(const Position &pos) : pos_(pos.pos_) {
 Position::Position(Position &&pos) : pos_(std::move(pos.pos_)) {
 }
 
-Position Position::zero(const size_t &dimensions) {
+Position Position::zero(const size_t dimensions) {
     return Position(std::vector<double>(dimensions, 0.0));
 }
 
-Position Position::zero(const Position &pos) {
-    return zero(pos.dimensions);
+Position Position::random(const size_t dimensions) {
+    Position offset = Position::zero(dimensions);
+    double tss = 0.0;
+    auto rng = Random::rng();
+    std::normal_distribution<double> stdnormal;
+    while (tss == 0.0) { // Extremely likely that this loop runs only once (we would need D draws of exactly 0 to repeat)
+        for (size_t i = 0; i < dimensions; i++) {
+            const double x = stdnormal(rng);
+            offset[i] = x;
+            tss += x*x;
+        }
+    }
+    offset /= sqrt(tss);
+    return offset;
 }
 
 double& Position::at(int d) { return pos_.at(d); }
@@ -56,11 +69,11 @@ double Position::length() const {
     return sqrt(lsq);
 }
 
-Position Position::mean(const Position &other, const double &weight) const {
+Position Position::mean(const Position &other, const double weight) const {
     requireSameDimensions(other, "Position::mean");
 
     Position result = zero(dimensions);
-    double our_weight = 1.0-weight;
+    const double our_weight = 1.0-weight;
 
     for (size_t i = 0; i < dimensions; i++)
         result[i] = our_weight*operator[](i) + weight*other[i];
@@ -144,12 +157,16 @@ Position Position::operator-() const noexcept {
 }
 
 // A position can be scaled by a constant, which scales each dimension value.
-Position Position::operator*(const double &scale) const noexcept {
+Position Position::operator*(const double scale) const noexcept {
     return Position(*this) *= scale;
 }
 
+Position operator*(const double scale, const Position &p) {
+    return p * scale;
+}
+
 // Mutator version of scaling.
-Position& Position::operator*=(const double &scale) noexcept {
+Position& Position::operator*=(const double scale) noexcept {
     for (size_t i = 0; i < dimensions; i++)
         operator[](i) *= scale;
 
@@ -157,12 +174,12 @@ Position& Position::operator*=(const double &scale) noexcept {
 }
 
 // Scales each dimension value by 1/d
-Position Position::operator/(const double &inv_scale) const noexcept {
+Position Position::operator/(const double inv_scale) const noexcept {
     return Position(*this) *= (1.0/inv_scale);
 }
 
 // Mutator version of division scaling.
-Position& Position::operator/=(const double &inv_scale) noexcept {
+Position& Position::operator/=(const double inv_scale) noexcept {
     return operator *= (1.0/inv_scale);
 }
 

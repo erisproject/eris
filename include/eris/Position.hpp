@@ -40,12 +40,16 @@ class Position final {
         /** Creates a new Position object of the given number of dimensions (>= 1) with initial
          * position of 0 for all dimensions.
          */
-        static Position zero(const size_t &dimensions);
+        static Position zero(const size_t dimensions);
 
-        /** Creates a new Position object with the same dimensionality as `pos` with initial
-         * position of 0 for all dimensions.
+        /** Returns a random Position vector of length 1 of the given dimensionality.  The
+         * returned point is uniform across the surface of a hypersphere of the given dimensions.
+         *
+         * To do this uniform hypersphere surface picking, this draw a N(0,1) for each dimension,
+         * then normalizes to a unit distance.  See
+         * http://mathworld.wolfram.com/HyperspherePointPicking.html
          */
-        static Position zero(const Position &pos);
+        static Position random(const size_t dimensions);
 
         /** Returns the (Euclidean) distance between one position and another.  Throws a
          * std::length_error exception if the two objects are of different dimensions.  The value
@@ -69,7 +73,7 @@ class Position final {
          * `this` and `other`, but outside the chord between them.
          * \throws std::length_error if the two Position objects are of different dimensions.
          */
-        Position mean(const Position &other, const double &weight = 0.5) const;
+        Position mean(const Position &other, const double weight = 0.5) const;
 
         /** Returns a new Position whose dimensions are determined by the given dimension indices
          * (which may be repeated).  Thus the dimensionality of the returned Position can be larger
@@ -126,7 +130,7 @@ class Position final {
         ///@}
 
         /** Boolean operator: returns true if the Position has at least one non-zero coordinates.
-         * Logically equivalent to `pos == Position::zero(pos)`, but more efficient.
+         * Logically equivalent to `pos == Position::zero(pos.dimensions)`, but more efficient.
          */
         explicit operator bool() const;
 
@@ -157,16 +161,19 @@ class Position final {
         Position operator-() const noexcept;
 
         /// A position can be scaled by a constant, which scales each dimension value.
-        Position operator*(const double &scale) const noexcept;
+        Position operator*(const double scale) const noexcept;
+
+        /// Scales a position by a constant, with the constant on the left-hand-side.
+        friend Position operator*(const double scale, const Position &p);
 
         /// Mutator version of scaling.
-        Position& operator*=(const double &scale) noexcept;
+        Position& operator*=(const double scale) noexcept;
 
         /// Scales each dimension value by 1/d
-        Position operator/(const double &inv_scale) const noexcept;
+        Position operator/(const double inv_scale) const noexcept;
 
         /// Mutator version of division scaling.
-        Position& operator/=(const double &inv_scale) noexcept;
+        Position& operator/=(const double inv_scale) noexcept;
 
         /** Overloaded so that a Position can be sent to an output stream, resulting in output such
          * as `Position[0.25, 0, -44.3272]`.
