@@ -30,11 +30,11 @@ void BundleNegative::clear() {
     q_stack_.front().clear();
 }
 
-int BundleNegative::erase(const eris_id_t &gid) {
+int BundleNegative::erase(const eris_id_t gid) {
     return q_stack_.front().erase(gid);
 }
 
-double BundleNegative::remove(const eris_id_t &gid) {
+double BundleNegative::remove(const eris_id_t gid) {
     double d = operator[](gid);
     erase(gid);
     return d;
@@ -148,12 +148,12 @@ bool BundleNegative::operator OP (const BundleNegative &b) const noexcept {\
         if (!(operator[](g) OP b[g])) return false;\
     return true;\
 }\
-bool BundleNegative::operator OP (const double &q) const noexcept {\
+bool BundleNegative::operator OP (const double q) const noexcept {\
     for (auto &g : *this)\
         if (!(g.second OP q)) return false;\
     return true;\
 }\
-bool operator OP (const double &q, const BundleNegative &b) noexcept {\
+bool operator OP (const double q, const BundleNegative &b) noexcept {\
     return b REVOP q;\
 }
 
@@ -169,10 +169,10 @@ _ERIS_BUNDLE_CPP_COMPARE(>=, <=)
 bool BundleNegative::operator != (const BundleNegative &b) const noexcept {
     return !(*this == b);
 }
-bool BundleNegative::operator != (const double &q) const noexcept {
+bool BundleNegative::operator != (const double q) const noexcept {
     return !(*this == q);
 }
-bool operator != (const double &q, const BundleNegative &b) noexcept {
+bool operator != (const double q, const BundleNegative &b) noexcept {
     return !(b == q);
 }
 
@@ -223,7 +223,7 @@ Bundle Bundle::operator - (const Bundle &b) const {
     return ret;
 }
 
-BundleNegative& BundleNegative::operator *= (const double &m) {
+BundleNegative& BundleNegative::operator *= (const double m) {
     beginTransaction();
     try { for (auto &g : *this) set(g.first, g.second * m); }
     catch (...) { abortTransaction(); throw; }
@@ -231,7 +231,7 @@ BundleNegative& BundleNegative::operator *= (const double &m) {
     return *this;
 }
 
-BundleNegative BundleNegative::operator * (const double &m) const {
+BundleNegative BundleNegative::operator * (const double m) const {
     BundleNegative ret(*this);
     ret.beginEncompassing();
     ret *= m;
@@ -239,7 +239,7 @@ BundleNegative BundleNegative::operator * (const double &m) const {
     return ret;
 }
 
-Bundle Bundle::operator * (const double &m) const {
+Bundle Bundle::operator * (const double m) const {
     Bundle ret(*this);
     ret.beginEncompassing();
     ret *= m;
@@ -247,7 +247,7 @@ Bundle Bundle::operator * (const double &m) const {
     return ret;
 }
 
-void BundleNegative::beginTransaction(const bool &encompassing) noexcept {
+void BundleNegative::beginTransaction(const bool encompassing) noexcept {
     if (not encompassed_.empty()) {
         encompassed_.push_front(true);
         return;

@@ -79,7 +79,7 @@ class BundleNegative {
         /// Constructs a new BundleNegative with no initial good/quantity values.
         BundleNegative();
         /// Constructs a new BundleNegative containing a single good, g, with quantity q.
-        BundleNegative(const eris_id_t &g, const double &q);
+        BundleNegative(eris_id_t g, double q);
         /** Allows initialization with a static std::initializer_list of std::pairs, such as:
          * BundleNegative b {{1, 1.0}, {2, 0.5}, {3, 100}};
          * Since an initializer_list requires constant values, this is primary useful for debugging
@@ -103,9 +103,9 @@ class BundleNegative {
         virtual ~BundleNegative() = default;
 
         /** Read-only access to BundleNegative quantities given a good id. */
-        double operator[] (const eris_id_t &gid) const;
+        double operator[] (const eris_id_t gid) const;
         /** Sets the quantity of the given good id to the given value. */
-        virtual void set(const eris_id_t &gid, const double &quantity);
+        virtual void set(const eris_id_t gid, double quantity);
         /** This method is is provided to be able to use a Bundle in a range for loop; it is, however, a
          * const_iterator, mapped internally to the underlying std::unordered_map's cbegin() method.
          */
@@ -129,18 +129,18 @@ class BundleNegative {
 
         /** Returns 1 if the given id exists in the Bundle (even if it equals 0), 0 otherwise.
          */
-        int count(const eris_id_t &gid) const;
+        int count(const eris_id_t gid) const;
 
         /** Removes the specified good from the bundle (if it exists), and returns either 0 or 1
          * indicating whether the good was present in the bundle, like std::unordered_map::erase.
          */
-        int erase(const eris_id_t &gid);
+        int erase(const eris_id_t gid);
 
         /** Like erase(id), but returns the quantity of the removed good, or 0 if the good was not
          * in the bundle.  Note that there is no way to distinguish between a good that was not in
          * the Bundle and a good that was in the Bundle with a quantity of 0.
          */
-        double remove(const eris_id_t &gid);
+        double remove(const eris_id_t gid);
 
         /** Removes any goods from the bundle that have a quantity equal to 0. */
         void clearZeros();
@@ -174,9 +174,9 @@ class BundleNegative {
         /// Subtracts the values of one BundleNegative from the current BundleNegative.
         BundleNegative& operator -= (const BundleNegative &b);
         /// Scales a BundleNegative's quantites by `m`
-        BundleNegative& operator *= (const double &m);
+        BundleNegative& operator *= (const double m);
         /// Scales a BundleNegative's quantities by `1/d`
-        BundleNegative& operator /= (const double &d);
+        BundleNegative& operator /= (const double d);
 
         /// The default epsilon for transferApprox(), if not specified.
         static constexpr double default_transfer_epsilon = 1.0e-12;
@@ -260,11 +260,11 @@ class BundleNegative {
         /// Negates all quantities of a BundleNegative and returns the result.
         BundleNegative operator - () const;
         /// Scales all BundleNegative quantities by `m` and returns the result.
-        BundleNegative operator * (const double &m) const;
+        BundleNegative operator * (const double m) const;
         /// Scales all BundleNegative quantities by `1/d` and returns the result.
-        BundleNegative operator / (const double &d) const;
+        BundleNegative operator / (const double d) const;
         /// Scales all BundleNegative quantities by `m` and returns the result.
-        friend BundleNegative operator * (const double &m, const BundleNegative &b);
+        friend BundleNegative operator * (const double m, const BundleNegative &b);
 
         // Bundle <-> Bundle comparisons:
         
@@ -297,36 +297,36 @@ class BundleNegative {
         // Bundle <-> constant comparisons:
         /** Returns true if every quantity that exists in this BundleNegative exceeds `q`.  Returns
          * true if the BundleNegative is empty. */
-        bool operator >  (const double &q) const noexcept;
+        bool operator >  (const double q) const noexcept;
         /** Returns true if every quantity that exists in this BundleNegative equals or exceeds `q`.
          * Returns true if the BundleNegative is empty. */
-        bool operator >= (const double &q) const noexcept;
+        bool operator >= (const double q) const noexcept;
         /** Returns true if every quantity that exists in this BundleNegative equals or exceeds `q`.
          * Returns true if the BundleNegative is empty. */
-        bool operator == (const double &q) const noexcept;
+        bool operator == (const double q) const noexcept;
         /** Returns true if any quantity that exists in this BundleNegative does not equal `q`.
          * Returns false if the BundleNegative is empty.  `a != 4` is equivalent to `!(a == 4)`. */
-        bool operator != (const double &q) const noexcept;
+        bool operator != (const double q) const noexcept;
         /** Returns true if every quantity that exists in this BundleNegative is less than `q`.
          * Returns true if the BundleNegative is empty. */
-        bool operator <  (const double &q) const noexcept;
+        bool operator <  (const double q) const noexcept;
         /** Returns true if every quantity that exists in this BundleNegative is less than or equal
          * to `q`.  Returns true if the BundleNegative is empty. */
-        bool operator <= (const double &q) const noexcept;
+        bool operator <= (const double q) const noexcept;
 
         // constant <-> Bundle comparisons:
         /// `q > bundle` is equivalent to `bundle < q`
-        friend bool operator >  (const double &q, const BundleNegative &b) noexcept;
+        friend bool operator >  (const double q, const BundleNegative &b) noexcept;
         /// `q >= bundle` is equivalent to `bundle <= q`
-        friend bool operator >= (const double &q, const BundleNegative &b) noexcept;
+        friend bool operator >= (const double q, const BundleNegative &b) noexcept;
         /// `q == bundle` is equivalent to `bundle == q`
-        friend bool operator == (const double &q, const BundleNegative &b) noexcept;
+        friend bool operator == (const double q, const BundleNegative &b) noexcept;
         /// `q != bundle` is equivalent to `bundle != q`
-        friend bool operator != (const double &q, const BundleNegative &b) noexcept;
+        friend bool operator != (const double q, const BundleNegative &b) noexcept;
         /// `q < bundle` is equivalent to `bundle > q`
-        friend bool operator <  (const double &q, const BundleNegative &b) noexcept;
+        friend bool operator <  (const double q, const BundleNegative &b) noexcept;
         /// `q <= bundle` is equivalent to `bundle >= q`
-        friend bool operator <= (const double &q, const BundleNegative &b) noexcept;
+        friend bool operator <= (const double q, const BundleNegative &b) noexcept;
 
         /** Begins a transaction for this bundle.  When a transaction is in progress, all Bundle
          * arithmetic is stored separately from the underlying Bundle results and can be reverted to
@@ -347,7 +347,7 @@ class BundleNegative {
          * transactions from their responsibility to call abortTransaction() or commitTransaction():
          * those must still be called to distinguish where the encompassed transaction ends.
          */
-        void beginTransaction(const bool &encompassing = false) noexcept;
+        void beginTransaction(const bool encompassing = false) noexcept;
 
         /** Cancels a transaction previously started with beginTransaction(), restoring the Bundle's
          * quantities to the values before the transaction started.
@@ -442,7 +442,7 @@ class Bundle final : public BundleNegative {
         /// Creates a new, empty Bundle.
         Bundle();
         /// Creates a new Bundle containing a single good of the given quantity.
-        Bundle(const eris_id_t &g, const double &q);
+        Bundle(eris_id_t g, double q);
         /// Creates a new Bundle from an initializer list of goods and quantities.
         Bundle(const std::initializer_list<std::pair<eris_id_t, double>> &init);
         /** Creates a new Bundle by copying quantities from another Bundle (or BundleNegative).  If
@@ -458,18 +458,18 @@ class Bundle final : public BundleNegative {
          *
          * \throws Bundle::negativity_error if quantity is negative.
          */
-        void set(const eris_id_t &gid, const double &quantity) override;
+        void set(const eris_id_t gid, double quantity) override;
 
         /** Scales a bundle by `m`.
          *
          * \throws Bundle::negativity_error if `m` is negative.
          */
-        Bundle& operator *= (const double &m);
+        Bundle& operator *= (const double m);
         /** Scales a bundle by `1/d`.
          *
          * \throws Bundle::negativity_error if `d` is negative.
          */
-        Bundle& operator /= (const double &d);
+        Bundle& operator /= (const double d);
 
         // Inherit the BundleNegative versions of these:
         using BundleNegative::operator +;
@@ -507,19 +507,19 @@ class Bundle final : public BundleNegative {
          * \throws Bundle::negativity_error if `m < 0`.  If you need a negative, first cast the Bundle
          * as a BundleNegative, such as: `auto neg = ((BundleNegative) b) * -3;`
          */
-        Bundle operator * (const double &m) const;
+        Bundle operator * (const double m) const;
         /** Scales all BundleNegative quantities by `m` and returns the result.
          *
          * \throws Bundle::negativity_error if `m < 0`.  If you need a negative, first cast the Bundle
          * as a BundleNegative, such as: `auto neg = -3 * (BundleNegative) b;`
          */
-        friend Bundle operator * (const double &m, const Bundle &a);
+        friend Bundle operator * (const double m, const Bundle &a);
         /** Dividing a Bundle by a constant returns a Bundle with quantities scaled by the inverse
          * of the constant.
          *
          * \throws Bundle::negativity_error if m < 0
          */
-        Bundle operator / (const double &d) const;
+        Bundle operator / (const double d) const;
 
         /** Performs "bundle coverage," returning the multiples of the provided bundle needed to
          * cover the called-upon Bundle.  Coverage of a Bundle (but *not* BundleNegative) by another
@@ -646,7 +646,7 @@ class Bundle final : public BundleNegative {
                  * \param good the id of the good that was assigned a negative value
                  * \param value the negative value that was assigned
                  */
-                negativity_error(const eris_id_t &good, const double &value) :
+                negativity_error(const eris_id_t good, const double value) :
                     std::range_error("eris_id_t=" + std::to_string(good) + " assigned illegal negative value "
                             + std::to_string(value) + " in Bundle."), good(good), value(value) {}
                 /** Constructor for a negativity exception for a negative quantity with a given
@@ -656,7 +656,7 @@ class Bundle final : public BundleNegative {
                  * \param good the id of the good that was assigned a negative value
                  * \param value the negative value that was assigned
                  */
-                negativity_error(const std::string& what_arg, const eris_id_t &good, const double &value) :
+                negativity_error(const std::string& what_arg, const eris_id_t good, const double value) :
                     std::range_error(what_arg), good(good), value(value) {}
                 /// The id of the good that caused the error
                 const eris_id_t good;
@@ -669,28 +669,28 @@ class Bundle final : public BundleNegative {
 // (if the compiler decides it's helpful).  Less frequently called and/or more complex functions are
 // in src/Bundle.cpp
 inline BundleNegative::BundleNegative() {}
-inline BundleNegative::BundleNegative(const eris_id_t &g, const double &q) { set(g, q); }
+inline BundleNegative::BundleNegative(eris_id_t g, double q) { set(g, q); }
 inline BundleNegative::BundleNegative(const BundleNegative &b) {
     for (auto &g : b) set(g.first, g.second);
 }
 
 inline Bundle::Bundle() : BundleNegative() {}
-inline Bundle::Bundle(const eris_id_t &g, const double &q) : BundleNegative() { set(g, q); }
+inline Bundle::Bundle(eris_id_t g, double q) : BundleNegative() { set(g, q); }
 inline Bundle::Bundle(const BundleNegative &b) : BundleNegative() {
     for (auto &g : b) set(g.first, g.second);
 }
 
-inline double BundleNegative::operator[] (const eris_id_t &gid) const {
+inline double BundleNegative::operator[] (const eris_id_t gid) const {
     // Don't want to invoke map's [] operator, because it auto-vivifies the element
     auto &f = q_stack_.front();
     auto it = f.find(gid);
     return it == f.end() ? 0.0 : it->second;
 }
-inline void BundleNegative::set(const eris_id_t &gid, const double &quantity) {
+inline void BundleNegative::set(const eris_id_t gid, double quantity) {
     q_stack_.front()[gid] = quantity;
 }
 
-inline void Bundle::set(const eris_id_t &gid, const double &quantity) {
+inline void Bundle::set(const eris_id_t gid, const double quantity) {
     if (quantity < 0) throw negativity_error(gid, quantity);
     BundleNegative::set(gid, quantity);
 }
@@ -701,7 +701,7 @@ inline bool BundleNegative::empty() const {
 inline std::unordered_map<eris_id_t, double>::size_type BundleNegative::size() const {
     return q_stack_.front().size();
 }
-inline int BundleNegative::count(const eris_id_t &gid) const {
+inline int BundleNegative::count(const eris_id_t gid) const {
     return q_stack_.front().count(gid);
 }
 inline std::unordered_map<eris_id_t, double>::const_iterator BundleNegative::begin() const {
@@ -710,15 +710,15 @@ inline std::unordered_map<eris_id_t, double>::const_iterator BundleNegative::beg
 inline std::unordered_map<eris_id_t, double>::const_iterator BundleNegative::end() const {
     return q_stack_.front().cend();
 }
-inline Bundle& Bundle::operator *= (const double &m) {
+inline Bundle& Bundle::operator *= (const double m) {
     if (m < 0) throw negativity_error("Attempt to scale Bundle by negative value " + std::to_string(m), 0, m);
     BundleNegative::operator*=(m);
     return *this;
 }
-inline BundleNegative& BundleNegative::operator /= (const double &d) {
+inline BundleNegative& BundleNegative::operator /= (const double d) {
     return *this *= (1.0 / d);
 }
-inline Bundle& Bundle::operator /= (const double &d) {
+inline Bundle& Bundle::operator /= (const double d) {
     if (d < 0) throw negativity_error("Attempt to scale Bundle by negative value 1/" + std::to_string(d), 0, d);
     BundleNegative::operator/=(d);
     return *this;
@@ -728,17 +728,17 @@ inline BundleNegative BundleNegative::operator - () const {
 }
 // Doxygen bug: doxygen erroneously warns about non-inlined friend methods
 /// \cond
-inline BundleNegative operator * (const double &m, const BundleNegative &b) {
+inline BundleNegative operator * (const double m, const BundleNegative &b) {
     return b * m;
 }
 /// \endcond
-inline Bundle operator * (const double &m, const Bundle &b) {
+inline Bundle operator * (const double m, const Bundle &b) {
     return b * m;
 }
-inline BundleNegative BundleNegative::operator / (const double &d) const {
+inline BundleNegative BundleNegative::operator / (const double d) const {
     return *this * (1.0/d);
 }
-inline Bundle Bundle::operator / (const double &d) const {
+inline Bundle Bundle::operator / (const double d) const {
     return *this * (1.0/d);
 }
 
