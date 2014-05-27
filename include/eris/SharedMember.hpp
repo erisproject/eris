@@ -67,7 +67,7 @@ class SharedMember final {
          * SharedMember<T> created from casting this SharedMember<R> will have .orig_type =
          * &typeid(R).
          *
-         * This is used during copy-assignment to only copy-assignment only when the original types
+         * This is used during copy-assignment to allow copy-assignment only when the original types
          * of the pointed at objects are identical.
          */
         const std::type_info *orig_type;
