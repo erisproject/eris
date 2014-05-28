@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include <typeinfo>
 #include <functional>
+#include <utility>
 
 namespace eris {
 
@@ -38,7 +39,7 @@ class SharedMember final {
          *
          * This method also doubles as a boolean operator.
          */
-        operator eris_id_t () const { return ptr_ ? ptr_->id() : 0; }
+        operator eris_id_t () const noexcept { return ptr_ ? ptr_->id() : 0; }
         /** Dereferencing gives you the underlying T */
         T& operator * () const { return *ptr_; }
         /** Dereferencing member access works on the underlying T */
@@ -52,12 +53,12 @@ class SharedMember final {
          * to store SharedMember<T> of different simulations in a container will not work.
          */
         template <class O>
-        bool operator < (const SharedMember<O> &other) {
+        bool operator < (const SharedMember<O> &other) noexcept {
             return (eris_id_t) *this < (eris_id_t) other;
         }
 
         /** Access to the underlying shared_ptr */
-        const std::shared_ptr<T>& ptr() const { return ptr_; }
+        const std::shared_ptr<T>& ptr() const noexcept { return ptr_; }
 
         /** The type T that this SharedMember wraps */
         typedef T member_type;
@@ -154,6 +155,12 @@ class SharedMember final {
             return *this;
         }
 
+        /// Swaps the caller with the argument.  Typically called via swap(a, b) function.
+        void swap(SharedMember<T> &other) noexcept {
+            ptr_.swap(other.ptr_);
+            std::swap(orig_type, other.orig_type);
+        }
+
     private:
         SharedMember(const std::shared_ptr<T> &ptr) : orig_type{&typeid(T)}, ptr_{ptr} {}
         SharedMember(std::shared_ptr<T> &&ptr) : orig_type{&typeid(T)}, ptr_{std::move(ptr)} {}
@@ -162,6 +169,12 @@ class SharedMember final {
 
         friend class Simulation;
 };
+
+/** Provides swap for swapping two SharedMembers<T>s.  The generic std::swap fails when the two
+ * members are different T subclasses (because the copy assignment operator throws an exception in
+ * such a case).
+ */
+template <class T> void swap(SharedMember<T> &a, SharedMember<T> &b) noexcept { a.swap(b); }
 
 }
 
