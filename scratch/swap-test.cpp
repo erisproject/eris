@@ -36,6 +36,7 @@ int main() {
     g->bar();
 
     try {
+        // gm is actually an A now, so this should be a bad cast:
         SharedMember<G> g3(gm);
         std::cout << "Uh oh, why didn't that throw?\n";
     }
@@ -43,12 +44,24 @@ int main() {
         std::cout << "Great, caught the right exception: " << e.what() << "\n";
     }
 
+    SharedMember<Member> a3(a);
+    SharedMember<A>(a3)->foo();
+    SharedMember<A>(gm)->foo();
     try {
-        SharedMember<Member> a3(a);
-        a3 = am;
-        std::cout << "Uh oh, why didn't a3 = am throw?\n";
+        SharedMember<A>(am)->foo();
+        std::cout << "Uh oh, why didn't cast to A throw?\n";
     }
-    catch (std::runtime_error &e) {
+    catch (std::bad_cast &e) {
+        std::cout << "Good, caught exception: " << e.what() << "\n";
+    }
+    a3 = am; // Should be allowed
+    SharedMember<G>(a3)->bar();
+    SharedMember<G>(am)->bar();
+    try {
+        SharedMember<G>(gm)->bar();
+        std::cout << "Uh oh, why didn't cast to G throw?\n";
+    }
+    catch (std::bad_cast &e) {
         std::cout << "Good, caught exception: " << e.what() << "\n";
     }
 

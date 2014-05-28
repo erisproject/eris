@@ -29,7 +29,7 @@ class SharedMember final {
         /** Default constructor; creates a SharedMember around a null shared_ptr that refers to no
          * object.
          */
-        SharedMember() : orig_type{&typeid(T)} {}
+        SharedMember() {}
 
         /** Using as a T gives you the underlying T object */
         operator T& () const { return *ptr_; }
@@ -57,21 +57,11 @@ class SharedMember final {
             return (eris_id_t) *this < (eris_id_t) other;
         }
 
-        /** Access to the underlying shared_ptr */
+        /** const access to the underlying shared_ptr */
         const std::shared_ptr<T>& ptr() const noexcept { return ptr_; }
 
         /** The type T that this SharedMember wraps */
         typedef T member_type;
-
-        /** The original type of the pointed-at object.  For example, if the pointed-at object was
-         * created as a R, and R inherits from S and S inherits from T, then any SharedMember<S> or
-         * SharedMember<T> created from casting this SharedMember<R> will have .orig_type =
-         * &typeid(R).
-         *
-         * This is used during copy-assignment to allow copy-assignment only when the original types
-         * of the pointed at objects are identical.
-         */
-        const std::type_info *orig_type;
 
         /** Constructing a new SharedMember<A> using an existing SharedMember<F> recasts the F
          * pointer to an A pointer.  This constructor also allows you to do things like:
@@ -96,7 +86,7 @@ class SharedMember final {
         template<class F>
         SharedMember(const SharedMember<F> &from,
                 typename std::enable_if<std::is_base_of<T, F>::value and not std::is_same<T, F>::value>::type* = 0)
-            : orig_type{from.orig_type}, ptr_{std::static_pointer_cast<T,F>(from.ptr())}
+            : ptr_{std::static_pointer_cast<T,F>(from.ptr())}
         {}
 
         /** Same as above, but for downcasting (i.e. when going from SharedMember<Base> to
@@ -106,7 +96,7 @@ class SharedMember final {
         template<class F>
         SharedMember(const SharedMember<F> &from,
                 typename std::enable_if<std::is_base_of<F, T>::value and not std::is_same<T, F>::value>::type* = 0)
-            : orig_type{from.orig_type}, ptr_{std::dynamic_pointer_cast<T,F>(from.ptr())} {
+            : ptr_{std::dynamic_pointer_cast<T,F>(from.ptr())} {
             // Raise an exception if the ptr above gave back a null shared pointer: that means the
             // cast attempted to cast to a derived class, when the actual object is only a base
             // class instance.
@@ -114,67 +104,17 @@ class SharedMember final {
         }
 
         /** Copy constructor. */
-        SharedMember(const SharedMember<T> &from) : orig_type{from.orig_type}, ptr_{from.ptr_}
+        SharedMember(const SharedMember<T> &from) : ptr_{from.ptr_}
         {}
 
-        /** Copy assignment operator.  This is permitted in only two circumstances: first, when the
-         * current shared pointer is null; this is sometimes needed by standard library components
-         * (such as when copying containers), which need to create a SharedMember<T> with no
-         * arguments then copy-assign into it.
-         *
-         * The second permitted situation is when the two pointed-at objects are actually of the
-         * same time, regardless of whatever T they are currently cast into.  For example:
-         *
-         *     SharedMember<AssetAgent> aa1 = sim->create<AssetAgent>();
-         *     SharedMember<AssetAgent> aa2 = sim->create<AssetAgent>();
-         *     SharedMember<Positional<AssetAgent>> pa3 = sim->create<Positional<AssetAgent>>();
-         *
-         *     // aa1 and aa2 can be cast to SharedMember<B> for any base class of AssetAgent
-         *     // pa3 can be cast to the same SharedMember<B> and also a SharedMember<AssetAgent>
-         *     // (because AssetAgent is a base class of Positional<AssetAgent>)
-         *
-         *     SharedMember<Agent> agent1 = aa1; // Upcasts SharedMember<AssetAgent> to SharedMember<Agent>
-         *     SharedMember<Member> memb2 = aa2; // Upcasts SharedMember<AssetAgent> to SharedMember<Member>
-         *     SharedMember<Agent> agent3 = pa3; // Upcasts to SharedMember<Agent>
-         *
-         *     memb2 = aa1; // Allowed: both "1" and "2" are really AssetAgent objects
-         *     agent3 = aa2; // Throws runtime_error: "2" and "3" are not the same original type
-         *
-         * \throws std::runtime_error if the object already has a shared pointer and that shared
-         * pointer is not of the same original type as the copied-in object.
-         */
-        SharedMember<T>& operator=(const SharedMember<T> &t) {
-            if (not ptr_) {
-                // null SharedMember<T> that we're copying into
-                orig_type = t.orig_type;
-            }
-            else if (*t.orig_type != *orig_type) {
-                throw std::runtime_error("Cannot reassign SharedMember<T> via assignment operator when original types differ");
-            }
-            ptr_ = t.ptr_;
-            return *this;
-        }
-
-        /// Swaps the caller with the argument.  Typically called via swap(a, b) function.
-        void swap(SharedMember<T> &other) noexcept {
-            ptr_.swap(other.ptr_);
-            std::swap(orig_type, other.orig_type);
-        }
-
     private:
-        SharedMember(const std::shared_ptr<T> &ptr) : orig_type{&typeid(T)}, ptr_{ptr} {}
-        SharedMember(std::shared_ptr<T> &&ptr) : orig_type{&typeid(T)}, ptr_{std::move(ptr)} {}
+        SharedMember(const std::shared_ptr<T> &ptr) : ptr_{ptr} {}
+        SharedMember(std::shared_ptr<T> &&ptr) : ptr_{std::move(ptr)} {}
 
         std::shared_ptr<T> ptr_;
 
         friend class Simulation;
 };
-
-/** Provides swap for swapping two SharedMembers<T>s.  The generic std::swap fails when the two
- * members are different T subclasses (because the copy assignment operator throws an exception in
- * such a case).
- */
-template <class T> void swap(SharedMember<T> &a, SharedMember<T> &b) noexcept { a.swap(b); }
 
 }
 
