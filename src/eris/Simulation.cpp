@@ -38,21 +38,22 @@ void Simulation::insert(const SharedMember<Member> &member) {
 #define ERIS_SIM_INSERT_REMOVE_MEMBER(TYPE, CLASS, MAP)\
 void Simulation::insert##TYPE(const SharedMember<CLASS> &member) {\
     std::lock_guard<std::recursive_mutex> mbr_lock(member_mutex_);\
-    member->simulation(shared_from_this(), id_next_++);\
-    MAP.insert(std::make_pair(member->id(), member));\
-    insertOptimizers(member);\
+    eris_id_t member_id = id_next_++;\
+    MAP.insert(std::make_pair(member_id, member));\
     invalidateCache<CLASS>();\
+    member->simulation(shared_from_this(), member_id);\
+    insertOptimizers(member);\
 }\
 void Simulation::remove##TYPE(const eris_id_t &id) {\
     std::lock_guard<std::recursive_mutex> mbr_lock(member_mutex_);\
     auto &member = MAP.at(id);\
     auto lock = member->writeLock();\
     removeOptimizers(member);\
-    member->simulation(nullptr, 0);\
     MAP.erase(id);\
+    invalidateCache<CLASS>();\
+    member->simulation(nullptr, 0);\
     removeDeps(id);\
     notifyWeakDeps(member, id);\
-    invalidateCache<CLASS>();\
 }
 ERIS_SIM_INSERT_REMOVE_MEMBER(Agent,  Agent,  agents_)
 ERIS_SIM_INSERT_REMOVE_MEMBER(Good,   Good,   goods_)

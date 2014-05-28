@@ -467,15 +467,14 @@ class Member : private noncopyable {
          */
         virtual void added();
 
-        /** Virtual method called just after the member is removed from a Simulation object.  The
-         * default implementation does nothing.  The simulation() and id() methods are still
+        /** Virtual method called just after the member has been removed from a Simulation object.
+         * The default implementation does nothing.  The simulation() and id() methods are still
          * available, but the simulation no longer references this Member.
          *
          * Note that any registered dependencies may not exist (in particular when the removal is
          * occuring as the result of a cascading dependency removal).  In other words, if this
          * Member has registered a dependency on B, when B is removed, this Member will also be
-         * removed *after* B has been removed from the Simulation.  Thus classes overriding this
-         * method must *not* make use of dependent objects.
+         * removed *after* B has been removed from the Simulation.
          */
         virtual void removed();
 
