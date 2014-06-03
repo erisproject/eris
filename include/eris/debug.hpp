@@ -27,7 +27,7 @@ inline const char* _DEBUG__FILE__(const char *f) {
  *
  * Does nothing unless compiled with `-DERIS_DEBUG`.
  */
-#define ERIS_DBGF(format, ...) do { if (ERIS_DEBUG_BOOL) fprintf(stderr, "%s:%d:%s(): " format "\n", _eris__FILE__, __LINE__, __func__, ##__VA_ARGS__); } while (0)
+#define ERIS_DBGF(format, ...) do { if (ERIS_DEBUG_BOOL) fprintf(stderr, "%s:%d:%s(): " format "\n", _eris__FILE__, __LINE__, __func__, ##__VA_ARGS__); std::cerr << std::flush; } while (0)
 
 /** Debugging macro.  DEBUG(a << b << c); sends a << b << c into std::cerr when debugging is
  * enabled, and does nothing otherwise.  The debugging output has the file/line/function prepended,
@@ -35,7 +35,7 @@ inline const char* _DEBUG__FILE__(const char *f) {
  *
  * Does nothing unless compiled with `-DERIS_DEBUG`.
  */
-#define ERIS_DBG(stuff) do { if (ERIS_DEBUG_BOOL) std::cerr << _eris__FILE__ << ":" << __LINE__ << ":" << __func__ << "(): " << stuff << "\n"; } while (0)
+#define ERIS_DBG(stuff) do { if (ERIS_DEBUG_BOOL) std::cerr << _eris__FILE__ << ":" << __LINE__ << ":" << __func__ << "(): " << stuff << "\n" << std::flush; } while (0)
 
 /** Debugging macro for a single variable.  DEBUGVAR(x) is an alias for DEBUG("x = " << x) */
 #define ERIS_DBGVAR(x) ERIS_DBG(#x " = " << x)
