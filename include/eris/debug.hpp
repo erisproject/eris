@@ -1,5 +1,6 @@
 #pragma once
 #include <iostream>
+#include <ctime>
 
 #ifdef ERIS_DEBUG
 #define ERIS_DEBUG_BOOL true
@@ -39,3 +40,17 @@ inline const char* _DEBUG__FILE__(const char *f) {
 
 /** Debugging macro for a single variable.  DEBUGVAR(x) is an alias for DEBUG("x = " << x) */
 #define ERIS_DBGVAR(x) ERIS_DBG(#x " = " << x)
+
+// stdc++-4.9 and earlier don't support the C++11 put_time, so this doesn't work:
+//#define _eris_PREPEND_TIME if (ERIS_DEBUG_BOOL) { std::time_t t = std::time(nullptr); std::cerr << std::put_time(std::localtime(&t), "[%c] "); }
+#define _eris_PREPEND_TIME if (ERIS_DEBUG_BOOL) { std::time_t t = std::time(nullptr); char tstr[100]; std::strftime(tstr, sizeof(tstr), "[%c] ", std::localtime(&t)); std::cerr << tstr; }
+
+/** Debugging macro just like `ERIS_DBGF` but also prefixes output with the current date and time. */
+#define ERIS_TDBGF(format, ...) do { _eris_PREPEND_TIME; ERIS_DBGF(format, ##__VA_ARGS__); } while (0)
+
+/** Debugging macro just like `ERIS_DBG`, but also prefixes output with the current date and time. */
+#define ERIS_TDBG(stuff) do { _eris_PREPEND_TIME; ERIS_DBG(stuff); } while (0)
+
+/** Debugging macro just like `ERIS_DBGVAR`, but also prefixes output with the current date and
+ * time. */
+#define ERIS_TDBGVAR(x) ERIS_TDBG(#x " = " << x)
