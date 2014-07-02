@@ -60,6 +60,16 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
             >::type>
         SharedMember<O> other(eris_id_t oid) const;
 
+        /** Returns true if the simulation has an agent with the given id, false otherwise. */
+        bool hasAgent(eris_id_t id) const noexcept;
+        /** Returns true if the simulation has a good with the given id, false otherwise. */
+        bool hasGood(eris_id_t id) const noexcept;
+        /** Returns true if the simulation has a market with the given id, false otherwise. */
+        bool hasMarket(eris_id_t id) const noexcept;
+        /** Returns true if the simulation has a non-agent/good/market member with the given id,
+         * false otherwise. */
+        bool hasOther(eris_id_t id) const noexcept;
+
         /** Constructs a new T object using the given constructor arguments Args, adds it to the
          * simulation.  T must be a subclass of Member; if it is also a subclass of Agent, Good, or
          * Market it will be treated as the appropriate type; otherwise it is treated as an "other"
@@ -456,7 +466,10 @@ template <class T, typename... Args, class> SharedMember<T> Simulation::create(A
 // agent() and agents()).
 //
 // Searching help:
-// agent() agents() good() goods() market() markets() other() others()
+// agent() good() market() other()
+// agents() goods() markets() others()
+// hasAgent() hasGood() hasMarket() hasOther()
+// countAgents() countGoods() countMarkets() countOthers()
 #define ERIS_SIM_TYPE_METHODS(TYPE, CAP_TYPE)\
 template <class T, typename> SharedMember<T> Simulation::TYPE(eris_id_t id) const {\
     std::lock_guard<std::recursive_mutex> lock(member_mutex_);\
@@ -464,6 +477,9 @@ template <class T, typename> SharedMember<T> Simulation::TYPE(eris_id_t id) cons
 }\
 template <class T, typename> std::vector<SharedMember<T>> Simulation::TYPE##s(const std::function<bool(const T &TYPE)> &filter) const {\
     return genericFilter(TYPE##s_, filter);\
+}\
+inline bool Simulation::has##CAP_TYPE(eris_id_t id) const noexcept {\
+    return TYPE##s_.count(id) > 0;\
 }\
 template <class T, typename> size_t Simulation::count##CAP_TYPE##s(const std::function<bool(const T &TYPE)> &filter) const {\
     return genericFilterCount(TYPE##s_, filter);\
