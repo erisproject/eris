@@ -5,7 +5,7 @@ using std::unordered_map;
 
 namespace eris { namespace intraopt {
 
-MUPD::MUPD(const Consumer::Differentiable &consumer, const eris_id_t &money, double tolerance) :
+MUPD::MUPD(const Consumer::Differentiable &consumer, eris_id_t money, double tolerance) :
     tolerance(tolerance), con_id(consumer), money(money), money_unit(Bundle {{ money, 1 }})
     {}
 
@@ -54,7 +54,7 @@ MUPD::allocation MUPD::spending_allocation(const unordered_map<eris_id_t, double
 double MUPD::calc_mu_per_d(
         const SharedMember<Consumer::Differentiable> &con,
         Member::Lock &lock,
-        const eris_id_t &mkt_id,
+        eris_id_t mkt_id,
         const allocation &alloc,
         const Bundle &b) const {
 

@@ -82,12 +82,12 @@ class CompoundSum::Differentiable : public Consumer::Differentiable {
         }
 
         /// Returns the derivative, which is the sum of consumer derivatives.
-        double d(const BundleNegative &bundle, const eris_id_t &g) const override {
+        double d(const BundleNegative &bundle, eris_id_t g) const override {
             return first->d(bundle, g) + second->d(bundle, g);
         }
 
         /// Returns the second derivative, which is the sum of consumer second derivatives.
-        double d2(const BundleNegative &bundle, const eris_id_t &g1, const eris_id_t &g2) const override {
+        double d2(const BundleNegative &bundle, eris_id_t g1, eris_id_t g2) const override {
             return first->d2(bundle, g1, g2) + second->d2(bundle, g1, g2);
         }
 
@@ -165,7 +165,7 @@ class CompoundProduct::Differentiable : public Consumer::Differentiable {
         /** Returns the derivative of \f$ u_1(\hdots) u_2(\hdots) \f$, which is, by the product rule,
          * \f$ \frac{\partial u_1}{\partial g} u_2 + u_1 \frac{\partial u_2}{\partial g} \f$.
          */
-        double d(const BundleNegative &bundle, const eris_id_t &g) const override {
+        double d(const BundleNegative &bundle, eris_id_t g) const override {
             double grad = 0.0;
             double aprime = first->d(bundle, g);
             if (aprime != 0) grad += aprime * second->utility(bundle);
@@ -184,7 +184,7 @@ class CompoundProduct::Differentiable : public Consumer::Differentiable {
          * u_1 \frac{\partial^2 u_2}{\partial g_1 \partial g_2}
          * \f$.
          */
-        double d2(const BundleNegative &bundle, const eris_id_t &g1, const eris_id_t &g2) const override {
+        double d2(const BundleNegative &bundle, eris_id_t g1, eris_id_t g2) const override {
             double h = 0.0;
             double a12 = first->d2(bundle, g1, g2);
             if (a12 != 0) h += a12 * second->utility(bundle);

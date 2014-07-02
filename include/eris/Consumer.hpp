@@ -35,9 +35,9 @@ class Consumer : public agent::AssetAgent {
 class Consumer::Differentiable : public Consumer {
     public:
         /// Returns \f$\frac{\partial u(\mathbf{g})}{\partial g_i}\f$
-        virtual double d(const BundleNegative &b, const eris_id_t &gid) const = 0;
+        virtual double d(const BundleNegative &b, eris_id_t gid) const = 0;
         /// Returns \f$\frac{\partial^2 u(\mathbf{g})}{\partial g_i \partial g_j}\f$
-        virtual double d2(const BundleNegative &b, const eris_id_t &g1, const eris_id_t &g2) const = 0;
+        virtual double d2(const BundleNegative &b, eris_id_t g1, eris_id_t g2) const = 0;
         /** Returns the gradient for the given goods g evaluated at Bundle b.  These must be passed
          * separately because the Bundle need not contain quantities for all valid goods.  The
          * default implementation simply calls d() for each good, but subclasses may override that

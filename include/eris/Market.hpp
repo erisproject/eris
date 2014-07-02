@@ -117,7 +117,7 @@ class Market : public Member {
                  * Positive amounts are to be transferred from the firm, negative amounts are to be
                  * transferred to the firm.  This is intended to be called only by Market subclasses.
                  */
-                void firmReserve(const eris_id_t &firm_id, BundleNegative transfer);
+                void firmReserve(eris_id_t firm_id, BundleNegative transfer);
                 /** Calls buy() on the market.  Calling obj->buy() is a shortcut for calling
                  * `obj->market->buy(obj)`.
                  */
@@ -325,7 +325,7 @@ class Market : public Member {
         /** Overridden to automatically remove a firm from the market when the firm is removed from
          * the simulation.
          */
-        virtual void weakDepRemoved(SharedMember<Member>, const eris_id_t &old_id) override;
+        virtual void weakDepRemoved(SharedMember<Member>, eris_id_t old_id) override;
 
 };
 

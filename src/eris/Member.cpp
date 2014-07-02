@@ -6,20 +6,20 @@
 
 namespace eris {
 
-void Member::dependsOn(const eris_id_t &id) {
+void Member::dependsOn(eris_id_t id) {
     simulation()->registerDependency(*this, id);
 }
 
-void Member::dependsWeaklyOn(const eris_id_t &id) {
+void Member::dependsWeaklyOn(eris_id_t id) {
     simulation()->registerWeakDependency(*this, id);
 }
 
-void Member::weakDepRemoved(SharedMember<Member>, const eris_id_t&) {}
+void Member::weakDepRemoved(SharedMember<Member>, eris_id_t) {}
 
 
 SharedMember<Member> Member::sharedSelf() const { return simOther<Member>(id()); }
 
-void Member::simulation(const std::shared_ptr<Simulation> &sim, const eris_id_t &id) {
+void Member::simulation(const std::shared_ptr<Simulation> &sim, eris_id_t id) {
     if (id == 0) removed();
     simulation_ = sim;
     id_ = id;

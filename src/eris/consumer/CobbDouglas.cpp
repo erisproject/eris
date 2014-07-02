@@ -5,12 +5,12 @@ namespace eris { namespace consumer {
 
 CobbDouglas::CobbDouglas(double c) : constant(c) {}
 CobbDouglas::CobbDouglas(
-        const eris_id_t &g1,
-        const double &exp1,
-        const eris_id_t &g2,
-        const double &exp2,
-        const eris_id_t &g3,
-        const double &exp3,
+        eris_id_t g1,
+        double exp1,
+        eris_id_t g2,
+        double exp2,
+        eris_id_t g3,
+        double exp3,
         double c
         ) : constant(c) {
     if (g1 != 0) exponents[g1] = exp1;
@@ -27,14 +27,14 @@ double CobbDouglas::coef() const {
     return constant;
 }
 // Linear term
-double& CobbDouglas::exp(const eris_id_t &g) {
+double& CobbDouglas::exp(eris_id_t g) {
     return exponents[g];
 }
-double CobbDouglas::exp(const eris_id_t &g) const {
+double CobbDouglas::exp(eris_id_t g) const {
     return exponents.count(g) ? exponents.at(g) : 0.0;
 }
 
-double CobbDouglas::power(const double &val, const double &exp) const {
+double CobbDouglas::power(double val, double exp) const {
     if (exp == 0) return 1.0;
 
     if (val == 0) {
@@ -62,7 +62,7 @@ double CobbDouglas::utility(const BundleNegative &b) const {
     return u;
 }
 
-double CobbDouglas::d(const BundleNegative &b, const eris_id_t &g) const {
+double CobbDouglas::d(const BundleNegative &b, eris_id_t g) const {
     // Short-circuit cases resulting in a 0 derivative
     if (!exponents.count(g) or exponents.at(g) == 0)
         return 0.0;
@@ -83,7 +83,7 @@ double CobbDouglas::d(const BundleNegative &b, const eris_id_t &g) const {
     }
     return grad;
 }
-double CobbDouglas::d2(const BundleNegative &b, const eris_id_t &g1, const eris_id_t &g2) const {
+double CobbDouglas::d2(const BundleNegative &b, eris_id_t g1, eris_id_t g2) const {
     // Short-circuit all the things that always result in a 0 second derivative
     if (!exponents.count(g1) or !exponents.count(g2) or exponents.at(g1) == 0 or exponents.at(g2) == 0)
         return 0.0;

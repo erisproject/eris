@@ -41,24 +41,24 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
          * a SharedMember of the given Agent subclass; defaults to Agent.
          */
         template <class A = Agent, typename = typename std::enable_if<std::is_base_of<Agent, A>::value>::type>
-        SharedMember<A> agent(const eris_id_t &aid) const;
+        SharedMember<A> agent(eris_id_t aid) const;
         /** Accesses a good given the good's eris_id_t.  Templated to allow conversion to a
          * SharedMember of the given Good subclass; defaults to Good.
          */
         template <class G = Good, typename = typename std::enable_if<std::is_base_of<Good, G>::value>::type>
-        SharedMember<G> good(const eris_id_t &gid) const;
+        SharedMember<G> good(eris_id_t gid) const;
         /** Accesses a market given the market's eris_id_t.  Templated to allow conversion to a
          * SharedMember of the given Market subclass; defaults to Market.
          */
         template <class M = Market, typename = typename std::enable_if<std::is_base_of<Market, M>::value>::type>
-        SharedMember<M> market(const eris_id_t &mid) const;
+        SharedMember<M> market(eris_id_t mid) const;
         /** Accesses a non-agent/good/market member that has been added to this simulation.  This is
          * typically an optimization object.
          */
         template <class O = Member, typename = typename std::enable_if<
             std::is_base_of<Member, O>::value and not std::is_base_of<Agent, O>::value and not std::is_base_of<Market, O>::value
             >::type>
-        SharedMember<O> other(const eris_id_t &oid) const;
+        SharedMember<O> other(eris_id_t oid) const;
 
         /** Constructs a new T object using the given constructor arguments Args, adds it to the
          * simulation.  T must be a subclass of Member; if it is also a subclass of Agent, Good, or
@@ -77,7 +77,7 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
          *
          * \throws std::out_of_range if the given id does not belong to this simulation.
          */
-        void remove(const eris_id_t &id);
+        void remove(eris_id_t id);
 
         /** Provides a vector of SharedMember<A>, optionally filtered to only include agents that
          * induce a true return from the provided filter function.
@@ -154,7 +154,7 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
          * Note that dependents are removed *after* removal of their dependencies.  That is, if A
          * depends on B, and B is removed, the B removal occurs *first*, followed by the A removal.
          */
-        void registerDependency(const eris_id_t &member, const eris_id_t &depends_on);
+        void registerDependency(eris_id_t member, eris_id_t depends_on);
 
         /** Records already-stored member `depends_on' is a weak dependency of `member'.  In
          * contrast to a non-weak dependency, the member is only notified of the removal of the
@@ -163,7 +163,7 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
          * When `depends_on' is removed from the simulation, `member' will have its depRemoved()
          * method called with the just-removed (but still not destroyed) member.
          */
-        void registerWeakDependency(const eris_id_t &member, const eris_id_t &depends_on);
+        void registerWeakDependency(eris_id_t member, eris_id_t depends_on);
 
         /** Sets the maximum number of threads to use for subsequent calls to run().  The default
          * value is 0 (which uses no threads at all; see below).  If this is lowered between calls
@@ -304,10 +304,10 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
 
         // Internal method to remove one of the various types.  Called by the public remove()
         // method, which figures out which type the removal request is for.
-        void removeAgent(const eris_id_t &aid);
-        void removeGood(const eris_id_t &gid);
-        void removeMarket(const eris_id_t &mid);
-        void removeOther(const eris_id_t &oid);
+        void removeAgent(eris_id_t aid);
+        void removeGood(eris_id_t gid);
+        void removeMarket(eris_id_t mid);
+        void removeOther(eris_id_t oid);
 
         // Determines which (if any) optimization interfaces the member implements, and records it
         // for the next optimization stage.
@@ -347,10 +347,10 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
         DepMap depends_on_, weak_dep_;
 
         // Removes hard dependents
-        void removeDeps(const eris_id_t &member);
+        void removeDeps(eris_id_t member);
 
         // Notifies weak dependents
-        void notifyWeakDeps(SharedMember<Member> member, const eris_id_t &old_id);
+        void notifyWeakDeps(SharedMember<Member> member, eris_id_t old_id);
 
         // Tracks the iteration number, can be accessed via t().
         unsigned long iteration_ = 0;
@@ -458,7 +458,7 @@ template <class T, typename... Args, class> SharedMember<T> Simulation::create(A
 // Searching help:
 // agent() agents() good() goods() market() markets() other() others()
 #define ERIS_SIM_TYPE_METHODS(TYPE, CAP_TYPE)\
-template <class T, typename> SharedMember<T> Simulation::TYPE(const eris_id_t &id) const {\
+template <class T, typename> SharedMember<T> Simulation::TYPE(eris_id_t id) const {\
     std::lock_guard<std::recursive_mutex> lock(member_mutex_);\
     return SharedMember<T>(TYPE##s_.at(id));\
 }\

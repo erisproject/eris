@@ -27,12 +27,12 @@ class CobbDouglas : public Consumer::Differentiable {
          * coefficients can be accessed via the coef() and exp() methods.
          */
         CobbDouglas(
-                const eris_id_t &g1,
-                const double &exp1,
-                const eris_id_t &g2 = 0,
-                const double &exp2 = 1.0,
-                const eris_id_t &g3 = 0,
-                const double &exp3 = 1.0,
+                eris_id_t g1,
+                double exp1,
+                eris_id_t g2 = 0,
+                double exp2 = 1.0,
+                eris_id_t g3 = 0,
+                double exp3 = 1.0,
                 double c = 1.0
                 );
 
@@ -51,21 +51,21 @@ class CobbDouglas : public Consumer::Differentiable {
         /** Accesses the exponent on good \f$g\f$.  Creates it (initially set to 0) if it is not yet
          * set.
          */
-        double& exp(const eris_id_t &g);
+        double& exp(eris_id_t g);
 
         /** `const` accessor for the exponent on good \f$g\f$.  Returns 0 (without creating it) if
          * not yet set.
          */
-        double exp(const eris_id_t &g) const;
+        double exp(eris_id_t g) const;
 
         /// Evaluates the utility given the current coefficients at bundle \f$b\f$.
         virtual double utility(const BundleNegative &b) const;
 
         /// Returns the first derivative w.r.t. good g, evaluated at bundle b.
-        virtual double d(const BundleNegative &b, const eris_id_t &g) const;
+        virtual double d(const BundleNegative &b, eris_id_t g) const;
 
         /// Returns the second derivative w.r.t. goods g1, g2, evaluated at bundle b.
-        virtual double d2(const BundleNegative &b, const eris_id_t &g1, const eris_id_t &g2) const;
+        virtual double d2(const BundleNegative &b, eris_id_t g1, eris_id_t g2) const;
     protected:
         /// The constant offset.  \sa coef()
         double constant = 0.0;
@@ -73,7 +73,7 @@ class CobbDouglas : public Consumer::Differentiable {
         std::unordered_map<eris_id_t, double> exponents;
     private:
         // Wrapper around pow() that redefines some special 0/infinity cases.
-        double power(const double &val, const double &exponent) const;
+        double power(double val, double exponent) const;
 };
 
 } }

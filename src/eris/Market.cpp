@@ -20,7 +20,7 @@ const std::unordered_set<eris_id_t>& Market::firms() {
     return suppliers_;
 }
 
-void Market::weakDepRemoved(SharedMember<Member>, const eris_id_t &old_id) {
+void Market::weakDepRemoved(SharedMember<Member>, eris_id_t old_id) {
     removeFirm(old_id);
 }
 
@@ -82,7 +82,7 @@ Market::Reservation_::~Reservation_() {
         release();
 }
 
-void Market::Reservation_::firmReserve(const eris_id_t &firm_id, BundleNegative transfer) {
+void Market::Reservation_::firmReserve(eris_id_t firm_id, BundleNegative transfer) {
     auto firm = market->simAgent<Firm>(firm_id);
     firm_reservations_.push_front(firm->reserve(transfer));
 }

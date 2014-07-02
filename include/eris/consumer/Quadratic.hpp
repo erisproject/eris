@@ -56,9 +56,9 @@ class Quadratic : public Consumer::Differentiable {
         virtual double utility(const BundleNegative &b) const;
 
         /// Returns the first derivative w.r.t. good g, evaluated at bundle b.
-        virtual double d(const BundleNegative &b, const eris_id_t &g) const;
+        virtual double d(const BundleNegative &b, eris_id_t g) const;
         /// Returns the second derivative w.r.t. goods g1, g2, evaluated at bundle b.
-        virtual double d2(const BundleNegative &b, const eris_id_t &g1, const eris_id_t &g2) const;
+        virtual double d2(const BundleNegative &b, eris_id_t g1, eris_id_t g2) const;
     protected:
         /// The constant offset.  \sa coef()
         double offset = 0.0;

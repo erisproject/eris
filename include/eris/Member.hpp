@@ -70,7 +70,7 @@ class Member : private noncopyable {
          * \sa Simulation::registerDependency()
          * \sa dependsWeaklyOn()
          */
-        void dependsOn(const eris_id_t &id);
+        void dependsOn(eris_id_t id);
 
         /** Records a dependency with the Simulation object.  This should not be called until after
          * the member has been added to a simulation, and is typically invoked in an overridden
@@ -89,7 +89,7 @@ class Member : private noncopyable {
          * \sa dependsOn()
          * \sa weakDepRemoved()
          */
-        void dependsWeaklyOn(const eris_id_t &id);
+        void dependsWeaklyOn(eris_id_t id);
 
         /** A locking class for holding one or more simultaneous Member locks.  Locks are
          * established during object construction and released when the object is destroyed.  A
@@ -458,7 +458,7 @@ class Member : private noncopyable {
          * again (with a null shared pointer and id of 0) when the Member is removed from a
          * Simulation.
          */
-        void simulation(const std::shared_ptr<Simulation> &sim, const eris_id_t &id);
+        void simulation(const std::shared_ptr<Simulation> &sim, eris_id_t id);
         friend class eris::Simulation;
 
         /** Virtual method called just after the member is added to a Simulation object.  The
@@ -495,7 +495,7 @@ class Member : private noncopyable {
          * \sa dependsWeaklyOn()
          * \sa Simulation::registerWeakDependency()
          */
-        virtual void weakDepRemoved(SharedMember<Member> removed, const eris_id_t &old_id);
+        virtual void weakDepRemoved(SharedMember<Member> removed, eris_id_t old_id);
 
         /** Returns a SharedMember wrapper around the current object, obtained through the
          * Simulation object (so that the shared_ptr is properly shared with everything else that
