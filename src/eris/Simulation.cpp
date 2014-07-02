@@ -8,12 +8,12 @@
 
 namespace eris {
 
-void Simulation::registerDependency(const eris_id_t &member, const eris_id_t &depends_on) {
+void Simulation::registerDependency(eris_id_t member, eris_id_t depends_on) {
     std::lock_guard<std::recursive_mutex> lock(member_mutex_);
     depends_on_[depends_on].insert(member);
 }
 
-void Simulation::registerWeakDependency(const eris_id_t &member, const eris_id_t &depends_on) {
+void Simulation::registerWeakDependency(eris_id_t member, eris_id_t depends_on) {
     std::lock_guard<std::recursive_mutex> lock(member_mutex_);
     weak_dep_[depends_on].insert(member);
 }
@@ -44,7 +44,7 @@ void Simulation::insert##TYPE(const SharedMember<CLASS> &member) {\
     member->simulation(shared_from_this(), member_id);\
     insertOptimizers(member);\
 }\
-void Simulation::remove##TYPE(const eris_id_t &id) {\
+void Simulation::remove##TYPE(eris_id_t id) {\
     std::lock_guard<std::recursive_mutex> mbr_lock(member_mutex_);\
     auto &member = MAP.at(id);\
     auto lock = member->writeLock();\
@@ -64,7 +64,7 @@ ERIS_SIM_INSERT_REMOVE_MEMBER(Other,  Member, others_)
 // More searching help: these are in eris/Simulation.hpp:
 // agent() agents() good() goods() market() markets() other() others()
 
-void Simulation::remove(const eris_id_t &id) {
+void Simulation::remove(eris_id_t id) {
     if (agents_.count(id)) removeAgent(id);
     else if (goods_.count(id)) removeGood(id);
     else if (markets_.count(id)) removeMarket(id);
@@ -101,7 +101,7 @@ void Simulation::removeOptimizers(const SharedMember<Member> &member) {
     }
 }
 
-void Simulation::removeDeps(const eris_id_t &member) {
+void Simulation::removeDeps(eris_id_t member) {
     std::lock_guard<std::recursive_mutex> lock(member_mutex_);
 
     if (!depends_on_.count(member)) return;
@@ -120,7 +120,7 @@ void Simulation::removeDeps(const eris_id_t &member) {
     }
 }
 
-void Simulation::notifyWeakDeps(SharedMember<Member> member, const eris_id_t &old_id) {
+void Simulation::notifyWeakDeps(SharedMember<Member> member, eris_id_t old_id) {
     std::lock_guard<std::recursive_mutex> lock(member_mutex_);
 
     if (!weak_dep_.count(old_id)) return;
