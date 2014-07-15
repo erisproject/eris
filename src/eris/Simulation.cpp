@@ -339,12 +339,11 @@ void Simulation::run() {
     // Enlarge or shrink the thread pool as needed
     thr_thread_pool();
 
-    if (++iteration_ > 1) {
-        // Skip all this on the first iteration
-        thr_stage(RunStage::inter_Optimize);
-        thr_stage(RunStage::inter_Apply);
-        thr_stage(RunStage::inter_Advance);
-    }
+    ++iteration_;
+
+    thr_stage(RunStage::inter_Optimize);
+    thr_stage(RunStage::inter_Apply);
+    thr_stage(RunStage::inter_Advance);
 
     intraopt_count = 0;
 

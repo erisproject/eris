@@ -212,10 +212,10 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
          */
         unsigned long maxThreads();
 
-        /** Runs one period of period of the simulation.  The following happens, in order (except on
-         * the first run, when the inter-period optimizer calls are skipped):
+        /** Runs one period of period of the simulation.  The following happens, in order:
          *
-         * - Inter-period optimization (except on first run):
+         * - Simulation time period (accessible by `t()`) is incremented.
+         * - Inter-period optimization:
          *   - All inter-period optimizers have interOptimize() called.
          *   - All inter-period optimizers have interApply() called.
          *   - All inter-period optimizers have interAdvance() called.
