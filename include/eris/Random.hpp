@@ -2,20 +2,24 @@
 #include <random>
 #include <thread>
 #include <mutex>
-#include <memory>
 
 namespace eris {
 
 /** Random number generator class for Eris.  This class is responsible for providing a seeded
- * mt19937_64 random number generator, where the seed comes from ERIS_RNG_SEED, if defined, and
- * otherwise is chosen randomly.  The only publically exposed methods are the (static) Random::rng()
- * and Random::seed() methods.  The generator is only created (and seeded) the first time rng() is
- * called; subsequent calls simply return the existing generator.
+ * mt19937_64 random number generator, where the seed can be specified explicitly with the `seed(s)`
+ * method, and other comes from the environment variable ERIS_RNG_SEED, if set, and otherwise is
+ * chosen randomly using std::random_device.  The only publically exposed methods are the (static)
+ * Random::rng() and Random::seed() methods.  The generator is only created (and seeded) the first
+ * time rng() is called; subsequent calls simply return the existing generator.
  *
- * When using threads, each new thread gets its own random-number generator.  When ERIS_RNG_SEED is
- * not specified, each thread gets its own random seed.  When ERIS_RNG_SEED is specified, the first
- * thread needing a seed uses `ERIS_RNG_SEED`, the second uses `ERIS_RNG_SEED + 1`, the third gets
- * `ERIS_RNG_SEED + 2`, etc.
+ * When using threads, each new thread gets its own random-number generator with a distinct seed.
+ * When `seed(s)` is not used and `ERIS_RNG_SEED` is not set, each thread gets its own random seed
+ * via the system-specific std::random_device interface.  When an explicit `S` seed is given, the
+ * first thread needing a seed uses `S`, the second uses `S + 1`, the third gets `S + 2`, etc.  Note
+ * however that specifying a seed is unlikely to be useful in a multithreaded environment where
+ * there are interactions between threads: inherent system scheduling randomness means that thread
+ * operations will not occur in a reproducible order: if the ordering can affect results, even using
+ * the same seed will produce different outcomes.
  */
 class Random final {
     public:
@@ -28,7 +32,7 @@ class Random final {
          * mt19937_64 rng, which offers a good balance of randomness and performance.
          *
          * The returned rng is suitable for passing into a distribution, such as those provided in
-         * \<random\>.
+         * the standard \<random\> library.
          *
          * Example:
          *
@@ -41,27 +45,46 @@ class Random final {
          *     double draw = t30gen(Random::rng());
          */
         inline static rng_t& rng() {
-            if (!rng_) rng_ = std::unique_ptr<rng_t>(new rng_t(seed()));
-            return *rng_;
+            if (!seeded_) rng_.seed(seed());
+            return rng_;
         }
 
-        /** Returns the seed used (for the current thread, if using threads).  If no seed has been
-         * established yet, a new one is generated and stored before being returned.
+        /** Returns the initial seed used for the current thread's random number generator.  If no
+         * seed has been established yet, a new one is generated and stored before being returned.
          *
-         * The first thread to generate a seed checks the environment variable ERIS_RNG_SEED.  If
-         * it is set, it is stored as a base seed and used as the seed for the calling thread.
-         * Subsequent threads then use `ERIS_RNG_SEED + n` for a seed, where `n` is the number of threads
-         * having generated a seed before the current one.  In other words, if ERIS_RNG_SEED=10 then
+         * Note that the returned seed is for the initial state, but the current rng may well no
+         * longer be at that initial state.
+         *
+         * The seed can be specified in two ways: by an explicit call to seed(s), or by setting
+         * ERIS_RNG_SEED.  The latter will be used if no seed has been set explicitly via the former
+         * the first time rng() is called.
+         *
+         * If a seed is explicitly specified, it is used by the first thread to call rng(), and
+         * stored as a base seed for other threads (if any).  Subsequent threads then use this base
+         * value plus `n` for a seed, where `n` is the number of threads having previously generated
+         * a seed.  In other words, if `ERIS_RNG_SEED=10` (and `Random::seed(s)` is not called) then
          * the first thread to generate a seed gets 10, the second gets 11, and so on.
          *
-         * If ERIS_RNG_SEED is not set, all threads get a random seed (each using the system's default
-         * std::random_device when the seed is generated).  Note that ERIS_RNG_SEED is only checked
-         * by the first thread needing a seed.
-         *
-         * Note that ERIS_RNG_SEED is only checked once: subsequent threads use its existance and
-         * value at the time the first thread checked it.
+         * If no seed is explicitly specified by either `ERIS_RNG_SEED` or `Random::seed(s)`, all
+         * threads get a random seed (each using the system's default std::random_device when the
+         * seed is generated).
          */
         static const rng_t::result_type& seed();
+
+        /** Sets the RNG seed to the given value.  This is allowed as long as no seed has been set
+         * (including implicitly by making a call to rng()) at all, or rng() hasn't been called from
+         * another thread.  (The latter restriction is in place because the seed is used as the
+         * basis for thread seeds, but thread variables are local to the calling threads and cannot be
+         * accessed from other threads).
+         *
+         * The given seed will be used for other threads as well: the first thread to request a seed
+         * uses `seed + 1`, the second uses `seed + 2`, etc.  Note, however, that inherent system
+         * scheduling randomness makes multithreaded randomness unlikely to be reproducible even if
+         * started with the same seed.
+         *
+         * Throws std::runtime_error if any thread other than the caller already has a random seed.
+         */
+        static void seed(rng_t::result_type seed);
 
     private:
         // Lock controlling the init_* parameters
@@ -70,14 +93,14 @@ class Random final {
         static bool init_done_;
         // If true, use init_base_ + init_count_; otherwise get a random seed
         static bool init_use_base_;
-        // The base seed to use for new threads' RNGs
+        // The base seed to use for new threads' RNGs (if init_use_base_ is true)
         static rng_t::result_type init_base_;
         // The offset to add to the base for new threads' RNGs.  Incremented for each new thread.
         static unsigned int init_count_;
 
         // Pointer to the random number generator
         thread_local static bool seeded_;
-        thread_local static std::unique_ptr<rng_t> rng_;
+        thread_local static rng_t rng_;
         thread_local static rng_t::result_type seed_;
 };
 
