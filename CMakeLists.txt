@@ -8,7 +8,7 @@ include(GNUInstallDirs)
 # Eris package version
 set(ERIS_VERSION_MAJOR "0")
 set(ERIS_VERSION_MINOR "2")
-set(ERIS_VERSION_PATCH "0")
+set(ERIS_VERSION_PATCH "1")
 set(ERIS_VERSION "${ERIS_VERSION_MAJOR}.${ERIS_VERSION_MINOR}.${ERIS_VERSION_PATCH}")
 
 set(eris_author "Jason Rhinelander <jason@imaginary.ca>")
@@ -42,9 +42,20 @@ set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules)
 include(MacroEnsureOutOfSourceBuild)
 macro_ensure_out_of_source_build("${PROJECT_NAME} requires an out-of-source build.  Create a build directory and run 'cmake ${CMAKE_SOURCE_DIR} [options]'.")
 
-include_directories(include)
-file(GLOB_RECURSE eris_src src/*.cpp)
-file(GLOB_RECURSE eris_include include/*.h include/*.hpp)
+include_directories("${CMAKE_CURRENT_BINARY_DIR}/include")
+file(GLOB_RECURSE eris_src RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} src/*.cpp)
+file(GLOB_RECURSE eris_src_include RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} include/*.h include/*.hpp include/*.h.in include/*.hpp.in)
+
+foreach(h ${eris_src_include})
+    if(h MATCHES "\\.in$")
+        string(REGEX REPLACE "\\.in$" "" h_processed "${h}")
+        configure_file("${h}" "${h_processed}" @ONLY)
+        list(APPEND eris_include "${CMAKE_CURRENT_BINARY_DIR}/${h_processed}")
+    else()
+        configure_file("${h}" "${h}" COPYONLY)
+        list(APPEND eris_include "${CMAKE_CURRENT_BINARY_DIR}/${h}")
+    endif()
+endforeach()
 
 set(CMAKE_CXX_FLAGS "-std=c++11 -march=native -O3 ${CMAKE_CXX_FLAGS} -Wall -Wextra")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -DERIS_DEBUG")
@@ -124,7 +135,7 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/liberis.pc
 install(TARGETS eris
     DESTINATION "${CMAKE_INSTALL_LIBDIR}"
     COMPONENT libs)
-install(DIRECTORY include/eris/
+install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/include/eris/"
     DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/eris/"
     COMPONENT headers
     FILES_MATCHING PATTERN "*.hpp" PATTERN "*.h")

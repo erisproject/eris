@@ -1,0 +1,13 @@
+#pragma once
+/** \file
+ * This file provides macro definitions for the version of eris (@ERIS_VERSION_MAJOR@.@ERIS_VERSION_MINOR@.@ERIS_VERSION_PATCH@).
+ */
+
+/// The major version of eris, @ERIS_VERSION_MAJOR@, the first component of the version.
+#define ERIS_VERSION_MAJOR @ERIS_VERSION_MAJOR@
+/// The minor version of eris, @ERIS_VERSION_MINOR@, the second component of the version.
+#define ERIS_VERSION_MINOR @ERIS_VERSION_MINOR@
+/// The patch version of eris, @ERIS_VERSION_PATCH@, the third component of the version.
+#define ERIS_VERSION_PATCH @ERIS_VERSION_PATCH@
+/// The literal char* value `"@ERIS_VERSION_MAJOR@.@ERIS_VERSION_MINOR@.@ERIS_VERSION_PATCH@"`, the current version of eris.
+#define ERIS_VERSION_STRING "@ERIS_VERSION_MAJOR@.@ERIS_VERSION_MINOR@.@ERIS_VERSION_PATCH@"
