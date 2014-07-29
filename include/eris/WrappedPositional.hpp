@@ -71,14 +71,14 @@ class WrappedPositionalBase : public PositionalBase {
          *
          * \throws std::out_of_range if `dim` is not a valid dimension.
          */
-        virtual bool wrapped(const size_t &dim) const;
+        virtual bool wrapped(size_t dim) const;
 
         /** Enables wrapping on dimension `dim`, if possible.  Wrapping is not possible if either
          * boundary in the given dimension is infinite, or if the two boundaries are equal.
          *
          * \throws std::out_of_range if `dim` is not a valid dimension.
          */
-        virtual void wrap(const size_t &dim);
+        virtual void wrap(size_t dim);
 
         /** Enables wrapping on multiple dimensions at once.  Can be called with an initializer_list
          * or any other type of container of integer values.
@@ -101,7 +101,7 @@ class WrappedPositionalBase : public PositionalBase {
          *
          * \throws std::out_of_range if `dim` is not a valid dimension.
          */
-        virtual void unwrap(const size_t &dim);
+        virtual void unwrap(size_t dim);
 
         /** Applies the currently active wrapping to the given Position, returning a new Position
          * with all wrapped dimensions wrapped into a value between the two dimension boundaries.
@@ -184,7 +184,7 @@ class WrappedPositionalBase : public PositionalBase {
 
     private:
         // The set of wrapped dimensions
-        std::set<size_t> wrapped_;
+        std::vector<bool> wrapped_;
 };
 
 /** This class works just like Positional but adds wrapping to one or more dimensions.

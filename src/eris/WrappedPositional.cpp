@@ -6,27 +6,33 @@
 namespace eris {
 
 WrappedPositionalBase::WrappedPositionalBase(const Position &p, const Position &boundary1, const Position &boundary2)
-    : PositionalBase(p, boundary1, boundary2) {
+    : PositionalBase(p, boundary1, boundary2), wrapped_(p.dimensions, false) {
     for (size_t d = 0; d < p.dimensions; d++)
         wrap(d);
     wrap(position_);
 }
 
 WrappedPositionalBase::WrappedPositionalBase(const Position &p, const Position &boundary1, const Position &boundary2, const std::initializer_list<size_t> &dims)
-    : PositionalBase(p, boundary1, boundary2) {
+    : PositionalBase(p, boundary1, boundary2), wrapped_(p.dimensions, false) {
     wrap(dims);
     wrap(position_);
 }
 
-bool WrappedPositionalBase::wrapped(const size_t &dim) const {
-    return wrapped_.count(dim) > 0;
+WrappedPositionalBase::WrappedPositionalBase(const Position &p)
+    : PositionalBase(p), wrapped_(p.dimensions, false)
+{}
+
+bool WrappedPositionalBase::wrapped(size_t dim) const {
+    if (dim >= position_.dimensions)
+        throw std::out_of_range("Invalid dimension passed to WrappedPositionalBase::wrapped(size_t)");
+    return wrapped_[dim];
 }
 
-void WrappedPositionalBase::wrap(const size_t &dim) {
+void WrappedPositionalBase::wrap(size_t dim) {
     if (dim >= position_.dimensions)
-        throw std::out_of_range("Invalid dimension passed to WrappedPositionalBase::wrap(const size_t&)");
+        throw std::out_of_range("Invalid dimension passed to WrappedPositionalBase::wrap(size_t)");
 
-    if (wrapped_.count(dim) > 0) return; // Already wrapping
+    if (wrapped_[dim] > 0) return; // Already wrapping
 
     if (not std::isfinite(upper_bound_[dim]) or not std::isfinite(lower_bound_[dim]))
         return; // Can't wrap a non-finite dimension
@@ -34,14 +40,14 @@ void WrappedPositionalBase::wrap(const size_t &dim) {
     if (lower_bound_[dim] >= upper_bound_[dim])
         return; // Can't wrap a zero-width dimension
 
-    wrapped_.insert(dim);
+    wrapped_[dim] = true;
 }
 
-void WrappedPositionalBase::unwrap(const size_t &dim) {
+void WrappedPositionalBase::unwrap(size_t dim) {
     if (dim >= position_.dimensions)
-        throw std::out_of_range("Invalid dimension passed to WrappedPositionalBase::wrap(const size_t&)");
+        throw std::out_of_range("Invalid dimension passed to WrappedPositionalBase::wrap(size_t)");
 
-    wrapped_.erase(dim);
+    wrapped_[dim] = true;
 }
 
 Position WrappedPositionalBase::wrap(const Position &pos) const {
@@ -53,7 +59,9 @@ Position WrappedPositionalBase::wrap(const Position &pos) const {
 void WrappedPositionalBase::wrap(Position &pos) const {
     if (pos.dimensions != position_.dimensions)
         throw std::length_error("position() and given pos have different dimensions in WrappedPositionalBase::wrap(pos)");
-    for (auto &dim : wrapped_) {
+    for (size_t dim = 0; dim < pos.dimensions; dim++) {
+        if (not wrapped_[dim]) continue;
+
         const double &left = lower_bound_[dim], &right = upper_bound_[dim];
         double &x = pos[dim];
         if (x < left) {
@@ -87,7 +95,9 @@ Position WrappedPositionalBase::vectorTo(const Position &pos) const {
     // (wrapped by *our* wrapping parameters).
     Position v{wrap(pos)};
 
-    for (auto &dim : wrapped_) {
+    for (size_t dim = 0; dim < pos.dimensions; dim++) {
+        if (not wrapped_[dim]) continue;
+
         const double &me = position_[dim];
         double &them = v[dim];
 
@@ -117,7 +127,7 @@ Position WrappedPositionalBase::vectorTo(const Position &pos) const {
 
 bool WrappedPositionalBase::bounded() const noexcept {
     for (size_t d = 0; d < position_.dimensions; d++) {
-        if (not wrapped_.count(d) and (std::isfinite(lower_bound_[d]) or std::isfinite(upper_bound_[d])))
+        if (not wrapped_[d] and (std::isfinite(lower_bound_[d]) or std::isfinite(upper_bound_[d])))
             return true; // Not wrapped and has a non-finite bound
     }
     return false;
@@ -128,7 +138,7 @@ bool WrappedPositionalBase::binding() const noexcept {
 
     for (size_t d = 0; d < position_.dimensions; d++) {
         const double &p = position_[d];
-        if (not wrapped_.count(d) and
+        if (not wrapped_[d] and
                 (p == lower_bound_[d] or p == upper_bound_[d]))
             // Not a wrapping dimension, and we're sitting on one of the boundaries
             return true;
@@ -141,7 +151,7 @@ bool WrappedPositionalBase::bindingLower() const noexcept {
 
     for (size_t d = 0; d < position_.dimensions; d++) {
         const double &p = position_[d];
-        if (not wrapped_.count(d) and p == lower_bound_[d])
+        if (not wrapped_[d] and p == lower_bound_[d])
             // Not a wrapping dimension, and we're sitting on the lower bound
             return true;
     }
@@ -153,7 +163,7 @@ bool WrappedPositionalBase::bindingUpper() const noexcept {
 
     for (size_t d = 0; d < position_.dimensions; d++) {
         const double &p = position_[d];
-        if (not wrapped_.count(d) and p == upper_bound_[d])
+        if (not wrapped_[d] and p == upper_bound_[d])
             // Not a wrapping dimension, and we're sitting on the upper bound
             return true;
     }
@@ -164,7 +174,7 @@ Position WrappedPositionalBase::lowerBound() const noexcept {
     Position lower(lower_bound_);
 
     for (size_t d = 0; d < position_.dimensions; d++)
-        if (wrapped_.count(d)) lower[d] = -std::numeric_limits<double>::infinity();
+        if (wrapped_[d]) lower[d] = -std::numeric_limits<double>::infinity();
 
     return lower;
 }
@@ -173,7 +183,7 @@ Position WrappedPositionalBase::upperBound() const noexcept {
     Position upper(upper_bound_);
 
     for (size_t d = 0; d < position_.dimensions; d++)
-        if (wrapped_.count(d)) upper[d] = std::numeric_limits<double>::infinity();
+        if (wrapped_[d]) upper[d] = std::numeric_limits<double>::infinity();
 
     return upper;
 }
