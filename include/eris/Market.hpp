@@ -10,6 +10,9 @@
 
 namespace eris {
 
+/// Namespace for eris market implementations inheriting from eris::Market.
+namespace market {}
+
 using agent::AssetAgent;
 
 /** Abstract base class for markets in Eris.
