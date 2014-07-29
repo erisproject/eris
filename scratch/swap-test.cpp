@@ -1,4 +1,3 @@
-#include <eris/Eris.hpp>
 #include <eris/SharedMember.hpp>
 #include <eris/Agent.hpp>
 #include <eris/Good.hpp>
@@ -18,7 +17,7 @@ class G : public Good::Continuous {
 };
 
 int main() {
-    Eris<Simulation> sim;
+    auto sim = Simulation::spawn;
     auto a = sim->create<A>();
     auto g = sim->create<G>();
 

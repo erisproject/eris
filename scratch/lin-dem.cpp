@@ -1,4 +1,3 @@
-#include <eris/Eris.hpp>
 #include <eris/Simulation.hpp>
 #include <eris/consumer/Quadratic.hpp>
 #include <eris/firm/PriceFirm.hpp>
@@ -13,7 +12,7 @@ using namespace eris::firm;
 using boost::format;
 
 int main() {
-    Eris<Simulation> sim;
+    auto sim = Simulation::spawn();
 
     // Set up a numeraire good
     auto money = sim->createGood<Good::Continuous>("Money");

@@ -8,6 +8,10 @@
 
 namespace eris {
 
+std::shared_ptr<Simulation> Simulation::spawn() {
+    return std::shared_ptr<Simulation>(new Simulation);
+}
+
 void Simulation::registerDependency(eris_id_t member, eris_id_t depends_on) {
     std::lock_guard<std::recursive_mutex> lock(member_mutex_);
     depends_on_[depends_on].insert(member);

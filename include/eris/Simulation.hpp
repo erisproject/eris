@@ -16,6 +16,7 @@
 #include <condition_variable>
 #include <mutex>
 
+/// Base namespace containing all eris classes.
 namespace eris {
 
 /** This class is at the centre of an Eris economy model; it keeps track of all of the agents
@@ -29,6 +30,11 @@ namespace eris {
  */
 class Simulation final : public std::enable_shared_from_this<Simulation>, private noncopyable {
     public:
+        /** Creates a new Simulation and returns a shared_ptr to it.  This is the only public
+         * interface to creating a Simulation.
+         */
+        static std::shared_ptr<Simulation> spawn();
+
         /// Destructor.  When destruction occurs, any outstanding threads are killed and rejoined.
         virtual ~Simulation();
 
@@ -286,15 +292,12 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
         const DepMap __weakDeps() { return weak_dep_; }
 #endif
 
-    protected:
-        /** Constructs a new simulation.  This is protected because it must be called via
-         * Eris<Simulation> wrapper.  (This is needed because there must be a shared_ptr active on
-         * the simulation at all times).
+    private:
+        /* Simulation constructor.  Simulation objects should be constructed by calling
+         * Simulation::spawn() instead of calling the constructor directly.
          */
         Simulation() = default;
-        friend class Eris<Simulation>;
 
-    private:
         unsigned long max_threads_ = 0;
         bool running_ = false;
         eris_id_t id_next_ = 1;

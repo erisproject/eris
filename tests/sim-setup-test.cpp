@@ -1,6 +1,5 @@
 // Test script for assorted Simulation setup tasks.
 
-#include <eris/Eris.hpp>
 #include <eris/Bundle.hpp>
 #include <eris/Simulation.hpp>
 #include <eris/consumer/Polynomial.hpp>
@@ -52,7 +51,7 @@ std::string as_string(const unordered_map<eris_id_t, unordered_set<eris_id_t>> &
 
 TEST(Dependencies, Create) {
 
-    Eris<Simulation> sim;
+    auto sim = Simulation::spawn();
 
     // Create some goods and agents
     auto m = sim->create<Good::Continuous>("Money");
@@ -99,7 +98,7 @@ TEST(Dependencies, Create) {
 
 TEST(Dependencies, Delete) {
 
-    Eris<Simulation> sim;
+    auto sim = Simulation::spawn();
 
     // Create some goods and agents
     auto m = sim->create<Good::Continuous>("Money");
@@ -162,7 +161,7 @@ TEST(Dependencies, Delete) {
 
 TEST(Dependencies, DeleteChain) {
 
-    Eris<Simulation> sim;
+    auto sim = Simulation::spawn();
 
     // Create some goods and agents
     auto m = sim->create<Good::Continuous>("Money");

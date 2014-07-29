@@ -52,7 +52,6 @@
 //              β > γ
 // Expect: x = α/(β+2γ) - (β+γ) / ((β+2γ)(β-γ)) px + γ / ((β+2γ)(β-γ)) (py + pz)
 //
-#include <eris/Eris.hpp>
 #include <eris/Bundle.hpp>
 #include <eris/Simulation.hpp>
 #include <eris/consumer/Polynomial.hpp>
@@ -72,7 +71,7 @@ using namespace eris::intraopt;
 
 
 #define SETUP_SIM \
-    Eris<Simulation> sim; \
+    auto sim = Simulation::spawn(); \
     sim->maxThreads(0); \
     \
     auto m = sim->create<Good::Continuous>("Money"); \

@@ -1,4 +1,3 @@
-#include <eris/Eris.hpp>
 #include <eris/Simulation.hpp>
 #include <eris/Agent.hpp>
 #include <eris/consumer/Quadratic.hpp>
@@ -13,7 +12,7 @@ using namespace eris::firm;
 using namespace eris::market;
 
 int main() {
-    Eris<Simulation> sim;
+    auto sim = Simulation::spawn();
 
     Quadratic templ(1.0);
     for (int i = 0; i < 10; i++) {

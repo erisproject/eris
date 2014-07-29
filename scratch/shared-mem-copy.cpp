@@ -1,4 +1,3 @@
-#include <eris/Eris.hpp>
 #include <eris/Random.hpp>
 #include <eris/SharedMember.hpp>
 #include <eris/agent/AssetAgent.hpp>
@@ -10,7 +9,7 @@ class Foo : public agent::AssetAgent {};
 class Bar : public Foo {};
 
 int main() {
-    Eris<Simulation> sim;
+    auto sim = Simulation::spawn();
 
     auto foo = sim->create<Foo>();
     auto bar = sim->create<Bar>();

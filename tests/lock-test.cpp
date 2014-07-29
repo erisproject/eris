@@ -1,6 +1,5 @@
 /// Lock test
 
-#include <eris/Eris.hpp>
 #include <eris/Simulation.hpp>
 #include <eris/firm/QFirm.hpp>
 #include <eris/market/QMarket.hpp>
@@ -112,7 +111,7 @@ void thr_code8() {
 
 int main() {
 
-    Eris<Simulation> sim;
+    auto sim = Simulation::spawn();
     sim->maxThreads(10);
 
     for (int i = 0; i < 10; i++) {
