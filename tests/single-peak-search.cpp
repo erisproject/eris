@@ -17,7 +17,7 @@ TEST(Maximize, Quartic) {
 
     EXPECT_NEAR(-0.24526910870656568, single_peak_search(f, -10, 10), 2e-9);
     EXPECT_NEAR(-0.24526910870656568, single_peak_search(f, -1, 0), 4e-9);
-    EXPECT_NEAR(-0.24526910870656568, single_peak_search(f, -1e10, 1e10), 7e-10);
+    EXPECT_NEAR(-0.24526910870656568, single_peak_search(f, -1e10, 1e10), 3e-9);
     EXPECT_NEAR(-0.24526910870656568, single_peak_search(f, -0.246, 0.245), 2e-9);
 }
 
