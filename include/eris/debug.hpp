@@ -38,8 +38,8 @@ inline const char* _DEBUG__FILE__(const char *f) {
  */
 #define ERIS_DBG(stuff) do { if (ERIS_DEBUG_BOOL) std::cerr << _eris__FILE__ << ":" << __LINE__ << ":" << __func__ << "(): " << stuff << "\n" << std::flush; } while (0)
 
-/** Debugging macro for a single variable.  DEBUGVAR(x) is an alias for DEBUG("x = " << x) */
-#define ERIS_DBGVAR(x) ERIS_DBG(#x " = " << x)
+/** Debugging macro for a single variable.  DEBUGVAR(x) is an alias for DEBUG("x = " << (x)) */
+#define ERIS_DBGVAR(x) ERIS_DBG(#x " = " << (x))
 
 // stdc++-4.9 and earlier don't support the C++11 put_time, so this doesn't work:
 //#define _eris_PREPEND_TIME if (ERIS_DEBUG_BOOL) { std::time_t t = std::time(nullptr); std::cerr << std::put_time(std::localtime(&t), "[%c] "); }
