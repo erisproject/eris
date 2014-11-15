@@ -456,7 +456,7 @@ class BundleNegative {
                 void operator*=(double q) { bundle_.set(gid_, *this * q); }
                 /// Scales the value of the current proxied bundle quantity
                 void operator/=(double q) { bundle_.set(gid_, *this / q); }
-
+                /// Const access to the double quantity underlying this proxy
                 operator const double&() const { return const_cast<const BundleNegative&>(bundle_)[gid_]; }
         };
 
