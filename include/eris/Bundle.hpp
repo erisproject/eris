@@ -441,8 +441,7 @@ class BundleNegative {
         class valueproxy {
             private:
                 BundleNegative &bundle_;
-                eris_id_t gid_;
-                const double& _() const { return bundle_[gid_]; }
+                const eris_id_t gid_;
             public:
                 valueproxy() = delete;
                 /// Constructs a valueproxy from a BundleNegative and good id of the proxied value
@@ -450,13 +449,13 @@ class BundleNegative {
                 /// Assigns a new value to the proxied bundle quantity
                 void operator=(double q) { bundle_.set(gid_, q); }
                 /// Adds a value to the current proxied bundle quantity
-                void operator+=(double q) { bundle_.set(gid_, _() + q); }
+                void operator+=(double q) { bundle_.set(gid_, *this + q); }
                 /// Subtracts a value from the current proxied bundle quantity
-                void operator-=(double q) { bundle_.set(gid_, _() - q); }
+                void operator-=(double q) { bundle_.set(gid_, *this - q); }
                 /// Scales the value of the current proxied bundle quantity
-                void operator*=(double q) { bundle_.set(gid_, _() * q); }
+                void operator*=(double q) { bundle_.set(gid_, *this * q); }
                 /// Scales the value of the current proxied bundle quantity
-                void operator/=(double q) { bundle_.set(gid_, _() / q); }
+                void operator/=(double q) { bundle_.set(gid_, *this / q); }
 
                 operator const double&() const { return const_cast<const BundleNegative&>(bundle_)[gid_]; }
         };
