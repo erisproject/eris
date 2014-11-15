@@ -10,8 +10,19 @@
 
 namespace eris {
 
+BundleNegative::BundleNegative() {}
+BundleNegative::BundleNegative(eris_id_t g, double q) { set(g, q); }
+BundleNegative::BundleNegative(const BundleNegative &b) {
+    for (auto &g : b) set(g.first, g.second);
+}
 BundleNegative::BundleNegative(const std::initializer_list<std::pair<eris_id_t, double>> &init) {
     for (auto &g : init) set(g.first, g.second);
+}
+
+Bundle::Bundle() : BundleNegative() {}
+Bundle::Bundle(eris_id_t g, double q) : BundleNegative() { set(g, q); }
+Bundle::Bundle(const BundleNegative &b) : BundleNegative() {
+    for (auto &g : b) set(g.first, g.second);
 }
 Bundle::Bundle(const std::initializer_list<std::pair<eris_id_t, double>> &init) {
     for (auto &g : init) set(g.first, g.second);
@@ -27,6 +38,32 @@ const double& BundleNegative::operator[] (const eris_id_t gid) const {
 BundleNegative::valueproxy BundleNegative::operator[] (const eris_id_t gid) {
     return valueproxy(*this, gid);
 }
+
+void BundleNegative::set(const eris_id_t gid, double quantity) {
+    q_stack_.front()[gid] = quantity;
+}
+
+void Bundle::set(const eris_id_t gid, const double quantity) {
+    if (quantity < 0) throw negativity_error(gid, quantity);
+    BundleNegative::set(gid, quantity);
+}
+
+bool BundleNegative::empty() const {
+    return q_stack_.front().empty();
+}
+std::unordered_map<eris_id_t, double>::size_type BundleNegative::size() const {
+    return q_stack_.front().size();
+}
+int BundleNegative::count(const eris_id_t gid) const {
+    return q_stack_.front().count(gid);
+}
+std::unordered_map<eris_id_t, double>::const_iterator BundleNegative::begin() const {
+    return q_stack_.front().cbegin();
+}
+std::unordered_map<eris_id_t, double>::const_iterator BundleNegative::end() const {
+    return q_stack_.front().cend();
+}
+
 void BundleNegative::clearZeros() {
     auto &goods = q_stack_.front();
     for (auto it = goods.begin(); it != goods.end(); ) {
@@ -144,6 +181,38 @@ Bundle BundleNegative::zeros() const noexcept {
     Bundle b;
     for (auto &g : *this) { if (g.second == 0) b.set(g.first, 0); }
     return b;
+}
+
+Bundle& Bundle::operator *= (const double m) {
+    if (m < 0) throw negativity_error("Attempt to scale Bundle by negative value " + std::to_string(m), 0, m);
+    BundleNegative::operator*=(m);
+    return *this;
+}
+BundleNegative& BundleNegative::operator /= (const double d) {
+    return *this *= (1.0 / d);
+}
+Bundle& Bundle::operator /= (const double d) {
+    if (d < 0) throw negativity_error("Attempt to scale Bundle by negative value 1/" + std::to_string(d), 0, d);
+    BundleNegative::operator/=(d);
+    return *this;
+}
+BundleNegative BundleNegative::operator - () const {
+    return *this * -1.0;
+}
+// Doxygen bug: doxygen erroneously warns about non-inlined friend methods
+/// \cond
+BundleNegative operator * (const double m, const BundleNegative &b) {
+    return b * m;
+}
+/// \endcond
+Bundle operator * (const double m, const Bundle &b) {
+    return b * m;
+}
+BundleNegative BundleNegative::operator / (const double d) const {
+    return *this * (1.0/d);
+}
+Bundle Bundle::operator / (const double d) const {
+    return *this * (1.0/d);
 }
 
 // All of the overloaded ==/</<=/>/>= methods are exactly the same, aside from the algebraic
