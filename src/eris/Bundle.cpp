@@ -16,6 +16,17 @@ BundleNegative::BundleNegative(const std::initializer_list<std::pair<eris_id_t, 
 Bundle::Bundle(const std::initializer_list<std::pair<eris_id_t, double>> &init) {
     for (auto &g : init) set(g.first, g.second);
 }
+
+constexpr double BundleNegative::zero_;
+const double& BundleNegative::operator[] (const eris_id_t gid) const {
+    // Don't want to invoke map's [] operator, because it auto-vivifies the element
+    auto &f = q_stack_.front();
+    auto it = f.find(gid);
+    return it == f.end() ? zero_ : it->second;
+}
+BundleNegative::valueproxy BundleNegative::operator[] (const eris_id_t gid) {
+    return valueproxy(*this, gid);
+}
 void BundleNegative::clearZeros() {
     auto &goods = q_stack_.front();
     for (auto it = goods.begin(); it != goods.end(); ) {

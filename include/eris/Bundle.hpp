@@ -17,11 +17,11 @@ namespace eris {
  * \class Bundle
  * \brief A Bundle represents a set of goods with each good containing a non-negative quantity.
  *
- * Accessing quantities is done through the operator (e.g. `bundle[gid]`).  Accessing a good that is
- * not contained in the Bundle returns a value of 0.
+ * Accessing and modifying quantities is done through the operator (e.g. `bundle[gid]`).  Accessing
+ * a good that is not contained in the Bundle returns a value of 0.
  *
- * Setting values is done through the \ref set() method, *not* using the [] operator (since
- * assignment may require checking, e.g. for positive quantities).
+ * Setting values is done either through the \ref set() method or the [] operator (which is a proxy
+ * object calling set() internally, to verify values, i.e. positive quantities when needed).
  *
  * You can iterate through goods via the usual begin() / end() pattern; note that these get mapped
  * to through to the underlying std::unordered_map<eris_id_t,double>'s cbegin() and cend() methods,
@@ -75,6 +75,8 @@ namespace eris {
 
 class Bundle;
 class BundleNegative {
+    protected:
+        class valueproxy; // Predeclaration
     public:
         /// Constructs a new BundleNegative with no initial good/quantity values.
         BundleNegative();
@@ -102,14 +104,24 @@ class BundleNegative {
 
         virtual ~BundleNegative() = default;
 
-        /** Read-only access to BundleNegative quantities given a good id. */
-        double operator[] (const eris_id_t gid) const;
+        /** Read-only access to BundleNegative quantities given a good id.  Note that this does not
+         * autovivify goods that don't exist in the bundle (unlike std::map's `operator[]`). */
+        const double& operator[] (const eris_id_t gid) const;
+
+        /** Modifiable access to BundleNegative quantities given a good id.  This returns a proxy
+         * object that can be used to adjust the value by internally calling set() for any
+         * adjustments (to allow for value checking as needed).
+         */
+        valueproxy operator[] (const eris_id_t gid);
+
         /** Sets the quantity of the given good id to the given value. */
         virtual void set(const eris_id_t gid, double quantity);
+
         /** This method is is provided to be able to use a Bundle in a range for loop; it is, however, a
          * const_iterator, mapped internally to the underlying std::unordered_map's cbegin() method.
          */
         std::unordered_map<eris_id_t, double>::const_iterator begin() const;
+
         /** This method is is provided to be able to use a Bundle in a range for loop; it is, however, a
          * const_iterator, mapped internally to the underlying std::unordered_map's cend() method.
          */
@@ -425,6 +437,30 @@ class BundleNegative {
         /// Internal method used for bundle printing.
         void _print(std::ostream &os) const;
 
+        /// Value proxy class that maps individual good quantity manipulation into set() calls.
+        class valueproxy {
+            private:
+                BundleNegative &bundle_;
+                eris_id_t gid_;
+                const double& _() const { return bundle_[gid_]; }
+            public:
+                valueproxy() = delete;
+                /// Constructs a valueproxy from a BundleNegative and good id of the proxied value
+                valueproxy(BundleNegative &bn, eris_id_t gid) : bundle_{bn}, gid_{gid} {}
+                /// Assigns a new value to the proxied bundle quantity
+                void operator=(double q) { bundle_.set(gid_, q); }
+                /// Adds a value to the current proxied bundle quantity
+                void operator+=(double q) { bundle_.set(gid_, _() + q); }
+                /// Subtracts a value from the current proxied bundle quantity
+                void operator-=(double q) { bundle_.set(gid_, _() - q); }
+                /// Scales the value of the current proxied bundle quantity
+                void operator*=(double q) { bundle_.set(gid_, _() * q); }
+                /// Scales the value of the current proxied bundle quantity
+                void operator/=(double q) { bundle_.set(gid_, _() / q); }
+
+                operator const double&() const { return const_cast<const BundleNegative&>(bundle_)[gid_]; }
+        };
+
     private:
         // The stack of quantity maps; the front of q_stack_ is the currently visible quantities;
         // remainder items are the pre-transaction values.
@@ -435,6 +471,9 @@ class BundleNegative {
         // beginTransaction()), if true, or a encompassing non-transaction (started by
         // beginEncompassing()), if false.
         std::forward_list<bool> encompassed_;
+
+        // Zero; returned as const double& when const-accessing a good that doesn't exist
+        static constexpr double zero_ = 0.0;
 };
 
 class Bundle final : public BundleNegative {
@@ -453,7 +492,6 @@ class Bundle final : public BundleNegative {
          */
         Bundle(const BundleNegative &b);
 
-        using BundleNegative::set;
         /** Sets the quantitity associated with good `gid` to `quantity`.
          *
          * \throws Bundle::negativity_error if quantity is negative.

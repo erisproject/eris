@@ -33,9 +33,9 @@ TEST(Construction, Empty) {
     EXPECT_TRUE(bn->empty());
 
     bool foundA = false, foundB = false, foundBN = false;
-    for (auto z : a)   foundA = true;
-    for (auto z : b)   foundB = true;
-    for (auto z : *bn) foundBN = true;
+    for (auto &z : a)   { if (false and z.first > 0) {} foundA = true; }
+    for (auto &z : b)   { if (false and z.first > 0) {} foundB = true; }
+    for (auto &z : *bn) { if (false and z.first > 0) {} foundBN = true; }
 
     EXPECT_FALSE(foundA);
     EXPECT_FALSE(foundB);
@@ -609,7 +609,7 @@ TEST(Modification, setSingle) {
     EXPECT_EQ(100, a[45]);
     EXPECT_EQ(0, a[678]);
     EXPECT_EQ(-483.125, a[2]);
-    EXPECT_EQ(0, 0);
+    EXPECT_EQ(0, a[123]);
     a.set(3, 1);
     EXPECT_EQ(5, a.size());
     EXPECT_EQ(0, a[23]);
@@ -634,6 +634,110 @@ TEST(Modification, setSingle) {
     EXPECT_EQ(483.125, a2[2]);
     EXPECT_EQ(0, a2[0]);
     EXPECT_EQ(11, a2[3]);
+}
+TEST(Modification, assignSingle) {
+    GIMME_BUNDLES;
+
+    a[23] = 0;
+    EXPECT_EQ(4, a.size());
+    EXPECT_EQ(0, a[23]);
+    EXPECT_EQ(100, a[45]);
+    EXPECT_EQ(0, a[678]);
+    EXPECT_EQ(-483.125, a[2]);
+    EXPECT_EQ(0, a[123]);
+    a[3] = -1;
+    EXPECT_EQ(5, a.size());
+    EXPECT_EQ(0, a[23]);
+    EXPECT_EQ(100, a[45]);
+    EXPECT_EQ(0, a[678]);
+    EXPECT_EQ(-483.125, a[2]);
+    EXPECT_EQ(0, a[0]);
+    EXPECT_EQ(-1, a[3]);
+
+    EXPECT_THROW(b[55] = -13, Bundle::negativity_error);
+    EXPECT_EQ(-3.5, a2[23] - 8); // Also a test to make sure this doesn't throw
+
+    a2[23] = 0;
+    EXPECT_EQ(4, a2.size());
+    EXPECT_EQ(0, a2[23]);
+    EXPECT_EQ(100, a2[45]);
+    EXPECT_EQ(0, a2[678]);
+    EXPECT_EQ(483.125, a2[2]);
+    EXPECT_EQ(0, 0);
+    a2[3] = 11;
+    EXPECT_EQ(5, a2.size());
+    EXPECT_EQ(0, a2[23]);
+    EXPECT_EQ(100, a2[45]);
+    EXPECT_EQ(0, a2[678]);
+    EXPECT_EQ(483.125, a2[2]);
+    EXPECT_EQ(0, a2[0]);
+    EXPECT_EQ(11, a2[3]);
+}
+TEST(Modification, addToSingle) {
+    GIMME_BUNDLES;
+
+    a[23] += 5.5;
+    a[45] += -100;
+    a[99] += -1;
+
+    EXPECT_EQ(5, a.size());
+    EXPECT_EQ(1, a[23]);
+    EXPECT_EQ(0, a[45]);
+    EXPECT_EQ(-1.0, a[99]);
+    EXPECT_EQ(0, a[678]);
+    EXPECT_EQ(-483.125, a[2]);
+    EXPECT_EQ(0, a[123]);
+
+    EXPECT_NO_THROW(b[55] += -11);
+    EXPECT_EQ(1, b[55]);
+    EXPECT_THROW(b[55] += -2, Bundle::negativity_error);
+    EXPECT_EQ(-3.5, a2[23] + -8); // Also a test to make sure this doesn't throw
+}
+TEST(Modification, subtractFromSingle) {
+    GIMME_BUNDLES;
+
+    a[23] -= -5.5;
+    a[45] -= 100;
+    a[99] -= 1;
+
+    EXPECT_EQ(5, a.size());
+    EXPECT_EQ(1, a[23]);
+    EXPECT_EQ(0, a[45]);
+    EXPECT_EQ(-1.0, a[99]);
+    EXPECT_EQ(0, a[678]);
+    EXPECT_EQ(-483.125, a[2]);
+    EXPECT_EQ(0, a[123]);
+
+    EXPECT_NO_THROW(b[55] -= 11);
+    EXPECT_EQ(1, b[55]);
+    EXPECT_THROW(b[55] -= 2, Bundle::negativity_error);
+    EXPECT_EQ(-3.5, a2[23] - 8); // Also a test to make sure this doesn't throw
+}
+TEST(Modification, scaleSingle) {
+    GIMME_BUNDLES;
+    a[23] *= -4;
+    a[45] *= 0.0;
+    a[2] /= -10;
+    a[99] *= -1247897125;
+
+    EXPECT_EQ(5, a.size());
+    EXPECT_EQ(18, a[23]);
+    EXPECT_EQ(0, a[45]);
+    EXPECT_EQ(0, a[99]);
+    EXPECT_EQ(0, a[678]);
+    EXPECT_EQ(48.3125, a[2]);
+    EXPECT_EQ(0, a[123]);
+
+    EXPECT_NO_THROW(b2[100000000000] *= -10);
+    EXPECT_EQ(-1e-9, b2[100000000000]);
+    EXPECT_NO_THROW(b2[100000000000] /= -5);
+    EXPECT_EQ(2e-10, b2[100000000000]);
+    EXPECT_THROW(b[55] *= -.000001, Bundle::negativity_error);
+    EXPECT_NO_THROW(c[12] *= -3);
+    EXPECT_THROW(b[55] *= -.000001, Bundle::negativity_error);
+    EXPECT_THROW(b[55] /= -10424, Bundle::negativity_error);
+    EXPECT_EQ(-9, a2[23] * -2);
+    EXPECT_EQ(-18, a2[23] / -0.25);
 }
 TEST(Modification, erase) {
     GIMME_BUNDLES;
