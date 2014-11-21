@@ -1,5 +1,6 @@
 #include <eris/Simulation.hpp>
 #include <eris/consumer/Quadratic.hpp>
+#include <eris/Good.hpp>
 #include <iostream>
 #include <map>
 #include <boost/format.hpp>
@@ -16,18 +17,18 @@ void printGoodId(const Good &g) {
 }
 
 int main() {
-    auto sim = Simulation::spawn();
+    auto sim = Simulation::create();
 
     // Set up a numeraire good
-    auto money = sim->createGood<Good::Continuous>("Money");
+    auto money = sim->spawn<Good::Continuous>("Money");
     // Plus another divisible good
-    auto x = sim->createGood<Good::Continuous>("x");
+    auto x = sim->spawn<Good::Continuous>("x");
     // And a discrete good
-    auto w = sim->createGood<Good::Discrete>("w");
+    auto w = sim->spawn<Good::Discrete>("w");
 
 
     // We have just a single consumer, with quaslinear quadratic utility in the x good
-    auto c1 = sim->createAgent<Quadratic>();
+    auto c1 = sim->spawn<Quadratic>();
     c1->coef(money) = 1;
     c1->coef(x) = 10;
     c1->coef(w) = 100;

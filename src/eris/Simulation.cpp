@@ -8,8 +8,12 @@
 
 namespace eris {
 
-std::shared_ptr<Simulation> Simulation::spawn() {
+std::shared_ptr<Simulation> Simulation::create() {
     return std::shared_ptr<Simulation>(new Simulation);
+}
+
+std::shared_ptr<Simulation> Simulation::spawn() {
+    return create();
 }
 
 void Simulation::registerDependency(eris_id_t member, eris_id_t depends_on) {

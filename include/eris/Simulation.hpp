@@ -33,7 +33,12 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
         /** Creates a new Simulation and returns a shared_ptr to it.  This is the only public
          * interface to creating a Simulation.
          */
-        static std::shared_ptr<Simulation> spawn();
+        static std::shared_ptr<Simulation> create();
+
+        /** Old version of create().
+         *
+         * \deprecated Call create() instead. */
+        [[deprecated("Call create() instead")]] static std::shared_ptr<Simulation> spawn();
 
         /// Destructor.  When destruction occurs, any outstanding threads are killed and rejoined.
         virtual ~Simulation();
@@ -82,12 +87,19 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
          * member.
          *
          * Example:
-         *     auto money = sim->create<Good::Continuous>("money");
-         *     auto good = sim->create<Good::Continuous>("x");
-         *     auto market = sim->create<Bertrand>(Bundle(good, 1), Bundle(money, 1));
+         *     auto money = sim->spawn<Good::Continuous>("money");
+         *     auto good = sim->spawn<Good::Continuous>("x");
+         *     auto market = sim->spawn<Bertrand>(Bundle(good, 1), Bundle(money, 1));
          */
         template <class T, typename... Args, class = typename std::enable_if<std::is_base_of<Member, T>::value>::type>
-        SharedMember<T> create(Args&&... args);
+        SharedMember<T> spawn(Args&&... args);
+
+        /** Old version of spawn<T>().
+         *
+         * \deprecated Call spawn<T>() instead.
+         */
+        template <class T, typename... Args>
+        [[deprecated("Call spawn<T>(...) instead")]] SharedMember<T> create(Args&&... args);
 
         /** Removes the given member (and any dependencies) from this simulation.
          *
@@ -294,7 +306,7 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
 
     private:
         /* Simulation constructor.  Simulation objects should be constructed by calling
-         * Simulation::spawn() instead of calling the constructor directly.
+         * Simulation::create() instead of calling the constructor directly.
          */
         Simulation() = default;
 
@@ -307,7 +319,7 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
         MemberMap<Member> others_;
 
         // insert() decides which of following insertAgent, insertGood, etc. methods to call and
-        // calls it.  Called from the public create() methods.
+        // calls it.  Called from the public spawn() method.
         void insert(const SharedMember<Member> &member);
 
         void insertAgent(const SharedMember<Agent> &agent);
@@ -458,10 +470,14 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
 };
 
 
-template <class T, typename... Args, class> SharedMember<T> Simulation::create(Args&&... args) {
+template <class T, typename... Args, class> SharedMember<T> Simulation::spawn(Args&&... args) {
     SharedMember<T> member(std::make_shared<T>(std::forward<Args>(args)...));
     insert(member);
     return member;
+}
+
+template <class T, typename... Args> SharedMember<T> Simulation::create(Args&&... args) {
+    return spawn<T>(std::forward<Args>(args)...);
 }
 
 // These methods are all basically identical for the four core types (agent, good, market, other),

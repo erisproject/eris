@@ -51,14 +51,14 @@ std::string as_string(const unordered_map<eris_id_t, unordered_set<eris_id_t>> &
 
 TEST(Dependencies, Create) {
 
-    auto sim = Simulation::spawn();
+    auto sim = Simulation::create();
 
     // Create some goods and agents
-    auto m = sim->create<Good::Continuous>("Money");
-    auto x = sim->create<Good::Continuous>("x");
-    auto y = sim->create<Good::Continuous>("y");
+    auto m = sim->spawn<Good::Continuous>("Money");
+    auto x = sim->spawn<Good::Continuous>("x");
+    auto y = sim->spawn<Good::Continuous>("y");
 
-    auto con = sim->create<Polynomial>();
+    auto con = sim->spawn<Polynomial>();
     con->coef(x, 1) = 1; // u(x) = x
 
     // Declare some dependencies
@@ -69,7 +69,7 @@ TEST(Dependencies, Create) {
 
     // a MUPD optimizer should declare a dependency on both the consumer and
     // the money good:
-    auto opt = sim->create<MUPD>(con, m);
+    auto opt = sim->spawn<MUPD>(con, m);
 
     // Store these as they will become 0 when the members are removed
     auto mid = m->id();
@@ -98,21 +98,21 @@ TEST(Dependencies, Create) {
 
 TEST(Dependencies, Delete) {
 
-    auto sim = Simulation::spawn();
+    auto sim = Simulation::create();
 
     // Create some goods and agents
-    auto m = sim->create<Good::Continuous>("Money");
-    auto x = sim->create<Good::Continuous>("x");
-    auto y = sim->create<Good::Continuous>("y");
+    auto m = sim->spawn<Good::Continuous>("Money");
+    auto x = sim->spawn<Good::Continuous>("x");
+    auto y = sim->spawn<Good::Continuous>("y");
 
-    auto con = sim->create<Polynomial>();
+    auto con = sim->spawn<Polynomial>();
     con->coef(x, 1) = 1; // u(x) = x
 
     sim->registerDependency(y, x);
 
     // a MUPD optimizer should declare a dependency on both the consumer and
     // the money good:
-    auto opt = sim->create<MUPD>(con, m);
+    auto opt = sim->spawn<MUPD>(con, m);
 
     // Store these as they will become 0 when the members are removed
     auto mid = m->id();
@@ -161,19 +161,19 @@ TEST(Dependencies, Delete) {
 
 TEST(Dependencies, DeleteChain) {
 
-    auto sim = Simulation::spawn();
+    auto sim = Simulation::create();
 
     // Create some goods and agents
-    auto m = sim->create<Good::Continuous>("Money");
-    auto x = sim->create<Good::Continuous>("x");
-    auto y = sim->create<Good::Continuous>("y");
+    auto m = sim->spawn<Good::Continuous>("Money");
+    auto x = sim->spawn<Good::Continuous>("x");
+    auto y = sim->spawn<Good::Continuous>("y");
 
-    auto con = sim->create<Polynomial>();
+    auto con = sim->spawn<Polynomial>();
     con->coef(x, 1) = 1; // u(x) = x
 
     // a MUPD optimizer should declare a dependency on both the consumer and
     // the money good:
-    auto opt = sim->create<MUPD>(con, m);
+    auto opt = sim->spawn<MUPD>(con, m);
 
     // Declare some dependencies
     sim->registerDependency(x, y);

@@ -17,7 +17,7 @@ namespace eris { namespace interopt {
  *
  * A factory is typically created and added at the same time via a call such as:
  *
- *     simulation->create<FactoryImplementation>()
+ *     simulation->spawn<FactoryImplementation>()
  *
  * The implementing class typically has just three methods: needAction(), which determines when a
  * create/destroy action should be taken, and create() and destroy() which add or remove from the

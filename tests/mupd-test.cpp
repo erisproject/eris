@@ -71,13 +71,13 @@ using namespace eris::intraopt;
 
 
 #define SETUP_SIM \
-    auto sim = Simulation::spawn(); \
+    auto sim = Simulation::create(); \
     sim->maxThreads(0); \
     \
-    auto m = sim->create<Good::Continuous>("Money"); \
-    auto x = sim->create<Good::Continuous>("x"); \
-    auto y = sim->create<Good::Continuous>("y"); \
-    auto z = sim->create<Good::Continuous>("z"); \
+    auto m = sim->spawn<Good::Continuous>("Money"); \
+    auto x = sim->spawn<Good::Continuous>("x"); \
+    auto y = sim->spawn<Good::Continuous>("y"); \
+    auto z = sim->spawn<Good::Continuous>("z"); \
     \
     Bundle m1(m, 1); \
     Bundle m6(m, 6); \
@@ -85,24 +85,24 @@ using namespace eris::intraopt;
     Bundle y1(y, 1); \
     Bundle z1(z, 1); \
     \
-    auto fx1 = sim->create<PriceFirm>(x1, m1); \
-    auto fx6 = sim->create<PriceFirm>(x1, m6); \
-    auto fy1 = sim->create<PriceFirm>(y1, m1); \
-    auto fy6 = sim->create<PriceFirm>(y1, m6); \
-    auto fz1 = sim->create<PriceFirm>(z1, m1); \
-    auto fz6 = sim->create<PriceFirm>(z1, m6);
+    auto fx1 = sim->spawn<PriceFirm>(x1, m1); \
+    auto fx6 = sim->spawn<PriceFirm>(x1, m6); \
+    auto fy1 = sim->spawn<PriceFirm>(y1, m1); \
+    auto fy6 = sim->spawn<PriceFirm>(y1, m6); \
+    auto fz1 = sim->spawn<PriceFirm>(z1, m1); \
+    auto fz6 = sim->spawn<PriceFirm>(z1, m6);
 
 // Creates a market for bundle {x,y,z}1 and adds one of the 6 f{x,y,z}{1,6} firms to serve it.
-#define MKT(a,n) auto m##a##n = sim->create<Bertrand>(a##1, m1); m##a##n->addFirm(f##a##n);
+#define MKT(a,n) auto m##a##n = sim->spawn<Bertrand>(a##1, m1); m##a##n->addFirm(f##a##n);
 
 #define intraResetOptApply(opt) opt->intraReset(); opt->intraOptimize(); opt->intraApply();
 
 TEST(Case01_OneGood, Linear) {
     SETUP_SIM;
 
-    auto con = sim->create<Polynomial>();
+    auto con = sim->spawn<Polynomial>();
     con->coef(x, 1) = 1; // u(x) = x
-    auto opt = sim->create<MUPD>(con, m);
+    auto opt = sim->spawn<MUPD>(con, m);
 
     // Give the agents some income:
     con->assets() += 100 * m1;
@@ -117,9 +117,9 @@ TEST(Case01_OneGood, Linear) {
 TEST(Case01_OneGood, Sqrt) {
     SETUP_SIM;
 
-    auto con = sim->create<CobbDouglas>(x, 0.5);
+    auto con = sim->spawn<CobbDouglas>(x, 0.5);
     // con: u(x) = sqrt(x)
-    auto opt = sim->create<MUPD>(con, m);
+    auto opt = sim->spawn<MUPD>(con, m);
 
     // Give the agents some income:
     con->assets() += 150 * m1;
@@ -139,9 +139,9 @@ TEST(Case01_OneGood, Sqrt) {
 TEST(Case01_OneGood, Squared) {
     SETUP_SIM;
 
-    auto con = sim->create<Polynomial>();
+    auto con = sim->spawn<Polynomial>();
     con->coef(x, 2) = 1; // u(x) = x^2
-    auto opt = sim->create<MUPD>(con, m);
+    auto opt = sim->spawn<MUPD>(con, m);
 
     // Give the agents some income:
     con->assets() += 180 * m1;
@@ -156,11 +156,11 @@ TEST(Case01_OneGood, Squared) {
 
 #define SETUP_CASE2 \
     SETUP_SIM; \
-    auto con = sim->create<Polynomial>(); \
+    auto con = sim->spawn<Polynomial>(); \
     con->coef(x, 1) = 2; \
     con->coef(y, 1) = 1; \
     con->assets() += 100 * m1; \
-    auto opt = sim->create<MUPD>(con, m);
+    auto opt = sim->spawn<MUPD>(con, m);
 
 TEST(Case02_Linear, Px1_Py1) {
     SETUP_CASE2;
@@ -212,10 +212,10 @@ TEST(Case02_Linear, Px6_Py6) {
 TEST(Case03_CobbDouglas, Px1_Py1_Pz1__a1_b1_c1) {
     SETUP_SIM;
 
-    auto con = sim->create<CobbDouglas>(x, 1.0, y, 1, z, 1);
+    auto con = sim->spawn<CobbDouglas>(x, 1.0, y, 1, z, 1);
     con->assets() += 300*m1;
 
-    auto opt = sim->create<MUPD>(con, m);
+    auto opt = sim->spawn<MUPD>(con, m);
 
     MKT(x,1);
     MKT(y,1);
@@ -233,10 +233,10 @@ TEST(Case03_CobbDouglas, Px1_Py1_Pz1__a1_b1_c1) {
 TEST(Case03_CobbDouglas, Px6_Py1_Pz1__a1_b1_c2) {
     SETUP_SIM;
 
-    auto con = sim->create<CobbDouglas>(x, 1, y, 1, z, 2);
+    auto con = sim->spawn<CobbDouglas>(x, 1, y, 1, z, 2);
     con->assets() += 300*m1;
 
-    auto opt = sim->create<MUPD>(con, m);
+    auto opt = sim->spawn<MUPD>(con, m);
 
     MKT(x,6);
     MKT(y,1);
@@ -254,10 +254,10 @@ TEST(Case03_CobbDouglas, Px6_Py1_Pz1__a1_b1_c2) {
 TEST(Case03_CobbDouglas, Px1_Py1_Pz6__a0_b1_c3) {
     SETUP_SIM;
 
-    auto con = sim->create<CobbDouglas>(x, 0, y, 1, z, 3);
+    auto con = sim->spawn<CobbDouglas>(x, 0, y, 1, z, 3);
     con->assets() += 300*m1;
 
-    auto opt = sim->create<MUPD>(con, m);
+    auto opt = sim->spawn<MUPD>(con, m);
 
     MKT(x,1);
     MKT(y,1);
@@ -276,10 +276,10 @@ TEST(Case03_CobbDouglas, Px1_Py1_Pz6__a0_b1_c3) {
 TEST(Case03_CobbDouglas, Px1_Py6_Pz6__a1_b23_c13) {
     SETUP_SIM;
 
-    auto con = sim->create<CobbDouglas>(x, 1, y, 2.0/3, z, 1.0/3);
+    auto con = sim->spawn<CobbDouglas>(x, 1, y, 2.0/3, z, 1.0/3);
     con->assets() += 300*m1;
 
-    auto opt = sim->create<MUPD>(con, m);
+    auto opt = sim->spawn<MUPD>(con, m);
 
     MKT(x,1);
     MKT(y,6);
@@ -301,11 +301,11 @@ TEST(Case03_CobbDouglas, Px1_Py6_Pz6__a1_b23_c13) {
 TEST(Case04_Bliss, Constant) {
     SETUP_SIM;
 
-    auto con = sim->create<Polynomial>(-13.0);
+    auto con = sim->spawn<Polynomial>(-13.0);
 
     con->assets() += 123*m1;
 
-    auto opt = sim->create<MUPD>(con, m);
+    auto opt = sim->spawn<MUPD>(con, m);
 
     MKT(x,1);
     MKT(y,6);
@@ -319,14 +319,14 @@ TEST(Case04_Bliss, Constant) {
 TEST(Case04_Bliss, ConstantMinusEach) {
     SETUP_SIM;
 
-    auto con = sim->create<Polynomial>(5.0);
+    auto con = sim->spawn<Polynomial>(5.0);
     con->coef(x, 1) = -1;
     con->coef(y, 1) = -1;
     con->coef(z, 1) = -1;
 
     con->assets() += m1;
 
-    auto opt = sim->create<MUPD>(con, m);
+    auto opt = sim->spawn<MUPD>(con, m);
 
     MKT(x,1);
     MKT(y,1);
@@ -340,12 +340,12 @@ TEST(Case04_Bliss, ConstantMinusEach) {
 TEST(Case04_Bliss, ConstantMinusProd) {
     SETUP_SIM;
 
-    //auto con = sim->create<Consumer::Simple>([&](const BundleNegative &b) { return -3.0-b[x]*b[y]*b[z]; });
-    auto con = sim->create<CompoundSum::Differentiable>(new Polynomial(-3), new CobbDouglas(x, 1, y, 1, z, 1, -1.0));
+    //auto con = sim->spawn<Consumer::Simple>([&](const BundleNegative &b) { return -3.0-b[x]*b[y]*b[z]; });
+    auto con = sim->spawn<CompoundSum::Differentiable>(new Polynomial(-3), new CobbDouglas(x, 1, y, 1, z, 1, -1.0));
 
     con->assets() += 3*m1;
 
-    auto opt = sim->create<MUPD>(con, m);
+    auto opt = sim->spawn<MUPD>(con, m);
 
     MKT(x,1);
     MKT(y,6);
@@ -362,13 +362,13 @@ TEST(Case04_Bliss, ConstantMinusProd) {
 
 #define SETUP_CASE6 \
     SETUP_SIM; \
-    auto con = sim->create<Quadratic>(7.5); \
+    auto con = sim->spawn<Quadratic>(7.5); \
     con->coef(m) = 1; \
     con->coef(x) = 5; \
     con->coef(y) = 4; \
     con->coef(x, x) = -0.5; \
     con->coef(y, y) = -0.5; \
-    auto opt = sim->create<MUPD>(con, m);
+    auto opt = sim->spawn<MUPD>(con, m);
 
 TEST(Case06_Numeraire, Px1_Py6) {
     SETUP_CASE6;
@@ -470,7 +470,7 @@ TEST(Case07_UBB, Test1) {
 
     double alpha = 1000, beta = 20, gamma = 5;
 
-    auto con = sim->create<Quadratic>();
+    auto con = sim->spawn<Quadratic>();
     con->coef(m) = 1;
     con->coef(x) = alpha;
     con->coef(y) = alpha;
@@ -484,7 +484,7 @@ TEST(Case07_UBB, Test1) {
 
     con->assets() += 200*m1;
 
-    auto opt = sim->create<MUPD>(con, m);
+    auto opt = sim->spawn<MUPD>(con, m);
 
     MKT(x,1);
     MKT(y,1);
@@ -523,7 +523,7 @@ TEST(Case07_UBB, Test2) {
     // Try with a different parameterization
     double alpha = 100, beta = 1, gamma = 0.8;
 
-    auto con = sim->create<Quadratic>();
+    auto con = sim->spawn<Quadratic>();
     con->coef(m) = 1;
     con->coef(x) = alpha;
     con->coef(y) = alpha;
@@ -537,7 +537,7 @@ TEST(Case07_UBB, Test2) {
 
     con->assets() = 300*m1;
 
-    auto opt = sim->create<MUPD>(con, m);
+    auto opt = sim->spawn<MUPD>(con, m);
 
     MKT(x,1);
     MKT(y,6);

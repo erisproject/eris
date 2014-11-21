@@ -4,7 +4,7 @@
  * intra-period optimization object.
  *
  * For example:
- *     simulation->create<intraopt::ApplyCallback>([] { ... code here ...});
+ *     simulation->spawn<intraopt::ApplyCallback>([] { ... code here ...});
  */
 #include <eris/Optimize.hpp>
 #include <eris/Member.hpp>

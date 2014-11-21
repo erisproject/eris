@@ -24,7 +24,7 @@ namespace eris { namespace consumer {
  *
  * Example:
  *
- *     simulation->create<consumer::CompoundSum>(
+ *     simulation->spawn<consumer::CompoundSum>(
  *         new consumer::Polynomial(...),
  *         new consumer::CobbDouglas(...)
  *     );

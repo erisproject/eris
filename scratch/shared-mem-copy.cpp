@@ -9,15 +9,15 @@ class Foo : public agent::AssetAgent {};
 class Bar : public Foo {};
 
 int main() {
-    auto sim = Simulation::spawn();
+    auto sim = Simulation::create();
 
-    auto foo = sim->create<Foo>();
-    auto bar = sim->create<Bar>();
-    auto aa = sim->create<agent::AssetAgent>();
+    auto foo = sim->spawn<Foo>();
+    auto bar = sim->spawn<Bar>();
+    auto aa = sim->spawn<agent::AssetAgent>();
 
     std::vector<SharedMember<Member>> v;
     for (int i = 0; i < 10; i++) {
-        v.push_back(sim->create<Bar>());
+        v.push_back(sim->spawn<Bar>());
     }
 
     for (auto &b : v) {

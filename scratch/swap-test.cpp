@@ -17,9 +17,9 @@ class G : public Good::Continuous {
 };
 
 int main() {
-    auto sim = Simulation::spawn;
-    auto a = sim->create<A>();
-    auto g = sim->create<G>();
+    auto sim = Simulation::create();
+    auto a = sim->spawn<A>();
+    auto g = sim->spawn<G>();
 
     auto am = SharedMember<Member>(a);
     auto gm = SharedMember<Member>(g);

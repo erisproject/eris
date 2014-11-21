@@ -111,11 +111,11 @@ void thr_code8() {
 
 int main() {
 
-    auto sim = Simulation::spawn();
+    auto sim = Simulation::create();
     sim->maxThreads(10);
 
     for (int i = 0; i < 10; i++) {
-        c.push_back(sim->create<Quadratic>());
+        c.push_back(sim->spawn<Quadratic>());
     }
 
     int seq1 = 0, seq2 = 0;
