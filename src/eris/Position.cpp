@@ -25,7 +25,7 @@ Position Position::zero(const size_t dimensions) {
 Position Position::random(const size_t dimensions) {
     Position offset = Position::zero(dimensions);
     double tss = 0.0;
-    auto rng = Random::rng();
+    auto &rng = Random::rng();
     std::normal_distribution<double> stdnormal;
     while (tss == 0.0) { // Extremely likely that this loop runs only once (we would need D draws of exactly 0 to repeat)
         for (size_t i = 0; i < dimensions; i++) {

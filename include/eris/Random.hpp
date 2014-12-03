@@ -2,6 +2,7 @@
 #include <random>
 #include <thread>
 #include <mutex>
+#include <eris/noncopyable.hpp>
 
 namespace eris {
 
@@ -23,9 +24,10 @@ namespace eris {
  */
 class Random final {
     public:
-        /** typedef for the RNG type used by this class, currently std::mt19937_64.
+        /** Wrapper class around the RNG type used by this class, currently std::mt19937_64.  The
+         * wrapper is non-copyable, thus ensuring that the RNG isn't accidentally copied.
          */
-        typedef std::mt19937_64 rng_t;
+        class rng_t : public std::mt19937_64, private eris::noncopyable {};
 
         /** Returns a random number generator.  The first time this is called, it creates a static
          * random number generator; subsequent calls return the same RNG.  Currently this creates a
