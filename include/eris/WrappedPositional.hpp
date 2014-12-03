@@ -22,6 +22,11 @@ class WrappedPositionalBase : public PositionalBase {
          */
         WrappedPositionalBase(const Position &p, const Position &boundary1, const Position &boundary2);
 
+        /** Constructs a WrappedPositionalBase at location `p` who has wrapping boundaries at `b1`
+         * and `b2` in every dimension.
+         */
+        WrappedPositionalBase(const Position &p, double b1, double b2);
+
         /** Constructs a WrappedPositionalBase at location `p` who is bounded by the bounding box defined
          * by the two boundary vertex positions with wrapping on one or more dimensions.
          *
@@ -184,7 +189,7 @@ class WrappedPositionalBase : public PositionalBase {
 
     private:
         // The set of wrapped dimensions
-        std::vector<bool> wrapped_;
+        std::vector<bool> wrapped_ = std::vector<bool>(position_.dimensions, false);
 };
 
 /** This class works just like Positional but adds wrapping to one or more dimensions.
@@ -246,6 +251,29 @@ class WrappedPositional : public WrappedPositionalBase, public T {
         WrappedPositional(const Position &p, const Position &boundary1, const Position &boundary2,
                 Args&&... T_args)
             : WrappedPositionalBase(p, boundary1, boundary2), T(std::forward<Args>(T_args)...)
+        {}
+
+        /** Constructs a WrappedPositional<T> at location `p` who has wrapping boundies at `b1` and
+         * `b2` in all dimensions.
+         *
+         * \param p the initial Position.  `p` is not required to be inside the bounding box, but
+         * will be wrapped into the bounding box on any wrapped dimensions.
+         *
+         * \param b1 the value (any integral or floating point type; will be converted to double) at
+         * which a boundary applies in each dimension of `p`.
+         *
+         * \param b2 the value (any integral or floating point type; will be converted to double) at
+         * which a boundary applies in each dimension of `p`.
+         *
+         * \param T_args any extra arguments are forwarded to the constructor of class `T`
+         */
+        template<typename... Args, typename Numeric1, typename Numeric2,
+            typename = typename std::enable_if<
+                (std::is_floating_point<Numeric1>::value or std::is_integral<Numeric1>::value) and
+                (std::is_floating_point<Numeric2>::value or std::is_integral<Numeric2>::value)
+                >::type>
+        WrappedPositional(const Position &p, Numeric1 b1, Numeric2 b2, Args&&... T_args)
+            : WrappedPositionalBase(p, (double) b1, (double) b2), T(std::forward<Args>(T_args)...)
         {}
 
         /** Constructs a WrappedPositional<T> at location `p` who is bounded by the bounding box

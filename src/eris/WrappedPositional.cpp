@@ -6,20 +6,27 @@
 namespace eris {
 
 WrappedPositionalBase::WrappedPositionalBase(const Position &p, const Position &boundary1, const Position &boundary2)
-    : PositionalBase(p, boundary1, boundary2), wrapped_(p.dimensions, false) {
+    : PositionalBase(p, boundary1, boundary2) {
+    for (size_t d = 0; d < p.dimensions; d++)
+        wrap(d);
+    wrap(position_);
+}
+
+WrappedPositionalBase::WrappedPositionalBase(const Position &p, const double b1, const double b2)
+    : PositionalBase(p, b1, b2) {
     for (size_t d = 0; d < p.dimensions; d++)
         wrap(d);
     wrap(position_);
 }
 
 WrappedPositionalBase::WrappedPositionalBase(const Position &p, const Position &boundary1, const Position &boundary2, const std::initializer_list<size_t> &dims)
-    : PositionalBase(p, boundary1, boundary2), wrapped_(p.dimensions, false) {
+    : PositionalBase(p, boundary1, boundary2) {
     wrap(dims);
     wrap(position_);
 }
 
 WrappedPositionalBase::WrappedPositionalBase(const Position &p)
-    : PositionalBase(p), wrapped_(p.dimensions, false)
+    : PositionalBase(p)
 {}
 
 bool WrappedPositionalBase::wrapped(size_t dim) const {
@@ -32,7 +39,7 @@ void WrappedPositionalBase::wrap(size_t dim) {
     if (dim >= position_.dimensions)
         throw std::out_of_range("Invalid dimension passed to WrappedPositionalBase::wrap(size_t)");
 
-    if (wrapped_[dim] > 0) return; // Already wrapping
+    if (wrapped_[dim]) return; // Already wrapping
 
     if (not std::isfinite(upper_bound_[dim]) or not std::isfinite(lower_bound_[dim]))
         return; // Can't wrap a non-finite dimension

@@ -10,8 +10,22 @@ PositionalBase::PositionalBase(const Position &p, const Position &boundary1, con
         throw std::length_error("position and boundary points have different dimensions");
 
     for (size_t d = 0; d < position_.dimensions; d++) {
-        lower_bound_[d] = std::min(boundary1[d], boundary2[d]);
-        upper_bound_[d] = std::max(boundary1[d], boundary2[d]);
+        double min = boundary1[d], max = boundary2[d];
+        if (max < min) std::swap(min, max);
+        lower_bound_[d] = min;
+        upper_bound_[d] = max;
+    }
+}
+
+PositionalBase::PositionalBase(const Position &p, double b1, double b2)
+    : position_(p), bounded_(true) {
+
+    // Ensure b1 <= b2:
+    if (b2 < b1) std::swap(b1, b2);
+
+    for (size_t d = 0; d < position_.dimensions; d++) {
+        lower_bound_[d] = b1;
+        upper_bound_[d] = b2;
     }
 }
 

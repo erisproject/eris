@@ -123,6 +123,10 @@ class PositionalBase {
     protected:
         /// Constructs a PositionalBase for the given point and boundaries.
         PositionalBase(const Position &p, const Position &boundary1, const Position &boundary2);
+        /** Constructs a PositionalBase for the given point with boundaries of `b1` and `b2` in
+         * every dimension.
+         */
+        PositionalBase(const Position &p, double b1, double b2);
         /// Constructs an unbounded PositionalBase at the given point
         PositionalBase(const Position &p);
 
@@ -177,6 +181,21 @@ class Positional : public PositionalBase, public T {
         template <typename... Args>
         Positional(const Position &p, const Position &boundary1, const Position &boundary2, Args&&... T_args)
             : PositionalBase(p, boundary1, boundary2),
+            T(std::forward<Args>(T_args)...)
+        {}
+
+        /** Constructs a Positional<T> at location `p` who is bounded by the bounding box defined by
+         * `b1` and `b2` in every dimension.
+         *
+         * Any extra arguments are forwarded to T's constructor.
+         */
+        template<typename... Args, typename Numeric1, typename Numeric2,
+            typename = typename std::enable_if<
+                (std::is_floating_point<Numeric1>::value or std::is_integral<Numeric1>::value) and
+                (std::is_floating_point<Numeric2>::value or std::is_integral<Numeric2>::value)
+                >::type>
+        Positional(const Position &p, Numeric1 b1, Numeric2 b2, Args&&... T_args)
+            : PositionalBase(p, (double) b1, (double) b2),
             T(std::forward<Args>(T_args)...)
         {}
 

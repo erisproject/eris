@@ -79,11 +79,20 @@ TEST(Boundaries, Boundaries) {
     EXPECT_FALSE(p3.bindingLower());
     EXPECT_TRUE(p3.binding());
 
+    Positional<Agent> p3a({1}, 3, -3);
+    EXPECT_NO_THROW(p3a.moveBy({2}));
+    EXPECT_EQP({3}, p3a.position());
+
+    EXPECT_TRUE(p3a.bindingUpper());
+    EXPECT_FALSE(p3a.bindingLower());
+    EXPECT_TRUE(p3a.binding());
+
+    // NB: specifying 0 wrapping dimensions, i.e. these are all hard boundaries
     WrappedPositional<Agent> p4({1,2,3,4,5}, {0,0,0,0,0}, {5,5,5,5,5}, {});
     EXPECT_NO_THROW(p4.moveTo({4,1,2,5,0}));
     EXPECT_TRUE(p4.binding());
     EXPECT_TRUE(p4.bindingUpper());
-    EXPECT_TRUE(p4.bindingUpper());
+    EXPECT_TRUE(p4.bindingLower());
 
     EXPECT_THROW(p4.moveBy({1.00001,0,0,0,0}), PositionalBoundaryError);
     EXPECT_THROW(p4.moveBy({0,0,0,0.00000000001,0}), PositionalBoundaryError);
@@ -94,47 +103,86 @@ TEST(Boundaries, Boundaries) {
 }
 
 TEST(Wrapping, Circle) {
-    WrappedPositional<Agent> p1({1}, {-1}, {5});
+    WrappedPositional<Agent> p1a({1}, {-1}, {5});
+    WrappedPositional<Agent> p1b({1}, 5, (float) -1);
 
-    EXPECT_NO_THROW(p1.moveTo({19}));
-    EXPECT_EQP({1}, p1.position());
+    EXPECT_NO_THROW(p1a.moveTo({19}));
+    EXPECT_NO_THROW(p1a.moveTo({19}));
+    EXPECT_EQP({1}, p1a.position());
+    EXPECT_EQP({1}, p1b.position());
 
-    WrappedPositional<Agent> p2({1}, {-1.25}, {5.25});
-    EXPECT_NO_THROW(p2.moveBy({800000}));
-    EXPECT_EQP({0.5}, p2.position());
+    WrappedPositional<Agent> p2a({1}, {-1.25}, {5.25});
+    WrappedPositional<Agent> p2b({1}, (long double) -1.25, 5.25);
+    EXPECT_NO_THROW(p2a.moveBy({800000}));
+    EXPECT_NO_THROW(p2b.moveBy({800000}));
+    EXPECT_EQP({0.5}, p2a.position());
+    EXPECT_EQP({0.5}, p2b.position());
 
-    EXPECT_NO_THROW(p2.moveBy({-44.7578125}));
-    EXPECT_EQP({1.2421875}, p2.position());
+    EXPECT_NO_THROW(p2a.moveBy({-44.7578125}));
+    EXPECT_NO_THROW(p2b.moveBy({-44.7578125}));
+    EXPECT_EQP({1.2421875}, p2a.position());
+    EXPECT_EQP({1.2421875}, p2b.position());
 
-    p2.moveBy({0.0078125});
-    EXPECT_FALSE(p2.binding());
-    EXPECT_FALSE(p2.bindingUpper());
-    EXPECT_FALSE(p2.bindingLower());
+    p2a.moveBy({0.0078125});
+    p2b.moveBy({0.0078125});
+    EXPECT_FALSE(p2a.binding());
+    EXPECT_FALSE(p2b.binding());
+    EXPECT_FALSE(p2a.bindingUpper());
+    EXPECT_FALSE(p2b.bindingUpper());
+    EXPECT_FALSE(p2a.bindingLower());
+    EXPECT_FALSE(p2b.bindingLower());
 }
 
 TEST(Wrapping, Donut) {
-    WrappedPositional<Agent> p1({1,1}, {-2,-2}, {3,3}); // Wrap in both dimensions
+    WrappedPositional<Agent> p1a({1,1}, {-2,-2}, {3,3}); // Wrap in both dimensions
+    WrappedPositional<Agent> p1b({1,1}, (unsigned long) 3, (short) -2); // Wrap in both dimensions
 
-    EXPECT_NO_THROW(p1.moveBy({99,99}));
-    EXPECT_EQ(Position({0,0}), p1.position());
+    EXPECT_NO_THROW(p1a.moveBy({99,99}));
+    EXPECT_NO_THROW(p1b.moveBy({99,99}));
+    EXPECT_EQ(Position({0,0}), p1a.position());
+    EXPECT_EQ(Position({0,0}), p1b.position());
 
-    EXPECT_NO_THROW(p1.moveBy({-51.390625, 56.703125}));
-    EXPECT_EQ(Position({-1.390625, 1.703125}), p1.position());
+    EXPECT_NO_THROW(p1a.moveBy({-51.390625, 56.703125}));
+    EXPECT_NO_THROW(p1b.moveBy({-51.390625, 56.703125}));
+    EXPECT_EQ(Position({-1.390625, 1.703125}), p1a.position());
+    EXPECT_EQ(Position({-1.390625, 1.703125}), p1b.position());
 
 
-    WrappedPositional<Agent> p2({2.25, 0}, {-10,-10}, {10,10});
+    WrappedPositional<Agent> p2a({2.25, 0}, {-10,10}, {10,-10});
+    WrappedPositional<Agent> p2b({2.25, 0}, (char) -10, 10.0);
 
-    p1.moveTo({-1.5, -1});
-    EXPECT_EQ(std::hypot(1.25, 1), p1.distance(p2)); // wrap x
-    EXPECT_EQ(std::hypot(3.75, 1), p2.distance(p1)); // no wrap
+    p1a.moveTo({-1.5, -1});
+    p1b.moveTo({-1.5, -1});
+    EXPECT_EQ(std::hypot(1.25, 1), p1a.distance(p2a)); // wrap x
+    EXPECT_EQ(std::hypot(1.25, 1), p1a.distance(p2b)); // wrap x
+    EXPECT_EQ(std::hypot(1.25, 1), p1b.distance(p2a)); // wrap x
+    EXPECT_EQ(std::hypot(1.25, 1), p1b.distance(p2b)); // wrap x
+    EXPECT_EQ(std::hypot(3.75, 1), p2a.distance(p1a)); // no wrap
+    EXPECT_EQ(std::hypot(3.75, 1), p2b.distance(p1a)); // no wrap
+    EXPECT_EQ(std::hypot(3.75, 1), p2a.distance(p1b)); // no wrap
+    EXPECT_EQ(std::hypot(3.75, 1), p2b.distance(p1b)); // no wrap
 
-    p1.moveTo({-0.125, 3});
-    EXPECT_EQ(std::hypot(2.375, 2), p1.distance(p2)); // wrap y
-    EXPECT_EQ(std::hypot(2.375, 3), p2.distance(p1)); // no wrap
+    p1a.moveTo({-0.125, 3});
+    p1b.moveTo({-0.125, 3});
+    EXPECT_EQ(std::hypot(2.375, 2), p1a.distance(p2a)); // wrap y
+    EXPECT_EQ(std::hypot(2.375, 2), p1a.distance(p2b)); // wrap y
+    EXPECT_EQ(std::hypot(2.375, 2), p1b.distance(p2a)); // wrap y
+    EXPECT_EQ(std::hypot(2.375, 2), p1b.distance(p2b)); // wrap y
+    EXPECT_EQ(std::hypot(2.375, 3), p2a.distance(p1a)); // no wrap
+    EXPECT_EQ(std::hypot(2.375, 3), p2b.distance(p1a)); // no wrap
+    EXPECT_EQ(std::hypot(2.375, 3), p2a.distance(p1b)); // no wrap
+    EXPECT_EQ(std::hypot(2.375, 3), p2b.distance(p1b)); // no wrap
 
-    p1.moveTo({-1.875, 2.9375});
-    EXPECT_EQ(std::hypot(0.875, 2.0625), p1.distance(p2)); // wrap both
-    EXPECT_EQ(std::hypot(4.125, 2.9375), p2.distance(p1)); // no wrapping
+    p1a.moveTo({-1.875, 2.9375});
+    p1b.moveTo({-1.875, 2.9375});
+    EXPECT_EQ(std::hypot(0.875, 2.0625), p1a.distance(p2a)); // wrap both
+    EXPECT_EQ(std::hypot(0.875, 2.0625), p1b.distance(p2a)); // wrap both
+    EXPECT_EQ(std::hypot(0.875, 2.0625), p1a.distance(p2b)); // wrap both
+    EXPECT_EQ(std::hypot(0.875, 2.0625), p1b.distance(p2b)); // wrap both
+    EXPECT_EQ(std::hypot(4.125, 2.9375), p2a.distance(p1a)); // no wrapping
+    EXPECT_EQ(std::hypot(4.125, 2.9375), p2a.distance(p1b)); // no wrapping
+    EXPECT_EQ(std::hypot(4.125, 2.9375), p2b.distance(p1a)); // no wrapping
+    EXPECT_EQ(std::hypot(4.125, 2.9375), p2b.distance(p1b)); // no wrapping
 }
 
 TEST(Wrapping, Cylinder) {
