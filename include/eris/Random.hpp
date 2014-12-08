@@ -45,10 +45,37 @@ class Random final {
          *     // Generate a random draw from a student-t distribution with 30 d.f.
          *     std::student_t_distribution t30gen(30);
          *     double draw = t30gen(Random::rng());
+         *
+         * If drawing multiple times, it is recommended (for performance reasons) to obtain a
+         * reference to the rng just once, such as:
+         *
+         *     auto &rng = Random::rng();
+         *     std::uniform_int_distribution<unsigned int> unif(0, 9);
+         *     for (...) {
+         *         unsigned int r = unif(rng);
+         *         // ...
+         *     }
          */
         inline static rng_t& rng() {
             if (!seeded_) rng_.seed(seed());
             return rng_;
+        }
+
+        /** A pre-defined, per-thread, reusable N(0,1) distribution.  Using this is preferred to
+         * using your own when requesting only a single value as normal values are typically
+         * generated in pairs (thus using this will be faster for every second call).
+         *
+         * \sa rstdnorm()
+         */
+        thread_local static std::normal_distribution<double> stdnorm;
+
+        /** Returns a draw from a double N(0,1) distribution using the current rng().  Equivalent
+         * to: `eris::Random::stdnorm(eris::Random::rng())`.  If drawing multiple values at once, it
+         * is preferrable to either use stdnorm directly, or to use your own
+         * std::normal_distribution<double> object.
+         */
+        inline static double rstdnorm() {
+            return stdnorm(rng());
         }
 
         /** Returns the initial seed used for the current thread's random number generator.  If no
@@ -82,7 +109,7 @@ class Random final {
          * The given seed will be used for other threads as well: the first thread to request a seed
          * uses `seed + 1`, the second uses `seed + 2`, etc.  Note, however, that inherent system
          * scheduling randomness makes multithreaded randomness unlikely to be reproducible even if
-         * started with the same seed.
+         * started with the same seed, when there are dependencies between threads.
          *
          * Throws std::runtime_error if any thread other than the caller already has a random seed.
          */
@@ -100,7 +127,7 @@ class Random final {
         // The offset to add to the base for new threads' RNGs.  Incremented for each new thread.
         static unsigned int init_count_;
 
-        // Pointer to the random number generator
+        // Thread-specific variables:
         thread_local static bool seeded_;
         thread_local static rng_t rng_;
         thread_local static rng_t::result_type seed_;

@@ -13,6 +13,7 @@ unsigned int Random::init_count_ = 0;
 thread_local bool Random::seeded_ = false;
 thread_local Random::rng_t Random::rng_;
 thread_local Random::rng_t::result_type Random::seed_;
+thread_local std::normal_distribution<double> Random::stdnorm;
 
 
 
