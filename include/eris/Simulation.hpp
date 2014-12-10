@@ -263,7 +263,7 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
          *
          * This is initially 0 (until the first run() call).
          */
-        unsigned long t() const;
+        eris_time_t t() const;
 
         /** The current stage of the simulation.
          */
@@ -378,7 +378,7 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
         void notifyWeakDeps(SharedMember<Member> member, eris_id_t old_id);
 
         // Tracks the iteration number, can be accessed via t().
-        unsigned long iteration_ = 0;
+        eris_time_t t_ = 0;
 
         /* Threading variables */
 
@@ -628,8 +628,8 @@ inline void Simulation::thr_wait(const RunStage &curr_stage) {
         thr_cv_stage_.wait(lock, [this,curr_stage] { return stage_ != curr_stage; });
 }
 
-inline unsigned long Simulation::t() const {
-    return iteration_;
+inline eris_time_t Simulation::t() const {
+    return t_;
 }
 
 }

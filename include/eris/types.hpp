@@ -30,6 +30,9 @@ namespace eris {
  */
 typedef uint64_t eris_id_t;
 
+/** Integer type that stores an eris time period. */
+typedef uint32_t eris_time_t;
+
 /** enum of the different stages of the simulation, primarily used for synchronizing threads.
  *
  * (The explicit ': int' is here because the stages are used internally as indicies in

@@ -347,7 +347,7 @@ void Simulation::run() {
     // Enlarge or shrink the thread pool as needed
     thr_thread_pool();
 
-    ++iteration_;
+    ++t_;
 
     thr_stage(RunStage::inter_Optimize);
     thr_stage(RunStage::inter_Apply);
