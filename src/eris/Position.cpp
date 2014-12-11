@@ -15,9 +15,6 @@ Position::Position(const Position &pos) : pos_(pos.pos_) {
     *this = pos;
 }
 
-Position::Position(Position &&pos) : pos_(std::move(pos.pos_)) {
-}
-
 Position Position::zero(const size_t dimensions) {
     return Position(std::vector<double>(dimensions, 0.0));
 }
@@ -98,6 +95,18 @@ Position& Position::operator=(const Position &new_pos) {
     for (size_t i = 0; i < dimensions; i++)
         operator[](i) = new_pos[i];
 
+    return *this;
+}
+
+Position& Position::operator=(const std::vector<double> &new_coordinates) {
+    requireSameDimensions(new_coordinates.size(), "Position::operator=");
+    pos_ = new_coordinates;
+    return *this;
+}
+
+Position& Position::operator=(std::vector<double> &&new_coordinates) {
+    requireSameDimensions(new_coordinates.size(), "Position::operator=");
+    pos_ = std::move(new_coordinates);
     return *this;
 }
 

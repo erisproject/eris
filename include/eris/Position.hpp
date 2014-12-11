@@ -28,6 +28,8 @@ class Position final {
         }
 
         /** Creates a Position at the given vector, taking over the vector for position storage.
+         *
+         * The vector must have at least one element (0-dimension Positions are invalid).
          */
         Position(std::vector<double> &&coordinates);
 
@@ -35,7 +37,7 @@ class Position final {
         Position(const Position &pos);
 
         /** Moves the given Position's values into this one */
-        Position(Position &&pos);
+        Position(Position &&pos) = default;
 
         /** Creates a new Position object of the given number of dimensions (>= 1) with initial
          * position of 0 for all dimensions.
@@ -145,6 +147,19 @@ class Position final {
          */
         Position& operator=(const Position &new_pos);
 
+        /** Sets the position to the values in the provided vector.  The dimension of the current
+         * position must match the length of the vector.
+         */
+        Position& operator=(const std::vector<double> &new_coordinates);
+
+        /** Replaces the internal std::vector with the given one.  The dimensions of the current
+         * position must match the length of the replacement vector.
+         */
+        Position& operator=(std::vector<double> &&new_coordinates);
+
+        /** Move assignment operator. */
+        Position& operator=(Position &&move_pos) = default;
+
         /// Adding two positions together adds the underlying position values together.
         Position operator+(const Position &add) const;
 
@@ -187,6 +202,9 @@ class Position final {
         /// Throws an exception if the current object and `other` have different dimensions.
         void requireSameDimensions(const Position &other, const std::string &method) const;
 
+        /// Throws an exception if the current object doesn't match the given number of dimensions.
+        void requireSameDimensions(size_t dimensions, const std::string &method) const;
+
     public:
         /** Accesses the number of dimensions of this Position object.  This will always be at least
          * 1, and cannot be changed.
@@ -195,9 +213,12 @@ class Position final {
         const size_t dimensions = pos_.size();
 };
 
-inline void Position::requireSameDimensions(const Position &other, const std::string &method) const {
-    if (dimensions != other.dimensions)
+inline void Position::requireSameDimensions(size_t dim, const std::string &method) const {
+    if (dimensions != dim)
         throw std::length_error(method + "() called with objects of differing dimensions");
+}
+inline void Position::requireSameDimensions(const Position &other, const std::string &method) const {
+    requireSameDimensions(other.dimensions, method);
 }
 
 inline double& Position::operator[](int d) { return pos_[d]; }
