@@ -14,7 +14,7 @@
 
 if (NOT DEFINED GTEST_SRC)
     find_path(GTEST_CMakeLists
-        NAMES CMakeLists.txtz
+        NAMES CMakeLists.txt
         PATHS ${GTEST_ROOT}
             $ENV{GTEST_ROOT}
             "${CMAKE_PREFIX_PATH}/src/gtest"
