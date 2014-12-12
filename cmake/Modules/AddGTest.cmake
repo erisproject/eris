@@ -10,14 +10,15 @@
 # - ${CMAKE_PREFIX_PATH}/src/gtest/CMakeLists.txt
 # - /usr/src/gtest/CMakeLists.txt
 #
-# If found, GTEST_SRC is set to the path, otherwise to an empty string
+# If found, GTEST_SRC is set to the path, otherwise it is left unset
 
-if (NOT DEFINED GTEST_SRC)
+if (NOT GTEST_SRC)
     find_path(GTEST_CMakeLists
         NAMES CMakeLists.txt
         PATHS ${GTEST_ROOT}
             $ENV{GTEST_ROOT}
             "${CMAKE_PREFIX_PATH}/src/gtest"
+            "${CMAKE_INSTALL_PREFIX}/src/gtest"
             "/usr/src/gtest"
         DOC "Root path of GTest source installation"
         NO_CMAKE_PATH
@@ -27,12 +28,9 @@ if (NOT DEFINED GTEST_SRC)
 
     if (GTEST_CMakeLists STREQUAL "GTEST_CMakeLists-NOTFOUND")
         message(STATUS "gtest NOT FOUND (try GTEST_ROOT=/path/to/gtest/src)")
-        set(GTEST_SRC "" CACHE PATH "path to gtest src directory")
     else()
         message(STATUS "Found gtest: ${GTEST_CMakeLists}")
         add_subdirectory(${GTEST_CMakeLists} ${CMAKE_CURRENT_BINARY_DIR}/gtest)
         set(GTEST_SRC "${GTEST_CMakeLists}" CACHE PATH "path to gtest src directory")
     endif()
 endif()
-
-#set(GTEST_SRC "${GTEST_SRC}" PARENT_SCOPE)
