@@ -63,6 +63,7 @@ void Random::seed(rng_t::result_type s) {
     init_use_base_ = true;
     init_count_ = 1;
     init_done_ = true;
+    seeded_ = true;
 }
 
 }
