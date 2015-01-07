@@ -54,7 +54,7 @@ void Simulation::insert##TYPE(const SharedMember<CLASS> &member) {\
 }\
 void Simulation::remove##TYPE(eris_id_t id) {\
     std::lock_guard<std::recursive_mutex> mbr_lock(member_mutex_);\
-    auto &member = MAP.at(id);\
+    auto member = MAP.at(id);\
     auto lock = member->writeLock();\
     removeOptimizers(member);\
     MAP.erase(id);\
