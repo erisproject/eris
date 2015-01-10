@@ -76,12 +76,8 @@ class SharedMember final {
          *     SharedMember<B> b2(a2);
          * \endcode
          *
-         * Assuming that A is a base class of B.  Attempting to cast to an unsupported class (for
-         * example, attempting to cast a SharedMember<Good> (whether in a SharedMember<Good> or
-         * SharedMember<Member> variable) as a SharedMember<Agent>) will throw a bad_cast exception
-         * from std::dynamic_cast.  Note that cases where dynamic_cast returns a null pointer
-         * (attempting to cast a base instance to a derived class) will also throw a bad_cast
-         * exception, unlike std::dynamic_cast.
+         * This template specification only participates when upcasting from a derived to a base
+         * class.
          */
         template<class F>
         SharedMember(const SharedMember<F> &from,
@@ -92,7 +88,13 @@ class SharedMember final {
         /** Same as above, but for downcasting (i.e. when going from SharedMember<Base> to
          * SharedMember<Derived>). This needs to use a dynamic cast with run-time type checking
          * because it isn't guaranteed that a particular SharedMember<Base> is actually a
-         * SharedMember<Derived>. */
+         * SharedMember<Derived>.
+         *
+         * This template specification only participates when downcasting from a base to a derived
+         * class.
+         *
+         * \throws std::bad_cast if `*from` is not an instance of `T`.
+         */
         template<class F>
         SharedMember(const SharedMember<F> &from,
                 typename std::enable_if<std::is_base_of<F, T>::value and not std::is_same<T, F>::value>::type* = 0)
