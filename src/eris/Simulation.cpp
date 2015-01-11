@@ -73,6 +73,9 @@ ERIS_SIM_INSERT_REMOVE_MEMBER(Other,  Member, others_)
 // agent() agents() good() goods() market() markets() other() others()
 
 void Simulation::remove(eris_id_t id) {
+    if (stage_ == RunStage::inter_Optimize or stage_ == RunStage::intra_Optimize or stage_ == RunStage::intra_Reoptimize or stage_ == RunStage::intra_Reset)
+        throw std::logic_error("spawn<T>() failure: cannot remove simulation members during an optimization stage");
+
     if (agents_.count(id)) removeAgent(id);
     else if (goods_.count(id)) removeGood(id);
     else if (markets_.count(id)) removeMarket(id);
@@ -255,6 +258,7 @@ void Simulation::thr_stage(const RunStage &stage) {
 
     if (maxThreads() == 0) {
         // Not using threads; call thr_work directly
+        stage_ = stage;
         switch (stage) {
 #define ERIS_SIM_NOTHR_WORK(TYPE, STAGE)\
             case RunStage::TYPE##_##STAGE:\

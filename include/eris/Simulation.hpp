@@ -90,6 +90,8 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
          *     auto money = sim->spawn<Good::Continuous>("money");
          *     auto good = sim->spawn<Good::Continuous>("x");
          *     auto market = sim->spawn<Bertrand>(Bundle(good, 1), Bundle(money, 1));
+         *
+         * \throws std::logic_error if attempting to create a member during an optimization phase
          */
         template <class T, typename... Args, class = typename std::enable_if<std::is_base_of<Member, T>::value>::type>
         SharedMember<T> spawn(Args&&... args);
@@ -104,6 +106,7 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
         /** Removes the given member (and any dependencies) from this simulation.
          *
          * \throws std::out_of_range if the given id does not belong to this simulation.
+         * \throws std::logic_error if attempting to remove a member during an optimization phase
          */
         void remove(eris_id_t id);
 
@@ -471,6 +474,9 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
 
 
 template <class T, typename... Args, class> SharedMember<T> Simulation::spawn(Args&&... args) {
+    if (stage_ == RunStage::inter_Optimize or stage_ == RunStage::intra_Optimize or stage_ == RunStage::intra_Reoptimize or stage_ == RunStage::intra_Reset)
+        throw std::logic_error("spawn<T>() failure: cannot create new simulation members during an optimization stage");
+
     SharedMember<T> member(std::make_shared<T>(std::forward<Args>(args)...));
     insert(member);
     return member;
@@ -608,7 +614,6 @@ void Simulation::invalidateCache() {
 }
 
 inline unsigned long Simulation::maxThreads() { return max_threads_; }
-
 
 
 inline void Simulation::thr_stage_finished(const RunStage &curr_stage) {
