@@ -84,6 +84,51 @@ all_combinations(
     }
 }
 
+/** Transforms the range `[first, last)` into the next strictly-increasing sequence with maximum
+ * value `max`.  To cover all values, the range should initially be in sorted order from `min` to
+ * `min+n`, where `n` is the size of the range.  Each permutation will be in sorted,
+ * strictly-increasing order.  The last permutation will consist of `{max-n, max-n+1, ..., max-1,
+ * max}`, where `n` is the size of the given range.
+ *
+ * Note that this algorithm does not check that values are sorted, so may behave in an undefined
+ * manner if called with initially-unsorted values.
+ *
+ * \returns `true` if the range was updated to the next permutation, `false` if no next permutation
+ * exists.
+ *
+ * For example:
+ *
+ *     std::vector<int> v({1,2,3});
+ *     do { ... }
+ *     while (eris::next_sorted_int_combination(v.begin(), v.end(), 5));
+ *
+ * will execute the ... code 10 times with v set to: `{1,2,3}`, `{1,2,4}`, `{1,2,5}`, `{1,3,4}`,
+ * `{1,3,5}`, `{1,4,5}`, `{2,3,4}`, `{2,3,5}`, `{2,4,5}`, `{3,4,5}`.
+ */
+template <class BidirIt>
+typename std::enable_if<
+    std::is_integral<typename BidirIt::value_type>::value and
+    std::is_base_of<std::bidirectional_iterator_tag, typename std::iterator_traits<BidirIt>::iterator_category>::value
+, bool>::type
+next_increasing_integer_permutation(BidirIt first, BidirIt last, typename BidirIt::value_type max) {
+    auto it = last;
+    --it;
+    while (true) {
+        if (*it < max) {
+            auto last_val = ++*it;
+            for (++it; it != last; ++it) {
+                *it = ++last_val;
+            }
+            return true;
+        }
+        if (it == first) break;
+        --it;
+        --max;
+    }
+    return false;
+}
+
+
 /** Wrapper class around a pair of iterators that converts the pair into a range, so that a
  * for-range statement can be used.  The primary target of this is multimap's equal_range method,
  * which returns just such a pair.  This class is typically invoked via the range() function.
