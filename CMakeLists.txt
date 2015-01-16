@@ -8,7 +8,7 @@ include(GNUInstallDirs)
 # Eris package version
 set(ERIS_VERSION_MAJOR "0")
 set(ERIS_VERSION_MINOR "2")
-set(ERIS_VERSION_PATCH "6")
+set(ERIS_VERSION_PATCH "7")
 set(ERIS_VERSION "${ERIS_VERSION_MAJOR}.${ERIS_VERSION_MINOR}.${ERIS_VERSION_PATCH}")
 
 set(eris_author "Jason Rhinelander <jason@imaginary.ca>")

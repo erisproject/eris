@@ -57,7 +57,7 @@ class Random final {
          *     }
          */
         inline static rng_t& rng() {
-            if (!seeded_) rng_.seed(seed());
+            if (!seeded_) seed();
             return rng_;
         }
 
@@ -78,15 +78,16 @@ class Random final {
             return stdnorm(rng());
         }
 
-        /** Returns the initial seed used for the current thread's random number generator.  If no
-         * seed has been established yet, a new one is generated and stored before being returned.
+        /** Returns the initial seed used for the current thread's random number generator.  If the
+         * current thread's RNG is not yet seeded, it is seeded with the initial seed before
+         * returning.
          *
          * Note that the returned seed is for the initial state, but the current rng may well no
          * longer be at that initial state.
          *
          * The seed can be specified in two ways: by an explicit call to seed(s), or by setting
          * ERIS_RNG_SEED.  The latter will be used if no seed has been set explicitly via the former
-         * the first time rng() is called.
+         * the first time rng() is called by any thread.
          *
          * If a seed is explicitly specified, it is used by the first thread to call rng(), and
          * stored as a base seed for other threads (if any).  Subsequent threads then use this base

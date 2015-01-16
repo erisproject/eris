@@ -40,6 +40,7 @@ const Random::rng_t::result_type& Random::seed() {
         seed_ = init_use_base_
             ? init_base_ + init_count_
             : std::random_device{}();
+        rng_.seed(seed_);
         init_count_++;
         seeded_ = true;
     }
