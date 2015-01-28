@@ -237,6 +237,7 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
          *
          * - Simulation time period (accessible by `t()`) is incremented.
          * - Inter-period optimization:
+         *   - All inter-period optimizers have interBegin() called.
          *   - All inter-period optimizers have interOptimize() called.
          *   - All inter-period optimizers have interApply() called.
          *   - All inter-period optimizers have interAdvance() called.
@@ -281,6 +282,16 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
          * stages, false otherwise.
          */
         bool runStageInter() const;
+
+        /** Returns true if the simulation is currently in an optimization stage (whether inter- or
+         * intra-period optimization).  Specifically, this includes inter-optimize, intra-optimize,
+         * intra-reoptimize, and intra-reset.
+         *
+         * During these stages, new members may not be added or removed from the simulation, and
+         * simulation member states shouldn't be changed in a way that can influence the
+         * optimization of other members.
+         */
+        bool runStageOptimize() const;
 
         /** Obtains a lock that, when held, guarantees that a simulation stage is not in progress.
          * This is designed for external code (e.g. GUI displays) to sychronize code, ensuring that
@@ -474,7 +485,7 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
 
 
 template <class T, typename... Args, class> SharedMember<T> Simulation::spawn(Args&&... args) {
-    if (stage_ == RunStage::inter_Optimize or stage_ == RunStage::intra_Optimize or stage_ == RunStage::intra_Reoptimize or stage_ == RunStage::intra_Reset)
+    if (runStageOptimize())
         throw std::logic_error("spawn<T>() failure: cannot create new simulation members during an optimization stage");
 
     SharedMember<T> member(std::make_shared<T>(std::forward<Args>(args)...));

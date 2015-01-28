@@ -73,7 +73,7 @@ ERIS_SIM_INSERT_REMOVE_MEMBER(Other,  Member, others_)
 // agent() agents() good() goods() market() markets() other() others()
 
 void Simulation::remove(eris_id_t id) {
-    if (stage_ == RunStage::inter_Optimize or stage_ == RunStage::intra_Optimize or stage_ == RunStage::intra_Reoptimize or stage_ == RunStage::intra_Reset)
+    if (runStageOptimize())
         throw std::logic_error("spawn<T>() failure: cannot remove simulation members during an optimization stage");
 
     if (agents_.count(id)) removeAgent(id);
@@ -91,6 +91,7 @@ void Simulation::insertOptimizers(const SharedMember<Member> &member) {
         optimizers_[(int) RunStage::TYPE##_##STAGE].emplace(member);\
         shared_q_cache_[(int) RunStage::TYPE##_##STAGE].reset();\
     }
+    ERIS_SIM_INSERT_OPTIMIZER(inter, Begin)
     ERIS_SIM_INSERT_OPTIMIZER(inter, Optimize)
     ERIS_SIM_INSERT_OPTIMIZER(inter, Apply)
     ERIS_SIM_INSERT_OPTIMIZER(inter, Advance)
@@ -194,6 +195,7 @@ void Simulation::thr_loop() {
                 break
 
             // Inter-period optimizer stages
+            ERIS_SIM_STAGE_CASE(inter, Begin);
             ERIS_SIM_STAGE_CASE(inter, Optimize);
             ERIS_SIM_STAGE_CASE(inter, Apply);
             ERIS_SIM_STAGE_CASE(inter, Advance);
@@ -229,6 +231,7 @@ void Simulation::thr_work(const std::function<void(Opt&)> &work) {
 
 void Simulation::thr_stage(const RunStage &stage) {
     switch (stage) {
+        case RunStage::inter_Begin:
         case RunStage::inter_Optimize:
         case RunStage::inter_Apply:
         case RunStage::inter_Advance:
@@ -264,6 +267,7 @@ void Simulation::thr_stage(const RunStage &stage) {
             case RunStage::TYPE##_##STAGE:\
                 thr_work<TYPE##opt::STAGE>([](TYPE##opt::STAGE &o) { o.TYPE##STAGE(); });\
                 break;
+            ERIS_SIM_NOTHR_WORK(inter, Begin)
             ERIS_SIM_NOTHR_WORK(inter, Optimize)
             ERIS_SIM_NOTHR_WORK(inter, Apply)
             ERIS_SIM_NOTHR_WORK(inter, Advance)
@@ -353,6 +357,7 @@ void Simulation::run() {
 
     ++t_;
 
+    thr_stage(RunStage::inter_Begin);
     thr_stage(RunStage::inter_Optimize);
     thr_stage(RunStage::inter_Apply);
     thr_stage(RunStage::inter_Advance);
@@ -397,6 +402,7 @@ bool Simulation::runStageIntra() const {
 
 bool Simulation::runStageInter() const {
     switch ((RunStage) stage_) {
+        case RunStage::inter_Begin:
         case RunStage::inter_Optimize:
         case RunStage::inter_Apply:
         case RunStage::inter_Advance:
@@ -405,6 +411,19 @@ bool Simulation::runStageInter() const {
             return false;
     }
 }
+
+bool Simulation::runStageOptimize() const {
+    switch ((RunStage) stage_) {
+        case RunStage::inter_Optimize:
+        case RunStage::intra_Reset:
+        case RunStage::intra_Optimize:
+        case RunStage::intra_Reoptimize:
+            return true;
+        default:
+            return false;
+    }
+}
+
 
 Simulation::~Simulation() {
     stage_ = RunStage::kill_all;

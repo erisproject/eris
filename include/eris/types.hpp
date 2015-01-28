@@ -43,7 +43,7 @@ enum class RunStage : int {
     kill, // When a thread sees this, it checks thr_kill_, and if it is the current thread id, it finishes.
     kill_all, // When a thread sees this, it finishes.
     // Inter-period optimization stages:
-    inter_Optimize, inter_Apply, inter_Advance,
+    inter_Begin, inter_Optimize, inter_Apply, inter_Advance,
     // Intra-period optimization stages:
     intra_Initialize, intra_Reset, intra_Optimize, intra_Reoptimize, intra_Apply, intra_Finish
 };

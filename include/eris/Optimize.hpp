@@ -15,6 +15,27 @@ namespace eris {
  */
 namespace interopt {
 
+/** Interface for an inter-optimizing member with an interBegin() method.  This will called before
+ * starting a new period, before interOptimize(), and can be used for inter-period setup, before
+ * optimization calculations actually begin.
+ *
+ * This class must be implemented by inheriting it as `public virtual`.
+ *
+ * \sa Simulation::run()
+ */
+class Begin {
+    public:
+        /** This method is intended to perform any actions that need to take place after the
+         * previous stage has finished but before inter-period optimization calculations begin.
+         * It is essentially equivalent to intraFinish(), except that runs as the last stage of a
+         * Simulation::run() call whereas this runs as the first stage of the next Simulation::run()
+         * call (just after `t` has been incremented).
+         */
+        virtual void interBegin() = 0;
+    protected:
+        ~Begin() = default;
+};
+
 /** Interface for an inter-optimizing member with an interOptimize() method.  This will called
  * before starting a new period, before interApply().
  *
