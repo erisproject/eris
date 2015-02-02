@@ -52,7 +52,7 @@ class SharedMember final {
          */
         template <class O>
         bool operator == (const SharedMember<O> &other) noexcept {
-            if (not ptr_ or not other->ptr_) return false;
+            if (not ptr_ or not other.ptr_) return false;
             eris_id_t myid = ptr_->id();
             if (myid == 0) return false;
             eris_id_t otherid = other.ptr_->id();
