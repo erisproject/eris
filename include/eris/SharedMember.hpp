@@ -45,6 +45,26 @@ class SharedMember final {
         /** Dereferencing member access works on the underlying T */
         T* operator -> () const { return ptr_.get(); }
 
+        /** Equality comparison.  Two SharedMember objects are considered equal if and only if they
+         * both have positive and equal eris_id_ts; if either object is a null pointer, or either
+         * object has an eris_id_t of 0, the two are not considered equal (even if both are null, or
+         * both have eris_id_t of 0).
+         */
+        template <class O>
+        bool operator == (const SharedMember<O> &other) noexcept {
+            if (not ptr_ or not other->ptr_) return false;
+            eris_id_t myid = ptr_->id();
+            if (myid == 0) return false;
+            eris_id_t otherid = other.ptr_->id();
+            if (otherid == 0) return false;
+            return myid == otherid;
+        }
+
+        /// Inequality comparison.  This simply returns the negation of the == operator.
+        template <class O> bool operator != (const SharedMember<O> &other) noexcept {
+            return not(*this == other);
+        }
+
         /** Less-than comparison operator.  This currently compares eris_id_t values, but that could
          * be subject to change.  If either SharedMember doesn't have an actual member, a value of 0
          * is used.  0 is also used for Members that are not part of a simulation.
