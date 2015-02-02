@@ -90,6 +90,11 @@ Position Position::subdimensions(std::initializer_list<double> dims) const {
 }
 
 Position& Position::operator=(const Position &new_pos) {
+    if (dimensions == 0) {
+        // We have a default-constructed object, so allow 0
+        const_cast<size_t&>(dimensions) = new_pos.dimensions;
+        pos_.resize(dimensions);
+    }
     requireSameDimensions(new_pos, "Position::operator=");
 
     for (size_t i = 0; i < dimensions; i++)
