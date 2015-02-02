@@ -9,7 +9,10 @@ namespace eris {
  */
 class Position final {
     public:
-        Position() = delete;
+        /** Default constructor; creates a null position.  This isn't a valid Position object, but
+         * is permitted to allow Position objects to be used where default construction is required.
+         */
+        Position() = default;
 
         /// Initialize from initializer_list
         Position(const std::initializer_list<double> &coordinates);
