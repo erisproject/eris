@@ -25,7 +25,7 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/DoxygenLayout.xml.in ${CMAKE_CURRENT_
 # that 'make api_doc' only runs doxygen when something in src or include has changed.
 add_custom_command(OUTPUT "api/index.html"
     COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
-    DEPENDS "Doxyfile.in" "DoxygenLayout.xml.in" ${eris_include}
+    DEPENDS "Doxyfile.in" "DoxygenLayout.xml.in" ${eris_doc_include}
         ${CMAKE_SOURCE_DIR}/README.md ${CMAKE_SOURCE_DIR}/CODING-GUIDELINES.md
         ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile ${CMAKE_CURRENT_BINARY_DIR}/DoxygenLayout.xml
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
