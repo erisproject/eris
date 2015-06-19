@@ -32,10 +32,6 @@ set(LIBERIS_CURRENT  "0")
 set(LIBERIS_REVISION "0")
 set(LIBERIS_AGE      "0")
 
-set(CMAKE_INCLUDE_CURRENT_DIR ON)
-set(CMAKE_INCLUDE_DIRECTORIES_PROJECT_BEFORE ON)
-#set(CMAKE_VERBOSE_MAKEFILE ON)
-
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules)
 
 # No in-source building
@@ -50,10 +46,10 @@ foreach(h ${eris_src_include})
     if(h MATCHES "\\.in$")
         string(REGEX REPLACE "\\.in$" "" h_processed "${h}")
         configure_file("${h}" "${h_processed}" @ONLY)
-        list(APPEND eris_include "${CMAKE_CURRENT_BINARY_DIR}/${h_processed}")
+        list(APPEND eris_doc_include "${CMAKE_CURRENT_BINARY_DIR}/${h_processed}")
     else()
         configure_file("${h}" "${h}" COPYONLY)
-        list(APPEND eris_include "${CMAKE_CURRENT_BINARY_DIR}/${h}")
+        list(APPEND eris_doc_include "${CMAKE_CURRENT_BINARY_DIR}/${h}")
     endif()
 endforeach()
 

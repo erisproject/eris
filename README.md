@@ -19,6 +19,32 @@ implementations.
 
 The library name, Eris, is the name of the Greek goddess of chaos.
 
+## Compiling
+
+To compile on a unix-like system, create a new build directory somewhere, then
+from this directory run:
+
+    cmake /path/to/eris
+    make -j4
+
+You can install directly to the system (usually under /usr/local) using:
+
+    make install
+
+or alternatively build a .deb package to install using one of:
+
+    make package
+
+followed by an appropriate package command to install the resulting package
+(for example, on Debian/Ubuntu: dpkg -i eris_x.y.z~gityyyymmdd~tag_amd64.deb).
+
+You may also be able to use:
+
+    cpack -G RPM
+
+to generate a .rpm package instead of a .deb, but this functionality is
+untested by the author.
+
 ## License
 
 This program is free software: you can redistribute it and/or modify
