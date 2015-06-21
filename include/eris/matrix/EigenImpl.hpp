@@ -6,38 +6,32 @@
 
 namespace eris { namespace matrix {
 
+
+/* Eigen versions before 3.3 don't have proper move constructors and move assignment operators, but
+ * do have default ones--but they break things.  We work around this by providing a move constructor
+ * that moves if Eigen supports moving and otherwise just copies.  This, of course, means that for
+ * old Eigen versions, almost nothing is saved by moving since we actually copy.
+ */
+#ifdef EIGEN_HAVE_RVALUE_REFERENCES
+#define ERIS_EIGENIMPL_MOVE(M) std::move(M)
+#else
+#define ERIS_EIGENIMPL_MOVE(M) M
+#endif
+
 /** Eigen matrix implementation.  Note that in order to use this class, you will generally need to
  * include additional compilation flags to tell your compiler where to find Eigen. */
 class EigenImpl : public MatrixImpl {
     public:
         /** Creates an uninitialized matrix of the requested size. */
-        EigenImpl(unsigned int rows, unsigned int cols) : matrix_(new Eigen::MatrixXd(rows, cols)), m(*matrix_) {
-            std::cerr << "(r,c) constructor called\n";
-        }
+        EigenImpl(unsigned int rows, unsigned int cols) : matrix_(new Eigen::MatrixXd(rows, cols)), m(*matrix_) {}
         /** Creates a matrix with values copied from the given matrix. */
-        explicit EigenImpl(const Eigen::MatrixXd &init) : matrix_(new Eigen::MatrixXd(init)), m(*matrix_) {
-            std::cerr << "matrix copy constructor called\n";
-        }
+        explicit EigenImpl(const Eigen::MatrixXd &init) : matrix_(new Eigen::MatrixXd(init)), m(*matrix_) {}
         /** Creates a matrix using the given rvalue matrix. */
-        explicit EigenImpl(Eigen::MatrixXd &&init) : matrix_(new Eigen::MatrixXd(std::move(init))), m(*matrix_) {
-            std::cerr << "matrix move constructor called\n";
-        }
+        explicit EigenImpl(Eigen::MatrixXd &&init) : matrix_(new Eigen::MatrixXd(ERIS_EIGENIMPL_MOVE(init))), m(*matrix_) {}
         /** Creates a matrix view from a copy of the given matrix block. */
-        explicit EigenImpl(const Eigen::Block<Eigen::Ref<Eigen::MatrixXd>> &block) : block_(new Eigen::Block<Eigen::Ref<Eigen::MatrixXd>>(block)), m(*block_) {
-            std::cerr << "block copy constructor called\n";
-        }
+        explicit EigenImpl(const Eigen::Block<Eigen::Ref<Eigen::MatrixXd>> &block) : block_(new Eigen::Block<Eigen::Ref<Eigen::MatrixXd>>(block)), m(*block_) {}
         /** Creates a matrix view from the given matrix block rvalue reference. */
-        explicit EigenImpl(Eigen::Block<Eigen::Ref<Eigen::MatrixXd>> &&block) : block_(new Eigen::Block<Eigen::Ref<Eigen::MatrixXd>>(std::move(block))), m(*block_) {
-            std::cerr << "block move constructor called\n";
-        }
-//        /** Creates a matrix view from a copy of the given matrix block. */
-//        explicit EigenImpl(const std::unique_ptr<Eigen::Block<Eigen::Ref<Eigen::MatrixXd>>> &block) : block_(new Eigen::Block<Eigen::Ref<Eigen::MatrixXd>>(block)), m(*block_) {
-//            std::cerr << "block copy constructor called\n";
-//        }
-//        /** Creates a matrix view from the given matrix block pointer rvalue reference. */
-//        explicit EigenImpl(std::unique_ptr<Eigen::Block<Eigen::Ref<Eigen::MatrixXd>>> &&block) : block_(std::move(block)), m(*block_) {
-//            std::cerr << "block move constructor called\n";
-//        }
+        explicit EigenImpl(Eigen::Block<Eigen::Ref<Eigen::MatrixXd>> &&block) : block_(new Eigen::Block<Eigen::Ref<Eigen::MatrixXd>>(ERIS_EIGENIMPL_MOVE(block))), m(*block_) {}
         /** Returns a copy of the current matrix. */
         virtual Ref clone() const override { return wrap(Eigen::MatrixXd(m)); }
         /** Returns the number of rows of this matrix. */
@@ -68,14 +62,11 @@ class EigenImpl : public MatrixImpl {
 
         /** Creates a view of this matrix. */
         virtual Ref block(unsigned int rowOffset, unsigned int colOffset, unsigned int nRows, unsigned int nCols) const override {
-            std::cerr << "block called, constructing...\n";
             return wrap(const_cast<EigenImpl&>(*this).m.block(rowOffset, colOffset, nRows, nCols));
-//            return wrap(std::unique_ptr<Eigen::Block<Eigen::Ref<Eigen::MatrixXd>>>(new Eigen::Block<Eigen::Ref<Eigen::MatrixXd>>(
-//                            const_cast<EigenImpl&>(*this).m.block(rowOffset, colOffset, nRows, nCols))));
         }
 
         /** Copies the coefficients from another matrix into this matrix. */
-        virtual void operator=(const MatrixImpl &b) override  { std::cerr << "assigning " << mat(b) << "\n"; m = mat(b); resetCache(); }
+        virtual void operator=(const MatrixImpl &b) override  { m = mat(b); resetCache(); }
         /** Adds another matrix to this matrix. */
         virtual void operator+=(const MatrixImpl &b) override { m += mat(b); resetCache(); }
         /** Subtracts another matrix from this matrix. */
