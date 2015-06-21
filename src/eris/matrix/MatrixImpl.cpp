@@ -29,10 +29,6 @@ MatrixImpl::Ref MatrixImpl::operator*(double d) const {
     return c;
 }
 
-MatrixImpl::Ref operator*(double d, const MatrixImpl &b) {
-    return b * d;
-}
-
 MatrixImpl::Ref MatrixImpl::solveLeastSquares(const MatrixImpl &b) const {
     auto t = transpose();
     return (*t * *this)->solve(*(*t * b));

@@ -9,14 +9,21 @@ namespace eris { namespace matrix {
  * return 0.  This class is simply intended so that methods can contain "null" default arguments.
  */
 class NullImpl : public MatrixImpl {
-    public:
+    protected:
+        /// Returns 0
         virtual unsigned int rows() const override { return 0; }
+        /// Returns 0
         virtual unsigned int cols() const override { return 0; }
+        /// Returns true
         virtual bool null() const override { return true; }
+        // Hide everything here from doxygen; these are really methods that shouldn't ever be
+        // called.
+        /// \cond
         virtual const double& get(unsigned, unsigned) const override NULLIMPL_THROW
         virtual void set(unsigned, unsigned, double) override NULLIMPL_THROW
         virtual Ref create(unsigned, unsigned) const override NULLIMPL_THROW
         virtual Ref create(unsigned, unsigned, double) const override NULLIMPL_THROW
+        virtual void resize(unsigned, unsigned) override NULLIMPL_THROW
         virtual Ref identity(unsigned) const override NULLIMPL_THROW
         virtual Ref block(unsigned, unsigned, unsigned, unsigned) const override NULLIMPL_THROW
         virtual void operator=(const MatrixImpl&) override NULLIMPL_THROW
@@ -31,6 +38,7 @@ class NullImpl : public MatrixImpl {
         virtual bool invertible() const override NULLIMPL_THROW
         virtual Ref inverse() const override NULLIMPL_THROW
         virtual Ref choleskyL() const override NULLIMPL_THROW
+        /// \endcond
 };
 
 }}

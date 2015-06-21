@@ -1,7 +1,11 @@
 #pragma once
 #include <memory>
 
-namespace eris { namespace matrix {
+namespace eris {
+
+class Matrix; // Forward declaration
+
+namespace matrix {
 
 /** This class is the companion of the Matrix class and serves as a base class for any
  * matrix-implementing class.  Classes implementing this base class may safely assume that arguments
@@ -11,14 +15,22 @@ namespace eris { namespace matrix {
  *
  * Classes using this base class for matrix operations must take care to ensure that different
  * Matrix objects are never combined (so that the above `static_cast` is safe).  In other words,
- * using two Matrix
+ * using two Matrix objects with two different implementations is not generally allowed (unless
+ * explicitly supported by the two implementing classes).
+ *
+ * The methods of this class should never be evoked externally except by the Matrix class.  As such,
+ * all methods are declared protected, with Matrix itself being declared a friend.
  */
 class MatrixImpl {
     public:
         /// Ref is an alias for std::shared_ptr<MatrixImpl> for convenience.
         using Ref = std::unique_ptr<MatrixImpl>;
+
         /// Default virtual destructor
         virtual ~MatrixImpl() = default;
+
+    protected:
+        friend class eris::Matrix;
         /** Returns false.  Subclasses other than NullImpl should not override this: this is used to
          * detect when an implementation is actually the NullImpl.
          */
@@ -46,6 +58,13 @@ class MatrixImpl {
          * object.  The initial values of the matrix must all be set to the given value.
          */
         virtual Ref create(unsigned int rows, unsigned int cols, double initial) const = 0;
+        /** Resizes the matrix to the given size.  This will only be called on a matrix that is
+         * actually a matrix, not a matrix block view.
+         *
+         * Implementing classes are not required to retain consistency of blocks derived from this
+         * matrix.
+         */
+        virtual void resize(unsigned int rows, unsigned int cols) = 0;
         /** Creates a new square identity matrix of the given size using the same implementation as
          * the current object.
          */

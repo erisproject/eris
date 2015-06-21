@@ -138,4 +138,28 @@ int main() {
     std::cout << "odd numbers: Block base:\n" << blockbase << "\n" << "Block middle:\n" << blockmiddle << "\n";
 
     std::cout << "save\n" << save << "\n";
+
+    Vector col = blockbase.createVector(5, 1);
+    RowVector row = blockbase.createRowVector(5, 2);
+
+    Vector negcol = -col;
+    RowVector negrow = -row;
+
+    bool good = false;
+    try {
+        double z = negcol + col + col;
+        if (false) z += 1;
+    }
+    catch (std::logic_error &e) {
+        good = true;
+    }
+    if (!good) throw std::runtime_error("Didn't get expected logic error from converting non-single-element matrix to double!");
+    std::cout << "Caught as expected, good.\n";
+
+    auto z2m = row * col;
+    PRINT(z2m);
+    double z2 = row * col;
+    double z3 = row * row.transpose();
+
+    std::cout << "z2: " << z2 << ", z3: " << z3 << "\n";
 }

@@ -32,6 +32,57 @@ class EigenImpl : public MatrixImpl {
         explicit EigenImpl(const Eigen::Block<Eigen::Ref<Eigen::MatrixXd>> &block) : block_(new Eigen::Block<Eigen::Ref<Eigen::MatrixXd>>(block)), m(*block_) {}
         /** Creates a matrix view from the given matrix block rvalue reference. */
         explicit EigenImpl(Eigen::Block<Eigen::Ref<Eigen::MatrixXd>> &&block) : block_(new Eigen::Block<Eigen::Ref<Eigen::MatrixXd>>(ERIS_EIGENIMPL_MOVE(block))), m(*block_) {}
+
+        /** Accesses the Eigen FullPivHouseholderQR associated with this matrix.  If the
+         * decomposition has not yet been done, it is calculated when this method is first called;
+         * subsequent calls reuse the calculated value until the matrix is changed.
+         *
+         * The returned reference is invalidated when resetCache() is called (whether explicitly or
+         * implicitly by mutating operations).
+         */
+        const Eigen::FullPivHouseholderQR<Eigen::MatrixXd>& qr() const {
+            if (!qr_) qr_.reset(new Eigen::FullPivHouseholderQR<Eigen::MatrixXd>(m));
+            return *qr_;
+        }
+
+        /** Accesses the JacobiSVD decomposition associated with this matrix suitable for
+         * least-squares solving.  If the decomposition has not yet been done, it is calculated
+         * first; subsequent calls reuse the calculated value until the matrix is changed.
+         *
+         * The returned reference is invalidated when resetCache() is called (whether explicitly or
+         * implicitly by mutating operations).
+         */
+        const Eigen::JacobiSVD<Eigen::MatrixXd> jacobiSvd() const {
+            if (!jacobisvd_) jacobisvd_.reset(new Eigen::JacobiSVD<Eigen::MatrixXd>(m, Eigen::ComputeThinU | Eigen::ComputeThinV));
+            return *jacobisvd_;
+        }
+
+        /** Accesses the LLT decomposition object associated with this matrix.  If the decomposition
+         * has not yet been done, it is performed when called.  Like the methods above, the object
+         * is reset when the underlying matrix is changed.
+         *
+         * The returned reference is invalidated when resetCache() is called (whether explicitly or
+         * implicitly by mutating operations).
+         */
+        const Eigen::LLT<Eigen::MatrixXd> llt() const {
+            if (!llt_) {
+                llt_.reset(new Eigen::LLT<Eigen::MatrixXd>());
+                llt_->compute(m);
+            }
+            return *llt_;
+        }
+
+        /** Resets the cached qr() and jacobiSvd() decompositions, if set.  This method is called
+         * internally whenever the matrix is changed, and should also be called if the matrix is
+         * manipulated externally.
+         */
+        void resetCache() {
+            qr_.release();
+            jacobisvd_.release();
+            llt_.release();
+        }
+
+    protected:
         /** Returns a copy of the current matrix. */
         virtual Ref clone() const override { return wrap(Eigen::MatrixXd(m)); }
         /** Returns the number of rows of this matrix. */
@@ -54,6 +105,10 @@ class EigenImpl : public MatrixImpl {
         /** Creates a new matrix of the requested size, with each coefficient initialized to the given value. */
         virtual Ref create(unsigned int rows, unsigned int cols, double initial) const override {
             return wrap(Eigen::MatrixXd::Constant(rows, cols, initial));
+        }
+        /** Resizes the matrix. */
+        virtual void resize(unsigned int rows, unsigned int cols) override {
+            matrix_->conservativeResize(rows, cols);
         }
         /** Creates an identify matrix of the requested size. */
         virtual Ref identity(unsigned int size) const override {
@@ -130,70 +185,6 @@ class EigenImpl : public MatrixImpl {
             return wrap(llt().matrixL());
         }
 
-        /** Resets the cached qr() and jacobiSvd() decompositions, if set.  This method is called
-         * internally whenever the matrix is changed, and should also be called if the matrix is
-         * manipulated externally.
-         */
-        void resetCache() {
-            qr_.release();
-            jacobisvd_.release();
-            llt_.release();
-        }
-
-        /** Accesses the Eigen FullPivHouseholderQR associated with this matrix.  If the
-         * decomposition has not yet been done, it is calculated when this method is first called;
-         * subsequent calls reuse the calculated value until the matrix is changed.
-         *
-         * The returned reference is invalidated when resetCache() is called (whether explicitly or
-         * implicitly by mutating operations).
-         */
-        const Eigen::FullPivHouseholderQR<Eigen::MatrixXd>& qr() const {
-            if (!qr_) qr_.reset(new Eigen::FullPivHouseholderQR<Eigen::MatrixXd>(m));
-            return *qr_;
-        }
-
-        /** Accesses the JacobiSVD decomposition associated with this matrix suitable for
-         * least-squares solving.  If the decomposition has not yet been done, it is calculated
-         * first; subsequent calls reuse the calculated value until the matrix is changed.
-         *
-         * The returned reference is invalidated when resetCache() is called (whether explicitly or
-         * implicitly by mutating operations).
-         */
-        const Eigen::JacobiSVD<Eigen::MatrixXd> jacobiSvd() const {
-            if (!jacobisvd_) jacobisvd_.reset(new Eigen::JacobiSVD<Eigen::MatrixXd>(m, Eigen::ComputeThinU | Eigen::ComputeThinV));
-            return *jacobisvd_;
-        }
-
-        /** Accesses the LLT decomposition object associated with this matrix.  If the decomposition
-         * has not yet been done, it is performed when called.  Like the methods above, the object
-         * is reset when the underlying matrix is changed.
-         *
-         * The returned reference is invalidated when resetCache() is called (whether explicitly or
-         * implicitly by mutating operations).
-         */
-        const Eigen::LLT<Eigen::MatrixXd> llt() const {
-            if (!llt_) {
-                llt_.reset(new Eigen::LLT<Eigen::MatrixXd>());
-                llt_->compute(m);
-            }
-            return *llt_;
-        }
-
-    private:
-        // If this class has its own matrix, it's stored here, and `matrix` is a reference to this.
-        std::unique_ptr<Eigen::MatrixXd> matrix_;
-        // If this class is a view ("block") of another matrix, the block is stored here and
-        // `matrix` is a reference to this.
-        std::unique_ptr<Eigen::Block<Eigen::Ref<Eigen::MatrixXd>>> block_;
-
-    public:
-        /** The Eigen matrix (or matrix-like object) reference.  Note: if modifying directly (that
-         * is, not through the operators and methods of this class), you must also call
-         * `obj.resetCache()` to reset any cached decompositions or else the various decomposition
-         * methods (such as solve(), rank(), and inverse()) will not work correctly.
-         */
-        Eigen::Ref<Eigen::MatrixXd> m;
-
     private:
 
         static const Eigen::Ref<Eigen::MatrixXd>& mat(const MatrixImpl &other) { return static_cast<const EigenImpl&>(other).m; }
@@ -207,6 +198,21 @@ class EigenImpl : public MatrixImpl {
         mutable std::unique_ptr<Eigen::FullPivHouseholderQR<Eigen::MatrixXd>> qr_;
         mutable std::unique_ptr<Eigen::JacobiSVD<Eigen::MatrixXd>> jacobisvd_;
         mutable std::unique_ptr<Eigen::LLT<Eigen::MatrixXd>> llt_;
+
+        // If this class has its own matrix, it's stored here, and `m` is a reference to this.
+        std::unique_ptr<Eigen::MatrixXd> matrix_;
+        // If this class is a view ("block") of another matrix, the block is stored here and
+        // `m` is a reference to this.
+        std::unique_ptr<Eigen::Block<Eigen::Ref<Eigen::MatrixXd>>> block_;
+
+    public:
+        // NB: Need to define this down here so that its assignment is later than matrix_ or block_.
+        /** The Eigen matrix (or matrix-like object) reference.  Note: if modifying directly (that
+         * is, not through the operators and methods of this class), you must also call
+         * `obj.resetCache()` to reset any cached decompositions or else the various decomposition
+         * methods (such as solve(), rank(), and inverse()) will not work correctly.
+         */
+        Eigen::Ref<Eigen::MatrixXd> m;
 
 };
 
