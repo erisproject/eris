@@ -1,7 +1,6 @@
 #pragma once
 #include <eris/matrix/MatrixImpl.hpp>
 #include <eris/matrix/NullImpl.hpp>
-#include <eris/noncopyable.hpp>
 
 namespace eris {
 
