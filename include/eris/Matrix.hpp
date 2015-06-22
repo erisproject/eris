@@ -400,6 +400,7 @@ class Matrix {
          */
         operator std::string() const;
 
+        /** Sending the matrix to an ostream sends the str() representation. */
         friend std::ostream& operator<<(std::ostream &os, const Matrix &A);
 
     protected:
