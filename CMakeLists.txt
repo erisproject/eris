@@ -58,6 +58,9 @@ set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -DERIS_DEBUG")
 
 find_package(Threads REQUIRED)
 
+find_package(Boost REQUIRED)
+include_directories(${Boost_INCLUDE_DIRS})
+
 add_library(eris SHARED ${eris_src})
 
 set_target_properties(eris PROPERTIES

@@ -2,7 +2,7 @@
 
 namespace eris { namespace matrix {
 
-#define NULLIMPL_THROW { throw std::logic_error("Error: NullImpl matrix implementation cannot be used for Matrix operations!"); }
+#define NULLIMPL_THROW { throw std::logic_error("Error: Attempt to use null (default-constructed) matrix via " + std::string(__func__)); }
 
 /** Null matrix implementation.  The implementation simply throws exceptions if attempted to be used
  * in any way.  The only thing that doesn't throw an exception is calling rows() or cols(): both
@@ -16,6 +16,8 @@ class NullImpl : public MatrixImpl {
         virtual unsigned int cols() const override { return 0; }
         /// Returns true
         virtual bool null() const override { return true; }
+        /// Returns a new NullImpl object
+        virtual Ref clone() const override { return Ref(static_cast<MatrixImpl*>(new NullImpl)); }
         // Hide everything here from doxygen; these are really methods that shouldn't ever be
         // called.
         /// \cond

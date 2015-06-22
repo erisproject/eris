@@ -4,6 +4,7 @@
 #include <sstream>
 #include <iomanip>
 #include <vector>
+#include <map>
 #include <eris/Matrix.hpp>
 #include <eris/matrix/EigenImpl.hpp>
 
@@ -49,6 +50,13 @@ class User {
     PRINT("hi");
         }
 };
+
+void printCol(const Vector &v) {
+    std::cout << "vector': " << v.transpose() << "\n";
+}
+void printRow(const RowVector &v) {
+    std::cout << "row vector: " << v << "\n";
+}
 
 
 int main() {
@@ -162,4 +170,48 @@ int main() {
     double z3 = row * row.transpose();
 
     std::cout << "z2: " << z2 << ", z3: " << z3 << "\n";
+
+    class FooBar {
+        public:
+            FooBar(const Matrix &dummy)
+                : m(dummy.createVector(3, 0)) {}
+            Matrix m;
+    };
+
+    Matrix factory = Matrix::create<EigenImpl>(0, 0);
+
+    std::map<int, FooBar> foomap;
+    foomap.emplace(1, FooBar(factory));
+
+    Matrix nullmat;
+    Matrix copynull(nullmat);
+
+
+    Vector vec1 = factory.createVector(10);
+    Vector vec2 = factory.createVector(10);
+    PRINT(vec1.transpose());
+    PRINT(vec2.transpose());
+    vec2 = vec1;
+    PRINT(vec2.transpose());
+    for (int i = 0; i < 10; i++) vec2[i] = i;
+    PRINT(vec2.transpose());
+    PRINT(vec1.transpose());
+    vec1.head(3) = vec2.tail(3);
+    PRINT(vec1.transpose());
+    Matrix vec1h = vec1.tail(3); //block(7, 0, 3);
+
+    vec1h = vec2.tail(3);
+    PRINT(vec1h.transpose());
+    PRINT(vec1.transpose());
+
+    printCol(vec1h);
+
+    const Vector vec3 = vec2;
+    std::cout << "here goes\n";
+    Vector vec4 = vec3.head(4).copy();
+    std::cout << "is it const: " << vec4.constant() << ", block: " << vec4.block() << "\n";
+    vec4[1] = 777;
+    PRINT(vec4.transpose());
+    PRINT(vec3.transpose());
 }
+

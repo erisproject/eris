@@ -52,8 +52,9 @@ GRAPHICAL_HIERARCHY    = YES
 #---------------------------------------------------------------------------
 # Configuration options related to the preprocessor
 #---------------------------------------------------------------------------
-#ENABLE_PREPROCESSING   = YES
-#MACRO_EXPANSION        = YES
+ENABLE_PREPROCESSING   = YES
+MACRO_EXPANSION        = YES
+PREDEFINED             = DOXYGEN_SHOULD_SEE_THIS
 #SKIP_FUNCTION_MACROS   = NO
 
 #---------------------------------------------------------------------------

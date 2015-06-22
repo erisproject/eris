@@ -1,6 +1,7 @@
 #pragma once
 #include <eris/matrix/MatrixImpl.hpp>
 #include <eris/matrix/NullImpl.hpp>
+#include <ostream>
 
 namespace eris {
 
@@ -39,7 +40,8 @@ class Matrix {
         /// Copy constructor.  The underlying implementation object is cloned.
         Matrix(const Matrix& copy);
 
-        /// Move constructor.  The underlying implementation object is moved.
+        /** Move constructor to move the implementation from one variable to another.
+         */
         Matrix(Matrix&& move) = default;
 
         /// Virtual destructor.
@@ -53,6 +55,14 @@ class Matrix {
 
         /** Returns true if this is a default-constructed matrix. */
         bool null() const;
+
+        /** Returns true if this Matrix is actually a view of another matrix. */
+        bool block() const;
+
+        /** Returns true if this Matrix is derived from a const Matrix, and thus run-time constant
+         * itself.
+         */
+        bool constant() const;
 
         /** Creates a new Matrix object backed by the given implementation.  Arguments given are
          * passed to the implementation class constructor.
@@ -131,6 +141,20 @@ class Matrix {
          * runtime-constant (which typically means it is itself a view from a const Matrix), the
          * returned Matrix will also be runtime-constant.
          *
+         * Note that the following do *not* copy a block into a new matrix:
+         *
+         *     Matrix b(a.block(1,2,3,4));
+         *     Matric c = a.block(1,2,3,4);
+         *
+         * Rather it just gives you two Matrix objects that *are* the block.  If you want to copy
+         * into a new variable, you need to also use the .copy() method:
+         *
+         *     Matrix d = a.copyBlock(1,2,3,4);
+         *
+         * You can also assign the block into an existing (non-null) matrix of the proper size:
+         *
+         *     e = a.block(1,2,3,4);
+         *
          * \param rowOffset the row index of this matrix corresponding to row 0 of the returned
          * matrix view.
          * \param colOffset the column index of this matrix corresponding to row 0 of the returned
@@ -188,6 +212,28 @@ class Matrix {
          * the last `offset` columns are skipped. */
         Matrix right(unsigned int cols, unsigned int offset = 0) const;
 
+        /** Returns a copy of this matrix (or block) in a new matrix.  If you want to copy just a
+         * portion of the matrix, use something like `matrix.block(1,2,3,4).copy()`.  In some cases
+         * copying is automatic: when a block is being assigned to an existing (non-null) matrix;
+         * the copy() method makes this copying explicit.
+         *
+         * Using `copy()` is only required when the value being assigned into a new (or default
+         * constructed) object is the result of a block() or related call (such as top(), right(),
+         * head(), etc.).  When part of a complex equation, such as:
+         *
+         *     Matrix result = matrix.block(1,2,3,4) + matrix.block(4,6,3,4);
+         *
+         * the copy is not required.
+         */
+        Matrix copy() const &;
+
+        /** Special version of copy() that moves the implementation instead of copying if and only
+         * if the Matrix is an actual matrix (not a block), is not read-only, and the implementation
+         * object isn't held by any other Matrix (for example, a Matrix that has been cast to a
+         * Vector).  Otherwise, the matrix is copied.
+         */
+        Matrix copy() &&;
+
         /** Resizes a matrix.  When the new size requires new coefficients, they will be
          * uninitialized.  This will fail under various conditions:
          *
@@ -226,12 +272,11 @@ class Matrix {
          */
         Matrix& operator=(const Matrix &b);
 
-        /** Moves the value of matrix `b` into this matrix.  If this matrix is default-constructed,
-         * this simply moves the given matrix implementation object into this one (so that code like
-         * `Matrix m = othermatrix.transpose()` works as expected).  Otherwise this invokes the copy
-         * constructor.
+        /** Moves the value of matrix `move` into this matrix.  If the current matrix is a
+         * default-constructed object, the given object is moved into this one.  Otherwise, when the
+         * caller is an actual matrix (or block), copy assignment is done instead.
          */
-        Matrix& operator=(Matrix &&b);
+        Matrix& operator=(Matrix &&move);
 
         /** Adds two matrices together, returns a new Matrix containing the result.
          */
@@ -304,13 +349,13 @@ class Matrix {
         class CoeffProxy final {
             public:
                 /** Using a CoeffProxy as a const double accesses the actual matrix coefficient. */
-                operator const double&() const { return matrix.getCoeff(row, col); }
+                inline operator const double&() const { return matrix.getCoeff(row, col); }
                 /** Assigning a double assigns to the actual matrix coefficient. */
-                double operator=(const double &d) { matrix.setCoeff(row, col, d); return d; }
+                inline double operator=(const double &d) { matrix.setCoeff(row, col, d); return d; }
                 /** Assigning a CoeffProxy assigns the CoeffProxy's double value. */
-                CoeffProxy& operator=(const CoeffProxy &other) { matrix.setCoeff(row, col, (const double&)other); return *this; }
+                inline CoeffProxy& operator=(const CoeffProxy &other) { matrix.setCoeff(row, col, (const double&)other); return *this; }
 #define ERIS_MATRIX_PROXY_MUT(OP) \
-                double operator OP##= (const double &d) { matrix.setCoeff(row, col, matrix.getCoeff(row, col) OP d); return d; }
+                inline double operator OP##= (const double &d) { matrix.setCoeff(row, col, matrix.getCoeff(row, col) OP d); return d; }
                 /// Mutator addition for supporting code like `matrix(r,c) += 3`
                 ERIS_MATRIX_PROXY_MUT(+)
                 /// Mutator addition for supporting code like `matrix(r,c) -= 3`
@@ -386,6 +431,22 @@ class Matrix {
          */
         operator const double&() const;
 
+        /** Casts this matrix as a vector.  Will throw if the matrix is not a single column.  The
+         * returned vector object will be run-time constant.
+         */
+        operator const Vector() const;
+
+        /** Casts this matrix as a vector.  Will throw if the matrix is not a single column. */
+        operator Vector();
+
+        /** Casts this matrix as a row vector.  Will throw if the matrix is not a single row.  The
+         * returned row vector object will be run-time constant.
+         */
+        operator const RowVector() const;
+
+        /** Casts this matrix as a row vector.  Will throw if the matrix is not a single row. */
+        operator RowVector();
+
         /** Converts the matrix to a string representation using the given formatting parameters.
          *
          * \param precision the precision of values (as in `cout << std::setprecision(x)`).  Default 8.
@@ -400,28 +461,22 @@ class Matrix {
          */
         operator std::string() const;
 
-        /** Sending the matrix to an ostream sends the str() representation. */
+        /** Sending the matrix to an ostream sends the str() representation, but with the
+         * `precision` argument of str set to the output stream precision.
+         */
         friend std::ostream& operator<<(std::ostream &os, const Matrix &A);
 
     protected:
         /** Protected constructor: constructs a matrix from an matrix implementation object.  Called
          * by the create() and related methods.
          */
-        Matrix(matrix::MatrixImpl::Ref b);
+        Matrix(matrix::MatrixImpl::Ref b, bool block = false, bool constant = false);
 
-        /** Accesses the implementation object. Will throw if const_ is set. */
-        matrix::MatrixImpl& impl();
+        /** Accesses the implementation object for a write operation. Will throw if const_ is set. */
+        matrix::MatrixImpl& implMod();
 
-        /** Const access to the implementation object, usable for const methods.  To call this from
-         * a non-const method, use constImpl() instead.
-         */
+        /** Const access to the implementation object, usable for const methods. */
         const matrix::MatrixImpl& impl() const;
-
-        /** Explicit const access to the implementation object. */
-        const matrix::MatrixImpl& constImpl() const;
-
-        /** If true, the matrix is read-only.  Attempting to use non-const methods will fail. */
-        bool const_ = false;
 
         /// Internal method to directly get a coefficient, used by CoeffProxy object
         const double& getCoeff(unsigned int r, unsigned int c) const;
@@ -429,15 +484,23 @@ class Matrix {
         /// Internal method to directly set a coefficient, used for CoeffProxy object
         void setCoeff(unsigned int r, unsigned int c, double d);
 
-        /// Internal method for creating a matrix view.
-        Matrix block(unsigned int rOffset, unsigned int cOffset, int nRow, int nCol, bool constant) const;
+        /// Internal method for creating a matrix or vector view.
+        template <class T>
+        T block(unsigned int rOffset, unsigned int cOffset, int nRow, int nCol, bool constant) const;
 
         /** If true, this is a block view of another matrix.  If false, this is an actual matrix. */
         bool block_ = false;
 
-    private:
-        /** The implementation instance.  This is wrapped in a unique_ptr because MatrixImpl itself
-         * is an abstract class.
+        /** If true, the matrix is read-only.  Attempting to use non-const methods will fail.  This
+         * currently only happens when this Matrix is a block view created from a const Matrix (and
+         * so const_ will only be set when block_ is also set); this behaviour, however, is not
+         * required: const_ will make the matrix read-only even if block_ is not set.
+         */
+        bool const_ = false;
+
+        /** The implementation instance.  This is wrapped in a shared_ptr because MatrixImpl itself
+         * is an abstract class, and because casting a Matrix to a Vector or RowVector needs both
+         * objects to refer to the same implementation.
          */
         matrix::MatrixImpl::Ref impl_;
 
@@ -455,18 +518,13 @@ class Matrix {
 class Vector final : public Matrix {
     public:
         /// Default constructor that creates a null matrix; see Matrix().
-        Vector();
-        /** Creates a Vector from a Matrix.  Throws an exception if the Matrix is not a column
-         * matrix.  This constructor is deliberately non-explicit so as to allow implicit conversion
-         * from a Matrix to a Vector (with runtime failure if the matrix isn't actually a vector).
-         */
-        Vector(const Matrix &m) : Matrix(m) { if (m.cols() != 1) throw std::logic_error("Cannot convert non-column Matrix into Vector"); }
-        /** Moves constructor from a Matrix.  Throws an exception if the Matrix is not a column
-         * matrix.
-         */
-        Vector(Matrix &&m) : Matrix(std::move(m)) { if (Matrix::cols() != 1) throw std::logic_error("Cannot convert non-column Matrix into Vector"); }
+        Vector() = default;
+        /// Copy constructor.
+        Vector(const Vector &v) = default;
+        /// Move constructor.
+        Vector(Vector &&m) = default;
         /// Returns 1.
-        unsigned int cols() const { return 1; }
+        unsigned int cols() const;
         /// Returns the size of this vector, i.e. the number of rows
         unsigned int size() const;
         /** Accesses the requested coefficient of this column.  This returns a proxy object that can
@@ -478,19 +536,11 @@ class Vector final : public Matrix {
          */
         CoeffProxy operator[](unsigned int r);
 
-        /** Assigns the values of matrix `b` to this matrix.  If, and only if, the current matrix is
-         * a NullImpl matrix (typically caused by a default-constructed Matrix object), then this
-         * method operates as a copy constructor, cloning the passed-in object; otherwise this
-         * invokes the assignment operator on the underlying implementation.
-         *
-         * Throws an exception if b is not a column.
-         */
-        Vector& operator=(const Matrix &b);
+        /** Copy constructor for copying a Vector. */
+        Vector& operator=(const Vector &b) = default;
 
-        /** Moves the value of matrix `b` into this matrix by moving the underlying implementation
-         * object instead of the actual values.  Throws an exception if b is not a column.
-         */
-        Vector& operator=(Matrix &&b);
+        /** Move assignment for vectors. */
+        Vector& operator=(Vector &&b) = default;
 
         /** Returns a view of this vector containing just the first `n` elements.  If an offset is
          * given, the first `offset` elements are skipped. */
@@ -508,17 +558,27 @@ class Vector final : public Matrix {
          * given, the last `offset` elements are skipped. */
         Vector tail(unsigned int n, unsigned int offset = 0) const;
 
+        /** Returns a copy of this Vector (or block) in a new Vector.  If you want to copy just a
+         * portion of the matrix, use something like `vector.head(5).copy()`.  In some cases copying
+         * is automatic: when a block is being assigned to an existing (non-null) matrix; the copy()
+         * method makes this copying explicit. */
+        Vector copy() const &;
+
+        /** rvalue-invoked version of copy().  \sa Matrix::copy()
+         */
+        Vector copy() &&;
+
         /** Resizes this vector to have the given length. */
         void resize(unsigned int length);
 
         /** Overrides Matrix::resize to fail if attempting to resize a Vector to something that
          * isn't a Vector.
          */
-        virtual void resize(unsigned int rows, unsigned int cols) override;
+        void resize(unsigned int rows, unsigned int cols) override;
 
     private:
         friend class Matrix;
-        Vector(matrix::MatrixImpl::Ref b) : Matrix(std::move(b)) {}
+        Vector(matrix::MatrixImpl::Ref b, bool block = false, bool constant = false);
 };
 
 /** This class extends Matrix for a row vector, that is, a 1xN matrix.  In particular it adds a
@@ -533,19 +593,13 @@ class Vector final : public Matrix {
 class RowVector final : public Matrix {
     public:
         /// Default constructor that creates a null matrix; see Matrix().
-        RowVector();
-        /** Creates a RowVector from a Matrix.  Throws an exception if the Matrix is not a row
-         * matrix.  This constructor is deliberately non-explicit so as to allow implicit conversion
-         * from a Matrix to a RowVector (with runtime failure if the matrix isn't actually a row
-         * vector).
-         */
-        RowVector(const Matrix &m) : Matrix(m) { if (m.rows() != 1) throw std::logic_error("Cannot convert non-row Matrix into RowVector"); }
-        /** Move constructor that creates a RowVector from a Matrix.  Throws an exception if the Matrix is
-         * not a row matrix.
-         */
-        RowVector(Matrix &&m) : Matrix(std::move(m)) { if (Matrix::rows() != 1) throw std::logic_error("Cannot convert non-row Matrix into RowVector"); }
+        RowVector() = default;
+        /// Copy constructor for RowVector.
+        RowVector(const RowVector &rv) = default;
+        /// Move constructor.
+        RowVector(RowVector &&rv) = default;
         /// Returns 1.
-        unsigned int rows() const { return 1; }
+        unsigned int rows() const;
         /// Returns the size of this vector, i.e. the number of columns
         unsigned int size() const;
         /** Accesses the requested coefficients of this row.  This returns a proxy object that can
@@ -564,12 +618,12 @@ class RowVector final : public Matrix {
          *
          * Throws an exception if b is not a row.
          */
-        RowVector& operator=(const Matrix &b);
+        RowVector& operator=(const RowVector &b) = default;
 
         /** Moves the value of matrix `b` into this matrix by moving the underlying implementation
          * object instead of the actual values.  Throws an exception if b is not a row.
          */
-        RowVector& operator=(Matrix &&b);
+        RowVector& operator=(RowVector &&b) = default;
 
         /** Returns a view of this row vector containing just the first `n` elements.  If an offset
          * is given, the first `offset` elements are skipped. */
@@ -587,34 +641,47 @@ class RowVector final : public Matrix {
          * is given, the last `offset` elements are skipped. */
         RowVector tail(unsigned int n, unsigned int offset = 0) const;
 
+        /** Returns a copy of this RowVector (or block) in a new RowVector.  If you want to copy
+         * just a portion of the matrix, use something like `vector.head(5).copy()`.  In some cases
+         * copying is automatic: when a block is being assigned to an existing (non-null) matrix;
+         * the copy() method makes this copying explicit. */
+        RowVector copy() const &;
+
+        /** rvalue-invoked version of copy().  \sa Matrix::copy()
+         */
+        RowVector copy() &&;
+
         /** Resizes this row vector to have the given length. */
         void resize(unsigned int length);
 
         /** Overrides Matrix::resize to fail if attempting to resize a RowVector to something that
          * isn't a RowVector.
          */
-        virtual void resize(unsigned int rows, unsigned int cols) override;
+        void resize(unsigned int rows, unsigned int cols) override;
 
         using Matrix::operator*;
 
     private:
         friend class Matrix;
-        RowVector(matrix::MatrixImpl::Ref b) : Matrix(std::move(b)) {}
+        RowVector(matrix::MatrixImpl::Ref b, bool block = false, bool constant = false);
 };
 
 // Inlined methods:
 inline Matrix::Matrix() : impl_(new matrix::NullImpl()) {}
 inline Matrix::Matrix(const Matrix& copy) : impl_(copy.impl().clone()) {}
-inline Matrix::Matrix(matrix::MatrixImpl::Ref b) : impl_(std::move(b)) {}
-inline matrix::MatrixImpl& Matrix::impl() { return *impl_; }
-inline const matrix::MatrixImpl& Matrix::impl() const { if (const_) throw std::runtime_error("Attempt to modify a const Matrix"); return *impl_; }
-inline const matrix::MatrixImpl& Matrix::constImpl() const { return impl(); }
+inline Matrix::Matrix(matrix::MatrixImpl::Ref b, bool block, bool constant) : block_(block), const_(constant), impl_(std::move(b)) {}
+inline Vector::Vector(matrix::MatrixImpl::Ref b, bool block, bool constant) : Matrix(std::move(b), block, constant) {}
+inline RowVector::RowVector(matrix::MatrixImpl::Ref b, bool block, bool constant) : Matrix(std::move(b), block, constant) {}
+inline matrix::MatrixImpl& Matrix::implMod() { if (const_) throw std::runtime_error("Attempt to modify a constant Matrix (perhaps you forgot to .copy()?)"); return *impl_; }
+inline const matrix::MatrixImpl& Matrix::impl() const {  return *impl_; }
 inline unsigned int Matrix::rows() const { return impl().rows(); }
 inline unsigned int Matrix::cols() const { return impl().cols(); }
 inline bool Matrix::null() const { return impl().null(); }
+inline bool Matrix::block() const { return block_; }
+inline bool Matrix::constant() const { return const_; }
 inline const Matrix::CoeffProxy Matrix::operator()(unsigned int r, unsigned int c) const { return CoeffProxy(const_cast<Matrix&>(*this), r, c); }
 inline Matrix::CoeffProxy Matrix::operator()(unsigned int r, unsigned int c) { return CoeffProxy(*this, r, c); }
-inline void Matrix::setCoeff(unsigned int r, unsigned int c, double d) { impl().set(r, c, d); }
+inline void Matrix::setCoeff(unsigned int r, unsigned int c, double d) { implMod().set(r, c, d); }
 inline const double& Matrix::getCoeff(unsigned int r, unsigned int c) const { return impl().get(r, c); }
 inline Matrix Matrix::create(unsigned int rows, unsigned int cols) const { return Matrix(impl().create(rows, cols)); }
 inline Matrix Matrix::create(unsigned int rows, unsigned int cols, double initial) const { return Matrix(impl().create(rows, cols, initial)); }
@@ -629,22 +696,54 @@ inline RowVector Matrix::createRowVector(unsigned int cols, double initial) cons
 inline RowVector* Matrix::newRowVector(unsigned int cols) const { return new RowVector(impl().create(1, cols)); }
 inline RowVector* Matrix::newRowVector(unsigned int cols, double initial) const { return new RowVector(impl().create(1, cols, initial)); }
 inline Matrix Matrix::identity(unsigned int size) const { return Matrix(impl().identity(size)); }
+inline Matrix::operator const Vector() const {
+    if (cols() != 1) throw std::logic_error("Attempt to cast non-column matrix to a Vector");
+    Vector v(impl_);
+    v.block_ = block_;
+    v.const_ = true;
+    return v;
+}
+inline Matrix::operator Vector() {
+    if (cols() != 1) throw std::logic_error("Attempt to cast non-column matrix to a Vector");
+    Vector v(impl_);
+    v.block_ = block_;
+    v.const_ = const_;
+    return v;
+}
+inline Matrix::operator const RowVector() const {
+    if (rows() != 1) throw std::logic_error("Attempt to cast non-row matrix to a RowVector");
+    RowVector v(impl_);
+    v.block_ = block_;
+    v.const_ = true;
+    return v;
+}
+inline Matrix::operator RowVector() {
+    if (rows() != 1) throw std::logic_error("Attempt to cast non-row matrix to a RowVector");
+    RowVector v(impl_);
+    v.block_ = block_;
+    v.const_ = const_;
+    return v;
+}
+
 inline Matrix& Matrix::operator=(const Matrix &b) {
     if (impl().null()) { if (!b.impl().null()) { impl_ = b.impl().clone(); } }
-    else { impl() = b.impl(); }
+    else { implMod() = b.impl(); }
     return *this;
 }
 inline Matrix& Matrix::operator=(Matrix &&b) {
-    if (!impl().null()) return operator=(b);
-    // Else we have a default constructed, so do move semantics:
+    // If we aren't a default-constructed matrix object, do a regular assignment
+    if (!impl().null()) { implMod() = b.impl(); return *this; }
+    // Else we are default constructed, so do move semantics:
     impl_ = std::move(b.impl_);
+    const_ = b.const_;
+    block_ = b.block_;
     return *this;
 }
 inline Matrix Matrix::operator+(const Matrix &b) const { return impl() + b.impl(); }
-inline Matrix& Matrix::operator+=(const Matrix &b) { impl() += b.impl(); return *this; }
+inline Matrix& Matrix::operator+=(const Matrix &b) { implMod() += b.impl(); return *this; }
 inline Matrix Matrix::operator-(const Matrix &b) const { return impl() - b.impl(); }
 inline Matrix Matrix::operator-() const { return (*this) * -1; }
-inline Matrix& Matrix::operator-=(const Matrix &b) { impl() -= b.impl(); return *this; }
+inline Matrix& Matrix::operator-=(const Matrix &b) { implMod() -= b.impl(); return *this; }
 inline Matrix Matrix::operator*(const Matrix &b) const { return impl() * b.impl(); }
 inline Matrix Matrix::operator*(const Vector &b) const { return impl() * b.impl(); }
 inline Matrix Matrix::operator*(const RowVector &b) const { return impl() * b.impl(); }
@@ -652,15 +751,16 @@ template<typename Numeric, typename>
 inline Matrix Matrix::operator*(Numeric d) const { return impl() * (double) d; }
 template<typename Numeric, typename>
 inline Matrix Matrix::operator/(Numeric d) const { return impl() * (1.0/(double)d); }
-// Doxygen can't figure out that these are the same as the ones in the class definition:
+// Doxygen hates friends:
 /// \cond
 template<typename Numeric>
 inline Matrix operator*(Numeric d, const Matrix &b) { return b * d; }
+inline std::ostream& operator<<(std::ostream &os, const Matrix &A) { return os << A.str(os.precision()); }
 /// \endcond
 template<typename Numeric, typename>
-inline Matrix& Matrix::operator*=(Numeric d) { impl() *= (double) d; return *this; }
+inline Matrix& Matrix::operator*=(Numeric d) { implMod() *= (double) d; return *this; }
 template<typename Numeric, typename>
-inline Matrix& Matrix::operator/=(Numeric d) { impl() *= (1.0/(double)d); return *this; }
+inline Matrix& Matrix::operator/=(Numeric d) { implMod() *= (1.0/(double)d); return *this; }
 inline Matrix Matrix::transpose() const { return impl().transpose(); }
 inline unsigned int Matrix::rank() const { return impl().rank(); }
 inline Matrix Matrix::solve(const Matrix &b) const { return impl().solve(b.impl()); }
@@ -677,86 +777,80 @@ inline Matrix::operator std::string() const { return str(); }
 inline std::string Matrix::str(int precision, const std::string &coeffSeparator, const std::string &rowSeparator, const std::string &rowPrefix) const {
     return impl().str(precision, coeffSeparator, rowSeparator, rowPrefix);
 }
-inline std::ostream& operator<<(std::ostream &os, const Matrix &A) { return os << A.str(); }
 
-inline RowVector::RowVector() : Matrix() {}
 inline unsigned int RowVector::size() const { return cols(); }
+inline unsigned int RowVector::rows() const { return 1; }
 inline const Matrix::CoeffProxy RowVector::operator[](unsigned int c) const { return (*this)(0, c); }
 inline Matrix::CoeffProxy RowVector::operator[](unsigned int c) { return (*this)(0, c); }
-inline RowVector& RowVector::operator=(const Matrix &b) {
-    if (b.rows() != 1) throw std::logic_error("Cannot assign non-row matrix to a RowVector vector");
-    Matrix::operator=(b);
-    return *this;
-}
-inline RowVector& RowVector::operator=(Matrix &&b) {
-    if (b.rows() != 1) throw std::logic_error("Cannot move non-row matrix to a RowVector vector");
-    Matrix::operator=(std::move(b));
-    return *this;
-}
 
-
-inline Vector::Vector() : Matrix() {}
 inline unsigned int Vector::size() const { return rows(); }
+inline unsigned int Vector::cols() const { return 1; }
 inline const Matrix::CoeffProxy Vector::operator[](unsigned int r) const { return (*this)(r, 0); }
 inline Matrix::CoeffProxy Vector::operator[](unsigned int r) { return (*this)(r, 0); }
-inline Vector& Vector::operator=(const Matrix &b) {
-    if (b.cols() != 1) throw std::logic_error("Cannot assign non-column matrix to a Vector vector");
-    Matrix::operator=(b);
-    return *this;
-}
-inline Vector& Vector::operator=(Matrix &&b) {
-    if (b.cols() != 1) throw std::logic_error("Cannot move non-column matrix to a Vector vector");
-    Matrix::operator=(std::move(b));
-    return *this;
-}
 
-
-inline Matrix Matrix::block(unsigned int rowOffset, unsigned int colOffset, int nRows, int nCols, bool constant) const {
+// Protected common version of block:
+template <class T>
+inline T Matrix::block(unsigned int rowOffset, unsigned int colOffset, int nRows, int nCols, bool constant) const {
     if (nRows <= 0) nRows += rows() - rowOffset;
     if (nCols <= 0) nCols += cols() - colOffset;
 
     if (nRows <= 0 or rowOffset + nRows > rows() or nCols <= 0 or colOffset + nCols > cols())
         throw std::logic_error("Cannot create a matrix block that exceeds matrix bounds or has no rows/columns");
 
-    Matrix block(impl().block(rowOffset, colOffset, nRows, nCols));
-    if (constant) block.const_ = true;
-    block.block_ = true;
-    return block;
+    return T(impl().block(rowOffset, colOffset, nRows, nCols), true, constant);
 }
 inline Matrix Matrix::block(unsigned int rowOffset, unsigned int colOffset, int nRows, int nCols) {
-    return block(rowOffset, colOffset, nRows, nCols, const_);
+    return block<Matrix>(rowOffset, colOffset, nRows, nCols, const_);
 }
 inline Matrix Matrix::block(unsigned int rowOffset, unsigned int colOffset, int nRows, int nCols) const {
-    return block(rowOffset, colOffset, nRows, nCols, true);
+    return block<Matrix>(rowOffset, colOffset, nRows, nCols, true);
 }
-inline Vector Matrix::col(unsigned int col)          { return block(0, col, rows(), 1, const_); }
-inline Vector Matrix::col(unsigned int col) const    { return block(0, col, rows(), 1, true); }
-inline RowVector Matrix::row(unsigned int row)       { return block(row, 0, 1, cols(), const_); }
-inline RowVector Matrix::row(unsigned int row) const { return block(row, 0, 1, cols(), true); }
+inline Vector Matrix::col(unsigned int col)          { return block<Vector>(0, col, rows(), 1, const_); }
+inline Vector Matrix::col(unsigned int col) const    { return block<Vector>(0, col, rows(), 1, true); }
+inline RowVector Matrix::row(unsigned int row)       { return block<RowVector>(row, 0, 1, cols(), const_); }
+inline RowVector Matrix::row(unsigned int row) const { return block<RowVector>(row, 0, 1, cols(), true); }
 
-inline Matrix Matrix::top(unsigned int nrows, unsigned int offset)          { return block(offset, 0, nrows, cols(), const_); }
-inline Matrix Matrix::top(unsigned int nrows, unsigned int offset) const    { return block(offset, 0, nrows, cols(), true); }
-inline Matrix Matrix::bottom(unsigned int nrows, unsigned int offset)       { return block(rows()-nrows-offset, 0, nrows, cols(), const_); }
-inline Matrix Matrix::bottom(unsigned int nrows, unsigned int offset) const { return block(rows()-nrows-offset, 0, nrows, cols(), true); }
-inline Matrix Matrix::left(unsigned int ncols, unsigned int offset)         { return block(0, offset, rows(), ncols, const_); }
-inline Matrix Matrix::left(unsigned int ncols, unsigned int offset) const   { return block(0, offset, rows(), ncols, true); }
-inline Matrix Matrix::right(unsigned int ncols, unsigned int offset)        { return block(0, cols()-ncols-offset, rows(), ncols, const_); }
-inline Matrix Matrix::right(unsigned int ncols, unsigned int offset) const  { return block(0, cols()-ncols-offset, rows(), ncols, true); }
+inline Matrix Matrix::top(unsigned int nrows, unsigned int offset)          { return block<Matrix>(offset, 0, nrows, cols(), const_); }
+inline Matrix Matrix::top(unsigned int nrows, unsigned int offset) const    { return block<Matrix>(offset, 0, nrows, cols(), true); }
+inline Matrix Matrix::bottom(unsigned int nrows, unsigned int offset)       { return block<Matrix>(rows()-nrows-offset, 0, nrows, cols(), const_); }
+inline Matrix Matrix::bottom(unsigned int nrows, unsigned int offset) const { return block<Matrix>(rows()-nrows-offset, 0, nrows, cols(), true); }
+inline Matrix Matrix::left(unsigned int ncols, unsigned int offset)         { return block<Matrix>(0, offset, rows(), ncols, const_); }
+inline Matrix Matrix::left(unsigned int ncols, unsigned int offset) const   { return block<Matrix>(0, offset, rows(), ncols, true); }
+inline Matrix Matrix::right(unsigned int ncols, unsigned int offset)        { return block<Matrix>(0, cols()-ncols-offset, rows(), ncols, const_); }
+inline Matrix Matrix::right(unsigned int ncols, unsigned int offset) const  { return block<Matrix>(0, cols()-ncols-offset, rows(), ncols, true); }
 
-inline Vector Vector::head(unsigned int n, unsigned int offset)       { return block(offset,          0, n, 1, const_); }
-inline Vector Vector::head(unsigned int n, unsigned int offset) const { return block(offset,          0, n, 1, true); }
-inline Vector Vector::tail(unsigned int n, unsigned int offset)       { return block(cols()-n-offset, 0, n, 1, const_); }
-inline Vector Vector::tail(unsigned int n, unsigned int offset) const { return block(cols()-n-offset, 0, n, 1, true); }
+inline Vector Vector::head(unsigned int n, unsigned int offset)       { return block<Vector>(offset,          0, n, 1, const_); }
+inline Vector Vector::head(unsigned int n, unsigned int offset) const { return block<Vector>(offset,          0, n, 1, true); }
+inline Vector Vector::tail(unsigned int n, unsigned int offset)       { return block<Vector>(rows()-n-offset, 0, n, 1, const_); }
+inline Vector Vector::tail(unsigned int n, unsigned int offset) const { return block<Vector>(rows()-n-offset, 0, n, 1, true); }
 
-inline RowVector RowVector::head(unsigned int n, unsigned int offset)       { return block(0,          offset, 1, n, const_); }
-inline RowVector RowVector::head(unsigned int n, unsigned int offset) const { return block(0,          offset, 1, n, true); }
-inline RowVector RowVector::tail(unsigned int n, unsigned int offset)       { return block(0, cols()-n-offset, 1, n, const_); }
-inline RowVector RowVector::tail(unsigned int n, unsigned int offset) const { return block(0, cols()-n-offset, 1, n, true); }
+inline RowVector RowVector::head(unsigned int n, unsigned int offset)       { return block<RowVector>(0,          offset, 1, n, const_); }
+inline RowVector RowVector::head(unsigned int n, unsigned int offset) const { return block<RowVector>(0,          offset, 1, n, true); }
+inline RowVector RowVector::tail(unsigned int n, unsigned int offset)       { return block<RowVector>(0, cols()-n-offset, 1, n, const_); }
+inline RowVector RowVector::tail(unsigned int n, unsigned int offset) const { return block<RowVector>(0, cols()-n-offset, 1, n, true); }
+
+inline Matrix Matrix::copy() const & { return Matrix(*this); }
+inline Matrix Matrix::copy() && {
+    if (not block_ and not const_ and impl_.unique()) return Matrix(std::move(*this));
+    else return Matrix(*this);
+}
+
+inline Vector Vector::copy() const & { return Vector(*this); }
+inline Vector Vector::copy() && {
+    if (not block_ and not const_ and impl_.unique()) return Vector(std::move(*this));
+    else return Vector(*this);
+}
+
+inline RowVector RowVector::copy() const & { return RowVector(*this); }
+inline RowVector RowVector::copy() && {
+    if (not block_ and not const_ and impl_.unique()) return RowVector(std::move(*this));
+    else return RowVector(*this);
+}
 
 inline void Matrix::resize(unsigned int rows, unsigned int cols) {
     if (rows == 0 or cols == 0) throw std::logic_error("Cannot resize a Matrix to a null matrix (rows == 0 or cols == 0)");
     if (block_) throw std::logic_error("Cannot resize a block view of another matrix");
-    impl().resize(rows, cols);
+    implMod().resize(rows, cols);
 }
 inline void Vector::resize(unsigned int rows, unsigned int cols) {
     if (cols != 1) throw std::logic_error("Cannot resize a Vector to something that isn't a column");

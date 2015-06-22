@@ -24,7 +24,7 @@ namespace matrix {
 class MatrixImpl {
     public:
         /// Ref is an alias for std::shared_ptr<MatrixImpl> for convenience.
-        using Ref = std::unique_ptr<MatrixImpl>;
+        using Ref = std::shared_ptr<MatrixImpl>;
 
         /// Default virtual destructor
         virtual ~MatrixImpl() = default;
