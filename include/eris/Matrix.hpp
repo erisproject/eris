@@ -401,6 +401,8 @@ class Matrix {
          */
         operator std::string() const;
 
+        friend std::ostream& operator<<(std::ostream &os, const Matrix &A);
+
     protected:
         /** Protected constructor: constructs a matrix from an matrix implementation object.  Called
          * by the create() and related methods.
@@ -675,6 +677,7 @@ inline Matrix::operator std::string() const { return str(); }
 inline std::string Matrix::str(int precision, const std::string &coeffSeparator, const std::string &rowSeparator, const std::string &rowPrefix) const {
     return impl().str(precision, coeffSeparator, rowSeparator, rowPrefix);
 }
+inline std::ostream& operator<<(std::ostream &os, const Matrix &A) { return os << A.str(); }
 
 inline RowVector::RowVector() : Matrix() {}
 inline unsigned int RowVector::size() const { return cols(); }
