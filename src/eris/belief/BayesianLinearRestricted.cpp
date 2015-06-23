@@ -1,12 +1,14 @@
 #include <eris/belief/BayesianLinearRestricted.hpp>
 #include <cmath>
-#include <sstream>
+#include <Eigen/QR>
 #include <boost/math/distributions/normal.hpp>
 #include <boost/math/distributions/chi_squared.hpp>
 
-namespace eris { namespace belief {
+#include <eris/debug.hpp>
 
-using eris::Random;
+using namespace Eigen;
+
+namespace eris { namespace belief {
 
 BayesianLinearRestricted::RestrictionProxy BayesianLinearRestricted::lowerBound(size_t k) {
     return RestrictionProxy(*this, k, false);
@@ -31,18 +33,16 @@ void BayesianLinearRestricted::allocateRestrictions(size_t more) {
     // Increment by K_ rows at a time.  (This is fairly arbitrary, but at least the number of
     // restrictions will typically be correlated with the number of regressors)
     size_t rows = K_ * (size_t) std::ceil((restrict_size_ + more) / (double) K_);
-    if (restrict_select_.null()) restrict_select_ = beta_.create(rows, K_);
-    else if (restrict_select_.cols() != K_) restrict_select_.resize(rows, K_);
+    if (restrict_select_.cols() != K_) restrict_select_.conservativeResize(rows, K_);
     else if ((size_t) restrict_select_.rows() < restrict_size_ + more) {
-        restrict_select_.resize(rows, restrict_select_.cols());
+        restrict_select_.conservativeResize(rows, NoChange);
     }
     if ((size_t) restrict_values_.size() < restrict_size_ + more) {
-        if (restrict_values_.null()) restrict_values_ = beta_.createVector(rows);
-        else restrict_values_.resize(rows);
+        restrict_values_.conservativeResize(rows);
     }
 }
 
-void BayesianLinearRestricted::addRestriction(const RowVector &R, double r) {
+void BayesianLinearRestricted::addRestriction(const Ref<const RowVectorXd> &R, double r) {
     if (R.size() != K_) throw std::logic_error("Unable to add linear restriction: R does not have size K");
     allocateRestrictions(1);
     restrict_values_[restrict_size_] = r;
@@ -51,22 +51,22 @@ void BayesianLinearRestricted::addRestriction(const RowVector &R, double r) {
     reset();
 }
 
-void BayesianLinearRestricted::addRestrictionGE(const RowVector &R, double r) {
+void BayesianLinearRestricted::addRestrictionGE(const Ref<const RowVectorXd> &R, double r) {
     return addRestriction(-R, -r);
 }
 
-void BayesianLinearRestricted::addRestrictions(const Matrix &R, const Vector &r) {
+void BayesianLinearRestricted::addRestrictions(const Ref<const MatrixXd> &R, const Ref<const VectorXd> &r) {
     if (R.cols() != K_) throw std::logic_error("Unable to add linear restrictions: R does not have K columns");
     auto num_restr = R.rows();
     if (num_restr != r.size()) throw std::logic_error("Unable to add linear restrictions: different number of rows in R and r");
     allocateRestrictions(num_restr);
-    restrict_values_.head(num_restr, restrict_size_) = r;
-    restrict_select_.top(num_restr, restrict_size_) = R;
+    restrict_values_.segment(restrict_size_, num_restr) = r;
+    restrict_select_.middleRows(restrict_size_, num_restr) = R;
     restrict_size_ += num_restr;
     reset();
 }
 
-void BayesianLinearRestricted::addRestrictionsGE(const Matrix &R, const Vector &r) {
+void BayesianLinearRestricted::addRestrictionsGE(const Ref<const MatrixXd> &R, const Ref<const VectorXd> &r) {
     return addRestrictions(-R, -r);
 }
 
@@ -98,19 +98,19 @@ void BayesianLinearRestricted::reset() {
     chisq_n_median_ = std::numeric_limits<double>::signaling_NaN();
 }
 
-Matrix BayesianLinearRestricted::R() const {
-    return restrict_select_.top(restrict_size_);
+Block<const MatrixXdR, Dynamic, Dynamic, true> BayesianLinearRestricted::R() const {
+    return restrict_select_.topRows(restrict_size_);
 }
 
-Vector BayesianLinearRestricted::r() const {
+VectorBlock<const VectorXd> BayesianLinearRestricted::r() const {
     return restrict_values_.head(restrict_size_);
 }
 
-const Vector& BayesianLinearRestricted::draw() {
+const VectorXd& BayesianLinearRestricted::draw() {
     return draw(draw_mode);
 }
 
-const Vector& BayesianLinearRestricted::draw(DrawMode m) {
+const VectorXd& BayesianLinearRestricted::draw(DrawMode m) {
     // If they explicitly want rejection draw, do it:
     if (m == DrawMode::Rejection)
         return drawRejection();
@@ -145,30 +145,30 @@ const Vector& BayesianLinearRestricted::draw(DrawMode m) {
     return drawGibbs();
 }
 
-void BayesianLinearRestricted::gibbsInitialize(const Vector &initial, unsigned long max_tries) {
+void BayesianLinearRestricted::gibbsInitialize(const Ref<const VectorXd> &initial, unsigned long max_tries) {
     constexpr double overshoot = 1.5;
 
-    if (initial.size() != K_) throw std::logic_error("BayesianLinearRestricted::gibbsInitialize() called with invalid initial vector (initial.size() != K())");
+    if (initial.size() < K_ or initial.size() > K_+1) throw std::logic_error("BayesianLinearRestricted::gibbsInitialize() called with invalid initial vector (initial.size() != K())");
 
     gibbs_draws_ = 0;
 
-    const Matrix &A = VinvCholL();
+    const MatrixXd &A = VinvCholL();
     auto &rng = Random::rng();
 
     if (restrict_size_ == 0) {
         // No restrictions, nothing special to do!
-        if (not gibbs_last_z_ or gibbs_last_z_->size() != K_) gibbs_last_z_.reset(beta_.newVector(K_));
+        if (not gibbs_last_z_ or gibbs_last_z_->size() != K_) gibbs_last_z_.reset(new VectorXd(K_));
         *gibbs_last_z_ = A / std::sqrt(s2_) * (initial.head(K_) - beta_);
     }
     else {
         // Otherwise we'll start at the initial value and update
-        Vector adjusted = initial.head(K_).copy();
+        VectorXd adjusted(initial.head(K_));
         std::vector<size_t> violations;
         violations.reserve(restrict_size_);
 
         for (unsigned long trial = 1; ; trial++) {
             violations.clear();
-            Vector v = R() * adjusted - r();
+            VectorXd v = R() * adjusted - r();
             for (size_t i = 0; i < restrict_size_; i++) {
                 if (v[i] > 0) violations.push_back(i);
             }
@@ -186,7 +186,7 @@ void BayesianLinearRestricted::gibbsInitialize(const Vector &initial, unsigned l
             adjusted += -overshoot * v[fix] / restrict_select_.row(fix).squaredNorm() * restrict_select_.row(fix).transpose();
         }
 
-        if (not gibbs_last_z_ or gibbs_last_z_->size() != K_) gibbs_last_z_.reset(beta_.newVector(K_));
+        if (not gibbs_last_z_ or gibbs_last_z_->size() != K_) gibbs_last_z_.reset(new VectorXd(K_));
         *gibbs_last_z_ = A / std::sqrt(s2_) * (adjusted - beta_);
     }
 
@@ -194,19 +194,19 @@ void BayesianLinearRestricted::gibbsInitialize(const Vector &initial, unsigned l
     gibbs_last_sigma_ = std::numeric_limits<double>::signaling_NaN();
 }
 
-const Vector& BayesianLinearRestricted::drawGibbs() {
+const VectorXd& BayesianLinearRestricted::drawGibbs() {
     last_draw_mode = DrawMode::Gibbs;
 
-    const Matrix &Ainv = VcholL();
+    const MatrixXd &Ainv = VcholL();
     double s = std::sqrt(s2_);
 
     if (not gibbs_D_) gibbs_D_.reset(
             restrict_size_ == 0
-            ? beta_.newMatrix(0, K_) // It's rather pointless to use drawGibbs() with no restrictions, but allow it for debugging purposes
-            : new Matrix(s * R() * Ainv));
+            ? new MatrixXdR(0, K_) // It's rather pointless to use drawGibbs() with no restrictions, but allow it for debugging purposes
+            : new MatrixXdR(s * R() * Ainv));
     const auto &D = *gibbs_D_;
 
-    if (not gibbs_r_Rbeta_) gibbs_r_Rbeta_.reset(new Vector(r() - R() * beta_));
+    if (not gibbs_r_Rbeta_) gibbs_r_Rbeta_.reset(new VectorXd(r() - R() * beta_));
     const auto &r_minus_Rbeta_ = *gibbs_r_Rbeta_;
 
     if (not gibbs_last_z_) {
@@ -223,7 +223,7 @@ const Vector& BayesianLinearRestricted::drawGibbs() {
         // gibbs_last_*_ will be set up now (or else we threw an exception)
     }
     // Start with z from the last z draw
-    Vector z(*gibbs_last_z_);
+    VectorXd z(*gibbs_last_z_);
     double sigma = 0;
     double s_sigma = 0;
     auto &rng = Random::rng();
@@ -330,22 +330,21 @@ const Vector& BayesianLinearRestricted::drawGibbs() {
 
         // If we get here, we succeeded in the draw, hurray!
         gibbs_2nd_last_z_ = gibbs_last_z_;
-        gibbs_last_z_.reset(new Vector(z));
+        gibbs_last_z_.reset(new VectorXd(z));
         gibbs_last_sigma_ = sigma;
         gibbs_draws_++;
         draw_failures = 0;
     }
 
-    if (last_draw_.null()) last_draw_ = beta_.createVector(K_);
+    if (last_draw_.size() != K_ + 1) last_draw_.resize(K_ + 1);
 
-    last_draw_ = beta_ + s_sigma * Ainv * z;
-    last_s2_ = s_sigma * s_sigma;
-    have_last_draw_ = true;
+    last_draw_.head(K_) = beta_ + s_sigma * Ainv * z;
+    last_draw_[K_] = s_sigma * s_sigma;
 
     return last_draw_;
 }
 
-std::pair<double, double> BayesianLinearRestricted::sigmaRange(const Vector &z) {
+std::pair<double, double> BayesianLinearRestricted::sigmaRange(const Eigen::VectorXd &z) {
     std::pair<double, double> range(0, INFINITY);
     for (size_t i = 0; i < restrict_size_; i++) {
         double denom = gibbs_D_->row(i) * z;
@@ -365,7 +364,7 @@ std::pair<double, double> BayesianLinearRestricted::sigmaRange(const Vector &z) 
     return range;
 }
 
-const Vector& BayesianLinearRestricted::drawRejection(long max_discards) {
+const VectorXd& BayesianLinearRestricted::drawRejection(long max_discards) {
     last_draw_mode = DrawMode::Rejection;
     if (max_discards < 0) max_discards = draw_rejection_max_discards;
     draw_rejection_discards_last = 0;
@@ -373,15 +372,8 @@ const Vector& BayesianLinearRestricted::drawRejection(long max_discards) {
         redraw = false;
         auto &theta = BayesianLinear::draw();
         if (restrict_size_ > 0) {
-            Vector Rbeta = restrict_select_.top(restrict_size_) * theta;
-            bool violation = false;
-            for (unsigned int r = 0; r < restrict_size_; r++) {
-                if (Rbeta[r] > restrict_values_[r]) {
-                    violation = true;
-                    break;
-                }
-            }
-            if (violation) {
+            VectorXd Rbeta = restrict_select_.topRows(restrict_size_) * theta.head(K_);
+            if ((Rbeta.array() > restrict_values_.head(restrict_size_).array()).any()) {
                 // Restrictions violated
                 redraw = true;
                 ++draw_rejection_discards_last;
@@ -399,20 +391,15 @@ const Vector& BayesianLinearRestricted::drawRejection(long max_discards) {
 }
 
 bool BayesianLinearRestricted::hasRestriction(size_t k, bool upper) const {
-    // This method only considers rows with a single non-zero coefficient
     for (size_t row = 0; row < restrict_size_; row++) {
         const double &coef = restrict_select_(row, k);
-        // Ignore any 0 coefficient, and any negative (upper) or positive (!upper) coefficient
+        // Only look at rows with a non-zero coefficient on k:
         if (coef == 0 or (upper ? coef < 0 : coef > 0)) continue;
-        // This row has a restriction on k: check now to make sure it doesn't have any other
-        // restrictions (i.e. all other restrictions should be 0)
-        bool only_k = true;
-        for (unsigned t = 0; t < K_; t++) {
-            if (t == k or restrict_select_(row, t) == 0) continue;
-            only_k = false;
-            break;
-        }
-        if (only_k) return true;
+        // This row has a restriction of the proper sign on k: check now to make sure it doesn't
+        // have any other restrictions (i.e. all other restrictions should be 0)
+        if ((restrict_select_.row(row).array() != 0).count() != 1)
+            continue;
+        return true;
     }
     return false;
 }
@@ -421,22 +408,16 @@ double BayesianLinearRestricted::getRestriction(size_t k, bool upper) const {
     double most_binding = std::numeric_limits<double>::quiet_NaN();
     for (size_t row = 0; row < restrict_size_; row++) {
         const double &coef = restrict_select_(row, k);
-        // Ignore any 0 coefficient, and any negative (upper) or positive (!upper) coefficient
+        // Only look at rows with a non-zero coefficient on k of the right sign
         if (coef == 0 or (upper ? coef < 0 : coef > 0)) continue;
-        // This row has a restriction on k: check now to make sure it doesn't have any other
-        // restrictions (i.e. all other restrictions should be 0)
-        bool only_k = true;
-        for (unsigned t = 0; t < K_; t++) {
-            if (t != k and restrict_select_(row, t) != 0) {
-                only_k = false;
-                break;
-            }
-        }
-        if (only_k) {
-            double r = restrict_values_[row] / coef;
-            if (std::isnan(most_binding) or (upper ? r < most_binding : r > most_binding))
-                most_binding = r;
-        }
+        // This row has a restriction of the proper sign on k: check now to make sure it doesn't
+        // have any other restrictions (i.e. all other restrictions should be 0)
+        if ((restrict_select_.row(row).array() != 0).count() != 1)
+            continue;
+
+        double r = restrict_values_[row] / coef;
+        if (std::isnan(most_binding) or (upper ? r < most_binding : r > most_binding))
+            most_binding = r;
     }
     return most_binding;
 }
@@ -456,7 +437,7 @@ BayesianLinearRestricted::RestrictionProxy& BayesianLinearRestricted::Restrictio
     double Rk = upper_ ? 1.0 : -1.0;
     if (not upper_) r = -r;
 
-    RowVector R(lr_.beta_.createRowVector(lr_.K(), 0));
+    RowVectorXd R = RowVectorXd::Zero(lr_.K());
     R[k_] = Rk;
 
     lr_.addRestriction(R, r);
@@ -485,14 +466,14 @@ double BayesianLinearRestricted::RestrictionIneqProxy::lowerBound() const {
 }
 
 BayesianLinearRestricted::RestrictionIneqProxy& BayesianLinearRestricted::RestrictionIneqProxy::operator<=(double r) {
-    RowVector R(lr_.beta_.createRowVector(lr_.K(), 0));
+    RowVectorXd R = RowVectorXd::Zero(lr_.K());
     R[k_] = 1.0;
     lr_.addRestriction(R, r);
     return *this;
 }
 
 BayesianLinearRestricted::RestrictionIneqProxy& BayesianLinearRestricted::RestrictionIneqProxy::operator>=(double r) {
-    RowVector R(lr_.beta_.createRowVector(lr_.K(), 0));
+    RowVectorXd R = RowVectorXd::Zero(lr_.K());
     R[k_] = -1.0;
     lr_.addRestriction(R, -r);
     return *this;
@@ -514,6 +495,7 @@ BayesianLinearRestricted::operator std::string() const {
             if (z < 0) { negate = true; }
             else if (z > 0) { negate = false; break; }
         }
+
         for (unsigned int j = 0; j < K_; j++) {
             double d = restrict_select_(r, j);
             if (d != 0) {

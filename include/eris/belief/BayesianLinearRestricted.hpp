@@ -1,14 +1,16 @@
 #pragma once
 #include <unordered_map>
 #include <limits>
+#include <Eigen/Core>
+#include <Eigen/Cholesky>
 #include <eris/noncopyable.hpp>
 #include <eris/Random.hpp>
 #include <eris/belief/BayesianLinear.hpp>
 
 namespace eris { namespace belief {
 
-/** Extension to the base BayesianLinear class that supports prior restrictions on parameters via
- * Monte Carlo integration that rejects restricted draws.
+/** Extension to the base BayesianLinear class that supports prior restrictions on parameters via Monte
+ * Carlo integration that rejects restricted draws.
  *
  * Single variable restrictions can be specified via the lowerBound(), upperBound(), and restrict()
  * methods while more general linear restrictions can be specified by calling addRestriction().
@@ -34,6 +36,30 @@ class BayesianLinearRestricted : public BayesianLinear {
         BayesianLinearRestricted(const BayesianLinearRestricted&) = default;
         /// Default copy assignment operator
         BayesianLinearRestricted& operator=(const BayesianLinearRestricted&) = default;
+
+#ifdef EIGEN_HAVE_RVALUE_REFERENCES
+        /// Default move constructor
+        BayesianLinearRestricted(BayesianLinearRestricted&&) = default;
+        /// Default move assignment
+        BayesianLinearRestricted& operator=(BayesianLinearRestricted&&) = default;
+#else
+        /** Move constructor for Eigen versions before 3.3.  Eigen 3.2 and earlier don't have proper
+         * move support, and the implicit ones break things, so we work around this by providing a
+         * Move constructor that just calls the implicit copy constructor.  This, of course, means
+         * that for old Eigen versions, almost nothing is saved by moving since we actually copy.
+         *
+         * Eigen 3.3 adds a proper move constructor, and so we don't need this: the default implicit
+         * move constructor should work just fine.
+         *
+         * Note that BayesianLinearRestricted subclasses, so long as they aren't storing additional Eigen
+         * types, can rely on their default move constructors.
+         */
+        BayesianLinearRestricted(BayesianLinearRestricted &&move) : BayesianLinearRestricted(move) {}
+        /** Move assignment for Eigen versions before 3.3: this simply invokes the copy constructor,
+         * but is provided so that subclasses still have implicit move constructors.
+         */
+        BayesianLinearRestricted& operator=(BayesianLinearRestricted &&move) { *this = move; return *this; }
+#endif
 
         /// Other constructors inherited from BayesianLinear
         using BayesianLinear::BayesianLinear;
@@ -107,7 +133,7 @@ class BayesianLinearRestricted : public BayesianLinear {
          *
          *     model.restrict(2) >= -1 <= 3.5;
          *
-         *     RowVector R = othermat.createRowVector(model.K(), 0);
+         *     Eigen::RowVectorXd R = Eigen::RowVectorXd::Zero(K());
          *     R[2] = 1;
          *     model.addRestriction(R, 3.5);
          *     R[2] = -1;
@@ -119,13 +145,20 @@ class BayesianLinearRestricted : public BayesianLinear {
          * This method allows arbitrary linear relationships between the variables.  For example,
          * the following adds the restriction \f$\beta_1 - 3\beta_3 \geq 2.5\f$:
          *
-         *     RowVector R = othermat.createRowVector(model.K(), 0);
+         *     Eigen::RowVectorXd R = Eigen::RowVectorXd::Zero(K());
          *     R[1] = -1; R[3] = 3;
          *     model.addRestriction(R, -2.5);
          *
+         * Example adding the restriction \f$\beta_1 \leq 10\beta_5\f$ to a model with 7
+         * parameters, using Eigen's comma initialization syntax:
+         *
+         *     Eigen::RowVectorXd R(7);
+         *     R << 0, 1, 0, 0, 0, -10, 0;
+         *     model.addRestriction(R, 0);
+         *
          * \throws std::logic_error if R has a length other than `K()`.
          */
-        void addRestriction(const RowVector &R, double r);
+        void addRestriction(const Eigen::Ref<const Eigen::RowVectorXd> &R, double r);
 
         /** Adds a `RB >= r` restriction.  This is simply a shortcut for calling
          *
@@ -133,7 +166,7 @@ class BayesianLinearRestricted : public BayesianLinear {
          *
          * \sa addRestriction
          */
-        void addRestrictionGE(const RowVector &R, double r);
+        void addRestrictionGE(const Eigen::Ref<const Eigen::RowVectorXd> &R, double r);
 
         /** Adds a set of linear restrictions of the form \f$R\beta \leq r\f$, where \f$R\f$ is a
          * l-by-`K()` matrix of parameter selection coefficients and \f$r\f$ is a l-by-1 vector of
@@ -144,7 +177,7 @@ class BayesianLinearRestricted : public BayesianLinear {
          *
          * `R` and `r` must have the same number of rows.
          */
-        void addRestrictions(const Matrix &R, const Vector &r);
+        void addRestrictions(const Eigen::Ref<const Eigen::MatrixXd> &R, const Eigen::Ref<const Eigen::VectorXd> &r);
 
         /** Adds a set of linear restrictions of the form \f$R\beta \geq r\f$.  This is simply a
          * shortcut for calling
@@ -153,7 +186,7 @@ class BayesianLinearRestricted : public BayesianLinear {
          *
          * \sa addRestrictions
          */
-        void addRestrictionsGE(const Matrix &R, const Vector &r);
+        void addRestrictionsGE(const Eigen::Ref<const Eigen::MatrixXd> &R, const Eigen::Ref<const Eigen::VectorXd> &r);
 
         /** Clears all current model restrictions. */
         void clearRestrictions();
@@ -181,7 +214,7 @@ class BayesianLinearRestricted : public BayesianLinear {
          * \sa draw(mode)
          * \sa draw_mode
          */
-        const Vector& draw() override;
+        const Eigen::VectorXd& draw() override;
 
         /** Perfoms a draw using the requested draw mode, which must be one of:
          *
@@ -195,7 +228,7 @@ class BayesianLinearRestricted : public BayesianLinear {
          * sampling.  (Note that switching also requires a minimum of `draw_rejection_max_discards`
          * (default: 100) draw attempts before switching).
          */
-        const Vector& draw(DrawMode mode);
+        const Eigen::VectorXd& draw(DrawMode mode);
 
         /** Draws a set of parameter values, incorporating the restrictions using Gibbs sampling
          * rather than rejection sampling (as done by drawRejection()).  Returns a const reference
@@ -204,7 +237,7 @@ class BayesianLinearRestricted : public BayesianLinear {
          *
          * The Gibbs sampler draw uses truncated normal drawing loosely based on the description in
          * Rodriguez-Yam, Davis, and Scharf (2004), "Efficient Gibbs Sampling of Truncated
-         * Multivariate Normal with Application to Constrained Linear Regression," with
+         * Multivariate Normal with Application to Constrained BayesianLinear Regression," with
          * modifications as described below to draw from a truncated multivariate t instead.
          *
          * The behaviour of drawGibbs() is affected by three parameters:
@@ -347,7 +380,7 @@ class BayesianLinearRestricted : public BayesianLinear {
          * exactly equal to 1).
          *
          */
-        virtual const Vector& drawGibbs();
+        virtual const Eigen::VectorXd& drawGibbs();
 
         /** Initialize the Gibbs sampler with the given initial values of beta, adjusting it, if
          * necessary, to satisfy the model constraints.  If drawGibbs() has previously been called,
@@ -395,14 +428,15 @@ class BayesianLinearRestricted : public BayesianLinear {
          *   matrix that normalizes the restricted \f$\beta\f$'s), but that sort of limitation isn't
          *   otherwise required by the Gibbs algorithm used in this class.
          *
-         * \param initial the initial value of \f$\beta\f$.
+         * \param initial the initial value of \f$\beta\f$.  May also include an extra
+         * \f$\sigma^2\f$ value, which will be ignored.
          * \param max_tries the maximum tries to massage the initial point into unrestricted
          * parameter space.  Defaults to 100.
          * \throws constraint_failure if the constraint cannot be satisfied after `max_tries`
          * adjustments.
          * \throws logic_error if called with a vector with size other than `K` or `K+1`
          */
-        void gibbsInitialize(const Vector &initial, unsigned long max_tries = 100);
+        void gibbsInitialize(const Eigen::Ref<const Eigen::VectorXd> &initial, unsigned long max_tries = 100);
 
         /** Exception class used to indicate that one or more constraints couldn't be satisfied.
          */
@@ -620,7 +654,7 @@ class BayesianLinearRestricted : public BayesianLinear {
          * `draw_discards_max` sequential draws are discarded without finding a single admissible
          * draw.
          */
-        virtual const Vector& drawRejection(long max_discards = -1);
+        virtual const Eigen::VectorXd& drawRejection(long max_discards = -1);
 
         int draw_rejection_discards_last = 0, ///< Tracks the number of inadmissable draws by the most recent call to drawRejection()
             draw_rejection_success = 0, ///< The cumulative number of successful rejection draws
@@ -632,19 +666,19 @@ class BayesianLinearRestricted : public BayesianLinear {
         double draw_auto_min_success_rate = 0.2; ///< The minimum draw success rate below which we switch to Gibbs sampling
 
         /// Accesses the restriction coefficient selection matrix (the \f$R\f$ in \f$R\beta <= r\f$).
-        Matrix R() const;
+        Eigen::Block<const Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>, Eigen::Dynamic, Eigen::Dynamic, true> R() const;
 
         /// Accesses the restriction value vector (the \f$r\f$ in \f$R\beta <= r\f$).
-        Vector r() const;
+        Eigen::VectorBlock<const Eigen::VectorXd> r() const;
 
         /** Overloaded to append the restrictions after the regular BayesianLinear details.
          */
         virtual operator std::string() const override;
 
-        /** The display name of the model to use when printing it.  Defaults to "BayesianLinear" but
-         * subclasses should override.
+        /** The display name of the model to use when printing it.  Defaults to "BayesianLinearRestricted"
+         * but subclasses should override.
          */
-        virtual std::string display_name() const;
+        virtual std::string display_name() const override;
 
     protected:
         /// Creates a BayesianLinearRestricted from a BayesianLinear rvalue
@@ -771,14 +805,16 @@ class BayesianLinearRestricted : public BayesianLinear {
          * addRestriction() or addRestrictions(). Note that the only the first
          * `restrict_linear_size_` rows of the matrix will be set, but other rows might exist with
          * uninitialized values.
+         *
+         * This matrix is stored in row-major order, because it is primarily accessed and assigned
+         * to row-by-row.
          */
-        Matrix restrict_select_;
+        Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> restrict_select_;
         /** Stores the value restrictions for arbitrary linear restrictions passed to
          * addRestriction() or addRestrictions().  Note that the only the first
          * `restrict_linear_size_` values of the vector will be set, but other values might exist
-         * with uninitialized values.
-         */
-        Vector restrict_values_;
+         * with uninitialized values. */
+        Eigen::VectorXd restrict_values_;
         /** Stores the number of arbitrary linear restrictions currently stored in
          * restrict_linear_select_ and restrict_linear_values_.
          */
@@ -794,7 +830,7 @@ class BayesianLinearRestricted : public BayesianLinear {
         // Values used for Gibbs sampling.  These aren't set until first needed.
         std::shared_ptr<decltype(restrict_select_)> gibbs_D_; // D = R A^{-1}
         // z ~ restricted N(0, I); sigma = sqrt of last sigma^2 draw; r_Rbeta_ = r-R*beta_
-        std::shared_ptr<Vector> gibbs_last_z_, gibbs_2nd_last_z_, gibbs_r_Rbeta_;
+        std::shared_ptr<Eigen::VectorXd> gibbs_last_z_, gibbs_2nd_last_z_, gibbs_r_Rbeta_;
         double gibbs_last_sigma_ = std::numeric_limits<double>::signaling_NaN();
         long gibbs_draws_ = 0;
         double chisq_n_median_ = std::numeric_limits<double>::signaling_NaN();
@@ -802,7 +838,7 @@ class BayesianLinearRestricted : public BayesianLinear {
         /* Returns the bounds on sigma for the given z draw. Lower bound is .first, upper bound is
          * .second.  gibbs_D_ and gibbs_r_Rbeta_ must be set.
          */
-        std::pair<double, double> sigmaRange(const Vector &z);
+        std::pair<double, double> sigmaRange(const Eigen::VectorXd &z);
 
 };
 

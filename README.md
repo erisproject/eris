@@ -21,8 +21,9 @@ The library name, Eris, is the name of the Greek goddess of chaos.
 
 ## Requirements
 
-- [boost](http://www.boost.org/) for compilation; only the Math component is
-  needed.
+- [boost](http://www.boost.org/); only the Math component is needed (and only
+  during compilation).
+- [Eigen](http://eigen.tuxfamily.org/)
 - A C++ compiler supporting the C++11 standard, such as
   [clang](http://clang.llvm.org/) (3.3+) or [g++](https://gcc.gnu.org/) (4.9+)
 
