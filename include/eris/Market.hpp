@@ -46,14 +46,18 @@ class Market : public Member {
          * Thus the following, which includes both.
          */
         struct price_info {
+            /// Default constructor: yields a price_info with `.feasible` set to false.
+            price_info() = default;
+            /// Constructor for feasible quantities; sets `feasible` to true.
+            price_info(double total, double marginal, double marginalFirst) : feasible(true), total(total), marginal(marginal), marginalFirst(marginalFirst) {}
             /// True if the requested quantity is available.
-            bool feasible;
+            bool feasible = false;
             /// Total price 
-            double total;
+            double total = std::numeric_limits<double>::quiet_NaN();
             /// marginal price of the last quantity purchased.
-            double marginal;
+            double marginal = std::numeric_limits<double>::quiet_NaN();
             /// marginal price of the first quantity purchased.
-            double marginalFirst;
+            double marginalFirst = std::numeric_limits<double>::quiet_NaN();
         };
 
         /** Represents the "quantity" that a given price can buy.  In addition to the quantity of

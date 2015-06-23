@@ -45,7 +45,7 @@ class PriceFirm : public Firm, public virtual interopt::Advance {
          * of the Bundle.  For an unconstrained firm, this will return positive infinity, as long as
          * the requested Bundle is covered by the firm's output Bundle.
          */
-        virtual double canSupplyAny(const Bundle &b) const noexcept;
+        virtual double canSupplyAny(const Bundle &b) const noexcept override;
 
         /** Advances to the next period.  In particular, this resets the used capacity to 0, thus
          * restoring a constrained firm's ability to produce.

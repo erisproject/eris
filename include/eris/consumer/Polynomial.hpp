@@ -64,7 +64,7 @@ class Polynomial : public Consumer::Differentiable {
          *      \frac{\partial u(b)}{\partial g}
          * \f]
          */
-        virtual double d(const BundleNegative &b, eris_id_t g) const;
+        virtual double d(const BundleNegative &b, eris_id_t g) const override;
         /** Returns the second derivate with respect to \f$g_1\f$ then \f$g_2\f$, evaluated at
          * Bundle \f$b\f$.  Mathematically:
          * \f[
@@ -73,13 +73,13 @@ class Polynomial : public Consumer::Differentiable {
          * Note that for the utility functions implementable by this class the second derivative is
          * 0 whenever \f$g_1 \neq g_2\f$.
          */
-        virtual double d2(const BundleNegative &b, eris_id_t g1, eris_id_t g2) const;
+        virtual double d2(const BundleNegative &b, eris_id_t g1, eris_id_t g2) const override;
         /** Returns the consumer's hessian.  This overrides the implementation in
          * Consumer::Differentiable with a more efficient version, since only diagonal elements need
          * to be calculated (off-diagonal elements are always 0).
          */
         virtual std::map<eris_id_t, std::map<eris_id_t, double>>
-            hessian(const std::vector<eris_id_t> &g, const BundleNegative &b) const;
+            hessian(const std::vector<eris_id_t> &g, const BundleNegative &b) const override;
 
     protected:
         /// The constant offset term in the consumer's utility.

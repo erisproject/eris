@@ -10,8 +10,8 @@ QMarket::QMarket(Bundle output_unit, Bundle price_unit, double initial_price, un
 
 Market::price_info QMarket::price(double q) const {
     double available = firmQuantities(q);
-    if (q > available or (q == 0 and available <= 0)) return { .feasible=false };
-    else return { .feasible=true, .total=q*price_, .marginal=price_, .marginalFirst=price_ };
+    if (q > available or (q == 0 and available <= 0)) return price_info();
+    else return price_info(q*price_, price_, price_);
 }
 
 double QMarket::price() const {
