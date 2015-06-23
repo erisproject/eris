@@ -497,6 +497,10 @@ template <class T, typename... Args> SharedMember<T> Simulation::create(Args&&..
     return spawn<T>(std::forward<Args>(args)...);
 }
 
+// doxygen following macros can't figure out that these are actually the same as the ones in the
+// class definition, so ignore:
+/// \cond
+
 // These methods are all basically identical for the four core types (agent, good, market, other),
 // so use a macro.  TYPE (agent, good, etc.) is used to create a TYPE and a TYPEs method (e.g.
 // agent() and agents()).
@@ -525,6 +529,8 @@ ERIS_SIM_TYPE_METHODS(good, Good)
 ERIS_SIM_TYPE_METHODS(market, Market)
 ERIS_SIM_TYPE_METHODS(other, Other)
 #undef ERIS_SIM_TYPE_METHODS
+
+/// \endcond
 
 template <class T, class B>
 const std::vector<SharedMember<Member>>* Simulation::genericFilterCache(
