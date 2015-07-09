@@ -16,15 +16,17 @@ if(NOT "@CMAKE_BUILD_TYPE@" STREQUAL "Release")
     if(NOT eris_git_rev_result EQUAL 0)
         message(FATAL_ERROR "Unable to determine git revision tag for non-Release build")
     endif()
-    execute_process(COMMAND date "+%Y%m%d"
+    execute_process(COMMAND git show -s "--format=%ci" "@"
         RESULT_VARIABLE eris_build_date_result
         OUTPUT_VARIABLE eris_build_date
         OUTPUT_STRIP_TRAILING_WHITESPACE
         )
     if(NOT eris_build_date_result EQUAL 0)
-        message(FATAL_ERROR "Unable to determine build date for non-Release build")
+        message(FATAL_ERROR "Unable to determine commit date for non-Release build")
     endif()
-    set(eris_package_version "${eris_package_version}~git${eris_build_date}~${eris_git_rev}")
+    string(REGEX REPLACE "^([0-9][0-9][0-9][0-9])-([0-9][0-9])-([0-9][0-9]).*" "\\1\\2\\3" eris_build_datestr "${eris_build_date}")
+
+    set(eris_package_version "${eris_package_version}~git${eris_build_datestr}~${eris_git_rev}")
 endif()
 set(CPACK_PACKAGE_FILE_NAME "eris_${eris_package_version}_@arch@")
 set(CPACK_DEBIAN_PACKAGE_VERSION "${eris_package_version}")
