@@ -5,15 +5,15 @@ project(eris CXX C)
 
 include(GNUInstallDirs)
 
+set(eris_author "Jason Rhinelander <jason@imaginary.ca>")
+set(eris_url "https://github.com/erisproject/eris")
+set(eris_description "Agent-based economic modelling library")
+
 # Eris package version
 set(ERIS_VERSION_MAJOR "0")
 set(ERIS_VERSION_MINOR "3")
 set(ERIS_VERSION_PATCH "0")
 set(ERIS_VERSION "${ERIS_VERSION_MAJOR}.${ERIS_VERSION_MINOR}.${ERIS_VERSION_PATCH}")
-
-set(eris_author "Jason Rhinelander <jason@imaginary.ca>")
-set(eris_url "https://github.com/erisproject/eris")
-set(eris_description "Agent-based economic modelling library")
 
 # eris library version (CURRENT.REVISION.AGE), which is totally separate
 # from the above.  See http://www.sourceware.org/autobook/autobook/autobook_91.html
