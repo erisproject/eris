@@ -263,7 +263,7 @@ const VectorXd& BayesianLinearRestricted::drawGibbs() {
             // caused by the betas), but we can try to restart at the previous beta draw, which
             // might help.
             try {
-                sigma = std::sqrt(n_ / truncDist(chisq_dist, chisq, n_ / (range.second*range.second), n_ / (range.first*range.first), chisq_n_median_, 0.05, 10));
+                sigma = std::sqrt(n_ / Random::truncDist(chisq_dist, chisq, n_ / (range.second*range.second), n_ / (range.first*range.first), chisq_n_median_, 0.05, 10));
             }
             catch (const draw_failure &df) {
                 if (gibbs_2nd_last_z_) {
@@ -271,7 +271,7 @@ const VectorXd& BayesianLinearRestricted::drawGibbs() {
 
                     // Don't catch this one if it fails again (in that case, there's nothing we can
                     // do)
-                    sigma = std::sqrt(n_ / truncDist(chisq_dist, chisq, n_ / (range.second*range.second), n_ / (range.first*range.first), chisq_n_median_, 0.05, 10));
+                    sigma = std::sqrt(n_ / Random::truncDist(chisq_dist, chisq, n_ / (range.second*range.second), n_ / (range.first*range.first), chisq_n_median_, 0.05, 10));
                 }
                 else
                     throw; // Don't have a previous beta to save us, so just rethrow the exception
@@ -316,7 +316,7 @@ const VectorXd& BayesianLinearRestricted::drawGibbs() {
                 if (lj >= uj) throw draw_failure("drawGibbs(): found impossible-to-satisfy linear constraints", *this);
 
                 // Our new Z is a truncated standard normal (truncated by the bounds we just found)
-                z[j] = truncDist(stdnorm_dist, Random::stdnorm, lj, uj, 0.0);
+                z[j] = Random::truncDist(stdnorm_dist, Random::stdnorm, lj, uj, 0.0);
             }
         }
         catch (const draw_failure &df) {
