@@ -24,7 +24,9 @@
         /** Weakens the model, as done in BayesianLinear::weaken(), but returns an object of this derived type instead of a BayesianLinear object. */ \
         [[gnu::warn_unused_result]] Derived weaken(double s)      && { weakenInPlace(s); return std::move(*this); }
 
-namespace eris { namespace belief {
+namespace eris {
+/// Namespace for classes designed for handling agent beliefs and belief updating.
+namespace belief {
 
 /// Add a MatrixXdR typedef for a row-major MatrixXd
 using MatrixXdR = Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
