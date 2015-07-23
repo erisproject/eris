@@ -125,16 +125,19 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
          * the filter returns true.
          *
          * The results of class filtering are cached so long as the template filter class is not the
-         * default (`Agent`) so that subsequent calls don't need to search through all agents for
-         * matching classes, but only the agents of the appropriate type.  This helps considerably
-         * when searching for agents whose type is only a small subset of the overall set of agents.
-         * The cache is invalidated when any agent (of any type) is added or removed.
+         * default (`Agent`) so that subsequent calls will not need to reperform extra work for
+         * class filtering.  This helps considerably when searching for agents whose type is only a
+         * small subset of the overall set of agents.  The cache is invalidated when any agent (of
+         * any type) is added or removed.
          */
         template <class A = Agent, typename = typename std::enable_if<std::is_base_of<Agent, A>::value>::type>
         std::vector<SharedMember<A>> agents(const std::function<bool(const A &agent)> &filter = nullptr) const;
         /** Provides a count of matching simulation agents.  Agents are filtered by class and/or
          * callable filter and the count of matching agents is returned.  This is equivalent to
          * agents<A>(filter).size(), but more efficient.
+         *
+         * Note that this method populates and uses the same cache as agents() when `A` is not the
+         * default `Agent` class.
          */
         template <class A = Agent, typename = typename std::enable_if<std::is_base_of<Agent, A>::value>::type>
         size_t countAgents(const std::function<bool(const A &agent)> &filter = nullptr) const;
