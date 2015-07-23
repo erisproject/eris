@@ -19,6 +19,12 @@
 /// Base namespace containing all eris classes.
 namespace eris {
 
+// Forward declarations
+class Member;
+class Agent;
+class Good;
+class Market;
+
 /** This class is at the centre of an Eris economy model; it keeps track of all of the agents
  * currently in the economy, all of the goods currently available in the economy, and the
  * interaction mechanisms (e.g. markets).  Note that all of these can change from one period to the

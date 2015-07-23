@@ -56,13 +56,4 @@ const RunStage RunStage_LAST = RunStage::intra_Finish;
  */
 enum class ReservationState { pending, complete, aborted };
 
-
-// Forward declarations:
-template<class S> class Eris;
-class Simulation;
-class Member;
-class Agent;
-class Good;
-class Market;
-
 }
