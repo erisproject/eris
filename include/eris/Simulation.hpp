@@ -185,19 +185,19 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
             >::type>
         size_t countOthers(const std::function<bool(const O &good)> &filter = nullptr) const;
 
-        /** Records already-stored member `depends_on' as a dependency of `member'.  If `depends_on'
-         * is removed from the simulation, `member' will be automatically removed as well.
+        /** Records already-stored member `depends_on` as a dependency of `member`.  If `depends_on`
+         * is removed from the simulation, `member` will be automatically removed as well.
          *
          * Note that dependents are removed *after* removal of their dependencies.  That is, if A
          * depends on B, and B is removed, the B removal occurs *first*, followed by the A removal.
          */
         void registerDependency(eris_id_t member, eris_id_t depends_on);
 
-        /** Records already-stored member `depends_on' is a weak dependency of `member'.  In
+        /** Records already-stored member `depends_on` is a weak dependency of `member`.  In
          * contrast to a non-weak dependency, the member is only notified of the removal of the
          * dependent, it is not removed itself.
          *
-         * When `depends_on' is removed from the simulation, `member' will have its depRemoved()
+         * When `depends_on` is removed from the simulation, `member` will have its depRemoved()
          * method called with the just-removed (but still not destroyed) member.
          */
         void registerWeakDependency(eris_id_t member, eris_id_t depends_on);

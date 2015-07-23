@@ -147,7 +147,7 @@ class Random final {
          * return a random draw from the untruncated distribution, and has a `result_type` member
          * agreeing with `dist::value_type`.  This generator is only used if the given min and max
          * don't actually truncate the distribution (for example, when attempting to draw a
-         * "truncated" normal with truncation range `[-infinity,infinity]`.  Both boost's random
+         * "truncated" normal with truncation range \f$[-\infty,\infty]\f$.  Both boost's random
          * number generators and the C++11 random number generators are suitable.
          *
          * \param min the truncated region lower bound

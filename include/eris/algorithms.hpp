@@ -39,7 +39,7 @@ namespace eris {
  *        be necessary at all, since it is obtainable from the class of the given iterator, but gcc
  *        (as of 4.8.1) chokes on that, hence the additional (required) template parameter.
  */
-// FIXME: this first 'T' template parameter shouldn't be needed (and isn't, if using clang++), but
+// FIXME: this first `T` template parameter shouldn't be needed (and isn't, if using clang++), but
 // g++ needs it, so everything has to deal with it.  Try again, eventually, to remove it, changing
 // the 'T' types below to 'typename It::value_type'.
 template <typename T, typename It>
@@ -231,7 +231,7 @@ class Stepper final {
          * count of previous steps in this direction is halved); if the last step was in the
          * opposite direction, the step size is halved.
          *
-         * After this is called, you may optionally consider the `oscillating_min' value, which will
+         * After this is called, you may optionally consider the `oscillating_min` value, which will
          * tell you how many of the previous steps have simply oscillated around the minimum step
          * size (and thus aren't doing anything useful).
          */
