@@ -265,16 +265,22 @@ const VectorXd& BayesianLinearRestricted::drawGibbs() {
             try {
                 sigma = std::sqrt(n_ / Random::truncDist(chisq_dist, chisq, n_ / (range.second*range.second), n_ / (range.first*range.first), chisq_n_median_, 0.05, 10));
             }
-            catch (const draw_failure &df) {
+            catch (const std::runtime_error &df) {
                 if (gibbs_2nd_last_z_) {
                     range = sigmaRange(*gibbs_2nd_last_z_);
 
-                    // Don't catch this one if it fails again (in that case, there's nothing we can
-                    // do)
-                    sigma = std::sqrt(n_ / Random::truncDist(chisq_dist, chisq, n_ / (range.second*range.second), n_ / (range.first*range.first), chisq_n_median_, 0.05, 10));
+                    // If it fails again, there's nothing we can do, so just wrap it up in a
+                    // draw_failure and rethrow it.
+                    try {
+                        sigma = std::sqrt(n_ / Random::truncDist(chisq_dist, chisq, n_ / (range.second*range.second), n_ / (range.first*range.first), chisq_n_median_, 0.05, 10));
+                    }
+                    catch (const std::runtime_error &df) {
+                        throw draw_failure(df.what());
+                    }
                 }
-                else
-                    throw; // Don't have a previous beta to save us, so just rethrow the exception
+                else {
+                    throw draw_failure(df.what()); // Don't have a previous beta to save us, so just throw with the underlying exception message
+                }
             }
 
             // We want sigma s.t. beta_ + sigma * (s * A) * z has the right distribution for a
@@ -316,7 +322,13 @@ const VectorXd& BayesianLinearRestricted::drawGibbs() {
                 if (lj >= uj) throw draw_failure("drawGibbs(): found impossible-to-satisfy linear constraints", *this);
 
                 // Our new Z is a truncated standard normal (truncated by the bounds we just found)
-                z[j] = Random::truncDist(stdnorm_dist, Random::stdnorm, lj, uj, 0.0);
+                try {
+                    z[j] = Random::truncDist(stdnorm_dist, Random::stdnorm, lj, uj, 0.0);
+                }
+                catch (const std::runtime_error &fail) {
+                    // If the truncated normal fails, wrap in a draw failure and rethrow:
+                    throw draw_failure("drawGibbs(): unable to draw appropriate truncated normal: " + std::string(fail.what()));
+                }
             }
         }
         catch (const draw_failure &df) {
