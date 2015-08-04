@@ -181,6 +181,8 @@ class Random final {
          *
          * \returns a draw (of type `dist::value_type`) from the truncated distribution.
          *
+         * \throws std::runtime_error subclass (currently either std::range_error or
+         * std::underflow_error, see below) if a value cannot be drawn.
          * \throws std::range_error if called with min > max or a truncation region entirely outside
          * the support of the distribution.
          * \throws std::underflow_error if the truncation range is so far in the tail that both
