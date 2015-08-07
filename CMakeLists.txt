@@ -12,7 +12,7 @@ set(eris_description "Agent-based economic modelling library")
 # Eris package version
 set(ERIS_VERSION_MAJOR "0")
 set(ERIS_VERSION_MINOR "3")
-set(ERIS_VERSION_PATCH "1")
+set(ERIS_VERSION_PATCH "2")
 set(ERIS_VERSION "${ERIS_VERSION_MAJOR}.${ERIS_VERSION_MINOR}.${ERIS_VERSION_PATCH}")
 
 # eris library version (CURRENT.REVISION.AGE), which is totally separate
@@ -32,9 +32,9 @@ set(ERIS_VERSION "${ERIS_VERSION_MAJOR}.${ERIS_VERSION_MINOR}.${ERIS_VERSION_PAT
 # (So something like 3.7.1 indicates the 8th revision of the liberis-3
 # interface, and that code that links against liberis-2.* can link against this
 # version, but code that links against liberis-1.* cannot.
-set(LIBERIS_CURRENT  "0")
+set(LIBERIS_CURRENT  "1")
 set(LIBERIS_REVISION "0")
-set(LIBERIS_AGE      "1")
+set(LIBERIS_AGE      "0")
 
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules)
 

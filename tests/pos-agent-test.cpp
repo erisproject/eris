@@ -16,6 +16,9 @@ TEST(Construction, Unbounded) {
     Positional<Agent> p1({1});
     WrappedPositional<Agent> p2({2.5}, {INF}, {-INF});
 
+    Position test_pos({1,2,3});
+    EXPECT_EQ(Position({2,3,3,3,1}), test_pos.subdimensions({1,2,2,2,0}));
+
     EXPECT_EQP({1.0}, p1.position());
     EXPECT_EQP({2.5}, p2.position());
     EXPECT_EQP({INF}, p1.upperBound());

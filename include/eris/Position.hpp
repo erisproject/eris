@@ -25,10 +25,7 @@ class Position final {
          * Position(v) // v is vector<double> (or any sort of iterable container)
          */
         template <class Container, typename = typename std::enable_if<std::is_arithmetic<typename Container::value_type>::value>::type>
-        Position(const Container &coordinates) : pos_(coordinates.begin(), coordinates.end()) {
-            if (not dimensions)
-                throw std::out_of_range("Cannot initialize a Position with 0 dimensions");
-        }
+        Position(const Container &coordinates);
 
         /** Creates a Position at the given vector, taking over the vector for position storage.
          *
@@ -36,8 +33,8 @@ class Position final {
          */
         Position(std::vector<double> &&coordinates);
 
-        /** Constructs a copy of the given Position object. */
-        Position(const Position &pos);
+        /// Copy constructor.
+        Position(const Position &pos) = default;
 
         /** Moves the given Position's values into this one */
         Position(Position &&pos) = default;
@@ -87,27 +84,41 @@ class Position final {
          * For example, Position({12, -4, 15, 100}).subdimensions({3,1,1}) returns a Position({100,-4,-4}).
          *
          * \throws std::out_of_range exception if any of the given dimension indices are larger than
-         * the dimensionality of the caller Position.
+         * the dimensionality of the caller Position, or if the dimension list is empty.
          */
-        Position subdimensions(std::initializer_list<double> dimensions) const;
+        Position subdimensions(const std::initializer_list<size_t> &dimensions) const;
+
+        /** Returns a new Position whose dimensions are determined by the given dimension indices
+         * (which may be repeated).  Thus the dimensionality of the returned Position can be larger
+         * or smaller than the source.  At least one dimension index must be given.
+         *
+         * For example, Position({12, -4, 15, 100}).subdimensions({3,1,1}) returns a Position({100,-4,-4}).
+         *
+         * \param dimensions any container of integer types
+         *
+         * \throws std::out_of_range exception if any of the given dimension indices are invalid, or
+         * if the dimension list is empty.
+         */
+        template <class Container, typename = typename std::enable_if<std::is_integral<typename Container::value_type>::value>::type>
+        Position subdimensions(const Container &dimensions) const;
 
         /** Accesses the Position's `d`th coordinate, where `d=0` is the first dimension, etc.
          * No bounds checking is performed.
          */
-        double& operator[](int d);
+        double& operator[](size_t d);
 
         /** Accesses the Position's `d`th coordinate, with `d=0` is the first dimension, with bounds
          * checking.
          *
          * \throws std::out_of_range exception for `d >= dimensions`.
          */
-        double& at(int d);
+        double& at(size_t d);
 
         /// Const access to Position coordinates.  No bounds checking.
-        const double& operator[](int d) const;
+        const double& operator[](size_t d) const;
 
         /// Const access to Position coordinates, with bounds checking.
-        const double& at(int d) const;
+        const double& at(size_t d) const;
 
         ///@{
         /// Returns an iterator to the beginning of the position values
@@ -216,6 +227,12 @@ class Position final {
         const size_t dimensions = pos_.size();
 };
 
+template <class Container, typename>
+Position::Position(const Container &coordinates) : pos_(coordinates.begin(), coordinates.end()) {
+    if (not dimensions)
+        throw std::out_of_range("Cannot initialize a Position with 0 dimensions");
+}
+
 inline void Position::requireSameDimensions(size_t dim, const std::string &method) const {
     if (dimensions != dim)
         throw std::length_error(method + "() called with objects of differing dimensions");
@@ -224,7 +241,18 @@ inline void Position::requireSameDimensions(const Position &other, const std::st
     requireSameDimensions(other.dimensions, method);
 }
 
-inline double& Position::operator[](int d) { return pos_[d]; }
-inline const double& Position::operator[](int d) const { return pos_[d]; }
+inline double& Position::operator[](size_t d) { return pos_[d]; }
+inline const double& Position::operator[](size_t d) const { return pos_[d]; }
+
+template <class Container, typename>
+Position Position::subdimensions(const Container &dims) const {
+    std::vector<double> p;
+    p.reserve(dims.size());
+    for (auto &d : dims) {
+        if (d < 0 or d >= dimensions) throw std::out_of_range("Invalid subdimensions call: attempt to use invalid dimension");
+        p.push_back(operator[](d));
+    }
+    return Position(std::move(p));
+}
 
 }

@@ -11,10 +11,6 @@ Position::Position(std::vector<double> &&coordinates) : pos_(coordinates) {
         throw std::out_of_range("Cannot initialize a Position with 0 dimensions");
 }
 
-Position::Position(const Position &pos) : pos_(pos.pos_) {
-    *this = pos;
-}
-
 Position Position::zero(const size_t dimensions) {
     return Position(std::vector<double>(dimensions, 0.0));
 }
@@ -35,9 +31,9 @@ Position Position::random(const size_t dimensions) {
     return offset;
 }
 
-double& Position::at(int d) { return pos_.at(d); }
+double& Position::at(size_t d) { return pos_.at(d); }
 
-const double& Position::at(int d) const { return pos_.at(d); }
+const double& Position::at(size_t d) const { return pos_.at(d); }
 
 #define POSITIONCPP_ITERATOR_MAP(iterator_type, method) \
 std::vector<double>::iterator_type Position::method() { return pos_.method(); } \
@@ -78,15 +74,8 @@ Position Position::mean(const Position &other, const double weight) const {
     return result;
 }
 
-Position Position::subdimensions(std::initializer_list<double> dims) const {
-    Position p = zero(dims.size());
-    size_t i = 0;
-    for (const double &d : dims) {
-        if (d >= dimensions)
-            throw std::out_of_range("Invalid subdimensions call: attempt to use invalid dimension");
-        p[i++] = operator[](d);
-    }
-    return p;
+Position Position::subdimensions(const std::initializer_list<size_t> &dims) const {
+    return subdimensions<std::initializer_list<size_t>>(dims);
 }
 
 Position& Position::operator=(const Position &new_pos) {
