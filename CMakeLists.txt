@@ -16,18 +16,22 @@ set(ERIS_VERSION_PATCH "1")
 set(ERIS_VERSION "${ERIS_VERSION_MAJOR}.${ERIS_VERSION_MINOR}.${ERIS_VERSION_PATCH}")
 
 # eris library version (CURRENT.REVISION.AGE), which is totally separate
-# from the above.  See http://www.sourceware.org/autobook/autobook/autobook_91.html
-# Basic rules:
-# - CURRENT gets incremented for an API change.
-# - REVISION changes whenever CURRENT changes:
-#   - if the API change was purely an addition, REVISION gets incremented
-#   - otherwise, REVISION gets reset to 0
-# - AGE changes for every source code change:
-#   - if CURRENT changes, AGE reset to 0.
-#   - Otherwise AGE gets incremented.
+# from the above.  See http://www.gnu.org/software/libtool/manual/html_node/Updating-version-info.html
+# Basic rules for updating these when releasing a new eris version:
+# - If the new release has an API change:
+#   - CURRENT gets updated
+#   - REVISION gets set to 0
+#   - If the API change was purely an addition, increment AGE
+#   - Otherwise (i.e. an API change or removal), reset AGE to 0
+# - Otherwise, if the release has no API change but has code changes:
+#   - REVISION gets incremented
+#   - (CURRENT and AGE stay the same)
+# If there is no code change (e.g. the release is just a documentation update)
+# then none of these change.
+#
 # (So something like 3.7.1 indicates the 8th revision of the liberis-3
-# interface, and that this code that would link against liberis-2.* can be
-# linked against this version, but *not* liberis-1.* linked code).
+# interface, and that code that links against liberis-2.* can link against this
+# version, but code that links against liberis-1.* cannot.
 set(LIBERIS_CURRENT  "0")
 set(LIBERIS_REVISION "0")
 set(LIBERIS_AGE      "1")
