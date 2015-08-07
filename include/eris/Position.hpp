@@ -232,8 +232,8 @@ inline void Position::requireSameDimensions(const Position &other, const std::st
     requireSameDimensions(other.dimensions, method);
 }
 
-inline double& Position::operator[](size_t d) { return pos_.at(d); }
-inline const double& Position::operator[](size_t d) const { return pos_.at(d); }
+inline double& Position::operator[](size_t d) { if (d >= dimensions) throw std::out_of_range("Invalid Position index " + std::to_string(d) + " >= " + std::to_string(dimensions)); return pos_[d]; }
+inline const double& Position::operator[](size_t d) const { if (d >= dimensions) throw std::out_of_range("Invalid Position index " + std::to_string(d) + " >= " + std::to_string(dimensions)); return pos_[d]; }
 
 template <class Container, typename>
 Position Position::subdimensions(const Container &dims) const {
