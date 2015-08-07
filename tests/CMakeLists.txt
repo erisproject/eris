@@ -7,6 +7,8 @@ if (GTEST_SRC)
 
     add_definitions(-DERIS_TESTS)
 
+    link_directories(${GTEST_LIB})
+
     set(eris_tests
         bundle-test
         incr-buyer-test
