@@ -31,10 +31,6 @@ Position Position::random(const size_t dimensions) {
     return offset;
 }
 
-double& Position::at(size_t d) { return pos_.at(d); }
-
-const double& Position::at(size_t d) const { return pos_.at(d); }
-
 #define POSITIONCPP_ITERATOR_MAP(iterator_type, method) \
 std::vector<double>::iterator_type Position::method() { return pos_.method(); } \
 std::vector<double>::const_##iterator_type Position::method() const { return pos_.method(); } \
@@ -51,8 +47,8 @@ double Position::distance(const Position &other) const {
 }
 
 double Position::length() const {
-    if (dimensions == 1) return fabs(operator[](0));
-    if (dimensions == 2) return hypot(operator[](0), operator[](1));
+    if (dimensions == 1) return std::fabs(pos_[0]);
+    if (dimensions == 2) return std::hypot(pos_[0], pos_[1]);
 
     // NB: could protect this against underflow/overflow by adapting the hypot algorithm to 3+
     // dimensions; see http://en.wikipedia.org/wiki/Hypot
@@ -69,7 +65,7 @@ Position Position::mean(const Position &other, const double weight) const {
     const double our_weight = 1.0-weight;
 
     for (size_t i = 0; i < dimensions; i++)
-        result[i] = our_weight*operator[](i) + weight*other[i];
+        result[i] = our_weight*pos_[i] + weight*other.pos_[i];
 
     return result;
 }
@@ -87,7 +83,7 @@ Position& Position::operator=(const Position &new_pos) {
     requireSameDimensions(new_pos, "Position::operator=");
 
     for (size_t i = 0; i < dimensions; i++)
-        operator[](i) = new_pos[i];
+        pos_[i] = new_pos.pos_[i];
 
     return *this;
 }
@@ -106,7 +102,7 @@ Position& Position::operator=(std::vector<double> &&new_coordinates) {
 
 Position::operator bool() const {
     for (size_t i = 0; i < dimensions; i++)
-        if (operator[](i) != 0) return true;
+        if (pos_[i] != 0) return true;
     return false;
 }
 
@@ -114,7 +110,7 @@ bool Position::operator==(const Position &other) const {
     requireSameDimensions(other, "Position::operator==");
 
     for (size_t i = 0; i < dimensions; i++)
-        if (operator[](i) != other[i]) return false;
+        if (pos_[i] != other.pos_[i]) return false;
 
     return true;
 }
@@ -134,7 +130,7 @@ Position Position::operator+(const Position &add) const {
 Position& Position::operator+=(const Position &add) {
     requireSameDimensions(add, "Position::operator+=");
     for (size_t i = 0; i < dimensions; i++)
-        operator[](i) += add[i];
+        pos_[i] += add.pos_[i];
 
     return *this;
 }
@@ -149,7 +145,7 @@ Position Position::operator-(const Position &subtract) const {
 Position& Position::operator-=(const Position &subtract) {
     requireSameDimensions(subtract, "Position::operator-=");
     for (size_t i = 0; i < dimensions; i++)
-        operator[](i) -= subtract[i];
+        pos_[i] -= subtract.pos_[i];
 
     return *this;
 }
@@ -171,7 +167,7 @@ Position operator*(const double scale, const Position &p) {
 // Mutator version of scaling.
 Position& Position::operator*=(const double scale) noexcept {
     for (size_t i = 0; i < dimensions; i++)
-        operator[](i) *= scale;
+        pos_[i] *= scale;
 
     return *this;
 }

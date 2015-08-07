@@ -103,22 +103,13 @@ class Position final {
         Position subdimensions(const Container &dimensions) const;
 
         /** Accesses the Position's `d`th coordinate, where `d=0` is the first dimension, etc.
-         * No bounds checking is performed.
-         */
-        double& operator[](size_t d);
-
-        /** Accesses the Position's `d`th coordinate, with `d=0` is the first dimension, with bounds
-         * checking.
          *
          * \throws std::out_of_range exception for `d >= dimensions`.
          */
-        double& at(size_t d);
+        double& operator[](size_t d);
 
-        /// Const access to Position coordinates.  No bounds checking.
+        /// Const access to Position coordinates.
         const double& operator[](size_t d) const;
-
-        /// Const access to Position coordinates, with bounds checking.
-        const double& at(size_t d) const;
 
         ///@{
         /// Returns an iterator to the beginning of the position values
@@ -241,8 +232,8 @@ inline void Position::requireSameDimensions(const Position &other, const std::st
     requireSameDimensions(other.dimensions, method);
 }
 
-inline double& Position::operator[](size_t d) { return pos_[d]; }
-inline const double& Position::operator[](size_t d) const { return pos_[d]; }
+inline double& Position::operator[](size_t d) { return pos_.at(d); }
+inline const double& Position::operator[](size_t d) const { return pos_.at(d); }
 
 template <class Container, typename>
 Position Position::subdimensions(const Container &dims) const {
@@ -250,7 +241,7 @@ Position Position::subdimensions(const Container &dims) const {
     p.reserve(dims.size());
     for (auto &d : dims) {
         if (d < 0 or d >= dimensions) throw std::out_of_range("Invalid subdimensions call: attempt to use invalid dimension");
-        p.push_back(operator[](d));
+        p.push_back(pos_[d]);
     }
     return Position(std::move(p));
 }
