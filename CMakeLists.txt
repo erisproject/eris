@@ -6,7 +6,7 @@ project(eris CXX C)
 include(GNUInstallDirs)
 
 set(eris_author "Jason Rhinelander <jason@imaginary.ca>")
-set(eris_url "https://github.com/erisproject/eris")
+set(eris_url "https://git.imaginary.ca/eris/eris")
 set(eris_description "Agent-based economic modelling library")
 
 # Eris package version
