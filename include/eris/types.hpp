@@ -33,27 +33,4 @@ typedef uint64_t eris_id_t;
 /** Integer type that stores an eris time period. */
 typedef uint32_t eris_time_t;
 
-/** enum of the different stages of the simulation, primarily used for synchronizing threads.
- *
- * (The explicit ': int' is here because the stages are used internally as indicies in
- * Simulation.hpp)
- */
-enum class RunStage : int {
-    idle, // between-period/initial thread state
-    kill, // When a thread sees this, it checks thr_kill_, and if it is the current thread id, it finishes.
-    kill_all, // When a thread sees this, it finishes.
-    // Inter-period optimization stages:
-    inter_Begin, inter_Optimize, inter_Apply, inter_Advance,
-    // Intra-period optimization stages:
-    intra_Initialize, intra_Reset, intra_Optimize, intra_Reoptimize, intra_Apply, intra_Finish
-};
-
-/// The highest RunStage value
-const RunStage RunStage_LAST = RunStage::intra_Finish;
-
-/** enum of reservation states for market-level and firm-level reservations.  A reservation can
- * either be pending, complete, or aborted.
- */
-enum class ReservationState { pending, complete, aborted };
-
 }

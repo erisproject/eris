@@ -81,6 +81,11 @@ class Market : public Member {
             double unspent;
         };
 
+        /** enum of reservation states for market-level and firm-level reservations.  A reservation
+         * can either be pending, complete, or aborted.
+         */
+        enum class ReservationState { pending, complete, aborted };
+
         /** Contains a reservation of market purchase.  The market will consider the reserved
          * quantity unavailable until a call of either buy() (which completes the transfer) or
          * release() (which cancels the transfer) is called.
