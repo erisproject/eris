@@ -1,0 +1,89 @@
+[
+ { symbol: ["eris::eris_id_t", "private", "<eris/types.hpp>", "public"] },
+ { symbol: ["eris::eris_id_t", "private", "<eris/Simulation.hpp>", "public"] },
+ { symbol: ["eris::eris_id_t", "private", "<eris/Bundle.hpp>", "public"] },
+ { symbol: ["eris::eris_id_t", "private", "<eris/SharedMember.hpp>", "public"] },
+ { include: ["<eris/SharedMember.hpp>", "public", "<eris/Simulation.hpp>", "public"] },
+ { include: ["\"eris/SharedMember.hpp\"", "public", "<eris/Simulation.hpp>", "public"] },
+ { include: ["<eris/Simulation.hpp>", "public", "<eris/Member.hpp>", "public"] },
+ { include: ["\"eris/Simulation.hpp\"", "public", "<eris/Member.hpp>", "public"] },
+ { include: ["<eris/Member.hpp>", "public", "<eris/Agent.hpp>", "public"] },
+ { include: ["<eris/Member.hpp>", "public", "<eris/Good.hpp>", "public"] },
+ { include: ["<eris/Member.hpp>", "public", "<eris/Market.hpp>", "public"] },
+ { include: ["\"eris/Member.hpp\"", "public", "<eris/Agent.hpp>", "public"] },
+ { include: ["\"eris/Member.hpp\"", "public", "<eris/Good.hpp>", "public"] },
+ { include: ["\"eris/Member.hpp\"", "public", "<eris/Market.hpp>", "public"] },
+
+# Direct agent subclasses:
+ { include: ["<eris/Agent.hpp>", "public", "<eris/agent/AssetAgent.hpp>", "public"] },
+ { include: ["\"eris/Agent.hpp\"", "public", "<eris/agent/AssetAgent.hpp>", "public"] },
+
+# Asset agent subclasses:
+ { include: ["<eris/agent/AssetAgent.hpp>", "public", "<eris/Firm.hpp>", "public"] },
+ { include: ["\"eris/agent/AssetAgent.hpp\"", "public", "<eris/Firm.hpp>", "public"] },
+ { include: ["<eris/agent/AssetAgent.hpp>", "public", "<eris/Consumer.hpp>", "public"] },
+ { include: ["\"eris/agent/AssetAgent.hpp\"", "public", "<eris/Consumer.hpp>", "public"] },
+
+# Bundle is implicitly brought in by various means:
+ { include: ["<eris/Bundle.hpp>", "public", "<eris/Firm.hpp>", "public"] },
+ { include: ["\"eris/Bundle.hpp\"", "public", "<eris/Firm.hpp>", "public"] },
+ { include: ["<eris/Bundle.hpp>", "public", "<eris/agent/AssetAgent.hpp>", "public"] },
+ { include: ["\"eris/Bundle.hpp\"", "public", "<eris/agent/AssetAgent.hpp>", "public"] },
+
+# Market implicitly includes Firm
+ { include: ["<eris/Firm.hpp>", "public", "<eris/Market.hpp>", "public"] },
+ { include: ["\"eris/Firm.hpp\"", "public", "<eris/Market.hpp>", "public"] },
+
+# Market subclasses:
+ { include: ["<eris/Market.hpp>", "public", "<eris/market/QMarket.hpp>", "public"] },
+ { include: ["\"eris/Market.hpp\"", "public", "<eris/market/QMarket.hpp>", "public"] },
+ { include: ["<eris/Market.hpp>", "public", "<eris/market/Bertrand.hpp>", "public"] },
+ { include: ["\"eris/Market.hpp\"", "public", "<eris/market/Bertrand.hpp>", "public"] },
+
+# Firm subclasses:
+ { include: ["<eris/Firm.hpp>", "public", "<eris/firm/PriceFirm.hpp>", "public"] },
+ { include: ["\"eris/Firm.hpp\"", "public", "<eris/firm/PriceFirm.hpp>", "public"] },
+ { include: ["<eris/Firm.hpp>", "public", "<eris/firm/QFirm.hpp>", "public"] },
+ { include: ["\"eris/Firm.hpp\"", "public", "<eris/firm/QFirm.hpp>", "public"] },
+
+# Consumer subclasses:
+ { include: ["<eris/Consumer.hpp>", "public", "<eris/consumer/CobbDouglas.hpp>", "public"] },
+ { include: ["\"eris/Consumer.hpp\"", "public", "<eris/consumer/CobbDouglas.hpp>", "public"] },
+ { include: ["<eris/Consumer.hpp>", "public", "<eris/consumer/Compound.hpp>", "public"] },
+ { include: ["\"eris/Consumer.hpp\"", "public", "<eris/consumer/Compound.hpp>", "public"] },
+ { include: ["<eris/Consumer.hpp>", "public", "<eris/consumer/Polynomial.hpp>", "public"] },
+ { include: ["\"eris/Consumer.hpp\"", "public", "<eris/consumer/Polynomial.hpp>", "public"] },
+ { include: ["<eris/Consumer.hpp>", "public", "<eris/consumer/Quadratic.hpp>", "public"] },
+ { include: ["\"eris/Consumer.hpp\"", "public", "<eris/consumer/Quadratic.hpp>", "public"] },
+
+# Positional includes Position
+ { include: ["<eris/Position.hpp>", "public", "<eris/Positional.hpp>", "public"] },
+
+ { include: ["<random>", "public", "<eris/Random.hpp>", "public"] },
+ { include: ["<memory>", "public", "<eris/SharedMember.hpp>", "public"] },
+
+# iwyu gets confused by some system headers; hack around them:
+ { include: ["<ext/alloc_traits.h>", "private", "<vector>", "public"] },
+ { include: ["<cxxabi.h>", "public", "<system_error>", "public"] },
+ { include: ["<ext/new_allocator.h>", "private", "<memory>", "public"] },
+ { symbol: ["hash", "private", "<functional>", "public"] },
+
+# Hacks for boost:
+ { include: ["<boost/core/explicit_operator_bool.hpp>", "private", "<boost/math/distributions/normal.hpp>", "public"] },
+ { include: ["<boost/format/alt_sstream.hpp>", "private", "<boost/math/distributions/normal.hpp>", "public"] },
+ { include: ["<boost/format/alt_sstream_impl.hpp>", "private", "<boost/math/distributions/normal.hpp>", "public"] },
+ { include: ["<boost/format/format_implementation.hpp>", "private", "<boost/math/distributions/normal.hpp>", "public"] },
+ { include: ["<boost/math/distributions/detail/derived_accessors.hpp>", "private", "<boost/math/distributions/normal.hpp>", "public"] },
+ { include: ["<boost/math/policies/policy.hpp>", "private", "<boost/math/distributions/normal.hpp>", "public"] },
+ { include: ["<boost/math/special_functions/fpclassify.hpp>", "private", "<boost/math/distributions/normal.hpp>", "public"] },
+ { include: ["<boost/optional/optional.hpp>", "private", "<boost/math/distributions/normal.hpp>", "public"] },
+
+
+# Eigen:
+ { include: ["@\"Eigen/src/Core/.*\"", "private", "<Eigen/Core>", "public"] },
+ { include: ["@\"Eigen/src/Cholesky/.*\"", "private", "<Eigen/Cholesky>", "public"] },
+ { include: ["@\"Eigen/src/QR/.*\"", "private", "<Eigen/QR>", "public"] },
+ { include: ["@\"Eigen/src/SVD/.*\"", "private", "<Eigen/SVD>", "public"] },
+ { include: ["@\"Eigen/src/Householder/.*\"", "private", "<Eigen/Householder>", "public"] },
+ { include: ["\"Eigen/Householder\"", "public", "<Eigen/QR>", "public"] },
+]

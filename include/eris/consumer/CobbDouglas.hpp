@@ -1,8 +1,6 @@
 #pragma once
-#include <unordered_map>
 #include <eris/Consumer.hpp>
-#include <eris/Bundle.hpp>
-#include <eris/types.hpp>
+#include <unordered_map>
 
 namespace eris { namespace consumer {
 

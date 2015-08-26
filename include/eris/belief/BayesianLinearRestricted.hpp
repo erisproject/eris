@@ -1,11 +1,12 @@
 #pragma once
-#include <unordered_map>
-#include <limits>
-#include <Eigen/Core>
-#include <Eigen/Cholesky>
-#include <eris/noncopyable.hpp>
-#include <eris/Random.hpp>
 #include <eris/belief/BayesianLinear.hpp>
+#include <Eigen/Core>
+#include <algorithm>
+#include <cstddef>
+#include <memory>
+#include <limits>
+#include <string>
+#include <utility>
 
 namespace eris { namespace belief {
 

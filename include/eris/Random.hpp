@@ -1,8 +1,10 @@
 #pragma once
 #include <random>
-#include <thread>
 #include <mutex>
 #include <cmath>
+#include <limits>
+#include <stdexcept>
+#include <type_traits>
 #include <eris/noncopyable.hpp>
 
 namespace eris {

@@ -1,10 +1,13 @@
 #include <eris/belief/BayesianLinearRestricted.hpp>
+#include <eris/belief/BayesianLinear.hpp>
+#include <eris/Random.hpp>
 #include <cmath>
-#include <Eigen/QR>
 #include <boost/math/distributions/normal.hpp>
 #include <boost/math/distributions/chi_squared.hpp>
-
-#include <eris/debug.hpp>
+#include <boost/math/distributions/complement.hpp>
+#include <stdexcept>
+#include <vector>
+#include <ostream>
 
 using namespace Eigen;
 

@@ -1,5 +1,6 @@
 #include <eris/algorithms.hpp>
 #include <cmath>
+#include <algorithm>
 
 namespace eris {
 

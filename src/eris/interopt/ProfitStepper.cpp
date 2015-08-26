@@ -1,4 +1,7 @@
 #include <eris/interopt/ProfitStepper.hpp>
+#include <eris/interopt/InterStepper.hpp>
+#include <eris/firm/PriceFirm.hpp>
+#include <eris/algorithms.hpp>
 
 namespace eris { namespace interopt {
 

@@ -1,5 +1,4 @@
 #include <eris/firm/PriceFirm.hpp>
-#include <algorithm>
 
 namespace eris { namespace firm {
 

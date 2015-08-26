@@ -1,9 +1,14 @@
 #include <eris/intraopt/IncrementalBuyer.hpp>
+#include <eris/Consumer.hpp>
+#include <eris/Market.hpp>
 #include <eris/algorithms.hpp>
 #include <cmath>
+#include <map>
 #include <limits>
 #include <set>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
 namespace eris { namespace intraopt {
 
@@ -31,7 +36,7 @@ void IncrementalBuyer::intraOptimize() {
 
 void IncrementalBuyer::intraApply() {
     for (auto &res : reservations)
-        res->buy();
+        res.buy();
 }
 
 void IncrementalBuyer::intraReset() {

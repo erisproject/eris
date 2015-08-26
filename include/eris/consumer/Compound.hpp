@@ -1,8 +1,5 @@
 #pragma once
-#include <eris/Bundle.hpp>
 #include <eris/Consumer.hpp>
-#include <eris/types.hpp>
-#include <memory>
 
 namespace eris { namespace consumer {
 

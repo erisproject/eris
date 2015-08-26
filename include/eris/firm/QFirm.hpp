@@ -1,6 +1,6 @@
 #pragma once
+#include <eris/Optimize.hpp>
 #include <eris/Firm.hpp>
-#include <eris/Bundle.hpp>
 
 namespace eris { namespace firm {
 

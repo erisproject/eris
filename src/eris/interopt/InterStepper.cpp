@@ -1,4 +1,5 @@
 #include <eris/interopt/InterStepper.hpp>
+#include <eris/algorithms.hpp>
 
 namespace eris { namespace interopt {
 

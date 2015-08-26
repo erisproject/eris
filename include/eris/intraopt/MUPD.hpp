@@ -1,8 +1,8 @@
 #pragma once
-
 #include <eris/Consumer.hpp>
 #include <eris/Optimize.hpp>
 #include <eris/Market.hpp>
+#include <stdexcept>
 #include <unordered_map>
 #include <unordered_set>
 #include <forward_list>

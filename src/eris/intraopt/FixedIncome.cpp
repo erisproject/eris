@@ -1,4 +1,5 @@
 #include <eris/intraopt/FixedIncome.hpp>
+#include <eris/agent/AssetAgent.hpp>
 
 namespace eris { namespace intraopt {
 

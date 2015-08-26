@@ -3,6 +3,8 @@
 #include <memory>
 #include <ostream>
 #include <vector>
+#include <stdexcept>
+#include <string>
 
 /** This macro is provided to easily provide versions of update() and weaken() that return a proper
  * Derived type (instead of the base class BayesianLinear type), so that expressions such as

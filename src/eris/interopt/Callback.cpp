@@ -1,4 +1,5 @@
 #include <eris/interopt/Callback.hpp>
+#include <algorithm>
 
 namespace eris { namespace interopt {
 

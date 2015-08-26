@@ -1,5 +1,6 @@
 #include <eris/firm/QFirm.hpp>
 #include <cmath>
+#include <utility>
 
 namespace eris { namespace firm {
 

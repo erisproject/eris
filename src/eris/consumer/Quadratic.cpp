@@ -1,5 +1,6 @@
 #include <eris/consumer/Quadratic.hpp>
 #include <utility>
+#include <unordered_map>
 
 namespace eris { namespace consumer {
 

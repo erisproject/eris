@@ -1,9 +1,8 @@
 #pragma once
-#include <eris/types.hpp>
 #include <eris/agent/AssetAgent.hpp>
-#include <eris/Bundle.hpp>
 #include <map>
 #include <vector>
+#include <functional>
 
 namespace eris {
 

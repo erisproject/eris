@@ -3,13 +3,13 @@
 #include <eris/types.hpp>
 #include <eris/noncopyable.hpp>
 #include <stdexcept>
-#include <thread>
 #include <memory>
 #include <mutex>
-#include <atomic>
 #include <set>
 #include <condition_variable>
 #include <type_traits>
+#include <algorithm>
+#include <string>
 
 namespace eris {
 

@@ -1,7 +1,5 @@
 #pragma once
-#include <eris/Bundle.hpp>
 #include <eris/Member.hpp>
-#include <utility>
 
 namespace eris {
 

@@ -1,5 +1,6 @@
 #include <eris/WrappedPositional.hpp>
-#include <algorithm>
+#include <eris/Position.hpp>
+#include <eris/Positional.hpp>
 #include <limits>
 #include <cmath>
 

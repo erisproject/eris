@@ -1,4 +1,6 @@
 #include <eris/interopt/QFStepper.hpp>
+#include <eris/interopt/ProfitStepper.hpp>
+#include <eris/firm/QFirm.hpp>
 
 namespace eris { namespace interopt {
 

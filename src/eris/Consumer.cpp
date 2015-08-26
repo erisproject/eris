@@ -1,4 +1,4 @@
-#include "eris/Consumer.hpp"
+#include <eris/Consumer.hpp>
 
 namespace eris {
 

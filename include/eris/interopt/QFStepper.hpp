@@ -1,6 +1,8 @@
 #pragma once
-#include <eris/firm/QFirm.hpp>
+#include <eris/Bundle.hpp>
 #include <eris/interopt/ProfitStepper.hpp>
+
+namespace eris { namespace firm { class QFirm; } }
 
 namespace eris { namespace interopt {
 

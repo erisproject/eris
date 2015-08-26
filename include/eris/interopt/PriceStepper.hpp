@@ -1,6 +1,8 @@
 #pragma once
-#include <eris/firm/PriceFirm.hpp>
+#include <eris/interopt/InterStepper.hpp>
 #include <eris/interopt/ProfitStepper.hpp>
+
+namespace eris { namespace firm { class PriceFirm; } }
 
 namespace eris { namespace interopt {
 

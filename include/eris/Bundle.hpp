@@ -1,12 +1,12 @@
 #pragma once
 #include <eris/types.hpp>
-#include <algorithm>
-#include <exception>
 #include <stdexcept>
-#include <limits>
 #include <ostream>
 #include <unordered_map>
 #include <forward_list>
+#include <initializer_list>
+#include <string>
+#include <utility>
 
 namespace eris {
 

@@ -2,11 +2,12 @@
 // declared in Bundle.hpp).
 
 #include <eris/Bundle.hpp>
+#include <cstddef>
+#include <algorithm>
+#include <limits>
 #include <unordered_set>
 #include <set>
 #include <cmath>
-
-#include <iostream>
 
 namespace eris {
 

@@ -1,9 +1,8 @@
 #pragma once
 #include <eris/agent/AssetAgent.hpp>
-#include <eris/Bundle.hpp>
-#include <algorithm>
 #include <exception>
-#include <initializer_list>
+#include <stdexcept>
+#include <string>
 
 namespace eris {
 

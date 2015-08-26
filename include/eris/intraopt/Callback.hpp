@@ -8,6 +8,7 @@
  */
 #include <eris/Optimize.hpp>
 #include <eris/Member.hpp>
+#include <functional>
 
 namespace eris { namespace intraopt {
 

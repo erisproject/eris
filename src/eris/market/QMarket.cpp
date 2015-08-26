@@ -1,5 +1,11 @@
 #include <eris/market/QMarket.hpp>
+#include <eris/firm/QFirm.hpp>
+#include <eris/algorithms.hpp>
 #include <unordered_map>
+#include <unordered_set>
+#include <utility>
+#include <vector>
+
 
 namespace eris { namespace market {
 
@@ -39,7 +45,7 @@ Market::quantity_info QMarket::quantity(double p) const {
     return { .quantity=q, .constrained=constrained, .spent=spent, .unspent=p-spent };
 }
 
-Market::Reservation QMarket::reserve(SharedMember<AssetAgent> agent, double q, double p_max) {
+Market::Reservation QMarket::reserve(SharedMember<agent::AssetAgent> agent, double q, double p_max) {
     std::vector<SharedMember<firm::QFirm>> supply;
     for (auto &sid : suppliers_) {
         supply.push_back(simAgent<firm::QFirm>(sid));

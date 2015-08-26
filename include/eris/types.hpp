@@ -1,6 +1,5 @@
 #pragma once
 #include <cstdint>
-#include <functional>
 
 /** \file eris/types.hpp basic type and class forward declarations
  *

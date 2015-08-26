@@ -1,19 +1,15 @@
 #pragma once
 #include <eris/Member.hpp>
-#include <eris/agent/AssetAgent.hpp>
 #include <eris/Firm.hpp>
-#include <eris/Good.hpp>
-#include <eris/Bundle.hpp>
+#include <exception>
+#include <limits>
 #include <unordered_set>
-#include <memory>
 #include <forward_list>
 
 namespace eris {
 
 /// Namespace for eris market implementations inheriting from eris::Market.
 namespace market {}
-
-using agent::AssetAgent;
 
 /** Abstract base class for markets in Eris.
  *
@@ -125,7 +121,7 @@ class Market : public Member {
                 /// The market to which this Reservation applies.
                 const SharedMember<Market> market;
                 /// The agent for which this Reservation is being held.
-                const SharedMember<AssetAgent> agent;
+                const SharedMember<agent::AssetAgent> agent;
                 /** Reserves the given BundleNegative transfer from the given firm and stores the
                  * result, to be transferred if buy() is called, and aborted if release() is called.
                  * Positive amounts are to be transferred from the firm, negative amounts are to be
@@ -229,7 +225,7 @@ class Market : public Member {
          * when assets are less than p_max*price: the actual transaction price could be low enough
          * that assets is sufficient.
          */
-        virtual Reservation reserve(SharedMember<AssetAgent> agent, double q, double p_max = std::numeric_limits<double>::infinity()) = 0;
+        virtual Reservation reserve(SharedMember<agent::AssetAgent> agent, double q, double p_max = std::numeric_limits<double>::infinity()) = 0;
 
         /** Completes a reservation made with reserve().  Transfers the reserved assets into the
          * assets() Bundle of the AssetAgent supplied when creating the reservation, and transfers
@@ -310,7 +306,7 @@ class Market : public Member {
          * (i.e. p*price_unit) will be transferred out of the AssetAgent's assets() Bundle and held
          * in the Reservation until completed or cancelled.
          */
-        Reservation createReservation(SharedMember<AssetAgent> agent, double q, double p);
+        Reservation createReservation(SharedMember<agent::AssetAgent> agent, double q, double p);
 
         /** Overridden to automatically remove a firm from the market when the firm is removed from
          * the simulation.

@@ -1,5 +1,9 @@
 #include <eris/intraopt/MUPD.hpp>
+#include <eris/Consumer.hpp>
+#include <eris/Market.hpp>
+#include <limits>
 #include <unordered_map>
+#include <utility>
 
 using std::unordered_map;
 
@@ -341,7 +345,7 @@ void MUPD::intraApply() {
     auto lock = writeLock(simAgent<Consumer::Differentiable>(con_id));
 
     for (auto &res: reservations) {
-        res->buy();
+        res.buy();
     }
 
     reservations.clear();

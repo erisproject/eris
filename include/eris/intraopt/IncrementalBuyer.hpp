@@ -1,8 +1,10 @@
 #pragma once
-#include <eris/Consumer.hpp>
+#include <eris/Member.hpp>
 #include <eris/Market.hpp>
 #include <eris/Optimize.hpp>
 #include <forward_list>
+
+namespace eris { class Consumer; }
 
 namespace eris { namespace intraopt {
 

@@ -1,10 +1,11 @@
-#include <eris/Member.hpp>
 #include <eris/Simulation.hpp>
+#include <eris/SharedMember.hpp>
 #include <eris/Agent.hpp>
 #include <eris/Good.hpp>
 #include <eris/Market.hpp>
 #include <eris/Optimize.hpp>
 #include <algorithm>
+#include <utility>
 
 namespace eris {
 
@@ -382,7 +383,7 @@ void Simulation::run() {
     running_ = false;
 }
 
-RunStage Simulation::runStage() const {
+Simulation::RunStage Simulation::runStage() const {
     return stage_;
 }
 

@@ -1,8 +1,6 @@
 #include <eris/Member.hpp>
-#include <eris/Agent.hpp>
-#include <eris/Good.hpp>
-#include <eris/Market.hpp>
 #include <system_error>
+#include <vector>
 
 namespace eris {
 

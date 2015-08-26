@@ -1,7 +1,9 @@
 #include <eris/Market.hpp>
-#include <eris/Simulation.hpp>
+#include <vector>
 
 namespace eris {
+
+using agent::AssetAgent;
 
 Market::Market(Bundle output_unit, Bundle price_unit) : output_unit(output_unit), price_unit(price_unit) {}
 

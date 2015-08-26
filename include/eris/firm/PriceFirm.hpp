@@ -1,4 +1,5 @@
 #pragma once
+#include <eris/Optimize.hpp>
 #include <eris/Firm.hpp>
 #include <limits>
 

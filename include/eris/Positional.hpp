@@ -1,7 +1,8 @@
 #pragma once
 #include <eris/Position.hpp>
-#include <eris/noncopyable.hpp>
 #include <stdexcept>
+#include <algorithm>
+#include <type_traits>
 
 namespace eris {
 
@@ -10,8 +11,6 @@ class PositionalBoundaryError : public std::range_error {
     public:
         PositionalBoundaryError() : std::range_error("Cannot move outside bounding box") {}
 };
-
-class WrappedPositionalBase;
 
 /** Handles positioning.  Should not be used directly but rather by inheriting from Positional<T>.
  */

@@ -1,6 +1,12 @@
 #pragma once
+#include <eris/Position.hpp>
 #include <eris/Positional.hpp>
-#include <set>
+#include <cstddef>
+#include <algorithm>
+#include <initializer_list>
+#include <stdexcept>
+#include <type_traits>
+#include <vector>
 
 namespace eris {
 

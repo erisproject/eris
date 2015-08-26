@@ -1,4 +1,6 @@
 #include <eris/consumer/CobbDouglas.hpp>
+#include <limits>
+#include <utility>
 #include <cmath>
 
 namespace eris { namespace consumer {

@@ -1,7 +1,9 @@
 #pragma once
+#include <cstdio>
 #include <iostream>
 #include <ctime>
 #include <sstream>
+#include <string>
 
 #ifdef ERIS_DEBUG
 #define ERIS_DEBUG_BOOL true

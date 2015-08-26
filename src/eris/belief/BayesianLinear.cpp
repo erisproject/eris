@@ -2,6 +2,9 @@
 #include <eris/Random.hpp>
 #include <Eigen/QR>
 #include <Eigen/SVD>
+#include <Eigen/Cholesky>
+#include <cmath>
+#include <algorithm>
 
 namespace eris { namespace belief {
 

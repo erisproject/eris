@@ -1,7 +1,9 @@
 #pragma once
-#include <eris/agent/AssetAgent.hpp>
+#include <eris/Member.hpp>
 #include <eris/Bundle.hpp>
 #include <eris/Optimize.hpp>
+
+namespace eris { namespace agent { class AssetAgent; } }
 
 namespace eris { namespace intraopt {
 

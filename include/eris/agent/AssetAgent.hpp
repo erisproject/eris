@@ -1,5 +1,6 @@
 #pragma once
 #include <eris/Agent.hpp>
+#include <eris/Bundle.hpp>
 #include <eris/Optimize.hpp>
 
 namespace eris { namespace agent {

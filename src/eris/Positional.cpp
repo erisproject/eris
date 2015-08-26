@@ -1,4 +1,6 @@
 #include <eris/Positional.hpp>
+#include <eris/Position.hpp>
+#include <cstddef>
 #include <algorithm>
 #include <limits>
 

@@ -1,7 +1,10 @@
 #include <eris/market/Bertrand.hpp>
+#include <eris/firm/PriceFirm.hpp>
+#include <eris/Market.hpp>
 #include <eris/Random.hpp>
-#include <limits>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
 namespace eris { namespace market {
 
@@ -221,7 +224,7 @@ Bertrand::allocation Bertrand::allocate(double q) const {
     return a;
 }
 
-Market::Reservation Bertrand::reserve(SharedMember<AssetAgent> agent, double q, double p_max) {
+Market::Reservation Bertrand::reserve(SharedMember<agent::AssetAgent> agent, double q, double p_max) {
     // Lock the market and the agent, and the market's firms
     std::vector<SharedMember<Member>> to_lock;
     to_lock.push_back(agent);

@@ -1,4 +1,5 @@
 #include <eris/consumer/Polynomial.hpp>
+#include <utility>
 
 namespace eris { namespace consumer {
 

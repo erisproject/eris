@@ -1,7 +1,5 @@
 #pragma once
 #include <eris/Consumer.hpp>
-#include <eris/Bundle.hpp>
-#include <eris/types.hpp>
 #include <map>
 #include <vector>
 
