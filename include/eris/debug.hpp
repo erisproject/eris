@@ -25,7 +25,7 @@ inline const char* _DEBUG__FILE__(const char *f) {
 #define _eris__FILE__ ""
 #endif
 
-#define _eris_dbgf(prefix, format, ...) fprintf(stderr, "%s%s:%d:%s(): " format "\n", prefix, _eris__FILE__, __LINE__, __func__, ##__VA_ARGS__); std::cerr << std::flush
+#define _eris_dbgf(prefix, format, ...) fprintf(stderr, "%s%s:%d:%s(): " format "\n", prefix, _eris__FILE__, __LINE__, __func__, ##__VA_ARGS__); fflush(stderr)
 #define _eris_dbg(prefix, stuff) std::ostringstream _eris_debug_oss; _eris_debug_oss << prefix << _eris__FILE__ << ":" << __LINE__ << ":" << __func__ << "(): " << stuff << "\n"; std::cerr << _eris_debug_oss.str() << std::flush
 
 /** Debugging macro.  ERIS_DBGF(format, args) formats like printf and sends the output to stderr,
@@ -54,7 +54,7 @@ inline const char* _DEBUG__FILE__(const char *f) {
 #define ERIS_TDBGF(format, ...) do { if (ERIS_DEBUG_BOOL) { _eris_tstr; _eris_dbgf(_eris_debug_tstr, format, ##__VA_ARGS__); } } while (0)
 
 /** Debugging macro just like `ERIS_DBG`, but also prefixes output with the current date and time. */
-#define ERIS_TDBG(stuff) do { if (ERIS_DEBUG_BOOL) { _eris_tstr; _eris_dbg(tstr, stuff); } } while (0)
+#define ERIS_TDBG(stuff) do { if (ERIS_DEBUG_BOOL) { _eris_tstr; _eris_dbg(_eris_debug_tstr, stuff); } } while (0)
 
 /** Debugging macro just like `ERIS_DBGVAR`, but also prefixes output with the current date and
  * time. */
