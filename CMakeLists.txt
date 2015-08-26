@@ -42,7 +42,6 @@ set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules)
 include(MacroEnsureOutOfSourceBuild)
 macro_ensure_out_of_source_build("${PROJECT_NAME} requires an out-of-source build.  Create a build directory and run 'cmake ${CMAKE_SOURCE_DIR} [options]'.")
 
-include_directories("${CMAKE_CURRENT_BINARY_DIR}/include")
 file(GLOB_RECURSE eris_src RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} src/*.cpp)
 file(GLOB_RECURSE eris_src_include RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} include/*.h include/*.hpp include/*.h.in include/*.hpp.in)
 
@@ -52,12 +51,13 @@ foreach(h ${eris_src_include})
         configure_file("${h}" "${h_processed}" @ONLY)
         list(APPEND eris_doc_include "${CMAKE_CURRENT_BINARY_DIR}/${h_processed}")
     else()
-        configure_file("${h}" "${h}" COPYONLY)
-        list(APPEND eris_doc_include "${CMAKE_CURRENT_BINARY_DIR}/${h}")
+        list(APPEND eris_doc_include "${CMAKE_CURRENT_SOURCE_DIR}/${h}")
     endif()
 endforeach()
+include_directories("${CMAKE_CURRENT_SOURCE_DIR}/include")
+include_directories("${CMAKE_CURRENT_BINARY_DIR}/include")
 
-set(CMAKE_CXX_FLAGS "-std=c++11 -march=native -O3 ${CMAKE_CXX_FLAGS} -Wall -Wextra")
+set(CMAKE_CXX_FLAGS "-std=c++11 -march=native -O3 -Wall -Wextra ${CMAKE_CXX_FLAGS}")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -DERIS_DEBUG")
 
 find_package(Threads REQUIRED)
@@ -142,6 +142,10 @@ install(TARGETS eris
     DESTINATION "${CMAKE_INSTALL_LIBDIR}"
     COMPONENT libs)
 install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/include/eris/"
+    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/eris/"
+    COMPONENT headers
+    FILES_MATCHING PATTERN "*.hpp" PATTERN "*.h")
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/eris/"
     DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/eris/"
     COMPONENT headers
     FILES_MATCHING PATTERN "*.hpp" PATTERN "*.h")
