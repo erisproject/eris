@@ -81,11 +81,6 @@ class Market : public Member {
             double unspent;
         };
 
-        /** enum of reservation states for market-level and firm-level reservations.  A reservation
-         * can either be pending, complete, or aborted.
-         */
-        enum class ReservationState { pending, complete, aborted };
-
         /** Contains a reservation of market purchase.  The market will consider the reserved
          * quantity unavailable until a call of either buy() (which completes the transfer) or
          * release() (which cancels the transfer) is called.
@@ -96,24 +91,31 @@ class Market : public Member {
          * This object is not intended to be used directly, but rather through the Reservation
          * unique_ptr typedef.
          */
-        class Reservation_ final : private eris::noncopyable {
+        class Reservation final {
             private:
                 friend class Market;
 
-                Reservation_(SharedMember<Market> market, SharedMember<AssetAgent> agent, double quantity, double price);
+                Reservation(SharedMember<Market> market, SharedMember<agent::AssetAgent> agent, double quantity, double price);
 
-                // Disable default constructors
-                Reservation_() = delete;
+                // Default/copy construction not allowed
+                Reservation() = delete;
+                Reservation(const Reservation&) = delete;
+
+                // Move/copy assignment not allowed
+                Reservation& operator=(Reservation &&move) = delete;
+                Reservation& operator=(const Reservation &copy) = delete;
 
                 std::forward_list<Firm::Reservation> firm_reservations_;
 
                 Bundle b_;
 
             public:
+                /// Move constructor
+                Reservation(Reservation &&move) = default;
                 /** Destructor.  If this Reservation is destroyed without having been completed or aborted
                  * (via buy() or release()), it will be aborted (by calling release() on its Market).
                  */
-                ~Reservation_();
+                ~Reservation();
                 /// The state (pending, completed, or aborted) of this Reservation
                 ReservationState state = ReservationState::pending;
                 /// The quantity (as a multiple of the Market's output Bundle) that this reservation is for.
@@ -147,9 +149,6 @@ class Market : public Member {
                     public: const char* what() const noexcept override { return "Attempt to buy/release a non-pending market Reservation"; }
                 };
         };
-
-        /// Market::Reservation is a unique pointer to the private constructor Reservation_ class.
-        typedef std::unique_ptr<Reservation_> Reservation;
 
         /** Returns the price information for buying the given multiple of the output bundle.
          * Returned is a price_info struct with .feasible set to true iff the quantity can be
@@ -238,43 +237,22 @@ class Market : public Member {
          *
          * The provided Reservation object is updated to record that it has been purchased.
          *
-         * \throws Market::already_completed if the given reservation has already been completed or
+         * \throws Market::Reservation::non_pending_exception if the given reservation has already been completed or
          * cancelled.
-         *
-         * Subclasses looking to override this method should override buy_() instead, which this
-         * method calls.
          */
-        void buy(Reservation &res);
+        virtual void buy(Reservation &res);
 
         /** Aborts a reservation made with reserve().
-         *
-         * Subclasses looking to override this method should override release_() instead, which this
-         * method calls.
          */
         void release(Reservation &res);
 
     protected:
-        /** Completes a reservation made with reserve().  Transfers the reserved assets into the
-         * provided Bundle, and transfers the reserved payment out of the provided Bundle.
-         *
-         * The provided Reservation object is updated to record that it has been purchased.
-         *
-         * \throws Market::already_completed if the given reservation has already been bought.
-         */
-        virtual void buy_(Reservation_ &res);
-
-        /** Aborts a reservation made with reserve().  This is called by both the public release()
-         * method and by the destructor of Reservation objects that go out of scope without being
-         * completed.
-         */
-        virtual void release_(Reservation_ &res);
-
         /** Returns a SharedMember<Member> for the current object, via the simulation.
          */
         SharedMember<Member> sharedSelf() const override { return simMarket(id()); }
 
-        /** Exposes access to Reservation_.b_ */
-        Bundle& reservationBundle_(Reservation_ &res) { return res.b_; }
+        /** Exposes access to Reservation.b_ to subclasses. */
+        Bundle& reservationBundle_(Reservation &res) { return res.b_; }
 
     public:
         /** Adds f to the firms supplying in this market.  Subclasses that require a particular type

@@ -100,7 +100,7 @@ Market::Reservation QMarket::reserve(SharedMember<AssetAgent> agent, double q, d
     }
 
     for (auto &ft : firm_transfers)
-        res->firmReserve(ft.first, ft.second);
+        res.firmReserve(ft.first, ft.second);
 
     return res;
 }

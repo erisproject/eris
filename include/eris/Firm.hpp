@@ -10,6 +10,11 @@ namespace eris {
 /** Namespace for all specific eris::Firm implementations. */
 namespace firm {}
 
+/** enum of reservation states for market-level and firm-level reservations.  A reservation
+ * can either be pending, complete, or aborted.
+ */
+enum class ReservationState { pending, complete, aborted };
+
 /** Abstract base class for representing a firm that uses some input (such as money) to supply some
  * output (such as a good).
  */
@@ -56,19 +61,26 @@ class Firm : public agent::AssetAgent {
          * This object is not intended to be used directly, but rather through the Reservation
          * unique_ptr typedef.
          */
-        class Reservation_ final : private eris::noncopyable {
+        class Reservation final {
             private:
-                Reservation_(SharedMember<Firm> firm, BundleNegative transfer);
+                Reservation(SharedMember<Firm> firm, BundleNegative transfer);
                 friend class Firm;
 
-                // Disable default constructor
-                Reservation_() = delete;
+                // Disable default and copy constructors
+                Reservation() = delete;
+                Reservation(const Reservation &) = delete;
+
+                // Move/copy assignment not allowed
+                Reservation& operator=(Reservation &&move) = delete;
+                Reservation& operator=(const Reservation &copy) = delete;
 
             public:
+                /// Move constructor
+                Reservation(Reservation &&move) = default;
                 /** Destructor.  If this Reservation is destroyed without having been completed or aborted
                  * (via transfer() or release()), it will be aborted (by calling release() on its Firm).
                  */
-                ~Reservation_();
+                ~Reservation();
                 /// The state of this reservation.
                 ReservationState state = ReservationState::pending;
                 /** The Bundle that is reserved.  Positive amounts are transferred out of the firm;
@@ -77,7 +89,7 @@ class Firm : public agent::AssetAgent {
                 const BundleNegative bundle;
                 /// The firm for which this Reservation applies.
                 const SharedMember<Firm> firm;
-                /** Calls transfer() on the firm with the Reservation_ object.  Calling
+                /** Calls transfer() on the firm with the Reservation object.  Calling
                  * obj->transfer(a) is equivalent to calling `obj->firm->transfer(obj, a)`.
                  */
                 void transfer(Bundle &to);
@@ -94,9 +106,6 @@ class Firm : public agent::AssetAgent {
                     public: const char* what() const noexcept override { return "Attempt to transfer/release a non-pending firm Reservation"; }
                 };
         };
-
-        /// Reservation is a unique_ptr to an underlying Reservation_
-        typedef std::unique_ptr<Reservation_> Reservation;
 
         /** Tells the firm to supply the given Bundle and transfer it to the given assets bundle.
          * This method is simply a wrapper around reserve() and transfer(); see those methods for
@@ -207,22 +216,21 @@ class Firm : public agent::AssetAgent {
         virtual Reservation reserve(const BundleNegative &reserve);
 
         /** Transfers the given Bundle reservation out of reserves and into the provided Bundle.
-         * Reserved production is performed if required.
-         *
-         * \sa transfer_()
-         *
-         * Subclasses seeking to override this should override the protected transfer_() method
-         * instead, which this method calls.
+         * Reserved production is performed if required.  Any negative quantities in the reservation
+         * are removed from the given Bundle and added to the firm's assets.  When the transfer is
+         * completed, reduceProduction() is called to see if any currently planned production can
+         * instead be supplied from the newly-gained assets.
          */
         void transfer(Reservation &res, Bundle &assets);
 
         /** Cancels a reserved quantity previously reserved with reserve(), indicating that the
          * quantity will not be transferred via transferReserves.
          *
-         * \sa release_()
-         *
-         * Subclasses seeking to override this should override the protected transfer_() method
-         * instead, which this method calls.
+         * The default implementation attempts to transfer as much of the bundle to be released as
+         * possible from reserved_production_ to excess_production.  If that was sufficient to cover
+         * the whole request, it calls reduceExessProduction() and finishes.  Otherwise, any
+         * remaining amount is transferred from reserves to assets, followed by a reduceProduction()
+         * call.
          */
         virtual void release(Reservation &res);
 
@@ -286,25 +294,6 @@ class Firm : public agent::AssetAgent {
          * reserved, in reserveProduction().
          */
         virtual Bundle produce(const Bundle &b) = 0;
-
-        /** Transfers the given Bundle reservation out of reserves and into the provided Bundle.
-         * Reserved production is performed if required.  Any negative quantities in the reservation
-         * are removed from the given Bundle and added to the firm's assets.  When the transfer is
-         * completed, reduceProduction() is called to see if any currently planned production can
-         * instead be supplied from the newly-gained assets.
-         */
-        void transfer_(Reservation_ &res, Bundle &to);
-
-        /** Cancels a reserved quantity previously reserved with reserve(), indicating that the
-         * quantity will not be transferred via transfer().
-         *
-         * The default implementation attempts to transfer as much of the bundle to be released as
-         * possible from reserved_production_ to excess_production.  If that was sufficient to cover
-         * the whole request, it calls reduceExessProduction() and finishes.  Otherwise, any
-         * remaining amount is transferred from reserves to assets, followed by a reduceProduction()
-         * call.
-         */
-        virtual void release_(Reservation_ &res);
 
         /** Creates a Reservation and returns it.  For internal subclass use only; external objects
          * create a reservation by calling reserve() (which uses this to create the actual object).

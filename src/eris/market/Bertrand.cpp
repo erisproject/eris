@@ -254,7 +254,7 @@ Market::Reservation Bertrand::reserve(SharedMember<AssetAgent> agent, double q, 
 
     Reservation res = createReservation(agent, total_q, total_p);
     for (auto &ft : firm_transfers) {
-        res->firmReserve(ft.first, ft.second);
+        res.firmReserve(ft.first, ft.second);
     }
 
     return res;

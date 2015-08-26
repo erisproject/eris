@@ -76,14 +76,6 @@ Firm::Reservation Firm::supply(const BundleNegative &b, Bundle &assets) {
     return res;
 }
 
-void Firm::transfer(Reservation &res, Bundle &assets) {
-    transfer_(*res, assets);
-}
-
-void Firm::release(Reservation &res) {
-    release_(*res);
-}
-
 Firm::Reservation Firm::reserve(const BundleNegative &reserve) {
     Bundle res_pos = reserve.positive();
     // First see if current assets can handle any of the requested Bundle
@@ -155,9 +147,9 @@ void Firm::produceReserved(const Bundle &b) {
     assets().commitTransaction();
 }
 
-void Firm::transfer_(Reservation_ &res, Bundle &to) {
+void Firm::transfer(Reservation &res, Bundle &to) {
     if (res.state != ReservationState::pending)
-        throw Reservation_::non_pending_exception();
+        throw Reservation::non_pending_exception();
 
     res.state = ReservationState::complete;
 
@@ -197,9 +189,9 @@ void Firm::transfer_(Reservation_ &res, Bundle &to) {
     assets().commitTransaction();
 }
 
-void Firm::release_(Reservation_ &res) {
+void Firm::release(Reservation &res) {
     if (res.state != ReservationState::pending)
-        throw Reservation_::non_pending_exception();
+        throw Reservation::non_pending_exception();
 
     res.state = ReservationState::aborted;
 
@@ -240,7 +232,7 @@ void Firm::reduceProduction() {
 }
 
 Firm::Reservation Firm::createReservation(BundleNegative bundle) {
-    return Reservation(new Reservation_(simulation()->agent(*this), bundle));
+    return Reservation(sharedSelf(), bundle);
 }
 
 Bundle FirmNoProd::produce(const Bundle&) {
@@ -268,19 +260,19 @@ void FirmNoProd::reduceProduction() {}
 
 void FirmNoProd::reduceExcessProduction() {}
 
-Firm::Reservation_::Reservation_(SharedMember<Firm> firm, BundleNegative bundle)
+Firm::Reservation::Reservation(SharedMember<Firm> firm, BundleNegative bundle)
     : bundle(bundle), firm(firm) {}
 
-Firm::Reservation_::~Reservation_() {
+Firm::Reservation::~Reservation() {
     if (state == ReservationState::pending)
         release();
 }
 
-void Firm::Reservation_::transfer(Bundle &assets) {
-    firm->transfer_(*this, assets);
+void Firm::Reservation::transfer(Bundle &assets) {
+    firm->transfer(*this, assets);
 }
 
-void Firm::Reservation_::release() {
-    firm->release_(*this);
+void Firm::Reservation::release() {
+    firm->release(*this);
 }
 }
