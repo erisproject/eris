@@ -42,6 +42,21 @@ set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules)
 include(MacroEnsureOutOfSourceBuild)
 macro_ensure_out_of_source_build("${PROJECT_NAME} requires an out-of-source build.  Create a build directory and run 'cmake ${CMAKE_SOURCE_DIR} [options]'.")
 
+# Look for include-what-you-use, if requested
+option(IWYU "Enable include-what-you-use header debugging support" OFF)
+if (IWYU)
+    cmake_minimum_required(VERSION 3.3)
+    find_program(IWYU_PATH NAMES "iwyu" "include-what-you-use")
+    if (NOT IWYU_PATH)
+        message(FATAL_ERROR "Could not find executable for include-what-you-use support")
+    endif()
+    set(IWYU_ARGS ${IWYU_PATH} "-Xiwyu" "--mapping_file=${CMAKE_SOURCE_DIR}/eris.imp")
+
+    message(STATUS "include-what-you-use header debugging support enabled (-DIWYU=0 to disable)")
+else()
+    message(STATUS "include-what-you-use header debugging support disabled (-DIWYU=1 to enable)")
+endif()
+
 file(GLOB_RECURSE eris_src RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} src/*.cpp)
 file(GLOB_RECURSE eris_src_include RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} include/*.h include/*.hpp include/*.h.in include/*.hpp.in)
 
@@ -74,6 +89,26 @@ set_target_properties(eris PROPERTIES
     VERSION "${LIBERIS_CURRENT}.${LIBERIS_REVISION}.${LIBERIS_AGE}"
     SOVERSION "${LIBERIS_CURRENT}"
 )
+
+if (IWYU)
+    set_property(TARGET eris PROPERTY CXX_INCLUDE_WHAT_YOU_USE ${IWYU_ARGS})
+
+    file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/iwyu.cpp "// Do-nothing file for IWYU testing of headers without associated .cpp files\n")
+    foreach(h ${eris_src_include})
+        if ((NOT h MATCHES "\\.in$")
+                AND (NOT h STREQUAL "include/eris/debug.hpp") # The macro voodoo in here confuses IWYU
+                )
+            string(REGEX REPLACE "include/eris/(.*)\\.hpp$" "src/eris/\\1.cpp" src "${h}")
+            if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${src}")
+                string(REGEX REPLACE "^include/" "" h_noinc "${h}")
+                file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/iwyu.cpp "#include <${h_noinc}> // IWYU pragma: keep\n")
+                list(APPEND IWYU_ARGS_HPP_ONLY "-Xiwyu" "--check_also=${CMAKE_CURRENT_SOURCE_DIR}/${h}")
+            endif()
+        endif()
+    endforeach()
+    add_library(iwyu-helper-target OBJECT "${CMAKE_CURRENT_BINARY_DIR}/iwyu.cpp")
+    set_property(TARGET iwyu-helper-target PROPERTY CXX_INCLUDE_WHAT_YOU_USE ${IWYU_ARGS} ${IWYU_ARGS_HPP_ONLY})
+endif()
 
 target_link_libraries(eris ${CMAKE_THREAD_LIBS_INIT})
 
