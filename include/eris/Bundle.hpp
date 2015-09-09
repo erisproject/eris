@@ -445,7 +445,7 @@ class BundleNegative {
             public:
                 valueproxy() = delete;
                 /// Constructs a valueproxy from a BundleNegative and good id of the proxied value
-                valueproxy(BundleNegative &bn, eris_id_t gid) : bundle_{bn}, gid_{gid} {}
+                valueproxy(BundleNegative &bn, eris_id_t gid) : bundle_(bn), gid_(gid) {}
                 /// Assigns a new value to the proxied bundle quantity
                 void operator=(double q) { bundle_.set(gid_, q); }
                 /// Adds a value to the current proxied bundle quantity
