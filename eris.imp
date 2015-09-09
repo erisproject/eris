@@ -1,8 +1,11 @@
 [
  { symbol: ["eris::eris_id_t", "private", "<eris/types.hpp>", "public"] },
- { symbol: ["eris::eris_id_t", "private", "<eris/Simulation.hpp>", "public"] },
- { symbol: ["eris::eris_id_t", "private", "<eris/Bundle.hpp>", "public"] },
- { symbol: ["eris::eris_id_t", "private", "<eris/SharedMember.hpp>", "public"] },
+ { include: ["<eris/types.hpp>", "public", "<eris/Simulation.hpp>", "public"] },
+ { include: ["\"eris/types.hpp\"", "public", "<eris/Simulation.hpp>", "public"] },
+ { include: ["<eris/types.hpp>", "public", "<eris/Bundle.hpp>", "public"] },
+ { include: ["\"eris/types.hpp\"", "public", "<eris/Bundle.hpp>", "public"] },
+ { include: ["<eris/types.hpp>", "public", "<eris/SharedMember.hpp>", "public"] },
+ { include: ["\"eris/types.hpp\"", "public", "<eris/SharedMember.hpp>", "public"] },
  { include: ["<eris/SharedMember.hpp>", "public", "<eris/Simulation.hpp>", "public"] },
  { include: ["\"eris/SharedMember.hpp\"", "public", "<eris/Simulation.hpp>", "public"] },
  { include: ["<eris/Simulation.hpp>", "public", "<eris/Member.hpp>", "public"] },
@@ -58,6 +61,10 @@
 
 # Positional includes Position
  { include: ["<eris/Position.hpp>", "public", "<eris/Positional.hpp>", "public"] },
+ { include: ["<eris/Positional.hpp>", "public", "<eris/WrappedPositional.hpp>", "public"] },
+
+# BLR includes BL
+ { include: ["<eris/belief/BayesianLinear.hpp>", "public", "<eris/belief/BayesianLinearRestricted.hpp>", "public"] },
 
  { include: ["<random>", "public", "<eris/Random.hpp>", "public"] },
  { include: ["<memory>", "public", "<eris/SharedMember.hpp>", "public"] },
@@ -78,12 +85,13 @@
  { include: ["<boost/math/special_functions/fpclassify.hpp>", "private", "<boost/math/distributions/normal.hpp>", "public"] },
  { include: ["<boost/optional/optional.hpp>", "private", "<boost/math/distributions/normal.hpp>", "public"] },
 
-
 # Eigen:
  { include: ["@\"Eigen/src/Core/.*\"", "private", "<Eigen/Core>", "public"] },
  { include: ["@\"Eigen/src/Cholesky/.*\"", "private", "<Eigen/Cholesky>", "public"] },
  { include: ["@\"Eigen/src/QR/.*\"", "private", "<Eigen/QR>", "public"] },
  { include: ["@\"Eigen/src/SVD/.*\"", "private", "<Eigen/SVD>", "public"] },
+ { include: ["@\"Eigen/src/Jacobi/.*\"", "private", "<Eigen/Jacobi>", "public"] },
  { include: ["@\"Eigen/src/Householder/.*\"", "private", "<Eigen/Householder>", "public"] },
  { include: ["\"Eigen/Householder\"", "public", "<Eigen/QR>", "public"] },
+ { include: ["\"Eigen/Jacobi\"", "public", "<Eigen/JacobiSVD>", "public"] },
 ]
