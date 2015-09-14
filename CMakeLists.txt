@@ -52,9 +52,16 @@ if (IWYU)
     endif()
     set(IWYU_ARGS ${IWYU_PATH} "-Xiwyu" "--mapping_file=${CMAKE_SOURCE_DIR}/eris.imp")
 
-    message(STATUS "include-what-you-use header debugging support enabled (-DIWYU=0 to disable)")
+    message(STATUS "include-what-you-use header debugging support enabled (-DIWYU=off to disable)")
 else()
-    message(STATUS "include-what-you-use header debugging support disabled (-DIWYU=1 to enable)")
+    message(STATUS "include-what-you-use header debugging support disabled (-DIWYU=on to enable)")
+endif()
+
+option(API_DOCS "Enable creativity API documentation generation (requires doxygen)" ON)
+if (API_DOCS)
+    message(STATUS "API documentation generation enabled (-DAPI_DOCS=off to disable)")
+else()
+    message(STATUS "API documentation generation disabled (-DAPI_DOCS=on to enable)")
 endif()
 
 file(GLOB_RECURSE eris_src RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} src/*.cpp)
@@ -114,7 +121,9 @@ target_link_libraries(eris ${CMAKE_THREAD_LIBS_INIT})
 
 add_subdirectory(scratch)
 
-add_subdirectory(doc)
+if (API_DOCS)
+    add_subdirectory(doc)
+endif()
 
 enable_testing()
 

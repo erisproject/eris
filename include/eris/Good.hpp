@@ -20,9 +20,9 @@ class Good : public Member {
 
     protected:
         /// Superclass constructor that stores the good name
-        Good(std::string name) : name(name) {}
+        Good(std::string name);
 
-        SharedMember<Member> sharedSelf() const override { return simGood(id()); }
+        SharedMember<Member> sharedSelf() const override;
 };
 
 /** Continuous good.  This is a good that is (quasi-)infinitely divisible.
@@ -30,7 +30,7 @@ class Good : public Member {
 class Good::Continuous : public Good {
     public:
         /// Constructor; takes an optional name.
-        Continuous(std::string name = "") : Good(name) {}
+        Continuous(std::string name = "");
 };
 
 /** Discrete good that may only take on integer quantities.
@@ -41,7 +41,7 @@ class Good::Continuous : public Good {
 class Good::Discrete : public Good {
     public:
         /// Constructor; takes an optional name.
-        Discrete(std::string name = "") : Good(name) {}
+        Discrete(std::string name = "");
 };
 
 

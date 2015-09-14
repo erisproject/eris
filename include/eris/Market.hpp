@@ -45,7 +45,7 @@ class Market : public Member {
             /// Default constructor: yields a price_info with `.feasible` set to false.
             price_info() = default;
             /// Constructor for feasible quantities; sets `feasible` to true.
-            price_info(double total, double marginal, double marginalFirst) : feasible(true), total(total), marginal(marginal), marginalFirst(marginalFirst) {}
+            price_info(double total, double marginal, double marginalFirst);
             /// True if the requested quantity is available.
             bool feasible = false;
             /// Total price 
@@ -142,7 +142,7 @@ class Market : public Member {
                  */
                 class non_pending_exception : public std::exception {
                     /// Overrides what() with an appropriate exception message
-                    public: const char* what() const noexcept override { return "Attempt to buy/release a non-pending market Reservation"; }
+                    public: const char* what() const noexcept override;
                 };
         };
 
@@ -245,10 +245,10 @@ class Market : public Member {
     protected:
         /** Returns a SharedMember<Member> for the current object, via the simulation.
          */
-        SharedMember<Member> sharedSelf() const override { return simMarket(id()); }
+        SharedMember<Member> sharedSelf() const override;
 
         /** Exposes access to Reservation.b_ to subclasses. */
-        Bundle& reservationBundle_(Reservation &res) { return res.b_; }
+        Bundle& reservationBundle_(Reservation &res);
 
     public:
         /** Adds f to the firms supplying in this market.  Subclasses that require a particular type
@@ -271,21 +271,21 @@ class Market : public Member {
          */
         class output_infeasible : public std::exception {
             /// Overrides what() with an appropriate exception message
-            public: const char* what() const noexcept override { return "Requested output not available"; }
+            public: const char* what() const noexcept override;
         };
         /** Exception class throw when the market price required exceeds the maximum price
          * specified.
          */
         class low_price : public std::exception {
             /// Overrides what() with an appropriate exception message
-            public: const char* what() const noexcept override { return "Requested output not available for given price"; }
+            public: const char* what() const noexcept override;
         };
         /** Exception class thrown when the buyer's assets are not sufficient to purchase the
          * requested output.
          */
         class insufficient_assets : public std::exception {
             /// Overrides what() with an appropriate exception message
-            public: const char* what() const noexcept override { return "Assets insufficient for purchasing requested output"; }
+            public: const char* what() const noexcept override;
         };
 
 

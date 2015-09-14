@@ -46,9 +46,9 @@ class SharedMember final {
         T* operator -> () const { return ptr_.get(); }
 
         /** Equality comparison.  Two SharedMember objects are considered equal if and only if they
-         * both have positive and equal eris_id_ts; if either object is a null pointer, or either
-         * object has an eris_id_t of 0, the two are not considered equal (even if both are null, or
-         * both have eris_id_t of 0).
+         * both have positive and equal eris_id_t values; if either object is a null pointer, or
+         * either object has an eris_id_t of 0, the two are not considered equal (even if both are
+         * null, or both have eris_id_t of 0).
          */
         template <class O>
         bool operator == (const SharedMember<O> &other) noexcept {
@@ -65,12 +65,10 @@ class SharedMember final {
             return not(*this == other);
         }
 
-        /** Less-than comparison operator.  This currently compares eris_id_t values, but that could
-         * be subject to change.  If either SharedMember doesn't have an actual member, a value of 0
-         * is used.  0 is also used for Members that are not part of a simulation.
-         *
-         * eris_id_t values are unique within a simulation, but not across simulations: attempting
-         * to store SharedMember<T> of different simulations in a container will not work.
+        /** Less-than comparison operator.  This method is guaranteed to provide a unique ordering
+         * of SharedMembers that belong to the same simulation.  This is currently done by sorting
+         * by eris_id_t value (and using 0 for null SharedMembers and Members that are not part of a
+         * simulation), but that behaviour could change.
          */
         template <class O>
         bool operator < (const SharedMember<O> &other) noexcept {
