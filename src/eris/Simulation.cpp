@@ -74,9 +74,16 @@ ERIS_SIM_INSERT_REMOVE_MEMBER(Other,  Member, others_)
 // agent() agents() good() goods() market() markets() other() others()
 
 void Simulation::remove(eris_id_t id) {
-    if (runStageOptimize())
-        throw std::logic_error("spawn<T>() failure: cannot remove simulation members during an optimization stage");
+    if (auto lock = runLockTry())
+        removeNoDefer(id);
+    else {
+        deferred_mutex_.lock();
+        deferred_remove_.push_back(id);
+        deferred_mutex_.unlock();
+    }
+}
 
+void Simulation::removeNoDefer(eris_id_t id) {
     if (agents_.count(id)) removeAgent(id);
     else if (goods_.count(id)) removeGood(id);
     else if (markets_.count(id)) removeMarket(id);
@@ -88,9 +95,8 @@ void Simulation::insertOptimizers(const SharedMember<Member> &member) {
     std::lock_guard<std::recursive_mutex> lock(member_mutex_);
     Member *mem = member.ptr_.get();
 #define ERIS_SIM_INSERT_OPTIMIZER(TYPE, STAGE)\
-    if (dynamic_cast<TYPE##opt::STAGE*>(mem)) {\
-        optimizers_[(int) RunStage::TYPE##_##STAGE].emplace(member);\
-        shared_q_cache_[(int) RunStage::TYPE##_##STAGE].reset();\
+    if (TYPE##opt::STAGE *opt = dynamic_cast<TYPE##opt::STAGE*>(mem)) {\
+        optimizers_[(int) RunStage::TYPE##_##STAGE][opt->TYPE##STAGE##Priority()].insert(member);\
     }
     ERIS_SIM_INSERT_OPTIMIZER(inter, Begin)
     ERIS_SIM_INSERT_OPTIMIZER(inter, Optimize)
@@ -106,10 +112,22 @@ void Simulation::insertOptimizers(const SharedMember<Member> &member) {
 #undef ERIS_SIM_INSERT_OPTIMIZER
 }
 void Simulation::removeOptimizers(const SharedMember<Member> &member) {
-    std::lock_guard<std::recursive_mutex> lock(member_mutex_);
-    for (int i = optimizers_.size()-1; i >= 0; i--) {
-        if (optimizers_[i].erase(member) > 0) {
-            shared_q_cache_[i].reset();
+    for (auto &stage : optimizers_) {
+        std::list<double> del_stage;
+        for (auto &priority : stage) {
+            if (priority.second.erase(member)) {
+                // Removed it; trigger a plurality recalculation if we were the largest (we can't
+                // just decrement it because something else might have had the same plurality).
+                if (optimizers_plurality_ == (long) priority.second.size() + 1) {
+                    optimizers_plurality_ = -1;
+                }
+            }
+            // Clean up: if we deleted the last element at this priority level, delete the priority
+            // level (but we need to wait until the end of the loop to avoid invalidating iterators)
+            if (priority.second.empty()) del_stage.push_back(priority.first);
+        }
+        for (double priority : del_stage) {
+            stage.erase(priority);
         }
     }
 }
@@ -155,9 +173,25 @@ void Simulation::notifyWeakDeps(SharedMember<Member> member, eris_id_t old_id) {
 }
 
 void Simulation::maxThreads(unsigned long max_threads) {
-    if (running_)
+    if (auto lock = runLockTry())
+        max_threads_ = max_threads;
+    else
         throw std::runtime_error("Cannot change number of threads during a Simulation run() call");
-    max_threads_ = max_threads;
+}
+
+inline void Simulation::thr_stage_finished(const RunStage &curr_stage, double curr_priority) {
+    {
+        std::unique_lock<std::mutex> lock(done_mutex_);
+        if (--thr_running_ == 0)
+            thr_cv_done_.notify_one();
+    }
+    thr_wait(curr_stage, curr_priority);
+}
+
+inline void Simulation::thr_wait(const RunStage &not_stage, double not_priority) {
+    std::unique_lock<std::mutex> lock(stage_mutex_);
+    if (stage_ == not_stage and stage_priority_ == not_priority)
+        thr_cv_stage_.wait(lock, [this,&not_stage,&not_priority] { return stage_ != not_stage or stage_priority_ != not_priority; });
 }
 
 void Simulation::thr_loop() {
@@ -165,12 +199,15 @@ void Simulation::thr_loop() {
     // start work in any stage except idle.  The thread continues forever unless it sees a kill
     // stage with thr_kill_ set to its thread id.
     while (true) {
+        stage_mutex_.lock();
         RunStage curr_stage = stage_;
+        double curr_priority = stage_priority_;
+        stage_mutex_.unlock();
         switch (curr_stage) {
             // Every case should either exit the loop or wait
             case RunStage::idle:
                 // Just wait for the state to change to something else.
-                thr_wait(curr_stage);
+                thr_wait(curr_stage, curr_priority);
                 break;
             case RunStage::kill:
                 if (thr_kill_ == std::this_thread::get_id()) {
@@ -192,7 +229,7 @@ void Simulation::thr_loop() {
 #define ERIS_SIM_STAGE_CASE(TYPE, STAGE)\
             case RunStage::TYPE##_##STAGE:\
                 thr_work<TYPE##opt::STAGE>([](TYPE##opt::STAGE &o) { o.TYPE##STAGE(); });\
-                thr_stage_finished(curr_stage);\
+                thr_stage_finished(curr_stage, curr_priority);\
                 break
 
             // Inter-period optimizer stages
@@ -215,7 +252,7 @@ void Simulation::thr_loop() {
                     if (opt.intraReoptimize()) // Need a restart
                         thr_redo_intra_ = true;
                 });
-                thr_stage_finished(curr_stage);
+                thr_stage_finished(curr_stage, curr_priority);
                 break;
         }
     }
@@ -223,83 +260,116 @@ void Simulation::thr_loop() {
 
 template <class Opt>
 void Simulation::thr_work(const std::function<void(Opt&)> &work) {
-    auto qsize = shared_q_->size();
-    size_t i;
-    while ((i = shared_q_next_++) < qsize) {
-        work(*(dynamic_cast<Opt*>(shared_q_->operator[](i).ptr_.get())));
+    if (maxThreads() > 0) {
+        // get a lock before we check opt_ierator_
+        opt_iterator_mutex_.lock();
+        while (opt_iterator_ != opt_iterator_end_) {
+            // We're not at the end, so we pull off the current member:
+            Opt &opt = dynamic_cast<Opt&>(**opt_iterator_);
+            // and then increment the iterator for the next thread (possibly us, if we finish this
+            // optimizer quickly enough, or there are no other threads)
+            opt_iterator_++;
+            // Release the lock so any waiting thread can grab the next optimizer while we do work
+            opt_iterator_mutex_.unlock();
+            // Run the optimizer:
+            work(opt);
+            // Done working; re-establish the lock before checking if we're at the end
+            opt_iterator_mutex_.lock();
+        }
+        // We hit the end; release the lock and return.
+        opt_iterator_mutex_.unlock();
+    }
+    else {
+        // No threads: same as above but without locking
+        while (opt_iterator_ != opt_iterator_end_) {
+            work(dynamic_cast<Opt&>(*(*opt_iterator_++)));
+        }
     }
 }
 
 void Simulation::thr_stage(const RunStage &stage) {
-    switch (stage) {
-        case RunStage::inter_Begin:
-        case RunStage::inter_Optimize:
-        case RunStage::inter_Apply:
-        case RunStage::inter_Advance:
-        case RunStage::intra_Initialize:
-        case RunStage::intra_Reset:
-        case RunStage::intra_Optimize:
-        case RunStage::intra_Reoptimize:
-        case RunStage::intra_Apply:
-        case RunStage::intra_Finish:
-            {
-                std::lock_guard<std::recursive_mutex> lock(member_mutex_);
-
-                auto &shared_cache = shared_q_cache_[(int) stage];
-                if (not shared_cache) {
-                    shared_cache.reset(new std::vector<SharedMember<Member>>());
-                    const auto &opts = optimizers_[(int) stage];
-                    shared_cache->reserve(opts.size());
-                    shared_cache->insert(shared_cache->end(), opts.cbegin(), opts.cend());
-                }
-                shared_q_ = shared_cache;
-                shared_q_next_ = 0;
-            }
-            break;
-        default:
-            throw std::runtime_error("thr_stage called with non-stage RunStage");
-    }
+    if (stage < RunStage_FIRST)
+        throw std::runtime_error("thr_stage called with non-stage RunStage");
 
     if (maxThreads() == 0) {
         // Not using threads; call thr_work directly
         stage_ = stage;
-        switch (stage) {
+        for (auto &priority_optimizer : optimizers_[(int) stage]) {
+            stage_priority_   = priority_optimizer.first;
+            opt_iterator_     = priority_optimizer.second.begin();
+            opt_iterator_end_ = priority_optimizer.second.end();
+            switch (stage) {
 #define ERIS_SIM_NOTHR_WORK(TYPE, STAGE)\
-            case RunStage::TYPE##_##STAGE:\
-                thr_work<TYPE##opt::STAGE>([](TYPE##opt::STAGE &o) { o.TYPE##STAGE(); });\
-                break;
-            ERIS_SIM_NOTHR_WORK(inter, Begin)
-            ERIS_SIM_NOTHR_WORK(inter, Optimize)
-            ERIS_SIM_NOTHR_WORK(inter, Apply)
-            ERIS_SIM_NOTHR_WORK(inter, Advance)
+                case RunStage::TYPE##_##STAGE:\
+                    thr_work<TYPE##opt::STAGE>([](TYPE##opt::STAGE &o) { o.TYPE##STAGE(); });\
+                    break;
+                ERIS_SIM_NOTHR_WORK(inter, Begin)
+                ERIS_SIM_NOTHR_WORK(inter, Optimize)
+                ERIS_SIM_NOTHR_WORK(inter, Apply)
+                ERIS_SIM_NOTHR_WORK(inter, Advance)
 
-            ERIS_SIM_NOTHR_WORK(intra, Initialize)
-            ERIS_SIM_NOTHR_WORK(intra, Reset)
-            ERIS_SIM_NOTHR_WORK(intra, Optimize)
-            ERIS_SIM_NOTHR_WORK(intra, Apply)
-            ERIS_SIM_NOTHR_WORK(intra, Finish)
+                ERIS_SIM_NOTHR_WORK(intra, Initialize)
+                ERIS_SIM_NOTHR_WORK(intra, Reset)
+                ERIS_SIM_NOTHR_WORK(intra, Optimize)
+                ERIS_SIM_NOTHR_WORK(intra, Apply)
+                ERIS_SIM_NOTHR_WORK(intra, Finish)
 #undef ERIS_SIM_NOTHR_WORK
-            case RunStage::intra_Reoptimize:
-                thr_work<intraopt::Reoptimize>([this](intraopt::Reoptimize &opt) {
+                case RunStage::intra_Reoptimize:
+                    thr_work<intraopt::Reoptimize>([this](intraopt::Reoptimize &opt) {
                     if (opt.intraReoptimize()) // Need a restart
                         thr_redo_intra_ = true;
-                });
-                break;
-            default:
-                break;
+                    });
+                    break;
+                case RunStage::idle:
+                case RunStage::kill:
+                case RunStage::kill_all:
+                    break;
+            }
+
+            deferred_mutex_.lock();
+            // Deferred insertion/removal: this could invalidate opt_iterator_
+            if (not deferred_insert_.empty()) {
+                for (auto &m : deferred_insert_) insert(m);
+                deferred_insert_.clear();
+            }
+            if (not deferred_remove_.empty()) {
+                for (auto id : deferred_remove_) removeNoDefer(id);
+                deferred_remove_.clear();
+            }
+            deferred_mutex_.unlock();
         }
     }
     else {
-        // Threads: lock, signal, then wait for threads to finish
-        std::unique_lock<std::mutex> lock_s(stage_mutex_, std::defer_lock);
-        std::unique_lock<std::mutex> lock_d(done_mutex_, std::defer_lock);
-        std::lock(lock_s, lock_d);
-        stage_ = stage;
-        thr_running_ = thr_pool_.size();
-        lock_s.unlock();
-        thr_cv_stage_.notify_all();
+        for (auto &priority_optimizer : optimizers_[(int) stage]) {
+            // Threads: lock, signal, then wait for threads to finish
+            std::unique_lock<std::mutex> lock_s(stage_mutex_, std::defer_lock);
+            std::unique_lock<std::mutex> lock_d(done_mutex_, std::defer_lock);
+            std::unique_lock<std::mutex> lock_i(opt_iterator_mutex_, std::defer_lock);
+            std::lock(lock_s, lock_d, lock_i);
+            stage_ = stage;
+            stage_priority_   = priority_optimizer.first;
+            opt_iterator_     = priority_optimizer.second.begin();
+            opt_iterator_end_ = priority_optimizer.second.end();
 
-        thr_cv_done_.wait(lock_d, [this] { return thr_running_ == 0; });
+            thr_running_ = thr_pool_.size();
+            lock_i.unlock();
+            lock_s.unlock();
+            thr_cv_stage_.notify_all();
+
+            thr_cv_done_.wait(lock_d, [this] { return thr_running_ == 0; });
+
+            deferred_mutex_.lock();
+            // The stage is done; handle deferred insertion/removal
+            if (not deferred_insert_.empty()) {
+                for (auto &m : deferred_insert_) insert(m);
+                deferred_insert_.clear();
+            }
+            if (not deferred_remove_.empty()) {
+                for (auto id : deferred_remove_) removeNoDefer(id);
+                deferred_remove_.clear();
+            }
+            deferred_mutex_.unlock();
+        }
     }
 }
 
@@ -318,6 +388,7 @@ void Simulation::thr_thread_pool() {
             thr_kill_ = thr.get_id();
             stage_ = RunStage::kill;
             thr_cv_stage_.notify_all();
+            // Wait for the thread we just signalled to exit:
             thr.join();
             thr_pool_.pop_back();
         }
@@ -325,16 +396,18 @@ void Simulation::thr_thread_pool() {
     }
     else {
         // The pool is smaller than the maximum; see if there is a benefit to creating more threads
-        unsigned long max_opts = 0;
-        for (const auto &opt : optimizers_) {
-            auto size = opt.size();
-            if (size > max_opts)
-                max_opts = size;
+        if (optimizers_plurality_ < 0) {
+            optimizers_plurality_ = 0;
+            for (const auto &stage : optimizers_) {
+                for (const auto &priority : stage) {
+                    optimizers_plurality_ = std::max(optimizers_plurality_, (long) priority.second.size());
+                }
+            }
         }
-        unsigned long want_threads = std::min(maxThreads(), max_opts);
+        unsigned long want_threads = std::min(maxThreads(), (unsigned long) optimizers_plurality_);
 
         while (thr_pool_.size() < want_threads) {
-            // We're in RunStage::idle, so the new thread is going to wait right away
+            // We're in RunStage::idle *and* the stage is locked, so the new thread is going to block right away
             thr_pool_.push_back(std::thread(&Simulation::thr_loop, this));
         }
     }
@@ -345,18 +418,26 @@ std::unique_lock<std::mutex> Simulation::runLock() {
     return std::unique_lock<std::mutex>(run_mutex_);
 }
 
-void Simulation::run() {
-    if (running_)
-        throw std::runtime_error("Calling Simulation::run() recursively not permitted");
-    auto lock = runLock();
-    running_ = true;
+std::unique_lock<std::mutex> Simulation::runLockTry() {
+    return std::unique_lock<std::mutex>(run_mutex_, std::try_to_lock);
+}
 
+void Simulation::run() {
+    auto lock = runLockTry();
+    if (not lock)
+        throw std::runtime_error("Simulation::run() failed: unable to obtain run lock (perhaps you tried to call run() recursively?)");
+
+    stage_mutex_.lock();
     stage_ = RunStage::idle;
+    stage_priority_ = 0;
 
     // Enlarge or shrink the thread pool as needed
     thr_thread_pool();
 
     ++t_;
+
+    stage_mutex_.unlock();
+    // We're in idle right now, so any threads that got unblocked here will go right back to sleep
 
     thr_stage(RunStage::inter_Begin);
     thr_stage(RunStage::inter_Optimize);
@@ -380,7 +461,6 @@ void Simulation::run() {
     thr_stage(RunStage::intra_Finish);
 
     stage_ = RunStage::idle;
-    running_ = false;
 }
 
 Simulation::RunStage Simulation::runStage() const {

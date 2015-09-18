@@ -32,6 +32,28 @@ class Begin {
          * call (just after `t` has been incremented).
          */
         virtual void interBegin() = 0;
+
+        /** This method defines the priority of this optimizer within optimizers of the same type.
+         * All optimizers of a lower priority are guaranteed to be executed before any optimizer of
+         * a higher priority.  This is primarily intended to allow for more optimization stages than
+         * the default stages allow.  The default value is 0.  This value this method returns for
+         * the same instance should never change.
+         *
+         * For example, suppose an eris member class Foo provides an inter-period Optimize subclass,
+         * but that optimization needs to run after other simulation members run their inter-period
+         * Optimize routines.  Foo can accomplish this by overriding interBeginPriority() to return
+         * a value greater than 0:
+         *
+         *     class Foo : eris::Member {
+         *         public:
+         *             // ...
+         *             virtual double interBeginPriority() const { return 1.0; }
+         *     };
+         *
+         * This ensures that all members with interBeginPriority() less than 1.0 will have finished
+         * before Foo's interBegin() method is invoked.
+         */
+        virtual double interBeginPriority() const { return 0.0; }
     protected:
         ~Begin() = default;
 };
@@ -50,6 +72,9 @@ class Optimize {
          * them and enact the changes in an interApply optimizer.
          */
         virtual void interOptimize() = 0;
+
+        /// \copydoc interopt::Begin::interBeginPriority()
+        virtual double interOptimizePriority() const { return 0.0; }
     protected:
         ~Optimize() = default;
 };
@@ -65,6 +90,9 @@ class Apply {
     public:
         /// This method is intended to apply any changes calculated in interOptimize().
         virtual void interApply() = 0;
+
+        /// \copydoc interopt::Begin::interBeginPriority()
+        virtual double interApplyPriority() const { return 0.0; }
     protected:
         ~Apply() = default;
 };
@@ -95,6 +123,9 @@ class Advance {
          * assets bundle.
          */
         virtual void interAdvance() = 0;
+
+        /// \copydoc interopt::Begin::interBeginPriority()
+        virtual double interAdvancePriority() const { return 0.0; }
     protected:
         ~Advance() = default;
 };
@@ -122,6 +153,9 @@ class Initialize {
          * before the optimization rounds for a period begin.  
          */
         virtual void intraInitialize() = 0;
+
+        /// \copydoc interopt::Begin::interBeginPriority()
+        virtual double intraInitializePriority() const { return 0.0; }
     protected:
         ~Initialize() = default;
 };
@@ -144,6 +178,9 @@ class Reset {
          * intraOptimize().
          */
         virtual void intraReset() = 0;
+
+        /// \copydoc interopt::Begin::interBeginPriority()
+        virtual double intraResetPriority() const { return 0.0; }
     protected:
         ~Reset() = default;
 };
@@ -175,6 +212,9 @@ class Optimize {
          * \sa Simulation::run()
          */
         virtual void intraOptimize() = 0;
+
+        /// \copydoc interopt::Begin::interBeginPriority()
+        virtual double intraOptimizePriority() const { return 0.0; }
     protected:
         ~Optimize() = default;
 };
@@ -208,6 +248,9 @@ class Reoptimize {
          * intraReoptimize() calls.
          */
         virtual bool intraReoptimize() = 0;
+
+        /// \copydoc interopt::Begin::interBeginPriority()
+        virtual double intraReoptimizePriority() const { return 0.0; }
     protected:
         ~Reoptimize() = default;
 };
@@ -225,6 +268,9 @@ class Apply {
          * always be called exactly once per simulation period.
          */
         virtual void intraApply() = 0;
+
+        /// \copydoc interopt::Begin::interBeginPriority()
+        virtual double intraApplyPriority() const { return 0.0; }
     protected:
         ~Apply() = default;
 };
@@ -241,6 +287,9 @@ class Finish {
         /** Called at the end of the intraopt stage.
          */
         virtual void intraFinish() = 0;
+
+        /// \copydoc interopt::Begin::interBeginPriority()
+        virtual double intraFinishPriority() const { return 0.0; }
     protected:
         ~Finish() = default;
 };

@@ -9,8 +9,9 @@
 #include <functional>
 #include <unordered_map>
 #include <unordered_set>
-#include <set>
+#include <map>
 #include <vector>
+#include <list>
 #include <memory>
 #include <typeinfo>
 #include <typeindex>
@@ -90,17 +91,21 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
          * false otherwise. */
         bool hasOther(eris_id_t id) const noexcept;
 
-        /** Constructs a new T object using the given constructor arguments Args, adds it to the
-         * simulation.  T must be a subclass of Member; if it is also a subclass of Agent, Good, or
-         * Market it will be treated as the appropriate type; otherwise it is treated as an "other"
-         * member.
+        /** Constructs a new T object using the given constructor arguments Args and adds it to the
+         * simulation (but see below).  T must be a subclass of Member; if it is also a subclass of
+         * Agent, Good, or Market it will be treated as the appropriate type; otherwise it is
+         * treated as an "other" member.
+         *
+         * If the new object is spawned during an optimizer stage, adding the member to the
+         * simulation is deferred until the current stage or stage priority level finishes; thus it
+         * is not guaranteed that a spawned member actually belongs to the simulation immediately:
+         * member spawning performed in optimizers should take this into account.  Deferred
+         * insertion will be performed in the same order as the calls to spawn().
          *
          * Example:
          *     auto money = sim->spawn<Good::Continuous>("money");
          *     auto good = sim->spawn<Good::Continuous>("x");
          *     auto market = sim->spawn<Bertrand>(Bundle(good, 1), Bundle(money, 1));
-         *
-         * \throws std::logic_error if attempting to create a member during an optimization phase
          */
         template <class T, typename... Args, class = typename std::enable_if<std::is_base_of<Member, T>::value>::type>
         SharedMember<T> spawn(Args&&... args);
@@ -114,8 +119,12 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
 
         /** Removes the given member (and any dependencies) from this simulation.
          *
-         * \throws std::out_of_range if the given id does not belong to this simulation.
-         * \throws std::logic_error if attempting to remove a member during an optimization phase
+         * If the member has an optimizer registered at the current optimization stage and priority,
+         * the member removal is deferred to the end of the current stage/priority iteration.
+         * Deferred members are removed in the same order as the call to remove().
+         *
+         * \throws std::out_of_range if the given id does not belong to this simulation.  If called
+         * during optimization, the exception may also be deferred (to the encompassing run()).
          */
         void remove(eris_id_t id);
 
@@ -295,6 +304,10 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
             intra_Initialize, intra_Reset, intra_Optimize, intra_Reoptimize, intra_Apply, intra_Finish
         };
 
+        /** The first actual stage value; every value >= this and <= RunStage_LAST is an
+         * optimization stage.  Values lower than this are special values.
+         */
+        static const RunStage RunStage_FIRST = RunStage::inter_Begin;
         /// The highest RunStage value
         static const RunStage RunStage_LAST = RunStage::intra_Finish;
 
@@ -315,10 +328,6 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
         /** Returns true if the simulation is currently in an optimization stage (whether inter- or
          * intra-period optimization).  Specifically, this includes inter-optimize, intra-optimize,
          * intra-reoptimize, and intra-reset.
-         *
-         * During these stages, new members may not be added or removed from the simulation, and
-         * simulation member states shouldn't be changed in a way that can influence the
-         * optimization of other members.
          */
         bool runStageOptimize() const;
 
@@ -328,6 +337,12 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
          * during run().
          */
         std::unique_lock<std::mutex> runLock();
+
+        /** Tries to obtain a lock that, when held, guarantees that a simulation stage is not in
+         * progress.  If the lock cannot be obtained (i.e. because something else already holds it),
+         * this returns an unheld lock object.
+         */
+        std::unique_lock<std::mutex> runLockTry();
 
         /** Contains the number of rounds of the intra-period optimizers in the previous run() call.
          * A round is defined by a intraReset() call, a set of intraOptimize() calls, and a set of
@@ -354,7 +369,6 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
         Simulation() = default;
 
         unsigned long max_threads_ = 0;
-        bool running_ = false;
         eris_id_t id_next_ = 1;
         MemberMap<Agent> agents_;
         MemberMap<Good> goods_;
@@ -370,6 +384,9 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
         void insertMarket(const SharedMember<Market> &market);
         void insertOther(const SharedMember<Member> &other);
 
+        // Internal remove() method that doesn't defer if currently running
+        void removeNoDefer(eris_id_t id);
+
         // Internal method to remove one of the various types.  Called by the public remove()
         // method, which figures out which type the removal request is for.
         void removeAgent(eris_id_t aid);
@@ -381,7 +398,8 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
         // for the next optimization stage.
         void insertOptimizers(const SharedMember<Member> &member);
 
-        // Undoes insertOptimizers.
+        // Undoes insertOptimizers; called by the removeAgent(), etc. methods, which should already
+        // hold a lock on member_mutex_.
         void removeOptimizers(const SharedMember<Member> &member);
 
         // The method used by agents(), goods(), etc. to actually do the work
@@ -435,22 +453,27 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
         // Pool of threads we can use
         std::vector<std::thread> thr_pool_;
 
-        // The current experiment stage
-        std::atomic<RunStage> stage_{RunStage::idle};
+        // The current optimizer stage
+        RunStage stage_{RunStage::idle};
 
-        // The Members implementing each optimization stage; indexes are RunStage values
-        std::vector<std::set<SharedMember<Member>>> optimizers_{1 + (int) RunStage_LAST};
+        // The current optimizer stage priority
+        double stage_priority_;
+
+        // The Members implementing each optimization stage.  vector indices are RunStage values;
+        // map indices are priorities.
+        std::vector<std::map<double, std::unordered_set<SharedMember<Member>>>> optimizers_{1 + (int) RunStage_LAST};
+
+        // The maximum number of optimizers that can be run simultaneously; this is simply the
+        // size of the largest set in optimizers_.  If negative, the value needs to be recalculated.
+        long optimizers_plurality_ = -1;
 
         // The thread to quit when a kill stage is signalled
         std::atomic<std::thread::id> thr_kill_;
 
-        // Caches of the various optimizer types; these get wiped out when any optimizers of the
-        // given type are added or removed.  Indexes are RunStage values.
-        std::vector<std::shared_ptr<std::vector<SharedMember<Member>>>> shared_q_cache_{1 + (int) RunStage_LAST};
-        // Shared queue for the current stage; this will be a copied shared_ptr from shared_q_cache_
-        std::shared_ptr<std::vector<SharedMember<Member>>> shared_q_;
-        // Position of the next element to be processed in *shared_q_
-        std::atomic_size_t shared_q_next_;
+        // An iterator and past-the-end iterator through the currently running set of optimizers
+        typename std::unordered_set<SharedMember<Member>>::iterator opt_iterator_, opt_iterator_end_;
+        // Mutex controlling access to opt_iterator_
+        std::mutex opt_iterator_mutex_;
 
         // The number of threads finished the current stage; when this reaches the size of
         // thr_pool_, the stage is finished.
@@ -463,13 +486,22 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
 
         // CV for signalling a change in stage from master to workers
         std::condition_variable thr_cv_stage_;
-        // mutex for the stage CV and for threads waiting for changes in stage_
+        // mutex for the stage CV and for threads waiting for changes in stage_/stage_priority_
         std::mutex stage_mutex_;
 
         // CV for signalling the master that a thread has finished
         std::condition_variable thr_cv_done_;
-        // mutex for the done CV and for threads signalling that they have finished
+        // mutex for the done CV and for threads signalling that they have finished the current
+        // stage at the current priority level
         std::mutex done_mutex_;
+
+        // List of members with deferred insertion to be inserted at the end of the current
+        // stage/priority.
+        std::list<SharedMember<Member>> deferred_insert_;
+        // List of ids with deferred removal to be removed at the end of the current stage/priority
+        std::list<eris_id_t> deferred_remove_;
+        // Mutex governing the two above variables
+        std::mutex deferred_mutex_;
 
         // Sets up the thread and/or shared queues for the appropriate stage.  This starts up
         // threads if needed (up to `max` or the number of members, whichever is smaller), sets
@@ -489,36 +521,39 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
         // If this method changes the number of threads, this also takes care to invalidate queue
         // caches as needed so that appropriate thread reallocations will occur.
         //
-        // This is called at the beginning of run().
+        // This is called at the beginning of run(); stage_mutex_ should already be locked.
         void thr_thread_pool();
-
-        // Runs a stage without using threads.  This is called instead of thr_stage() when
-        // maxThreads() is set to 0.
-        void nothr_stage(const RunStage &stage);
 
         // The main thread loop; runs until it sees a RunStage::kill with thr_kill_ set to the
         // thread's id.
         void thr_loop();
 
-        // Called by a thread to process the current shared_q_ of waiting optimization objects.
+        // Called to process the current queue of waiting optimization objects.  When threading is
+        // enabled, this is called simultaneously in each worker thread to process the queue in
+        // parallel.
         template <class Opt>
         void thr_work(const std::function<void(Opt&)> &work);
 
-        // Used to signal that the stage has finished.  After signalling, this calls
-        // thr_wait(curr_stage) to wait until the stage changes to something other than curr_stage
-        void thr_stage_finished(const RunStage &curr_stage);
+        // Used to signal that the stage at the given priority level has finished.  After
+        // signalling, this calls thr_wait to wait until the stage or priority change to something
+        // other than the current values.
+        void thr_stage_finished(const RunStage &curr_stage, double curr_priority);
 
-        // Waits until stage changes to something other than the passed-in stage.
-        void thr_wait(const RunStage &curr_stage);
+        // Waits until stage or stage priority changes to something other than the passed-in values.
+        void thr_wait(const RunStage &not_stage, double not_priority);
 };
 
 
 template <class T, typename... Args, class> SharedMember<T> Simulation::spawn(Args&&... args) {
-    if (runStageOptimize())
-        throw std::logic_error("spawn<T>() failure: cannot create new simulation members during an optimization stage");
-
     SharedMember<T> member(std::make_shared<T>(std::forward<Args>(args)...));
-    insert(member);
+    if (auto lock = runLockTry()) {
+        insert(member);
+    }
+    else {
+        deferred_mutex_.lock();
+        deferred_insert_.push_back(member);
+        deferred_mutex_.unlock();
+    }
     return member;
 }
 
@@ -661,23 +696,6 @@ void Simulation::invalidateCache() {
 
 inline unsigned long Simulation::maxThreads() { return max_threads_; }
 
-
-inline void Simulation::thr_stage_finished(const RunStage &curr_stage) {
-    if (maxThreads() > 0) {
-        {
-            std::unique_lock<std::mutex> lock(done_mutex_);
-            if (--thr_running_ == 0)
-                thr_cv_done_.notify_one();
-        }
-        thr_wait(curr_stage);
-    }
-}
-
-inline void Simulation::thr_wait(const RunStage &curr_stage) {
-    std::unique_lock<std::mutex> lock(stage_mutex_);
-    if (stage_ == curr_stage)
-        thr_cv_stage_.wait(lock, [this,curr_stage] { return stage_ != curr_stage; });
-}
 
 inline eris_time_t Simulation::t() const {
     return t_;
