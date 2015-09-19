@@ -4,6 +4,7 @@ project(eris_test)
 include(AddGTest)
 
 if (GTEST_SRC)
+    add_subdirectory(${GTEST_SRC} "${CMAKE_CURRENT_BINARY_DIR}/gtest")
 
     add_definitions(-DERIS_TESTS)
 
@@ -17,6 +18,7 @@ if (GTEST_SRC)
         lock-test
         pos-agent-test
         single-peak-search
+        stage-priority
         )
 
     foreach(t ${eris_tests})
