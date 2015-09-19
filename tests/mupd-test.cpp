@@ -60,6 +60,8 @@
 #include <eris/consumer/CobbDouglas.hpp>
 #include <eris/intraopt/MUPD.hpp>
 #include <eris/market/Bertrand.hpp>
+#include <eris/firm/PriceFirm.hpp>
+#include <eris/Good.hpp>
 #include <cmath>
 #include <gtest/gtest.h>
 

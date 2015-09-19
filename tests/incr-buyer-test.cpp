@@ -59,6 +59,9 @@
 #include <eris/consumer/Compound.hpp>
 #include <eris/intraopt/IncrementalBuyer.hpp>
 #include <eris/market/Bertrand.hpp>
+#include <eris/firm/PriceFirm.hpp>
+#include <eris/Good.hpp>
+#include <eris/debug.hpp>
 #include <cmath>
 #include <gtest/gtest.h>
 
