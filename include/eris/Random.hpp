@@ -147,10 +147,11 @@ class Random final {
          *
          * \param generator a random number generator such that `generator(eris::Random::rng())`
          * return a random draw from the untruncated distribution, and has a `result_type` member
-         * agreeing with `dist::value_type`.  This generator is only used if the given min and max
-         * don't actually truncate the distribution (for example, when attempting to draw a
-         * "truncated" normal with truncation range \f$[-\infty,\infty]\f$.  Both boost's random
-         * number generators and the C++11 random number generators are suitable.
+         * agreeing with `dist::value_type`.  This generator is used when the given min and max
+         * don't actually truncate the distribution, and for random sampling draws when
+         * `precdf_draws` is positive or when the cdf range is sufficiently large to prefer
+         * rejection sampling according to the `invcdf_below` parameter.  Both boost's random number
+         * generators and the C++11 random number generators are suitable.
          *
          * \param min the truncated region lower bound
          *
