@@ -254,7 +254,22 @@ class BundleNegative {
          * Any zero-value goods will be removed from `*this` before returning.
          *
          * This method is also useful for adding or removing approximate amounts from a bundle by
-         * simple ignoring the return value.
+         * simple ignoring the return value.  Thus the following:
+         *
+         *     bundle.transferApprox({ goodid, 3.0 });
+         *     bundle.transferApprox({ goodid, -4.0 });
+         *
+         * is roughly the same as:
+         *
+         *     bundle[goodid] -= 3.0;
+         *     bundle[goodid] += 4.0;
+         *
+         * except when the bundle initially contains values very close to (but not exactly equal to)
+         * 3 or -1: in the former case, the first transferApprox will remove slightly more or less
+         * than 3 (and remove the good from the bundle entirely); the second transferApprox adds
+         * exactly 4 units of `goodid` to the bundle.  If the initial value is -1, the first call
+         * subtracts exactly 3, and the second call ends up adding slightly more or less than 4 to
+         * bring the quantity to exactly 0 (and then removes it).
          *
          * \param amount the amount to transfer from `*this`.
          * \param epsilon the threshold (relative to initial value) below which quantities in the
