@@ -247,18 +247,36 @@ class BundleNegative {
 
         /** Transfers approximately the given amount from the caller object and returns it.  This is
          * like the above 3-argument transferApprox(BundleNegative, BundleNegative&, double)
-         * except that the amount is not transferred into a target Bundle but simply return.  Like
+         * except that the amount is not transferred into a target Bundle but simply returned.  Like
          * the 3-argument version, negative transfer amounts are added to the calling object and
          * will be negative in the returned object.
          *
          * Any zero-value goods will be removed from `*this` before returning.
+         *
+         * This method is also useful for adding or removing approximate amounts from a bundle by
+         * simple ignoring the return value.  Thus the following:
+         *
+         *     bundle.transferApprox({ goodid, 3.0 });
+         *     bundle.transferApprox({ goodid, -4.0 });
+         *
+         * is roughly the same as:
+         *
+         *     bundle[goodid] -= 3.0;
+         *     bundle[goodid] += 4.0;
+         *
+         * except when the bundle initially contains values very close to (but not exactly equal to)
+         * 3 or -1: in the former case, the first transferApprox will remove slightly more or less
+         * than 3 (and remove the good from the bundle entirely); the second transferApprox adds
+         * exactly 4 units of `goodid` to the bundle.  If the initial value is -1, the first call
+         * subtracts exactly 3, and the second call ends up adding slightly more or less than 4 to
+         * bring the quantity to exactly 0 (and then removes it).
          *
          * \param amount the amount to transfer from `*this`.
          * \param epsilon the threshold (relative to initial value) below which quantities in the
          * `amount` bundle will be truncated to 0.
          *
          * \returns the exact amount transferred out of *this, which may be slightly different from
-         * `amount` because of numerical pricision handling.
+         * `amount` because of numerical precision handling.
          *
          * \throws Bundle::negativity_error if either the caller is actually a Bundle object (rather
          * than BundleNegative) with insufficient quantities to approximately satisfy the transfer.
