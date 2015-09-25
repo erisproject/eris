@@ -15,10 +15,10 @@ TEST(Maximize, Quadratic) {
 TEST(Maximize, Quartic) {
     auto f = [] (const double &x) -> double { const double x2 = x*x; return -21237*x2*x2 + 13*x2 - 1247*x + 3; };
 
-    EXPECT_NEAR(-0.24526910870656568, single_peak_search(f, -10, 10), 2e-9);
+    EXPECT_NEAR(-0.24526910870656568, single_peak_search(f, -10, 10), 3e-9);
     EXPECT_NEAR(-0.24526910870656568, single_peak_search(f, -1, 0), 4e-9);
     EXPECT_NEAR(-0.24526910870656568, single_peak_search(f, -1e10, 1e10), 3e-9);
-    EXPECT_NEAR(-0.24526910870656568, single_peak_search(f, -0.246, 0.245), 2e-9);
+    EXPECT_NEAR(-0.24526910870656568, single_peak_search(f, -0.246, 0.245), 3e-9);
 }
 
 TEST(Maximize, LeftEndPoint) {
