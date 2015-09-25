@@ -190,14 +190,14 @@ class BundleNegative {
         /// Scales a BundleNegative's quantities by `1/d`
         BundleNegative& operator /= (const double d);
 
-        /// The default epsilon for transferApprox(), if not specified.
+        /// The default epsilon for transferApprox() and hasApprox(), if not specified.
         static constexpr double default_transfer_epsilon = 1.0e-12;
 
         /** Transfers (approximately) the given amount between two Bundles.  Positive quantities in
          * `amount` are transferred from the invoked object to the `to` Bundle; negative quantities
          * are transferred from the `to` Bundle to the invoked object.  The epsilon parameter is the
-         * relative amount that the transfer quantities may be adjusted in order to transfer the
-         * entire quantity away from a Bundle.
+         * amount, relative to initial bundle quantities, that the transfer quantities may be
+         * adjusted in order to transfer the entire quantity away from a Bundle.
          *
          * Calling
          *
@@ -221,11 +221,11 @@ class BundleNegative {
          * - If a transfer would result in a good in the source Bundle having a quantity with
          *   absolute value less than `epsilon` times the pre-transfer quantity, the transferred
          *   quantity of that good will instead be the total quantity in the source Bundle.
-         * - Otherwise, if a transfer would results in a good in the destination Bundle having a quantity with
-         *   absolute value less than `epsilon` times the pre-transfer quantity, the transferred
-         *   quantity will be the amount required to reach exactly 0.  (Note that this case is only
-         *   possible when the destination is a BundleNegative with a negative quantity, since the
-         *   destination bundle is always the one being added to).
+         * - Otherwise, if a transfer would results in a good in the destination Bundle having a
+         *   quantity with absolute value less than `epsilon` times the pre-transfer quantity, the
+         *   transferred quantity will be the amount required to reach exactly 0.  (Note that this
+         *   case is only possible when the destination is a BundleNegative with a negative
+         *   quantity, since the destination bundle is always the one being added to).
          *
          * \param amount the amount to transfer.  Goods with positive quantities are transferred
          * from the object into `to`; negative quantities are transferred frin `to` into the object.
@@ -242,16 +242,18 @@ class BundleNegative {
          * \throws Bundle::negativity_error if either the caller or `to` are actually Bundle objects
          * (rather than BundleNegative objects) with insufficient quantities to approximately
          * satisfy the transfer.
+         *
+         * \sa Bundle::hasApprox(const BundleNegative&, BundleNegative&, double)
          */
-        BundleNegative transferApprox(BundleNegative amount, BundleNegative &to, double epsilon = default_transfer_epsilon);
+        BundleNegative transferApprox(const BundleNegative &amount, BundleNegative &to, double epsilon = default_transfer_epsilon);
 
         /** Transfers approximately the given amount from the caller object and returns it.  This is
-         * like the above 3-argument transferApprox(BundleNegative, BundleNegative&, double)
+         * like the above 3-argument transferApprox(const BundleNegative&, BundleNegative&, double)
          * except that the amount is not transferred into a target Bundle but simply returned.  Like
          * the 3-argument version, negative transfer amounts are added to the calling object and
          * will be negative in the returned object.
          *
-         * Any zero-value goods will be removed from `*this` before returning.
+         * Any zero-quantity goods will be removed from `*this` before returning.
          *
          * This method is also useful for adding or removing approximate amounts from a bundle by
          * simple ignoring the return value.  Thus the following:
@@ -280,8 +282,10 @@ class BundleNegative {
          *
          * \throws Bundle::negativity_error if either the caller is actually a Bundle object (rather
          * than BundleNegative) with insufficient quantities to approximately satisfy the transfer.
+         *
+         * \sa Bundle::hasApprox(const BundleNegative&, double)
          */
-        BundleNegative transferApprox(BundleNegative amount, double epsilon = default_transfer_epsilon);
+        BundleNegative transferApprox(const BundleNegative &amount, double epsilon = default_transfer_epsilon);
 
         /// Adds two BundleNegative objects together and returns the result.
         BundleNegative operator + (const BundleNegative &b) const;
@@ -678,6 +682,41 @@ class Bundle final : public BundleNegative {
          * returning it.
          */
         static Bundle reduce(BundleNegative &a, BundleNegative &b);
+
+        /** Returns true if the called-upon bundle has approximately enough of each
+         * positive-quantity good in `amount`, and the bundle `to` has approximately enough of each
+         * negative-quantity good in `amount`.
+         *
+         *     a.hasApprox(transfer, b)
+         *
+         * is notionally equivalent to:
+         *
+         *     (a >= transfer.positive() and b >= transfer.negative())
+         *
+         * except that it allows slight numerical imprecision when the compared amounts are very
+         * similar.
+         *
+         * If this method returns true, it is a guarantee that transferApprox() called with the same
+         * arguments will succeed (i.e. without resulting in a BundleNegativity exception).
+         */
+        bool hasApprox(const BundleNegative &amount, const Bundle &to, double epsilon = default_transfer_epsilon) const;
+
+        /** Returns true if the called-upon bundle has approximately enough of each
+         * positive-quantity good in `amount` to complete a transfer via transferApprox().  Negative
+         * quantites in `amount` are ignored.
+         *
+         *     a.hasApprox(bundle)
+         *
+         * is notionally equivalent to:
+         *
+         *     (a >= bundle.positive())
+         *
+         * except that it allows for numerical error for goods with very similar quantities.
+         *
+         * If this method returns true, it is a guarantee that transferApprox() called with the same
+         * arguments will succeed (i.e. without resulting in a BundleNegativity exception).
+         */
+        bool hasApprox(const BundleNegative &amount, double epsilon = default_transfer_epsilon) const;
 
         /** Overloaded so that a Bundle can be printed nicely with `std::cout << bundle`.
          *

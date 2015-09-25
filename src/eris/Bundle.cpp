@@ -390,7 +390,7 @@ void BundleNegative::endEncompassing() {
 }
 
 
-BundleNegative BundleNegative::transferApprox(BundleNegative amount, BundleNegative &to, double epsilon) {
+BundleNegative BundleNegative::transferApprox(const BundleNegative &amount, BundleNegative &to, double epsilon) {
     beginTransaction(true);
     to.beginTransaction(true);
     BundleNegative actual;
@@ -435,7 +435,7 @@ BundleNegative BundleNegative::transferApprox(BundleNegative amount, BundleNegat
     return actual;
 }
 
-BundleNegative BundleNegative::transferApprox(BundleNegative amount, double epsilon) {
+BundleNegative BundleNegative::transferApprox(const BundleNegative &amount, double epsilon) {
     beginTransaction(true);
     BundleNegative actual;
     actual.beginEncompassing();
@@ -469,6 +469,33 @@ BundleNegative BundleNegative::transferApprox(BundleNegative amount, double epsi
     commitTransaction();
     actual.endEncompassing();
     return actual;
+}
+
+bool Bundle::hasApprox(const BundleNegative &amount, const Bundle &to, double epsilon) const {
+    for (auto &g : amount) {
+        double abs_transfer = fabs(g.second);
+        if (abs_transfer == 0) continue;
+
+        const double &q = g.second > 0 ? (*this)[g.first] : to[g.first];
+
+        // If the final amount is lower than -ε*(original q), the transferApprox will fail
+        if (q - abs_transfer <= -epsilon * q)
+            return false;
+    }
+    return true;
+}
+
+bool Bundle::hasApprox(const BundleNegative &amount, double epsilon) const {
+    for (auto &g : amount) {
+        if (g.second <= 0) continue;
+
+        const double &q = (*this)[g.first];
+
+        // If the final amount is lower than -ε*(original q), the transferApprox will fail
+        if (q - g.second <= -epsilon * q)
+            return false;
+    }
+    return true;
 }
 
 // Prints everything *after* the "Bundle" or "BundleNegative" tag, i.e. starting from "(".

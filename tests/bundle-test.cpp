@@ -894,7 +894,7 @@ TEST(Algebra, ConstantTimesBundle) {
 
     EXPECT_EQ(BundleNegative({{1,-7}, {2,1.5}}), -0.5*bn);
     EXPECT_EQ(Bundle({{1,7}, {2,1.5}}), 0.5*bp);
-    
+
     EXPECT_THROW(-3 * bp, Bundle::negativity_error);
 }
 TEST(Algebra, BundleDividedbyConstant) {
@@ -1018,6 +1018,12 @@ TEST(AlgebraicModifiers, TransferApprox) {
 
     EXPECT_EQ(Bundle({{1, 0}, {2, 0}, {3, 4999}, {4, 1000.5}}), ab);
     EXPECT_EQ(Bundle({{1, 5999}, {2, 30001}, {3, 95001}, {4, 0}}), cb);
+
+    // Test out hasApprox
+    Bundle ha {{1, 1001}}, hb {{2, 99}};
+    BundleNegative ht {{1, 1000}, {2, -99.3}};
+    EXPECT_TRUE(ha.hasApprox(ht, hb, .01));
+    EXPECT_FALSE(ha.hasApprox(ht, hb, .00001));
 }
 
 TEST(AdvancedAlgebra, BundleCoverage) {
