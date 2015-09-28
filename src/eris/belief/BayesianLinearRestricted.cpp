@@ -209,7 +209,10 @@ const VectorXd& BayesianLinearRestricted::drawGibbs() {
             : new MatrixXdR(s * R() * Ainv));
     const auto &D = *gibbs_D_;
 
-    if (not gibbs_r_Rbeta_) gibbs_r_Rbeta_.reset(new VectorXd(r() - R() * beta_));
+    if (not gibbs_r_Rbeta_) gibbs_r_Rbeta_.reset(
+            restrict_size_ == 0
+            ? new VectorXd(0)
+            : new VectorXd(r() - R() * beta_));
     const auto &r_minus_Rbeta_ = *gibbs_r_Rbeta_;
 
     if (not gibbs_last_z_) {
@@ -252,6 +255,7 @@ const VectorXd& BayesianLinearRestricted::drawGibbs() {
         if (restrict_size_ == 0) {
             // If no restrictions, simple: just draw it from the unconditional distribution
             // NB: gamma(n/2,2) === chisq(v)
+            // (Note: s2_ gets incorporated into this later)
             sigma = std::sqrt(n_ / chisq(rng));
         }
         else {

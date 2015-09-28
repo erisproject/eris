@@ -300,7 +300,7 @@ class BayesianLinearRestricted : public BayesianLinear {
          * \par Implementation details: drawing beta values
          *
          * In general, a non-truncated multivariate \f$t(\mu, \Sigma, \nu)\f$ can easily be formed
-         * by adding the mean to \f$\sqrt{\nu / \chi^2_{\nu}}\f$ times a draw from the
+         * by adding the mean to \f$\sqrt{\nu / (s^2 \chi^2_{\nu})}\f$ times a draw from the
          * (non-truncated) multivariate \f$N(\mathbf{0}, \mathbf{\Sigma})\f$ distribution (which
          * itself is easily drawn as \f$\mu + \mathbf{L} \mathbf{z}\f$, where \f$\mathbf{L}
          * \mathbf{L}^\top = \mathbf{\Sigma}\f$ (i.e.\ the Cholesky decomposition of

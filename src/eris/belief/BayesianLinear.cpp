@@ -98,41 +98,97 @@ void BayesianLinear::names(const std::vector<std::string> &names) {
     beta_names_default_ = false;
 }
 
-double BayesianLinear::predict(const Eigen::Ref<const Eigen::RowVectorXd> &Xi, unsigned int draws) {
+VectorXd BayesianLinear::predict(const Ref<const MatrixXd> &X, unsigned int draws) {
+    VectorXd y;
+    y = predictGeneric(X, [](double y) { return y; }, draws);
+    return y;
+}
+
+MatrixXd BayesianLinear::predictVariance(const Ref<const MatrixXd> &X, unsigned int draws) {
+    if (draws == 1 or (draws == 0 and prediction_draws_.cols() == 1))
+        throw std::logic_error("predictVariance() cannot calculate variance using only 1 draw");
+
+    std::vector<std::function<double(double)>> g;
+    g.emplace_back([](double y) { return y; }); // Mean
+    g.emplace_back([](double y) { return y*y; }); // E[y^2]
+
+    MatrixXd results = predictGeneric(X, g, draws);
+    results.col(1) =
+        draws / (double)(draws-1) * // Correct for sample variance bias
+        (results.col(1) - results.col(0).array().square().matrix()); // E[y^2] - E[y]^2
+    return results;
+}
+
+MatrixXd BayesianLinear::predictGeneric(const Ref<const MatrixXd> &X, const std::vector<std::function<double(double y)>> &g, unsigned draws) {
     if (noninformative_)
-        throw std::logic_error("Cannot call predict() on a noninformative model");
+        throw std::logic_error("Cannot call predict using a noninformative model");
+    if (g.empty())
+        throw std::logic_error("predictGeneric() called without any g() functions");
 
-    if (draws == 0) draws = mean_beta_draws_ > 0 ? mean_beta_draws_ : 1000;
+    if (draws == 0) draws = prediction_draws_.cols() > 0 ? prediction_draws_.cols() : 1000;
 
-    // If fewer draws were requested, we need to start over
-    if (draws < mean_beta_draws_)  {
-        mean_beta_draws_ = 0;
+    if (draws > prediction_draws_.cols()) {
+        unsigned i = prediction_draws_.cols();
+        prediction_draws_.conservativeResize(K_+1, draws);
+        for (; i < draws; i++) {
+            prediction_draws_.col(i) = draw();
+        }
     }
 
-    if (draws > mean_beta_draws_) {
-        // First sum up new draws to make up the difference:
-        VectorXd new_beta = VectorXd::Zero(K_);
-        for (long i = mean_beta_draws_; i < draws; i++) {
-            new_beta += draw().head(K_);
-        }
-        // Turn into a mean:
-        new_beta /= draws;
-
-        // If we had no draws at all before, just use the new vector
-        if (mean_beta_draws_ == 0) {
-            mean_beta_.swap(new_beta);
-        }
-        else {
-            // Otherwise we need to combine means by calculating a weighted mean of the two means,
-            // weighted by each mean's proportion of draws:
-            double w_existing = (double) mean_beta_draws_ / draws;
-            mean_beta_ = w_existing * mean_beta_ + (1 - w_existing) * new_beta;
-        }
-
-        mean_beta_draws_ = draws;
+    // Draw new error terms, if needed.
+    unsigned err_cols = prediction_errors_.cols(), err_rows = prediction_errors_.rows();
+    // Need more rows:
+    if (err_rows < X.rows()) {
+        err_rows = X.rows();
+        // We need new rows, but have to make sure that errors doesn't have more columns than
+        // draws (because we can't draw new errors for those columns)
+        if (err_cols > prediction_draws_.cols()) err_cols = prediction_draws_.cols();
     }
 
-    return Xi * mean_beta_;
+    // Need more columns:
+    if (err_cols < prediction_draws_.cols()) {
+        err_cols = prediction_draws_.cols();
+    }
+
+    auto &rng = Random::rng();
+    if (err_cols != prediction_errors_.cols() or err_rows != prediction_errors_.rows()) {
+        // Keep track of where we need to start filling:
+        unsigned startc = prediction_errors_.cols();
+        unsigned startr = prediction_errors_.rows();
+        prediction_errors_.conservativeResize(err_rows, err_cols);
+        for (unsigned c = (startr < err_rows ? 0 : startc); c < err_cols; c++) {
+            // For the first startc columns, we need to draw values for any new rows; for startc and
+            // beyond we need to draw values for every row:
+            std::normal_distribution<double> err(0, std::sqrt(prediction_draws_(K_, c)));
+            for (unsigned r = (c < startc ? startr : 0); r < err_rows; r++) {
+                prediction_errors_(r, c) = err(rng);
+            }
+        }
+    }
+
+    MatrixXd results = MatrixXd::Zero(X.rows(), g.size());
+    VectorXd ydraw;
+    for (unsigned i = 0; i < draws; i++) {
+        ydraw = X * prediction_draws_.col(i).head(K_) + prediction_errors_.col(i).head(X.rows());
+        for (unsigned t = 0; t < ydraw.size(); t++) for (unsigned gi = 0; gi < g.size(); gi++) {
+            results(t, gi) += g[gi](ydraw[t]);
+        }
+    }
+
+    return results / draws;
+}
+
+MatrixXd BayesianLinear::predictGeneric(const Ref<const MatrixXd> &X, const std::function<double(double)> &g, unsigned draws) {
+    std::vector<std::function<double(double)>> gvect;
+    gvect.push_back(g);
+    return predictGeneric(X, gvect, draws);
+}
+
+MatrixXd BayesianLinear::predictGeneric(const Ref<const MatrixXd> &X, const std::function<double(double)> &g0, const std::function<double(double)> &g1, unsigned draws) {
+    std::vector<std::function<double(double)>> gvect;
+    gvect.push_back(g0);
+    gvect.push_back(g1);
+    return predictGeneric(X, gvect, draws);
 }
 
 const VectorXd& BayesianLinear::draw() {
@@ -166,7 +222,7 @@ const VectorXd& BayesianLinear::draw() {
     // \]
 
     // To draw this, first draw a gamma-distributed "h" value (store its inverse)
-    last_draw_[K_] = 1.0 / std::gamma_distribution<double>(n_/2, 2/(s2_*n_))(rng);
+    last_draw_[K_] = n_ * s2_ / std::chi_squared_distribution<double>(n_)(rng);
 
     // Now use that to draw a multivariate normal conditional on h, with mean beta and variance
     // h^{-1} V; this is the beta portion of the draw:
@@ -188,13 +244,22 @@ VectorXd BayesianLinear::multivariateNormal(const Ref<const VectorXd> &mu, const
     return mu + L * (s * z);
 }
 
+VectorXd BayesianLinear::multivariateT(const Ref<const VectorXd> &mu, double nu, const Ref<const MatrixXd> &L, double s) {
+    VectorXd y(multivariateNormal(VectorXd::Zero(mu.size()), L, s));
+
+    double u = std::chi_squared_distribution<double>(nu)(Random::rng());
+
+    return mu + std::sqrt(nu / u) * y;
+}
+
 const VectorXd& BayesianLinear::lastDraw() const {
     return last_draw_;
 }
 
 void BayesianLinear::discard() {
     NO_EMPTY_MODEL;
-    mean_beta_draws_ = 0;
+    if (prediction_draws_.cols() > 0) prediction_draws_.resize(NoChange, 0);
+    if (prediction_errors_.cols() > 0) prediction_errors_.resize(0, 0);
 }
 
 std::ostream& operator<<(std::ostream &os, const BayesianLinear &b) {
@@ -294,7 +359,7 @@ void BayesianLinear::updateInPlace(const Ref<const VectorXd> &y, const Ref<const
             MatrixXd XtX = (noninf_X_->transpose() * *noninf_X_).selfadjointView<Lower>();
             auto qr = XtX.fullPivHouseholderQr();
             if (qr.rank() >= K()) {
-                beta_ = noninf_X_->jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(*noninf_y_);
+                beta_ = noninf_X_->jacobiSvd(ComputeThinU | ComputeThinV).solve(*noninf_y_);
 #ifdef EIGEN_HAVE_RVALUE_REFERENCES
                 V_inv_ = std::move(XtX);
 #else
@@ -405,13 +470,13 @@ void BayesianLinear::weakenInPlace(const double stdev_scale) {
         if (V_chol_L_.unique())
             *V_chol_L_ *= stdev_scale;
         else
-            V_chol_L_.reset(new Eigen::MatrixXd(*V_chol_L_ * stdev_scale));
+            V_chol_L_.reset(new MatrixXd(*V_chol_L_ * stdev_scale));
     }
     if (V_inv_chol_L_) {
         if (V_inv_chol_L_.unique())
             *V_inv_chol_L_ /= stdev_scale;
         else
-            V_inv_chol_L_.reset(new Eigen::MatrixXd(*V_inv_chol_L_ / stdev_scale));
+            V_inv_chol_L_.reset(new MatrixXd(*V_inv_chol_L_ / stdev_scale));
     }
 
     return;
@@ -435,7 +500,7 @@ const VectorXd& BayesianLinear::noninfYData() const {
 
 void BayesianLinear::reset() {
     if (last_draw_.size() > 0) last_draw_.resize(0);
-    mean_beta_draws_ = 0;
+    discard();
 }
 
 BayesianLinear::draw_failure::draw_failure(const std::string &what) : std::runtime_error(what) {}

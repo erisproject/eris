@@ -206,41 +206,95 @@ class BayesianLinear {
          */
         const Eigen::VectorXd& noninfYData() const;
 
-        /** Given a row vector of values \f$X^*\f$, predicts \f$y^*\f$ using the current model
-         * values by calling `draw()` the requested number of times, averaging the results, and
-         * returning Xi times the average beta.
+        /** Given a matrix of values \f$X^*\f$, predicts the mean \f$y^*\f$ by averaging draws from
+         * the appropriate distribution using the current posterior.
          *
-         * The average beta value is cached and reused, when possible.  In particular, if the
-         * currently cached beta means contains the requested number of draws, it is reused as is;
-         * if the current cached beta means is less than the requested number, new draws are
-         * performed to make up the difference; otherwise, if the requested draws is smaller than
-         * the current value, an entirely new set of draws is obtained.
+         * Each \f$y^*_i\f$ draw is from a multivariate \f$t\f$ distribution, centered at
+         * \f$X\beta\f$, with variance \f$s^2{I_T + X^*\overline{V}{X^*}^\top\f$, where \f$beta\f$
+         * and \f$s^2\f$ are draws from the posterior distribution, and \f$T\f$ is the number of
+         * rows in \f$X^*\f$.  Finally, the \f$y^*_i\f$ draws are averaged and the resulting vector
+         * is returned.
          *
-         * As a consequence, `double y1 = predict(X, 1000); double y2 = predict(X, 1000)` will
-         * return the same predicted values of y, but `double y1 = predict(X, 1000); predict(X, 1);
-         * double y2 = predict(X, 1000)` will typically produce entirely different values of `y1`
-         * and `y2`.
+         * Note that, when calling with a multi-row \f$X^*\f$, the returned \f$y^*\f$ values will be
+         * appropriately correlated through the above variance matrix but the individual
+         * distributions of the values will not differ.
          *
-         * The cached mean beta value can be implicitly reset by calling predict with a smaller
-         * value (as above), or explicitly reset by calling discard().
+         * The drawn set of \f$\beta\f$ and \f$s^2\f$ values are cached and reused, when possible.
+         * In particular, if the currently cached values contains at least the requested number of
+         * draws, the first `draws` draws are used from the cached values.  If greater than the
+         * cache, new draws are performed to make up the difference.  The cache can be explicitly
+         * dropped (if independent predictions are desired) by calling discard().
          *
-         * If `draws` is passed with a value of 0 (the default), the most recent draw is reused; if
-         * no draws have previously been done, this is equivalent to calling the method with
-         * draws=1000.
+         * As a consequence, `double y1 = predict(X, 1000); double y2 = model.predict(X, 1000)` will
+         * return the same predicted values of y, but `double y1 = model.predict(X, 1000);
+         * model.discard(); double y2 = predict(X, 1000)` will typically produce different values of
+         * `y1` and `y2`.
+         *
+         * If `draws` is passed with a value of 0 (the default), the current cache of draws is used,
+         * whatever its size; if no draws are currently cached, this is equivalent to calling the
+         * method with draws=1000.
          *
          * \throws std::logic_error if attempting to call predict() on an empty or noninformative
          * model.  (Such a model has no useful parameters).
          *
-         * \param Xi the data row
-         * \param draws the number of draws to take (or reuse).  See description above.
+         * \param X the data rows
+         * \param draws the number of draws to take (or reuse).  If 0, the current full cache of
+         * draws is used, if it exists, and a draw of 1000 is used otherwise.
          * \throws std::logic_error if attempting to call predict() on an empty or noninformative
          * model.
          */
-        virtual double predict(const Eigen::Ref<const Eigen::RowVectorXd> &Xi, unsigned int draws = 0);
+        Eigen::VectorXd predict(const Eigen::Ref<const Eigen::MatrixXd> &X, unsigned int draws = 0);
 
-        /** This method explicitly discards any previously obtained mean of beta draws, as used by
-         * predict.  The next predict() call after a call to this method will always perform new
-         * draws.
+        /** This works like predict(), but it calculates both the mean and the variance of the
+         * predictive values.
+         *
+         * \sa predict() for argument descriptions
+         *
+         * \returns a matrix with the first column set to the vector of predictive means as would be
+         * returned by predict() and the second column set to the estimated variances of those
+         * predicted values.
+         */
+        Eigen::MatrixXd predictVariance(const Eigen::Ref<const Eigen::MatrixXd> &X, unsigned int draws = 0);
+
+        /** Performs predicts for one or more functions of the predicted y* values.  For example,
+         * the function that simply returns y itself yields the mean; a function that returns y^2
+         * can be used to obtain the prediction variance.
+         *
+         * \param X the data rows.
+         * \param g a vector of functions to apply to y values.
+         * \param draws the number of draws to take (or reuse).  If 0, the current full cache of
+         * draws is used, if it exists, and a draw of 1000 is used otherwise.
+         * \returns a MatrixXd with the same number of rows as X and the same number of columns as
+         * the length of the `g` vector.  Each column is the mean of the associated g function
+         * across draws, each row corresponds to the predicted value of y* corresponding to the
+         * given row of X.
+         * \throws std::logic_error if attempting to call predict() on an empty or noninformative
+         * model.
+         */
+        virtual Eigen::MatrixXd predictGeneric(
+                const Eigen::Ref<const Eigen::MatrixXd> &X,
+                const std::vector<std::function<double(double y)>> &g,
+                unsigned int draws = 0);
+
+        /** Variant of predictGeneric that takes a single function instead of a vector of functions.
+         * This simply puts the function into a vector and calls predictGeneric with it. */
+        Eigen::MatrixXd predictGeneric(
+                const Eigen::Ref<const Eigen::MatrixXd> &X,
+                const std::function<double(double y)> &g,
+                unsigned int draws = 0);
+
+        /** Variant of predictGeneric that takes two functions instead of a vector of functions.
+         * This simply puts the functions into a vector and calls predictGeneric with it. */
+        Eigen::MatrixXd predictGeneric(
+                const Eigen::Ref<const Eigen::MatrixXd> &X,
+                const std::function<double(double y)> &g0,
+                const std::function<double(double y)> &g1,
+                unsigned int draws = 0);
+
+
+        /** This method explicitly discards any previously obtained beta, s2, and error draws, as
+         * used by predict.  The next predict() call after a call to this method will always perform
+         * new draws.
          */
         void discard();
 
@@ -249,15 +303,15 @@ class BayesianLinear {
          * values, the last value is the drawn \f$h^{-1}\f$ value.
          *
          * In particular, this uses a gamma distribution to first draw an h value, then uses that h
-         * value to draw multivariate normal beta values.  This means the \f$\beta\f$ values will have a
-         * multivariate t distribution with mean `beta()`, covariance parameter s2() times the
-         * inverse of Vinv(), and degrees of freedom parameter `n()`.
+         * value to draw multivariate normal beta values (conditional on h).  This means the
+         * \f$\beta\f$ values will have a multivariate t distribution with mean `beta()`, covariance
+         * parameter s2() times the inverse of Vinv(), and degrees of freedom parameter `n()`.
          *
          * \returns a const reference to the vector of values.  This same vector is accessible by
          * calling lastDraw().  Note that this vector is reused for subsequent draw() calls and so
          * should be copied into a new vector when storing past draws is necessary.
          *
-         * Subclasses overriding this method in should also consider overriding discard().
+         * Subclasses overriding this method in should also consider overriding reset().
          */
         virtual const Eigen::VectorXd& draw();
 
@@ -276,6 +330,26 @@ class BayesianLinear {
          */
         static Eigen::VectorXd multivariateNormal(
                 const Eigen::Ref<const Eigen::VectorXd> &mu,
+                const Eigen::Ref<const Eigen::MatrixXd> &L,
+                double s = 1.0);
+
+        /** Draws a multivariate t with mean \f$mu\f$, variance \f$s^2LL^\top\f$ (i.e. variance
+         * is taken as a constant and a Cholesky decomposition, which, when multiplied together, yield \f$\Sigma\f$),
+         * and degrees of freedom nu.
+         *
+         * This simply draws \f$y\f$ via multivariateNormal(Zero, L, s) and u from a
+         * \f$\chi^2_\nu\f$, then returns \f$\mu + y\sqrt{\frac{\nu}{u}}\f$.
+         *
+         * \param mu the vector means
+         * \param nu the degrees of freedom
+         * \param L the Cholesky decomposition matrix
+         * \param s a standard deviation multiplier for the Cholesky decomposition matrix.  Typically
+         * a \f$\sigma\f$ (NOT \f$\sigma^2\f$) value.  If omitted, defaults to 1 (so that you can
+         * just pass the Cholesky decomposition of the full covariance matrix).
+         */
+        static Eigen::VectorXd multivariateT(
+                const Eigen::Ref<const Eigen::VectorXd> &mu,
+                double nu,
                 const Eigen::Ref<const Eigen::MatrixXd> &L,
                 double s = 1.0);
 
@@ -425,7 +499,7 @@ class BayesianLinear {
          * parameters (beta_, n_, etc.) have been updated.
          *
          * The default base implementation clears the last draw value (as returned by draw() and lastDraw()),
-         * and clears the mean beta draws (as used by predict()).
+         * and calls discard() to clear the draw cache used by predict().
          */
         virtual void reset();
 
@@ -480,14 +554,16 @@ class BayesianLinear {
          */
         Eigen::VectorXd last_draw_;
 
-        /** The cache of drawn beta vectors used for prediction.  Must not be used if
-         * mean_beta_draws_ is 0.
+        /** The cache of drawn beta, s2, and error term values used for prediction.  Each column is
+         * a draw.
          */
-        Eigen::VectorXd mean_beta_;
-
-        /// The number of beta draws used to calculate mean_beta_
-        unsigned long mean_beta_draws_ = 0;
-
+        Eigen::MatrixXd prediction_draws_;
+        /** The cache of drawn error terms associated with prediction_draws_.  This is reused, when
+         * possible, so that subsequent calls to predict() receive the same set of errors, ensuring
+         * that (for example) a quadratic belief can be safely maximized since the mean every draw
+         * will have had the same (constant) error mean added to it.
+         */
+        Eigen::MatrixXd prediction_errors_;
 
     private:
         // Checks that the given matrices conform; called during construction; throws on error.
