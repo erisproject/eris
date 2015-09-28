@@ -62,7 +62,7 @@ const MatrixXd& BayesianLinear::Vinv() const { NO_EMPTY_MODEL; return V_inv_; }
 const MatrixXd& BayesianLinear::VcholL() const {
     NO_EMPTY_MODEL;
     if (not V_chol_L_)
-        V_chol_L_ = std::make_shared<MatrixXd>(VinvCholL().fullPivHouseholderQr().inverse());
+        V_chol_L_ = std::make_shared<MatrixXd>(Vinv().fullPivHouseholderQr().inverse().llt().matrixL());
     return *V_chol_L_;
 }
 const MatrixXd& BayesianLinear::VinvCholL() const {
