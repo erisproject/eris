@@ -4,8 +4,6 @@ project(eris_test)
 include(AddGTest)
 
 if (GTEST_SRC)
-    add_subdirectory(${GTEST_SRC} "${CMAKE_CURRENT_BINARY_DIR}/gtest")
-
     add_definitions(-DERIS_TESTS)
 
     link_directories(${GTEST_LIB})
