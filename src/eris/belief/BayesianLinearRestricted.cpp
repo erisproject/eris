@@ -241,7 +241,6 @@ const VectorXd& BayesianLinearRestricted::drawGibbs() {
         num_draws = draw_gibbs_thinning;
 
     std::chi_squared_distribution<double> chisq(n_);
-    boost::math::normal_distribution<double> stdnorm_dist(0, 1);
     boost::math::chi_squared_distribution<double> chisq_dist(chisq.n());
     // Calculate the median just once, as the median call is slightly expensive for a chi-squared dist,
     // but having the median avoids potential extra cdf calls below.
@@ -260,7 +259,7 @@ const VectorXd& BayesianLinearRestricted::drawGibbs() {
         }
         else {
             // Otherwise we need to look at the z values we drew in the previous round (or in
-            // gibbsInitialize() and draw an admissable sigma^2 value from the range of values that
+            // gibbsInitialize()) and draw an admissable sigma^2 value from the range of values that
             // wouldn't have caused a constraint violation had we used it to form beta = beta_ +
             // sigma*s*Ainv*z.  (See the method documentation for thorough details)
 
@@ -270,6 +269,8 @@ const VectorXd& BayesianLinearRestricted::drawGibbs() {
             // caused by the betas), but we can try to restart at the previous beta draw, which
             // might help.
             try {
+                if (range.first > range.second or range.second < 0)
+                    throw draw_failure("sigma draw failure: all admissable sigma values are negative");
                 sigma = std::sqrt(n_ / Random::truncDist(chisq_dist, chisq, n_ / (range.second*range.second), n_ / (range.first*range.first), chisq_n_median_, 0.05, 10));
             }
             catch (const std::runtime_error &df) {
@@ -279,14 +280,16 @@ const VectorXd& BayesianLinearRestricted::drawGibbs() {
                     // If it fails again, there's nothing we can do, so just wrap it up in a
                     // draw_failure and rethrow it.
                     try {
+                        if (range.first > range.second or range.second < 0)
+                            throw draw_failure("sigma draw failure: only admissable sigma values are negative");
                         sigma = std::sqrt(n_ / Random::truncDist(chisq_dist, chisq, n_ / (range.second*range.second), n_ / (range.first*range.first), chisq_n_median_, 0.05, 10));
                     }
                     catch (const std::runtime_error &df) {
-                        throw draw_failure(df.what());
+                        throw draw_failure(std::string("sigma draw failure: ") + df.what());
                     }
                 }
                 else {
-                    throw draw_failure(df.what()); // Don't have a previous beta to save us, so just throw with the underlying exception message
+                    throw draw_failure(std::string("sigma draw failure (no 2nd last): range is: [") + std::to_string(range.second) + "," + std::to_string(range.first) + "]: " + df.what()); // Don't have a previous beta to save us, so just throw with the underlying exception message
                 }
             }
 
@@ -298,6 +301,8 @@ const VectorXd& BayesianLinearRestricted::drawGibbs() {
         }
 
         s_sigma = sigma*s;
+        boost::math::normal_distribution<double> norm_dist(0, s_sigma);
+        std::normal_distribution<double> rnorm(0, s_sigma);
 
         try {
             for (unsigned int j = 0; j < K_; j++) {
@@ -330,7 +335,7 @@ const VectorXd& BayesianLinearRestricted::drawGibbs() {
 
                 // Our new Z is a truncated standard normal (truncated by the bounds we just found)
                 try {
-                    z[j] = Random::truncDist(stdnorm_dist, Random::stdnorm, lj, uj, 0.0);
+                    z[j] = Random::truncDist(norm_dist, rnorm, lj, uj, 0.0);
                 }
                 catch (const std::runtime_error &fail) {
                     // If the truncated normal fails, wrap in a draw failure and rethrow:

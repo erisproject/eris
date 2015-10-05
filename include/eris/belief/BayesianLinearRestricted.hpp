@@ -654,6 +654,9 @@ class BayesianLinearRestricted : public BayesianLinear {
 
         /* Returns the bounds on sigma for the given z draw. Lower bound is .first, upper bound is
          * .second.  gibbs_D_ and gibbs_r_Rbeta_ must be set.
+         *
+         * Note that this doesn't check whether the range is actually feasible: it could return a
+         * range with only negative values, for example.
          */
         std::pair<double, double> sigmaRange(const Eigen::VectorXd &z);
 
