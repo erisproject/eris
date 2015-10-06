@@ -1,9 +1,4 @@
 #pragma once
-#include <cstddef>
-#include <algorithm>
-#include <initializer_list>
-#include <string>
-#include <type_traits>
 #include <stdexcept>
 #include <vector>
 #include <ostream>
