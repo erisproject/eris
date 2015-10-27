@@ -1,6 +1,4 @@
 
-project(eris_test)
-
 include(AddGTest)
 
 if (GTEST_SRC)
@@ -23,7 +21,12 @@ if (GTEST_SRC)
     foreach(t ${eris_tests})
         add_executable("${t}" "${t}.cpp")
         target_link_libraries("${t}" eris gtest gtest_main)
-        add_test("${t}-run" "${t}" --gtest_color=yes)
+        # The following hacks around ctest's serious test target deficiency,
+        # http://public.kitware.com/Bug/view.php?id=8774
+        add_test("compile-test-${t}" "${CMAKE_COMMAND}" --build "${CMAKE_BINARY_DIR}" --target "${t}")
+        add_test(NAME "test-${t}" COMMAND ${t})
+        set_tests_properties("test-${t}" PROPERTIES DEPENDS "compile-test-${t}")
+        #add_depen
         add_dependencies(check "${t}")
     endforeach()
 

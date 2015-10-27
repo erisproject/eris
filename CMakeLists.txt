@@ -126,8 +126,8 @@ if (API_DOCS)
 endif()
 
 enable_testing()
-
-add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND})
+# Include a "check" target that works just like the "test" target, but in verbose mode.
+add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND} -V)
 add_subdirectory(tests EXCLUDE_FROM_ALL)
 
 set(arch ${CMAKE_HOST_SYSTEM_PROCESSOR})
