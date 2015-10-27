@@ -153,17 +153,17 @@ int main() {
                 std::cout << i;
             }
             std::cout << ")\n";
+            break;
         }
         order.clear();
     }
 
     if (seq1 + seq2 < tests) {
         std::cout << "One or more tests FAILED!\n";
+        return 1;
     }
     else {
         std::cout << "All tests passed (" << seq1 << "/" << tests << " sequence 1, " << seq2 << "/" << tests << " sequence 2)\n";
-    }
-    if (seq1 == tests || seq2 == tests) {
-        std::cout << "Potential failure: did not see a mix of sequences--this was either an unlucky run, or something has changed.\n";
+        return 0;
     }
 }
