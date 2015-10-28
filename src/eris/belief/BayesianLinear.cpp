@@ -62,14 +62,20 @@ const MatrixXd& BayesianLinear::Vinv() const { NO_EMPTY_MODEL; return V_inv_; }
 const MatrixXd& BayesianLinear::VcholL() const {
     NO_EMPTY_MODEL;
     if (not V_chol_L_)
-        V_chol_L_ = std::make_shared<MatrixXd>(Vinv().fullPivHouseholderQr().inverse().llt().matrixL());
+        V_chol_L_ = std::make_shared<MatrixXd>(V_inv_.fullPivHouseholderQr().inverse().llt().matrixL());
     return *V_chol_L_;
 }
 const MatrixXd& BayesianLinear::VinvCholL() const {
     NO_EMPTY_MODEL;
     if (not V_inv_chol_L_)
-        V_inv_chol_L_ = std::make_shared<MatrixXd>(V_inv_.llt().matrixL());
+        V_inv_chol_L_ = std::make_shared<MatrixXd>(V_inv_.selfadjointView<Lower>().llt().matrixL());
     return *V_inv_chol_L_;
+}
+const FullPivHouseholderQR<MatrixXd>& BayesianLinear::VinvCholLqr() const {
+    NO_EMPTY_MODEL;
+    if (not V_inv_chol_L_qr_)
+        V_inv_chol_L_qr_ = std::make_shared<FullPivHouseholderQR<MatrixXd>>(VinvCholL());
+    return *V_inv_chol_L_qr_;
 }
 
 const bool& BayesianLinear::noninformative() const { NO_EMPTY_MODEL; return noninformative_; }
@@ -371,6 +377,7 @@ void BayesianLinear::updateInPlace(const Ref<const VectorXd> &y, const Ref<const
                 // These are unlikely to be set since this model was noninformative, but just in case:
                 if (V_chol_L_) V_chol_L_.reset();
                 if (V_inv_chol_L_) V_inv_chol_L_.reset();
+                if (V_inv_chol_L_qr_) V_inv_chol_L_qr_.reset();
                 noninf_X_.reset();
                 noninf_y_.reset();
                 noninf_X_unweakened_.reset();
@@ -426,6 +433,7 @@ void BayesianLinear::updateInPlaceInformative(const Ref<const VectorXd> &y, cons
     // The decompositions will have to be recalculated, if set:
     if (V_chol_L_) V_chol_L_.reset();
     if (V_inv_chol_L_) V_inv_chol_L_.reset();
+    if (V_inv_chol_L_qr_) V_inv_chol_L_qr_.reset();
 }
 
 BayesianLinear BayesianLinear::weaken(const double stdev_scale) const & {
@@ -478,6 +486,7 @@ void BayesianLinear::weakenInPlace(const double stdev_scale) {
         else
             V_inv_chol_L_.reset(new MatrixXd(*V_inv_chol_L_ / stdev_scale));
     }
+    if (V_inv_chol_L_qr_) V_inv_chol_L_qr_.reset();
 
     return;
 }

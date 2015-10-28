@@ -397,8 +397,9 @@ class BayesianLinearRestricted : public BayesianLinear {
          * - Select a random row (with equal probability of each) from the set of rows of \f$v\f$
          *   that are strictly positive (i.e.  from the violated constraints).
          * - Adjust the current position by moving directly towards the nearest point on the
-         *   constraint, and move a distance of 1.5 times the distance to that nearest point.  In
-         *   other words, we "overshoot" the constraint boundary by 50%.
+         *   constraint in the transformed orthogonal space, and move a distance of 1.5 times the
+         *   distance to that nearest point.  In other words, we "overshoot" the constraint boundary
+         *   by 50%.
          * - Repeat until either all the constraints are satisfied.  If the constraints still
          *   haven't been satisfied after 100 iterations, abort with an exception.
          *
@@ -652,8 +653,11 @@ class BayesianLinearRestricted : public BayesianLinear {
         long gibbs_draws_ = 0;
         double chisq_n_median_ = std::numeric_limits<double>::signaling_NaN();
 
-        /* Returns the bounds on sigma for the given z draw. Lower bound is .first, upper bound is
-         * .second.  gibbs_D_ and gibbs_r_Rbeta_ must be set.
+        /* Returns the bounds on a sigma draw for the given z draw. Lower bound is .first, upper
+         * bound is .second.  gibbs_D_ and gibbs_r_Rbeta_ must be set.
+         *
+         * The returned ranges values *are* divided by sqrt(s2), expecting that the final "sigma"
+         * value will be s times a chi squared drawn with the bounds returned from here.
          *
          * Note that this doesn't check whether the range is actually feasible: it could return a
          * range with only negative values, for example.

@@ -1,5 +1,6 @@
 #pragma once
 #include <Eigen/Core>
+#include <Eigen/QR>
 #include <memory>
 #include <ostream>
 #include <vector>
@@ -180,14 +181,19 @@ class BayesianLinear {
         const Eigen::MatrixXd& Vinv() const;
 
         /** Accesses (calculating if not previously calculated) the "L" matrix of the cholesky
-         * decomposition of V, where LL' = V.  This is calculated by inverting the value of
-         * VinvCholL(), but caches the value (and so is more efficient if called more than once).
+         * decomposition of V, where LL' = V.  This is calculated by inverting Vinv() and then
+         * obtaining the Cholesky decomposition of that inverse; the value is cached, however, so
+         * that subsequent calls involve no additional calculation.
          */
         const Eigen::MatrixXd& VcholL() const;
 
-        /** Accesses (calculating if not previous calculated) the inverse of `VcholL()`.  Note that
-         * if VcholL() hasn't been calculated yet, this will calculate it. */
+        /** Accesses (calculating if not previous calculated) the Cholesky decomposition of
+         * `Vinv()`. */
         const Eigen::MatrixXd& VinvCholL() const;
+
+        /** Accesses (calculating if not previous calculated) the QR decomposition of VinvCholL().
+         */
+        const Eigen::FullPivHouseholderQR<Eigen::MatrixXd>& VinvCholLqr() const;
 
         /** Returns the X data that has been added into this model but hasn't yet been used due to
          * it not being sufficiently large and different enough to achieve full column rank.  The
@@ -527,6 +533,9 @@ class BayesianLinear {
 
             /// The cached "L" matrix of the Cholesky decomposition of V^{-1}, where LL' = V^{-1}.
             V_inv_chol_L_;
+
+            /// The cached QR decomposition of V_inv_chol_L_
+        mutable std::shared_ptr<Eigen::FullPivHouseholderQR<Eigen::MatrixXd>> V_inv_chol_L_qr_;
 
         /// The number of data points supporting this model, which need not be an integer.
         double n_;
