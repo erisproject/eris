@@ -1,6 +1,0 @@
-# Regenerates liberis.pc from the almost-completed build/liberis.pc.in, with just
-# CMAKE_INSTALL_PREFIX left to be overridden to /usr
-set(CMAKE_INSTALL_PREFIX /usr)
-configure_file("@CMAKE_CURRENT_BINARY_DIR@/liberis.pc.in"
-    "@CMAKE_CURRENT_BINARY_DIR@/liberis.pc"
-    @ONLY)

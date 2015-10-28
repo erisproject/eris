@@ -135,63 +135,20 @@ if (arch STREQUAL x86_64)
     set(arch amd64)
 endif()
 
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CPackProjectConfig.cmake.in
-    ${CMAKE_CURRENT_BINARY_DIR}/CPackProjectConfig.cmake
-    @ONLY)
-set(CPACK_PROJECT_CONFIG_FILE ${CMAKE_CURRENT_BINARY_DIR}/CPackProjectConfig.cmake)
-
-set(CPACK_DEBIAN_PACKAGE_SECTION libs)
-set(CPACK_DEBIAN_PACKAGE_MAINTAINER "${eris_author}")
-set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
-set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "${eris_url}")
-set(CPACK_DEBIAN_PACKAGE_DESCRIPTION "${eris_description}")
-
-set(CPACK_PACKAGE_VERSION_MAJOR ${ERIS_VERSION_MAJOR})
-set(CPACK_PACKAGE_VERSION_MINOR ${ERIS_VERSION_MINOR})
-set(CPACK_PACKAGE_VERSION_PATCH ${ERIS_VERSION_PATCH})
-
-set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
-if(NOT CPACK_GENERATOR)
-    set(CPACK_GENERATOR DEB)
-endif()
-
-set(CPACK_COMPONENTS_GROUPING ALL_COMPONENTS_IN_ONE)
-
-
-include(CPack)
-
 # Make liberis.pc for the 'make install' target
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/liberis.pc.in
     ${CMAKE_CURRENT_BINARY_DIR}/liberis.pc
     @ONLY)
-# And make another, liberis.pc.in, for the cpack targets; this one doesn't
-# replace CMAKE_INSTALL_PREFIX, but leaves it to be replaced during packaging
-# (in cmake/RegenPkgConfig.cmake), since the packages install into /usr rather
-# than CMAKE_INSTALL_PREFIX.
-set(prefix_save ${CMAKE_INSTALL_PREFIX})
-set(CMAKE_INSTALL_PREFIX "\@CMAKE_INSTALL_PREFIX\@")
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/liberis.pc.in
-    ${CMAKE_CURRENT_BINARY_DIR}/liberis.pc.in
-    @ONLY
-)
-set(CMAKE_INSTALL_PREFIX ${prefix_save})
-unset(prefix_save)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/RegenPkgConfig.cmake.in
-    ${CMAKE_CURRENT_BINARY_DIR}/RegenPkgConfig.cmake
-    @ONLY)
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/liberis.pc
-    DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig"
-    COMPONENT libs)
+
 install(TARGETS eris
-    DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-    COMPONENT libs)
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/liberis.pc
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig")
 install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/include/eris/"
     DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/eris/"
-    COMPONENT headers
     FILES_MATCHING PATTERN "*.hpp" PATTERN "*.h")
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/eris/"
     DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/eris/"
-    COMPONENT headers
     FILES_MATCHING PATTERN "*.hpp" PATTERN "*.h")
 
-install(FILES README.md LICENSE DESTINATION "${CMAKE_INSTALL_DOCDIR}" COMPONENT docs)
+install(FILES README.md LICENSE DESTINATION "${CMAKE_INSTALL_DOCDIR}")
