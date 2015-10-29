@@ -1,4 +1,19 @@
-eris (0.3.6-1) UNRELEASED; urgency=medium
+eris (0.3.6-2) unstable; urgency=medium
+
+  * gpb.conf: added upstream version and branch
+  * Install api docs into eris-doc/html
+  * Use local mathjax path; explicitly set build opts
+  * Include *.md files into the appropriate packages
+  * gpb.conf: added upstream version and branch
+  * Install api docs into eris-doc/html
+  * Use local mathjax path; explicitly set build opts
+  * Include *.md files into the appropriate packages
+  * Build using pbuilder
+  * Add missing Build-Dep on graphviz
+
+ -- Jason Rhinelander <jason@imaginary.ca>  Thu, 29 Oct 2015 16:12:48 -0400
+
+eris (0.3.6-1) unstable; urgency=medium
 
   * Initial release.
 
