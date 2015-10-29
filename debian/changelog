@@ -1,3 +1,9 @@
+eris (0.3.6-3) unstable; urgency=medium
+
+  * Fixed doc package name in liberis-dev suggests
+
+ -- Jason Rhinelander <jason@imaginary.ca>  Thu, 29 Oct 2015 17:57:36 -0400
+
 eris (0.3.6-2) unstable; urgency=medium
 
   * gpb.conf: added upstream version and branch
