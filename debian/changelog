@@ -1,3 +1,9 @@
+eris (0.3.6-2~jessie1) UNRELEASED; urgency=medium
+
+  * Eigen 3.2.2 fix for jessie: don't specify size of null vector
+
+ -- Jason Rhinelander <jason@imaginary.ca>  Thu, 29 Oct 2015 17:20:48 -0400
+
 eris (0.3.6-2) unstable; urgency=medium
 
   * gpb.conf: added upstream version and branch
