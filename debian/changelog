@@ -1,3 +1,10 @@
+eris (0.3.6-4) unstable; urgency=medium
+
+  * Added upstream master README, vector size fixes
+  * Added missing Homepage to debian/control
+
+ -- Jason Rhinelander <jason@imaginary.ca>  Fri, 30 Oct 2015 14:14:22 -0400
+
 eris (0.3.6-3) unstable; urgency=medium
 
   * Fixed doc package name in liberis-dev suggests

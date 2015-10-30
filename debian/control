@@ -1,6 +1,7 @@
 Source: eris
 Section: science
 Maintainer: Jason Rhinelander <jason@imaginary.ca>
+Homepage: https://git.imaginary.ca/eris/eris
 Priority: optional
 Standards-Version: 3.9.6
 Build-Depends: debhelper (>= 9), cmake, libeigen3-dev (>= 3.2.2), libboost-dev, doxygen, libgtest-dev, graphviz
@@ -37,7 +38,7 @@ Package: eris-doc
 Section: doc
 Architecture: all
 Depends: libjs-mathjax, ${misc:Depends}
-Description: Eris economics agent-based modelling library (development files)
+Description: Eris economics agent-based modelling library (HTML documentation)
  Eris is a C++ library for creating agent-based economics models that simulate
  "economies" consisting of agents who follow programmable rules, with the
  intention of deriving complex macro behaviour from the micro behaviour and
