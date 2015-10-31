@@ -29,9 +29,9 @@ set(ERIS_VERSION "${ERIS_VERSION_MAJOR}.${ERIS_VERSION_MINOR}.${ERIS_VERSION_PAT
 # If there is no code change (e.g. the release is just a documentation update)
 # then none of these change.
 #
-# (So something like 3.7.1 indicates the 8th revision of the liberis-3
-# interface, and that code that links against liberis-2.* can link against this
-# version, but code that links against liberis-1.* cannot.
+# (So something like 3.7.1 indicates the 8th revision of the liberis.so.3
+# interface, and that code that links against liberis.so.2 can safely link
+# against this version, but code that links against liberis.so.1 cannot.
 set(LIBERIS_CURRENT  "4")
 set(LIBERIS_REVISION "0")
 set(LIBERIS_AGE      "0")
