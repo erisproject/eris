@@ -1,21 +1,18 @@
 From: Jason Rhinelander <jason@imaginary.ca>
-Date: Tue, 3 Nov 2015 12:50:16 -0500
-Subject: Use boost::is_base_of instead of std::is_base_of
+Date: Tue, 3 Nov 2015 15:47:25 -0500
+Subject: Replace std::is_base_of with boost::is_base_of
 
-libstdc++-4.8 seems to have a broken std::is_base_of when one of the
-dependent types is const; this commit changes to boost::is_base_of,
-which doesn't have the same problem.
 ---
- include/eris/Member.hpp       |  7 ++++---
- include/eris/SharedMember.hpp |  5 +++--
- include/eris/Simulation.hpp   | 27 ++++++++++++++-------------
- include/eris/algorithms.hpp   |  5 +++--
- 4 files changed, 24 insertions(+), 20 deletions(-)
+ eris/Member.hpp       |  7 ++++---
+ eris/SharedMember.hpp |  5 +++--
+ eris/Simulation.hpp   | 33 +++++++++++++++++----------------
+ eris/algorithms.hpp   |  5 +++--
+ 4 files changed, 27 insertions(+), 23 deletions(-)
 
-diff --git a/include/eris/Member.hpp b/include/eris/Member.hpp
+diff --git a/eris/Member.hpp b/eris/Member.hpp
 index 1ad35b8..1c2a935 100644
---- a/include/eris/Member.hpp
-+++ b/include/eris/Member.hpp
+--- a/eris/Member.hpp
++++ b/eris/Member.hpp
 @@ -10,6 +10,7 @@
  #include <type_traits>
  #include <algorithm>
@@ -51,10 +48,10 @@ index 1ad35b8..1c2a935 100644
                  >::type* = 0) const {
              const bool has_sim = hasSimulation();
              if (has_sim and maxThreads() == 0) return Member::Lock(write); // Fake lock
-diff --git a/include/eris/SharedMember.hpp b/include/eris/SharedMember.hpp
+diff --git a/eris/SharedMember.hpp b/eris/SharedMember.hpp
 index 6ef243f..da0245f 100644
---- a/include/eris/SharedMember.hpp
-+++ b/include/eris/SharedMember.hpp
+--- a/eris/SharedMember.hpp
++++ b/eris/SharedMember.hpp
 @@ -5,6 +5,7 @@
  #include <typeinfo>
  #include <functional>
@@ -81,10 +78,10 @@ index 6ef243f..da0245f 100644
              : ptr_{std::dynamic_pointer_cast<T,F>(from.ptr())} {
              // Raise an exception if the ptr above gave back a null shared pointer: that means the
              // cast attempted to cast to a derived class, when the actual object is only a base
-diff --git a/include/eris/Simulation.hpp b/include/eris/Simulation.hpp
-index 281ccda..fa7917e 100644
---- a/include/eris/Simulation.hpp
-+++ b/include/eris/Simulation.hpp
+diff --git a/eris/Simulation.hpp b/eris/Simulation.hpp
+index 5786d95..01f6126 100644
+--- a/eris/Simulation.hpp
++++ b/eris/Simulation.hpp
 @@ -19,6 +19,7 @@
  #include <atomic>
  #include <condition_variable>
@@ -93,7 +90,7 @@ index 281ccda..fa7917e 100644
  
  /// Base namespace containing all eris classes.
  namespace eris {
-@@ -61,23 +62,23 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
+@@ -61,27 +62,27 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
          /** Accesses an agent given the agent's eris_id_t.  Templated to allow conversion to
           * a SharedMember of the given Agent subclass; defaults to Agent.
           */
@@ -116,12 +113,19 @@ index 281ccda..fa7917e 100644
           * typically an optimization object.
           */
          template <class O = Member, typename = typename std::enable_if<
--            std::is_base_of<Member, O>::value and not std::is_base_of<Agent, O>::value and not std::is_base_of<Market, O>::value
-+            boost::is_base_of<Member, O>::value and not boost::is_base_of<Agent, O>::value and not boost::is_base_of<Market, O>::value
+-            std::is_base_of<Member, O>::value
++            boost::is_base_of<Member, O>::value
+             and not (
+-                    std::is_base_of<Agent, O>::value or
+-                    std::is_base_of<Good, O>::value or
+-                    std::is_base_of<Market, O>::value)
++                    boost::is_base_of<Agent, O>::value or
++                    boost::is_base_of<Good, O>::value or
++                    boost::is_base_of<Market, O>::value)
              >::type>
          SharedMember<O> other(eris_id_t oid) const;
  
-@@ -107,7 +108,7 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
+@@ -111,7 +112,7 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
           *     auto good = sim->spawn<Good::Continuous>("x");
           *     auto market = sim->spawn<Bertrand>(Bundle(good, 1), Bundle(money, 1));
           */
@@ -130,7 +134,7 @@ index 281ccda..fa7917e 100644
          SharedMember<T> spawn(Args&&... args);
  
          /** Old version of spawn<T>().
-@@ -142,7 +143,7 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
+@@ -146,7 +147,7 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
           * small subset of the overall set of agents.  The cache is invalidated when any agent (of
           * any type) is added or removed.
           */
@@ -139,7 +143,7 @@ index 281ccda..fa7917e 100644
          std::vector<SharedMember<A>> agents(const std::function<bool(const A &agent)> &filter = nullptr) const;
          /** Provides a count of matching simulation agents.  Agents are filtered by class and/or
           * callable filter and the count of matching agents is returned.  This is equivalent to
-@@ -151,7 +152,7 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
+@@ -155,7 +156,7 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
           * Note that this method populates and uses the same cache as agents() when `A` is not the
           * default `Agent` class.
           */
@@ -148,7 +152,7 @@ index 281ccda..fa7917e 100644
          size_t countAgents(const std::function<bool(const A &agent)> &filter = nullptr) const;
  
          /** Provides a filtered vector of simulation goods.  This works just like agents(), but for
-@@ -159,13 +160,13 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
+@@ -163,13 +164,13 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
           *
           * \sa agents()
           */
@@ -164,7 +168,7 @@ index 281ccda..fa7917e 100644
          size_t countGoods(const std::function<bool(const G &good)> &filter = nullptr) const;
  
          /** Provides a filtered vector of simulation markets.  This works just like agents(), but
-@@ -173,13 +174,13 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
+@@ -177,13 +178,13 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
           *
           * \sa agents()
           */
@@ -180,7 +184,7 @@ index 281ccda..fa7917e 100644
          size_t countMarkets(const std::function<bool(const M &good)> &filter = nullptr) const;
  
          /** Provides a filtered vector of non-agent/good/market simulation objects.  This works just like
-@@ -188,7 +189,7 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
+@@ -192,7 +193,7 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
           * \sa agentFilter
           */
          template <class O = Member, typename = typename std::enable_if<
@@ -189,7 +193,7 @@ index 281ccda..fa7917e 100644
              >::type>
          std::vector<SharedMember<O>> others(const std::function<bool(const O &other)> &filter = nullptr) const;
          /** Provides a count of matching simulation non-agent/good/market members.  Members are
-@@ -196,7 +197,7 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
+@@ -200,7 +201,7 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
           * This is equivalent to members<G>(filter).size(), but more efficient.
           */
          template <class O = Member, typename = typename std::enable_if<
@@ -198,10 +202,10 @@ index 281ccda..fa7917e 100644
              >::type>
          size_t countOthers(const std::function<bool(const O &good)> &filter = nullptr) const;
  
-diff --git a/include/eris/algorithms.hpp b/include/eris/algorithms.hpp
-index 74e1e2b..6c468ac 100644
---- a/include/eris/algorithms.hpp
-+++ b/include/eris/algorithms.hpp
+diff --git a/eris/algorithms.hpp b/eris/algorithms.hpp
+index 4aebadb..c8d1d48 100644
+--- a/eris/algorithms.hpp
++++ b/eris/algorithms.hpp
 @@ -6,6 +6,7 @@
  #include <vector>
  #include <limits>
@@ -210,16 +214,16 @@ index 74e1e2b..6c468ac 100644
  
  namespace eris {
  
-@@ -44,7 +45,7 @@ namespace eris {
- // g++ needs it, so everything has to deal with it.  Try again, eventually, to remove it, changing
- // the 'T' types below to 'typename It::value_type'.
- template <typename T, typename It>
+@@ -37,7 +38,7 @@ namespace eris {
+  *        will be in the same order as encountered in the input iterator.
+  */
+ template <typename It>
 -typename std::enable_if<std::is_base_of<std::forward_iterator_tag, typename std::iterator_traits<It>::iterator_category>::value>::type
 +typename std::enable_if<boost::is_base_of<std::forward_iterator_tag, typename std::iterator_traits<It>::iterator_category>::value>::type
  all_combinations(
              const It &begin,
              const It &end,
-@@ -109,7 +110,7 @@ all_combinations(
+@@ -102,7 +103,7 @@ all_combinations(
  template <class BidirIt>
  typename std::enable_if<
      std::is_integral<typename BidirIt::value_type>::value and
