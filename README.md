@@ -25,25 +25,18 @@ with alternative implementations.
 
 The library name, Eris, is the name of the Greek goddess of chaos.
 
-## Requirements
-
-- [boost](http://www.boost.org/); only the Math component is needed.
-- [Eigen](http://eigen.tuxfamily.org/)
-- A C++ compiler supporting the C++11 standard, such as
-  [clang](http://clang.llvm.org/) (3.3+) or [g++](https://gcc.gnu.org/) (4.9+)
-
 ## Installing (Debian-based systems)
 
 Regularly updated library, header, and documentation packages are available for
-amd64 systems by adding the following repository to /etc/apt/sources.list:
-
-    deb https://imaginary.ca/debian sid main
-
-(for Debian testing or unstable), or
+amd64 systems by adding one of the following lines to /etc/apt/sources.list:
 
     deb https://imaginary.ca/debian jessie main
+    deb https://imaginary.ca/debian sid main
+    deb https://imaginary.ca/ubuntu trusty main
+    deb https://imaginary.ca/ubuntu wily main
 
-(for the current Debian stable release).
+The first is for debian stable; the second for debian testing and unstable; the
+last two are for Ubuntu releases.
 
 The required key signature for package verification can be installed using:
 
@@ -52,15 +45,29 @@ The required key signature for package verification can be installed using:
 You generally want to install the liberis-dev package and possibly the eris-doc
 package.
 
-These packages are build from the "debian" and "debian-jessie" branch of the
-package repository.
+These packages are built from the "debian", "debian-jessie", "ubuntu-trusty",
+and "ubuntu-wily" branches of the eris package repository.
 
 ## Compiling
+
+### Requirements
+
+- [boost](http://www.boost.org/); only the Math component is needed.
+- [Eigen](http://eigen.tuxfamily.org/)
+- A C++ compiler supporting the C++11 standard, such as
+  [clang](http://clang.llvm.org/) (3.3+) or [g++](https://gcc.gnu.org/) (4.9+)
+
+If you wish to build the HTML API documentation, additional requirements are:
+- [doxygen](http://www.stack.nl/~dimitri/doxygen/)
+- [graphviz](http://www.graphviz.org)
+= [mathjax](https://www.mathjax.org)
+
+### Building
 
 To compile on a unix-like system, create a new build directory somewhere, then
 from this directory run:
 
-    cmake /path/to/eris
+    cmake /path/to/eris-src
     make -j4
 
 You can install directly to the system (usually under /usr/local) using:
