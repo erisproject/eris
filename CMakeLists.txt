@@ -12,7 +12,7 @@ set(eris_description "Agent-based economic modelling library")
 # Eris package version
 set(ERIS_VERSION_MAJOR "0")
 set(ERIS_VERSION_MINOR "3")
-set(ERIS_VERSION_PATCH "6")
+set(ERIS_VERSION_PATCH "7")
 set(ERIS_VERSION "${ERIS_VERSION_MAJOR}.${ERIS_VERSION_MINOR}.${ERIS_VERSION_PATCH}")
 
 # eris library version (CURRENT.REVISION.AGE), which is totally separate
@@ -29,9 +29,9 @@ set(ERIS_VERSION "${ERIS_VERSION_MAJOR}.${ERIS_VERSION_MINOR}.${ERIS_VERSION_PAT
 # If there is no code change (e.g. the release is just a documentation update)
 # then none of these change.
 #
-# (So something like 3.7.1 indicates the 8th revision of the liberis-3
-# interface, and that code that links against liberis-2.* can link against this
-# version, but code that links against liberis-1.* cannot.
+# (So something like 3.7.1 indicates the 8th revision of the liberis.so.3
+# interface, and that code that links against liberis.so.2 can safely link
+# against this version, but code that links against liberis.so.1 cannot.
 set(LIBERIS_CURRENT  "4")
 set(LIBERIS_REVISION "0")
 set(LIBERIS_AGE      "0")
@@ -64,8 +64,8 @@ else()
     message(STATUS "API documentation generation disabled (-DAPI_DOCS=on to enable)")
 endif()
 
-file(GLOB_RECURSE eris_src RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} src/*.cpp)
-file(GLOB_RECURSE eris_src_include RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} include/*.h include/*.hpp include/*.h.in include/*.hpp.in)
+file(GLOB_RECURSE eris_src RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} eris/*.cpp)
+file(GLOB_RECURSE eris_src_include RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} eris/*.h eris/*.hpp eris/*.h.in eris/*.hpp.in)
 
 foreach(h ${eris_src_include})
     if(h MATCHES "\\.in$")
@@ -76,8 +76,8 @@ foreach(h ${eris_src_include})
         list(APPEND eris_doc_include "${CMAKE_CURRENT_SOURCE_DIR}/${h}")
     endif()
 endforeach()
-include_directories("${CMAKE_CURRENT_SOURCE_DIR}/include")
-include_directories("${CMAKE_CURRENT_BINARY_DIR}/include")
+include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 set(CMAKE_CXX_FLAGS "-std=c++11 -O2 -Wall -Wextra ${CMAKE_CXX_FLAGS}")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -DERIS_DEBUG")
@@ -103,12 +103,11 @@ if (IWYU)
     file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/iwyu.cpp "// Do-nothing file for IWYU testing of headers without associated .cpp files\n")
     foreach(h ${eris_src_include})
         if ((NOT h MATCHES "\\.in$")
-                AND (NOT h STREQUAL "include/eris/debug.hpp") # The macro voodoo in here confuses IWYU
+                AND (NOT h STREQUAL "eris/debug.hpp") # The macro voodoo in here confuses IWYU
                 )
-            string(REGEX REPLACE "include/eris/(.*)\\.hpp$" "src/eris/\\1.cpp" src "${h}")
+            string(REGEX REPLACE "eris/(.*)\\.hpp$" "eris/\\1.cpp" src "${h}")
             if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${src}")
-                string(REGEX REPLACE "^include/" "" h_noinc "${h}")
-                file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/iwyu.cpp "#include <${h_noinc}> // IWYU pragma: keep\n")
+                file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/iwyu.cpp "#include <${h}> // IWYU pragma: keep\n")
                 list(APPEND IWYU_ARGS_HPP_ONLY "-Xiwyu" "--check_also=${CMAKE_CURRENT_SOURCE_DIR}/${h}")
             endif()
         endif()
@@ -144,10 +143,10 @@ install(TARGETS eris
     DESTINATION "${CMAKE_INSTALL_LIBDIR}")
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/liberis.pc
     DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig")
-install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/include/eris/"
+install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/eris/"
     DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/eris/"
     FILES_MATCHING PATTERN "*.hpp" PATTERN "*.h")
-install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/eris/"
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/eris/"
     DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/eris/"
     FILES_MATCHING PATTERN "*.hpp" PATTERN "*.h")
 
