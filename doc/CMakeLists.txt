@@ -9,7 +9,9 @@ endif()
 # Can set NO_MATHJAX to true to skip looking for the system MathJax, in which
 # case the default (MathJax via public CDN) will be used by doxygen.
 set(mathjax_usable_path "")
-if (NOT NO_MATHJAX)
+if (MATHJAX_PATH)
+    set(mathjax_usable_path "${MATHJAX_PATH}")
+elseif (NOT NO_MATHJAX)
     find_package(MathJax 2.3)
     if(MATHJAX_FOUND)
         set(mathjax_usable_path "${MATHJAX_PATH}")
