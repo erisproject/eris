@@ -77,7 +77,11 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
          * typically an optimization object.
          */
         template <class O = Member, typename = typename std::enable_if<
-            std::is_base_of<Member, O>::value and not std::is_base_of<Agent, O>::value and not std::is_base_of<Market, O>::value
+            std::is_base_of<Member, O>::value
+            and not (
+                    std::is_base_of<Agent, O>::value or
+                    std::is_base_of<Good, O>::value or
+                    std::is_base_of<Market, O>::value)
             >::type>
         SharedMember<O> other(eris_id_t oid) const;
 
