@@ -168,7 +168,7 @@ void BayesianLinearRestricted::gibbsInitialize(const Ref<const VectorXd> &initia
 
     if (not gibbs_r_Rbeta_) gibbs_r_Rbeta_.reset(
             restrict_size_ == 0
-            ? new VectorXd(0)
+            ? new VectorXd()
             : new VectorXd(r() - R() * beta_));
     const auto &r_minus_Rbeta_ = *gibbs_r_Rbeta_;
 
@@ -230,7 +230,7 @@ const VectorXd& BayesianLinearRestricted::drawGibbs() {
 
     if (not gibbs_r_Rbeta_) gibbs_r_Rbeta_.reset(
             restrict_size_ == 0
-            ? new VectorXd(0)
+            ? new VectorXd()
             : new VectorXd(r() - R() * beta_));
     const auto &r_minus_Rbeta_ = *gibbs_r_Rbeta_;
 
