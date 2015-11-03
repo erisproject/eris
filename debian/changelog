@@ -1,3 +1,18 @@
+eris (0.3.7-1) unstable; urgency=low
+
+  * New release: 0.3.7
+  * Removed upstream-applied patches
+  * Updated comment about .so versions
+  * Fix MathJax CDN use when MathJax not installed
+  * Reverted unintended commit from fracdist
+  * sim->other<O>() was missing a test on O != Good
+  * Remove hack needed for g++-4.8
+  * Merge src/eris, include/eris -> eris/
+  * Fix include path stripping
+  * README repository updates and reorganization
+
+ -- Jason Rhinelander <jason@imaginary.ca>  Tue, 03 Nov 2015 14:47:54 -0500
+
 eris (0.3.6-4) unstable; urgency=medium
 
   * Added upstream master README, vector size fixes
