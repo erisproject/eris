@@ -34,12 +34,12 @@ int main() {
     permute.insert(88);
     permute.insert(99);
 
-    eris::all_combinations<eris_id_t>(permute.begin(), permute.end(), print_vec);
-    eris::all_combinations<eris_id_t>(permute.crbegin(), permute.crend(),
+    eris::all_combinations(permute.begin(), permute.end(), print_vec);
+    eris::all_combinations(permute.crbegin(), permute.crend(),
             [](const std::vector<eris_id_t> &comb) -> void { print_vec(comb); });
 
     std::unordered_set<eris_id_t> pb;
     pb.insert(33);
     pb.insert(44);
-    eris::all_combinations<eris_id_t>(pb.cbegin(), pb.cend(), print_vec);
+    eris::all_combinations(pb.cbegin(), pb.cend(), print_vec);
 }
