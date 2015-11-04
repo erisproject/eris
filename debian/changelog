@@ -1,3 +1,10 @@
+eris (0.3.7-2~jessie1) stable; urgency=low
+
+  * Fixed very broken source file move
+  * Backport to jessie
+
+ -- Jason Rhinelander <jason@imaginary.ca>  Tue, 03 Nov 2015 20:11:14 -0500
+
 eris (0.3.7-1~jessie1) stable; urgency=low
 
   * Release 0.3.7
