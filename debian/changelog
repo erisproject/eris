@@ -1,4 +1,4 @@
-eris (0.3.7-2) unstable; urgency=low
+eris (0.3.7-2~wily1) wily; urgency=low
 
   * Fixed very broken source file move in initial 0.3.7 mis-release.
 
