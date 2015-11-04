@@ -1,6 +1,7 @@
-eris (0.3.7-2~trusty1) stable; urgency=low
+eris (0.3.7-2~trusty1) trusty; urgency=low
 
   * Release 0.3.7
+  * Backport to ubuntu trusty
   * README: proper debian packages; no more cpack
   * Updated comment about .so versions
   * Fix MathJax CDN use when MathJax not installed
