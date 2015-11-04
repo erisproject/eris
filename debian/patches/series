@@ -1,1 +1,2 @@
 0001-Replace-std-is_base_of-with-boost-is_base_of.patch
+0002-gcc-4.8-template-std-functions-hack.patch

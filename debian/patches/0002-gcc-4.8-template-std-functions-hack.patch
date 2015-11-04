@@ -1,0 +1,59 @@
+From: Jason Rhinelander <jason@imaginary.ca>
+Date: Tue, 3 Nov 2015 19:54:56 -0500
+Subject: gcc 4.8 template std::functions hack
+
+---
+ eris/algorithms.hpp | 20 +++++++++++++++++---
+ 1 file changed, 17 insertions(+), 3 deletions(-)
+
+diff --git a/eris/algorithms.hpp b/eris/algorithms.hpp
+index c8d1d48..2ca9bb7 100644
+--- a/eris/algorithms.hpp
++++ b/eris/algorithms.hpp
+@@ -6,7 +6,6 @@
+ #include <vector>
+ #include <limits>
+ #include <utility>
+-#include <boost/type_traits/is_base_of.hpp>
+ 
+ namespace eris {
+ 
+@@ -37,13 +36,28 @@ namespace eris {
+  *        set.  Despite being in a vector, these values should really be treated as a set.  Values
+  *        will be in the same order as encountered in the input iterator.
+  */
++#if __GNUC__ == 4 && __GNUC_MINOR__ <= 8
++template <typename It, typename FType>
++typename std::enable_if<std::is_base_of<std::forward_iterator_tag, typename std::iterator_traits<It>::iterator_category>::value>::type
++all_combinations(
++            const It &begin,
++            const It &end,
++            const FType &func
++            ) {
++    // Under gcc before 4.9, the std::function signature below (erroneously) fails to match.  The
++    // hack applied here accepts anything as third argument, but then ensures it can be passed to a
++    // std::function constructor.  This violates SFINAE, but at least it sort of enforces a callable
++    // third argument.
++    if (0) std::function<void(const std::vector<typename It::value_type> &)> ALL_COMBINATIONS_REQUIRES_A_CALLABLE_THIRD_ARGUMENT(func);
++#else
+ template <typename It>
+-typename std::enable_if<boost::is_base_of<std::forward_iterator_tag, typename std::iterator_traits<It>::iterator_category>::value>::type
++typename std::enable_if<std::is_base_of<std::forward_iterator_tag, typename std::iterator_traits<It>::iterator_category>::value>::type
+ all_combinations(
+             const It &begin,
+             const It &end,
+             std::function<void(const std::vector<typename It::value_type> &)> func
+             ) {
++#endif
+ 
+     // Store the current combination being considered
+     std::vector<typename It::value_type> combination; // Will store the current combination being considered
+@@ -103,7 +117,7 @@ all_combinations(
+ template <class BidirIt>
+ typename std::enable_if<
+     std::is_integral<typename BidirIt::value_type>::value and
+-    boost::is_base_of<std::bidirectional_iterator_tag, typename std::iterator_traits<BidirIt>::iterator_category>::value
++    std::is_base_of<std::bidirectional_iterator_tag, typename std::iterator_traits<BidirIt>::iterator_category>::value
+ , bool>::type
+ next_increasing_integer_permutation(BidirIt first, BidirIt last, typename BidirIt::value_type max) {
+     auto it = last;

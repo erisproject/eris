@@ -1,3 +1,20 @@
+eris (0.3.7-2~trusty1) stable; urgency=low
+
+  * Release 0.3.7
+  * README: proper debian packages; no more cpack
+  * Updated comment about .so versions
+  * Fix MathJax CDN use when MathJax not installed
+  * Reverted unintended commit from fracdist
+  * sim->other<O>() was missing a test on O != Good
+  * Added patch to fix compilation under g++-4.8
+  * Remove hack needed for g++-4.8
+  * Merge src/eris, include/eris -> eris/
+  * Fix include path stripping
+  * README repository updates and reorganization
+  * Refresh is_base_of patch; removed upstream-applied
+
+ -- Jason Rhinelander <jason@imaginary.ca>  Tue, 03 Nov 2015 19:56:41 -0500
+
 eris (0.3.6-2~jessie1) stable; urgency=medium
 
   * Eigen 3.2.2 fix for jessie: don't specify size of null vector
