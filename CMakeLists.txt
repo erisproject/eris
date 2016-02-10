@@ -84,7 +84,8 @@ set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -DERIS_DEBUG")
 
 find_package(Threads REQUIRED)
 
-find_package(Eigen3 REQUIRED)
+# Move semantics were during 3.3 development, and backported in 3.2.7:
+find_package(Eigen3 3.2.7 REQUIRED)
 include_directories(${EIGEN3_INCLUDE_DIR})
 
 find_package(Boost REQUIRED)

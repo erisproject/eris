@@ -37,31 +37,10 @@ class BayesianLinearRestricted : public BayesianLinear {
         BayesianLinearRestricted(const BayesianLinearRestricted&) = default;
         /// Default copy assignment operator
         BayesianLinearRestricted& operator=(const BayesianLinearRestricted&) = default;
-
-#ifdef EIGEN_HAVE_RVALUE_REFERENCES
         /// Default move constructor
         BayesianLinearRestricted(BayesianLinearRestricted&&) = default;
         /// Default move assignment
         BayesianLinearRestricted& operator=(BayesianLinearRestricted&&) = default;
-#else
-        /** Move constructor for Eigen versions before 3.3.  Eigen 3.2 and earlier don't have proper
-         * move support, and the implicit ones break things, so we work around this by providing a
-         * Move constructor that just calls the implicit copy constructor.  This, of course, means
-         * that for old Eigen versions, almost nothing is saved by moving since we actually copy.
-         *
-         * Eigen 3.3 adds a proper move constructor, and so we don't need this: the default implicit
-         * move constructor should work just fine.
-         *
-         * Note that BayesianLinearRestricted subclasses, so long as they aren't storing additional Eigen
-         * types, can rely on their default move constructors.
-         */
-        BayesianLinearRestricted(BayesianLinearRestricted &&move) : BayesianLinearRestricted(move) {}
-        /** Move assignment for Eigen versions before 3.3: this simply invokes the copy constructor,
-         * but is provided so that subclasses still have implicit move constructors.
-         */
-        BayesianLinearRestricted& operator=(BayesianLinearRestricted &&move) { *this = move; return *this; }
-#endif
-
         /// Other constructors inherited from BayesianLinear
         using BayesianLinear::BayesianLinear;
 

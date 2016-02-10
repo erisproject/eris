@@ -366,11 +366,7 @@ void BayesianLinear::updateInPlace(const Ref<const VectorXd> &y, const Ref<const
             auto qr = XtX.fullPivHouseholderQr();
             if (qr.rank() >= K()) {
                 beta_ = noninf_X_->jacobiSvd(ComputeThinU | ComputeThinV).solve(*noninf_y_);
-#ifdef EIGEN_HAVE_RVALUE_REFERENCES
                 V_inv_ = std::move(XtX);
-#else
-                V_inv_ = XtX;
-#endif
                 n_ = noninf_X_->rows();
                 s2_ = (*noninf_y_unweakened_ - *noninf_X_unweakened_ * beta_).squaredNorm() / n_;
 
@@ -422,13 +418,8 @@ void BayesianLinear::updateInPlaceInformative(const Ref<const VectorXd> &y, cons
     // to the old SSR that would are a result of beta changing:
     s2_ = (residualspost.squaredNorm() + n_prior * s2_ +  s2_prior_beta_delta) / n_;
 
-#ifdef EIGEN_HAVE_RVALUE_REFERENCES
     beta_ = std::move(beta_post);
     V_inv_ = std::move(V_inv_post);
-#else
-    beta_ = beta_post;
-    V_inv_ = V_inv_post;
-#endif
 
     // The decompositions will have to be recalculated, if set:
     if (V_chol_L_) V_chol_L_.reset();
