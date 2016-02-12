@@ -418,7 +418,7 @@ class BayesianLinear {
         /** Exactly like the above update() method, but optimized for the case where the caller is
          * an rvalue, typically the result of something like:
          *
-         *     new = linearmodel.weaken(1.1).update(y, X);
+         *     auto newmodel = linearmodel.weaken(1.1).update(y, X);
          *
          * The new object is created by moving the current object rather than copying the current
          * object.
