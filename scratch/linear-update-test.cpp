@@ -45,11 +45,9 @@ int main() {
 
     y = X * beta + u;
 
-    VectorXd betahat_solve = (X.transpose() * X).fullPivHouseholderQr().solve(X.transpose() * y);
-    VectorXd betahat_solveLS = X.jacobiSvd(ComputeThinU | ComputeThinV).solve(y);
-
-    print_OLS("OLS (solve)", betahat_solve, X, y);
-    print_OLS("OLS (solveLS)", betahat_solveLS, X, y);
+    VectorXd betahat = X.jacobiSvd(ComputeThinU | ComputeThinV).solve(y);
+ 
+    print_OLS("OLS", betahat, X, y);
 
 
     BayesianLinear foo_100_oneshot(foo, y, X);
