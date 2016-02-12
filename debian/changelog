@@ -1,3 +1,10 @@
+eris (1.0.0~pre20160212-1) unstable; urgency=medium
+
+  * BayesianLinear update/weaken redesign
+  * Require Eigen 3.2.7+ for proper move support
+
+ -- Jason Rhinelander <jason@imaginary.ca>  Fri, 12 Feb 2016 16:11:44 -0500
+
 eris (0.3.7-2) unstable; urgency=low
 
   * Fixed very broken source file move in initial 0.3.7 mis-release.
