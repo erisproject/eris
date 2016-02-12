@@ -10,9 +10,9 @@ set(eris_url "https://git.imaginary.ca/eris/eris")
 set(eris_description "Agent-based economic modelling library")
 
 # Eris package version
-set(ERIS_VERSION_MAJOR "0")
-set(ERIS_VERSION_MINOR "3")
-set(ERIS_VERSION_PATCH "7")
+set(ERIS_VERSION_MAJOR "1")
+set(ERIS_VERSION_MINOR "0")
+set(ERIS_VERSION_PATCH "0")
 set(ERIS_VERSION "${ERIS_VERSION_MAJOR}.${ERIS_VERSION_MINOR}.${ERIS_VERSION_PATCH}")
 
 # eris library version (CURRENT.REVISION.AGE), which is totally separate
@@ -32,7 +32,7 @@ set(ERIS_VERSION "${ERIS_VERSION_MAJOR}.${ERIS_VERSION_MINOR}.${ERIS_VERSION_PAT
 # (So something like 3.7.1 indicates the 8th revision of the liberis.so.3
 # interface, and that code that links against liberis.so.2 can safely link
 # against this version, but code that links against liberis.so.1 cannot.
-set(LIBERIS_CURRENT  "4")
+set(LIBERIS_CURRENT  "5")
 set(LIBERIS_REVISION "0")
 set(LIBERIS_AGE      "0")
 
@@ -84,7 +84,13 @@ set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -DERIS_DEBUG")
 
 find_package(Threads REQUIRED)
 
+# Move semantics were during 3.3 development, and backported in 3.2.7:
 find_package(Eigen3 REQUIRED)
+if (EIGEN3_VERSION_STRING VERSION_LESS "3.2.7")
+    message(FATAL_ERROR "Eigen v3.2.7 required, but found v${EIGEN3_VERSION_STRING}")
+else()
+    message(STATUS "Eigen version: ${EIGEN3_VERSION_STRING}")
+endif()
 include_directories(${EIGEN3_INCLUDE_DIR})
 
 find_package(Boost REQUIRED)

@@ -7,25 +7,9 @@
 #include <stdexcept>
 #include <string>
 
-/** This macro is provided to easily provide versions of update() and weaken() that return a proper
- * Derived type (instead of the base class BayesianLinear type), so that expressions such as
- * `derived = devired.update(...)` work as expected.  Without this, the above will fail due to there
- * being no conversion from BayesianLinear to Derived.
- *
- * This macro will put the methods in "public:" scope, which means "public:" scope will still be in
- * effect after the macro, so either put it in the public: scope, or at the end of some existing
- * scope.
- */
-#define ERIS_BELIEF_BAYESIANLINEAR_DERIVED_COMMON_METHODS(Derived) \
-    public: \
-        /** Updates the model, as done in BayesianLinear::update(), but returns an object of this derived type instead of a BayesianLinear object. */ \
-        [[gnu::warn_unused_result]] Derived update(const Eigen::Ref<const Eigen::VectorXd> &y, const Eigen::Ref<const Eigen::MatrixXd> &X) const & { Derived u(*this); u.updateInPlace(y, X); return u; } \
-        /** Updates the model, as done in BayesianLinear::update(), but returns an object of this derived type instead of a BayesianLinear object. */ \
-        [[gnu::warn_unused_result]] Derived update(const Eigen::Ref<const Eigen::VectorXd> &y, const Eigen::Ref<const Eigen::MatrixXd> &X)      && { updateInPlace(y, X); return std::move(*this); } \
-        /** Weakens the model, as done in BayesianLinear::weaken(), but returns an object of this derived type instead of a BayesianLinear object. */ \
-        [[gnu::warn_unused_result]] Derived weaken(double s) const & { Derived w(*this); w.weakenInPlace(s); return w; } \
-        /** Weakens the model, as done in BayesianLinear::weaken(), but returns an object of this derived type instead of a BayesianLinear object. */ \
-        [[gnu::warn_unused_result]] Derived weaken(double s)      && { weakenInPlace(s); return std::move(*this); }
+#ifndef EIGEN_HAVE_RVALUE_REFERENCES
+static_assert(false, "Eigen rvalue reference support is required (Eigen v3.2.7 or above required).")
+#endif
 
 namespace eris {
 /// Namespace for classes designed for handling agent beliefs and belief updating.
@@ -34,9 +18,7 @@ namespace belief {
 /// Add a MatrixXdR typedef for a row-major MatrixXd
 using MatrixXdR = Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
 
-/** Base class for a linear model with a natural conjugate, normal-gamma prior.  If deriving from
- * this class, you almost certainly want to use the
- * CREATIVITY_LINEAR_DERIVED_COMMON_METHODS(DerivationName) macro in your class definition.
+/** Base class for a linear model with a natural conjugate, normal-gamma prior.
  */
 class BayesianLinear {
     public:
@@ -57,30 +39,10 @@ class BayesianLinear {
         BayesianLinear(const BayesianLinear &copy) = default;
         /// Default copy assignment operator
         BayesianLinear& operator=(const BayesianLinear &copy) = default;
-
-#ifdef EIGEN_HAVE_RVALUE_REFERENCES
         /// Default move constructor
         BayesianLinear(BayesianLinear &&move) = default;
         /// Default move assignment
         BayesianLinear& operator=(BayesianLinear &&move) = default;
-#else
-        /** Move constructor for Eigen versions before 3.3.  Eigen 3.2 and earlier don't have proper
-         * move support, and the implicit ones break things, so we work around this by providing a
-         * Move constructor that just calls the implicit copy constructor.  This, of course, means
-         * that for old Eigen versions, almost nothing is saved by moving since we actually copy.
-         *
-         * Eigen 3.3 adds a proper move constructor, and so we don't need this: the default implicit
-         * move constructor should work just fine.
-         *
-         * Note that BayesianLinear subclasses, so long as they aren't storing additional Eigen types, can
-         * rely on their default move constructors.
-         */
-        BayesianLinear(BayesianLinear &&move) : BayesianLinear(move) {}
-        /** Move assignment for Eigen versions before 3.3: this simply invokes the copy constructor,
-         * but is provided so that subclasses still have implicit move constructors.
-         */
-        BayesianLinear& operator=(BayesianLinear &&move) { *this = move; return *this; }
-#endif
 
         /** Constructs a BayesianLinear model of `K` parameters and initializes the various variables (beta,
          * s2, V, n) with highly noninformative priors; specifically this model will initialize
@@ -98,11 +60,12 @@ class BayesianLinear {
          * this stores the given data and the model becomes noninformative, but with initial data
          * that will be incorporated the next time data is added.
          *
-         * The first update() call with return a model with `n` set to the number of rows in the
-         * updated data (plus noninformative data, if any) without adding the initial small n value.
+         * The first update (via the data updating constructor) will result in a model with `n` set
+         * to the number of rows in the updated data (plus noninformative data, if any) without
+         * adding the initial small n value.
          *
-         * noninformative() will return true, and the model cannot be used for prediction until more data
-         * is incorporated via update().
+         * noninformative() will return true, and the model cannot be used for prediction (until more data
+         * is incorporated by constructor a new model with this model as a prior).
          *
          * \param K the number of model parameters
          * \param noninf_X a matrix of `K` columns of data that this model should be loaded with,
@@ -138,6 +101,75 @@ class BayesianLinear {
                 const Eigen::Ref<const Eigen::MatrixXd> V_inverse,
                 double n
               );
+
+        /** Constructor for generating a posterior from a prior and a set of new data with an
+         * optional weakening factor to apply to the prior.
+         *
+         * Typical use:
+         *
+         *     BayesianLinear posterior(prior, y, X);
+         *
+         * \param prior the BayesianLinear prior
+         * \param y the new y data
+         * \param X the new X data
+         * \param stdev_scale the weakening factor to apply to the prior before incorporating the
+         * new data.  The value must be 1.0 or above.  The value if omitted, 1.0, applies no prior
+         * weakening.  The variance of the prior will be scaled by the square of this value (so that
+         * the standard deviation of parameters is scaled by the given value).
+         */
+        BayesianLinear(
+                const BayesianLinear &prior,
+                const Eigen::Ref<const Eigen::VectorXd> &y,
+                const Eigen::Ref<const Eigen::MatrixXd> &X,
+                double stdev_scale = 1.0);
+
+        /** Constructor for generating a posterior from an rvalue-prior and a set of new data and
+         * optional weakening factor.  The prior's data is first moved into this object, then this
+         * object is updated in-place, avoiding requiring creation of an intermediate, temporary
+         * object.  Typical use:
+         *
+         *     BayesianLinear posterior(std::move(prior), y, X);
+         *     // prior is left in a valid but indeterminate state
+         *
+         * or
+         *
+         *     // in-place weakening and update without a temporary object:
+         *     belief = BayesianLinear(std::move(belief), y, X, 1.05);
+         *
+         * \param prior the BayesianLinear prior rvalue reference, typical the result of std::move
+         * \param y the new y data.  If an empty vector, no updating is performed.
+         * \param X the new X data.  The number of rows must agree with `y` and the number of
+         * columns must equal `prior.K()`.
+         * \param stdev_scale the weakening factor to apply to the prior before incorporating the
+         * new data.  The value must be 1.0 or above.  The value if omitted, 1.0, applies no prior
+         * weakening.  The variance of the prior will be scaled by the square of this value (so that
+         * the standard deviation of parameters is scaled by the given value).
+         */
+        BayesianLinear(
+                BayesianLinear &&prior,
+                const Eigen::Ref<const Eigen::VectorXd> &y,
+                const Eigen::Ref<const Eigen::MatrixXd> &X,
+                double stdev_scale = 1.0);
+
+        /** Constructor for generating a posterior by copying and weakening a prior but without any
+         * data updates.  The is equivalent to calling the posterior-with-data constructor with an
+         * empty set of data and the given weakening factor.
+         *
+         * \param prior the BayesianLinear prior
+         * \param stdev_scale the weakening factor to apply to the prior.  Must be greater than or
+         * equal to 1.
+         */
+        BayesianLinear(const BayesianLinear &prior, double stdev_scale);
+
+        /** Constructor for generating a posterior by moving and weakening a prior but without any
+         * data updates.  The is equivalent to calling the posterior-with-data moving constructor
+         * with an empty set of data and the given weakening factor.
+         *
+         * \param prior the BayesianLinear prior rvalue reference, typical the result of std::move
+         * \param stdev_scale the weakening factor to apply to the prior.  Must be greater than or
+         * equal to 1.
+         */
+        BayesianLinear(BayesianLinear &&prior, double stdev_scale);
 
         /// Virtual destructor
         virtual ~BayesianLinear() = default;
@@ -405,69 +437,6 @@ class BayesianLinear {
          * "BayesianLinear" but subclasses should override.
          */
         virtual std::string display_name() const;
-
-        /** Using the calling object as a prior, uses the provided data to create a new BayesianLinear
-         * model.
-         *
-         * If the prior is a noninformative model, and the data (plus any previously incorporated
-         * data) will be checked to see if \f$X^\top X\f$ is full-rank: if so, beta, V, s2, and n
-         * will be updated using just the data; otherwise, the data will be stored until a
-         * subsequent update provides enough (sufficiently varied) data.
-         *
-         * \param X the new X data
-         * \param y the new y data
-         *
-         * X and y must have the same number of rows, but it is permitted that the number of rows be
-         * less than the number of parameters.  Updating iteratively with a data set broken into
-         * small portions will yield exactly the same posterior as updating once with the full data
-         * set.
-         *
-         * Calling this method with y and X having no rows at all is permitted: in such a case the
-         * returned object is simply a copy of the calling object, but with various state variables
-         * (such as last draw) reset.
-         */
-        [[gnu::warn_unused_result]]
-        BayesianLinear update(
-                const Eigen::Ref<const Eigen::VectorXd> &y,
-                const Eigen::Ref<const Eigen::MatrixXd> &X) const &;
-
-        /** Exactly like the above update() method, but optimized for the case where the caller is
-         * an rvalue, typically the result of something like:
-         *
-         *     new = linearmodel.weaken(1.1).update(y, X);
-         *
-         * The new object is created by moving the current object rather than copying the current
-         * object.
-         */
-        [[gnu::warn_unused_result]]
-        BayesianLinear update(
-                const Eigen::Ref<const Eigen::VectorXd> &y,
-                const Eigen::Ref<const Eigen::MatrixXd> &X) &&;
-
-        /** Returns a new BayesianLinear object with exactly the same beta, n, and s2 as the caller, but
-         * with its `V()` (and related) matrices scaled so that the standard deviation of the
-         * parameters is multiplied by given value.  Thus a value of 2 results in a parameter
-         * distribution with the same mean, but with double the standard deviation (and 4 times the
-         * variance).
-         *
-         * If the model is noninformative, but has stored data (i.e. the data isn't yet sufficiently
-         * large or varied for \f$X^\top X\f$ to be invertible), the stored data itself is
-         * "weakened" by scaling both X and y values by the reciprocal of the given scale value.
-         * This ensures that the results of the noninformative will be affected in the exact same
-         * way as the results had the stored data been sufficient to make the model informative.
-         *
-         * This is designed to allow using this belief as a prior (via update()), but with a
-         * deliberately weakened weight on the prior.
-         */
-        [[gnu::warn_unused_result]]
-        BayesianLinear weaken(double stdev_scale) const &;
-
-        /** Just like the above weaken(), but operates on an rvalue reference: the new object that
-         * is returned is the result of moving the current object instead of copying the current
-         * object into a new object.
-         */
-        [[gnu::warn_unused_result]]
-        BayesianLinear weaken(double stdev_scale) &&;
 
         /** Returns the parameter names.  If not set explicitly, returns a vector of {"0", "1", "2",
          * ...}.

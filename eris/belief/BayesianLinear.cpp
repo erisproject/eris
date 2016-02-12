@@ -297,25 +297,46 @@ std::string BayesianLinear::display_name() const { return "BayesianLinear"; }
 
 void BayesianLinear::verifyParameters() const { NO_EMPTY_MODEL; }
 
-// Called on an lvalue object, creates a new object with *this as prior
-BayesianLinear BayesianLinear::update(const Ref<const VectorXd> &y, const Ref<const MatrixXd> &X) const & {
-    BayesianLinear updated(*this);
-    updated.updateInPlace(y, X);
-    return updated;
+// Posterior constructor (prior copy version)
+BayesianLinear::BayesianLinear(
+        const BayesianLinear &prior,
+        const Ref<const VectorXd> &y,
+        const Ref<const MatrixXd> &X,
+        double w) : BayesianLinear(prior) {
+    if (w != 1.0) weakenInPlace(w);
+    updateInPlace(y, X);
 }
 
-// Called on rvalue, so just update *this as needed, using itself as the prior, then return std::move(*this)
-BayesianLinear BayesianLinear::update(const Ref<const VectorXd> &y, const Ref<const MatrixXd> &X) && {
+// Posterior constructor (prior move version)
+BayesianLinear::BayesianLinear(
+        BayesianLinear &&prior,
+        const Ref<const VectorXd> &y,
+        const Ref<const MatrixXd> &X,
+        double w) : BayesianLinear(std::move(prior)) {
+    if (w != 1.0) weakenInPlace(w);
     updateInPlace(y, X);
-    return std::move(*this);
+}
+
+// Posterior constructor, just weakening (prior copy version)
+BayesianLinear::BayesianLinear(const BayesianLinear &prior, double w) : BayesianLinear(prior) {
+    // NB: call even if w == 1, unlike above, because this does a needed reset()--above the
+    // updateInPlace also does a reset().
+    weakenInPlace(w);
+}
+
+// Posterior constructor, just weakening (prior move version)
+BayesianLinear::BayesianLinear(BayesianLinear &&prior, double w) : BayesianLinear(std::move(prior)) {
+    // NB: call even if w == 1, unlike above, because this does a needed reset()--above the
+    // updateInPlace also does a reset().
+    weakenInPlace(w);
 }
 
 void BayesianLinear::updateInPlace(const Ref<const VectorXd> &y, const Ref<const MatrixXd> &X) {
     NO_EMPTY_MODEL;
-    if (X.cols() != K())
-        throw std::logic_error("update(y, X) failed: X has wrong number of columns (expected " + std::to_string(K()) + ", got " + std::to_string(X.cols()) + ")");
     if (y.rows() != X.rows())
         throw std::logic_error("update(y, X) failed: y and X are non-conformable");
+    if (X.rows() > 0 and X.cols() != K())
+        throw std::logic_error("update(y, X) failed: X has wrong number of columns (expected " + std::to_string(K()) + ", got " + std::to_string(X.cols()) + ")");
 
     reset();
 
@@ -366,11 +387,7 @@ void BayesianLinear::updateInPlace(const Ref<const VectorXd> &y, const Ref<const
             auto qr = XtX.fullPivHouseholderQr();
             if (qr.rank() >= K()) {
                 beta_ = noninf_X_->jacobiSvd(ComputeThinU | ComputeThinV).solve(*noninf_y_);
-#ifdef EIGEN_HAVE_RVALUE_REFERENCES
                 V_inv_ = std::move(XtX);
-#else
-                V_inv_ = XtX;
-#endif
                 n_ = noninf_X_->rows();
                 s2_ = (*noninf_y_unweakened_ - *noninf_X_unweakened_ * beta_).squaredNorm() / n_;
 
@@ -422,29 +439,13 @@ void BayesianLinear::updateInPlaceInformative(const Ref<const VectorXd> &y, cons
     // to the old SSR that would are a result of beta changing:
     s2_ = (residualspost.squaredNorm() + n_prior * s2_ +  s2_prior_beta_delta) / n_;
 
-#ifdef EIGEN_HAVE_RVALUE_REFERENCES
     beta_ = std::move(beta_post);
     V_inv_ = std::move(V_inv_post);
-#else
-    beta_ = beta_post;
-    V_inv_ = V_inv_post;
-#endif
 
     // The decompositions will have to be recalculated, if set:
     if (V_chol_L_) V_chol_L_.reset();
     if (V_inv_chol_L_) V_inv_chol_L_.reset();
     if (V_inv_chol_L_qr_) V_inv_chol_L_qr_.reset();
-}
-
-BayesianLinear BayesianLinear::weaken(const double stdev_scale) const & {
-    BayesianLinear weakened(*this);
-    weakened.weakenInPlace(stdev_scale);
-    return weakened;
-}
-
-BayesianLinear BayesianLinear::weaken(const double stdev_scale) && {
-    weakenInPlace(stdev_scale);
-    return std::move(*this);
 }
 
 void BayesianLinear::weakenInPlace(const double stdev_scale) {
