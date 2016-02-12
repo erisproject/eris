@@ -52,24 +52,24 @@ int main() {
     print_OLS("OLS (solveLS)", betahat_solveLS, X, y);
 
 
-    BayesianLinear foo_100_oneshot = foo.update(y, X);
+    BayesianLinear foo_100_oneshot(foo, y, X);
 
-    BayesianLinear foo_100_twoshot = foo.update(y.head(50), X.topRows(50));
-    foo_100_twoshot = foo_100_twoshot.update(y.tail(50), X.bottomRows(50));
+    BayesianLinear foo_100_twoshot(foo, y.head(50), X.topRows(50));
+    foo_100_twoshot = BayesianLinear(std::move(foo_100_twoshot), y.tail(50), X.bottomRows(50));
 
     BayesianLinear foo_100_fiveshot = foo;
     for (int i = 0; i < 100; i += 20) {
-        foo_100_fiveshot = foo_100_fiveshot.update(y.segment(i, 20), X.middleRows(i, 20));
+        foo_100_fiveshot = BayesianLinear(std::move(foo_100_fiveshot), y.segment(i, 20), X.middleRows(i, 20));
     }
 
     BayesianLinear foo_100_tenshot = foo;
     for (int i = 0; i < 100; i += 10) {
-        foo_100_tenshot = foo_100_tenshot.update(y.segment(i, 10), X.middleRows(i, 10));
+        foo_100_tenshot = BayesianLinear(std::move(foo_100_tenshot), y.segment(i, 10), X.middleRows(i, 10));
     }
 
     BayesianLinear foo_100_hundredshot = foo;
     for (int i = 0; i < 100; i++) {
-        foo_100_hundredshot = foo_100_hundredshot.update(y.row(i), X.row(i));
+        foo_100_hundredshot = BayesianLinear(std::move(foo_100_hundredshot), y.row(i), X.row(i));
     }
 
     print_model(foo_100_oneshot);
@@ -78,14 +78,14 @@ int main() {
     print_model(foo_100_tenshot);
     print_model(foo_100_hundredshot);
 
-    BayesianLinear foo_100_weakened_fiftyshot = foo.update(y.head(50), X.topRows(50));
-    foo_100_weakened_fiftyshot = foo_100_weakened_fiftyshot.weaken(2).update(y.tail(50), X.bottomRows(50));
+    BayesianLinear foo_100_weakened_fiftyshot(foo, y.head(50), X.topRows(50));
+    foo_100_weakened_fiftyshot = BayesianLinear(std::move(foo_100_weakened_fiftyshot), y.tail(50), X.bottomRows(50), 2.0);
 
     MatrixXd Xw = X;
     Xw.topRows(50) *= 0.5;
     VectorXd yw = y;
     yw.head(50) *= 0.5;
-    BayesianLinear foo_100_weakened_direct = foo.update(yw, Xw);
+    BayesianLinear foo_100_weakened_direct(foo, yw, Xw);
 
     print_model(foo_100_weakened_direct);
     print_model(foo_100_weakened_fiftyshot);
