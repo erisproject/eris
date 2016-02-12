@@ -621,8 +621,6 @@ class BayesianLinearRestricted : public BayesianLinear {
          * (beginning at row `restrict_linear_size_`). */
         void allocateRestrictions(size_t more);
 
-        ERIS_BELIEF_BAYESIANLINEAR_DERIVED_COMMON_METHODS(BayesianLinearRestricted)
-
     private:
         // Values used for Gibbs sampling.  These aren't set until first needed.
         std::shared_ptr<decltype(restrict_select_)> gibbs_D_; // D = R A^{-1}
