@@ -2,6 +2,7 @@ eris (1.0.0~pre20160212-1) unstable; urgency=medium
 
   * BayesianLinear update/weaken redesign
   * Require Eigen 3.2.7+ for proper move support
+  * Bump lib version
 
  -- Jason Rhinelander <jason@imaginary.ca>  Fri, 12 Feb 2016 16:11:44 -0500
 
