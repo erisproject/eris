@@ -92,7 +92,7 @@ class BayesianLinear {
          * \param n the number of data points supporting the other values (which can be a
          * non-integer value).
          *
-         * \throws std::runtime_error if any of (`K >= 1`, `V.rows() == V.cols()`, `K == V.rows()`)
+         * \throws std::logic_error if any of (`K >= 1`, `V.rows() == V.cols()`, `K == V.rows()`)
          * are not satisfied (where `K` is determined by the number of rows of `beta`).
          */
         BayesianLinear(
