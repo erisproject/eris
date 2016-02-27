@@ -1,6 +1,6 @@
 #pragma once
 #include <Eigen/Core>
-#include <Eigen/QR>
+#include <Eigen/Cholesky>
 #include <memory>
 #include <ostream>
 #include <vector>
@@ -14,9 +14,6 @@ static_assert(false, "Eigen rvalue reference support is required (Eigen v3.2.7 o
 namespace eris {
 /// Namespace for classes designed for handling agent beliefs and belief updating.
 namespace belief {
-
-/// Add a MatrixXdR typedef for a row-major MatrixXd
-using MatrixXdR = Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
 
 /** Base class for a linear model with a natural conjugate, normal-gamma prior.
  */
@@ -69,13 +66,13 @@ class BayesianLinear {
          *
          * \param K the number of model parameters
          * \param noninf_X a matrix of `K` columns of data that this model should be loaded with,
-         * once enough additional data is added to make \f$X^\top X\f$ invertible.
+         * once enough additional data is added to make \f$X\f$ full rank.
          * \param noninf_y the y data associated with `noninf_X`
          */
         explicit BayesianLinear(
                 const unsigned int K,
-                const Eigen::Ref<const MatrixXdR> noninf_X = MatrixXdR(),
-                const Eigen::Ref<const Eigen::VectorXd> noninf_y = Eigen::VectorXd()
+                Eigen::MatrixXd noninf_X = Eigen::MatrixXd(),
+                Eigen::VectorXd noninf_y = Eigen::VectorXd()
                 );
 
         /** Constructs a BayesianLinear model with the given parameters.  These parameters will be those
@@ -84,10 +81,12 @@ class BayesianLinear {
          * \param beta the coefficient mean parameters (which, because of restrictions, might not be
          * the actual means).
          *
-         * \param s2 the \f$\sigma^2\f$ value of the error term variance.  Typically the \f$\sigma^2\f$ estimate.
+         * \param s2 the \f$\sigma^2\f$ value of the error term variance.  Typically the
+         * \f$\sigma^2\f$ estimate.
          *
          * \param V_inverse the inverse of the model's V matrix (where \f$s^2 V\f$ is the variance
-         * matrix of \f$\beta\f$).  Note: only the lower triangle of the matrix will be used.
+         * matrix of \f$\beta\f$).  Note: only values in the lower triangle of the matrix will be
+         * used.
          *
          * \param n the number of data points supporting the other values (which can be a
          * non-integer value).
@@ -96,9 +95,9 @@ class BayesianLinear {
          * are not satisfied (where `K` is determined by the number of rows of `beta`).
          */
         BayesianLinear(
-                const Eigen::Ref<const Eigen::VectorXd> beta,
+                Eigen::VectorXd beta,
                 double s2,
-                const Eigen::Ref<const Eigen::MatrixXd> V_inverse,
+                Eigen::MatrixXd V_inverse,
                 double n
               );
 
@@ -194,10 +193,14 @@ class BayesianLinear {
          */
         virtual unsigned int fixedModelSize() const;
 
-        /** Accesses the base distribution means value of beta.  Note that this is *not* necessarily
-         * the mean of beta and should not be used for prediction; rather it simply returns the
-         * distribution parameter value used, which may well not be the mean if any of the beta
-         * values have data restrictions.
+        /** Accesses (computing first, if necessary) the base distribution means value of beta.
+         * Note that this should not be used or reported in any significant way: it is not
+         * guaranteed to be the mean of the actual distribution but is merely a parameter of the
+         * distribution.  Any inference or prediction should be done by using distribution draws.
+         *
+         * Note also that this value is computed as needed from the \f$V^{-1}\beta\f$ and
+         * \f$V^{-1}\f$ matrices, but it is those matrices, not this vector, that are used when
+         * incorporating new data.
          */
         const Eigen::VectorXd& beta() const;
 
@@ -207,25 +210,19 @@ class BayesianLinear {
         /** Accesses the n value of the model. */
         const double& n() const;
 
-        /** Accesses the inverse of the V value of the model.  If the inverse has not been
-         * calculated yet, this calculates and caches the value before returning it.
+        /** Accesses the \f$V^{-1}\f$ matrix of the model.
          */
-        const Eigen::MatrixXd& Vinv() const;
+        Eigen::SelfAdjointView<const Eigen::MatrixXd, Eigen::Lower> Vinv() const;
 
-        /** Accesses (calculating if not previously calculated) the "L" matrix of the cholesky
-         * decomposition of V, where LL' = V.  This is calculated by inverting Vinv() and then
-         * obtaining the Cholesky decomposition of that inverse; the value is cached, however, so
-         * that subsequent calls involve no additional calculation.
-         */
-        const Eigen::MatrixXd& VcholL() const;
+        /** Accesses (calculating if not previous calculated) the LDLT Cholesky decomposition of
+         * `Vinv()`. This is essentially the same as calling `Vinv().ldlt()`, except that the
+         * decomposition is stored and reused if called again. */
+        const Eigen::LDLT<Eigen::MatrixXd>& VinvLDLT() const;
 
-        /** Accesses (calculating if not previous calculated) the Cholesky decomposition of
-         * `Vinv()`. */
-        const Eigen::MatrixXd& VinvCholL() const;
-
-        /** Accesses (calculating if not previous calculated) the QR decomposition of VinvCholL().
-         */
-        const Eigen::FullPivHouseholderQR<Eigen::MatrixXd>& VinvCholLqr() const;
+        /** Accesses (calculating if not previous calculated) the LLT Cholesky decomposition of
+         * `Vinv()`.  This is essentially the same as calling `Vinv().llt()`, except that the
+         * decomposition is stored and reused if called again. */
+        const Eigen::LLT<Eigen::MatrixXd>& VinvLLT() const;
 
         /** Returns the X data that has been added into this model but hasn't yet been used due to
          * it not being sufficiently large and different enough to achieve full column rank.  The
@@ -235,7 +232,7 @@ class BayesianLinear {
          *
          * \throws std::logic_error if noninformative() would return false.
          */
-        const MatrixXdR& noninfXData() const;
+        const Eigen::MatrixXd& noninfXData() const;
 
         /** Returns the y data associated with noninfXData().  Like that data, this will be scaled
          * if the model has been weakened.
@@ -454,6 +451,14 @@ class BayesianLinear {
 
     protected:
 
+        /** Updates beta.  This is called internally by beta() when the current beta_cache_ value is
+         * empty, but can be called by other methods as well.  It resizes beta_cache_ (if necessary)
+         * to size K, then populates it using Vinv() and V_inv_beta_.
+         *
+         * The method is const, though it does modify beta_cache_ (which is mutable).
+         */
+        virtual void updateBeta() const;
+
         /** Weakens the current linear model.  This functionality should only be used internally and
          * by subclasses as required for move and copy update methods; weakening should be
          * considered (externally) as a type of construction of a new object.
@@ -484,27 +489,32 @@ class BayesianLinear {
          */
         virtual void verifyParameters() const;
 
-        /// The column vector prior of coefficient means
-        Eigen::VectorXd beta_;
+        /// The model size.  If 0, this is a default-constructed object which isn't a valid model.
+        unsigned int K_{0};
+
+        /** The column vector prior of coefficient means, if calculated.  Should be reset to an
+         * empty vector if it needs to be recalculated (i.e. whenever \f$V^{-1}\f$ or
+         * \f$V^{-1}\beta\f$ are updated).
+         */
+        mutable Eigen::VectorXd beta_cache_{0};
+
         /// The prior value of \f$s^2\f$, the error term variance estimator
         double s2_;
-        /** The inverse of the prior V matrix, that is, which would be the \f$X^\top X\f$ in OLS
-         * (and if model weakening is not used)., This matrix should be symmetric and positive
-         * definite.
+        /** The underlying matrix for the V_inv_ self adjoint view.  Only the lower triangle is
+         * used.
          */
-        Eigen::MatrixXd V_inv_;
+        Eigen::MatrixXd V_inv_store_ = Eigen::MatrixXd::Zero(K_, K_);
 
-        mutable std::shared_ptr<Eigen::MatrixXd>
-            /** The inverse of the "L" matrix of the Cholesky decomposition of V^{-1}, where LL' =
-             * V^{-1}.  This is effectively the Cholesky decomposition of V.
-             */
-            V_chol_L_,
+        /** The \f$V^{-1} \beta\f$ vector (used when possible instead of beta, since it involves no
+         * inverse).
+         */
+        Eigen::VectorXd V_inv_beta_ = Eigen::VectorXd::Zero(K_);
 
-            /// The cached "L" matrix of the Cholesky decomposition of V^{-1}, where LL' = V^{-1}.
-            V_inv_chol_L_;
+        /// The cached LLT decomposition of V^{-1}, where LL' = V^{-1}.  \sa VinvLLT()
+        mutable std::shared_ptr<Eigen::LLT<Eigen::MatrixXd>> V_inv_llt_;
 
-            /// The cached QR decomposition of V_inv_chol_L_
-        mutable std::shared_ptr<Eigen::FullPivHouseholderQR<Eigen::MatrixXd>> V_inv_chol_L_qr_;
+        /// The cached LDLT decomposition of V^{-1}, where LL' = V^{-1}.  \sa VinvLDLT()
+        mutable std::shared_ptr<Eigen::LDLT<Eigen::MatrixXd>> V_inv_ldlt_;
 
         /// The number of data points supporting this model, which need not be an integer.
         double n_;
@@ -523,9 +533,6 @@ class BayesianLinear {
          * \sa BayesianLinear(unsigned int)
          */
         bool noninformative_{false};
-
-        /// The model size.  If 0, this is a default-constructed object which isn't a valid model.
-        unsigned int K_{0};
 
         /** The `K+1` length vector containing the last random draw of \f$\beta\f$ and \f$s^2\f$
          * produced by the draw() method.  Will be an empty vector before the first call to draw().
@@ -565,7 +572,7 @@ class BayesianLinear {
          * associated y data is scaled by 1/w, where w is the weakening factor, so that \f$(X\^top
          * X)^{-1}\f$ is scaled by \f$w^2\f$, and that y data stays proportional to X.
          */
-        std::shared_ptr<MatrixXdR> noninf_X_, noninf_X_unweakened_;
+        std::shared_ptr<Eigen::MatrixXd> noninf_X_, noninf_X_unweakened_;
         /// The y data for a non-informative model.  \sa noninf_X_.
         std::shared_ptr<Eigen::VectorXd> noninf_y_, noninf_y_unweakened_;
 

@@ -8,7 +8,7 @@ BayesianProbit::BayesianProbit(
                 const Eigen::Ref<const Eigen::VectorXd> &beta,
                 const Eigen::Ref<const Eigen::MatrixXd> &V_inverse,
                 double n)
-    : BayesianLinear(beta, V_inverse, 1.0, n) {}
+    : BayesianLinear(beta, 1.0, V_inverse, n) {}
 
 BayesianProbit::BayesianProbit(
         const BayesianProbit &prior,

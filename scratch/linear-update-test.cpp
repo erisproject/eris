@@ -10,7 +10,7 @@
         u8"    β_: " << M.beta().transpose() << "\n" << \
         u8"    n_: " << M.n() << "\n" << \
         u8"    s²_: " << M.s2() << "\n" << \
-        u8"    V⁻¹: " << M.Vinv().format(IOFormat(StreamPrecision, 0, " ", "\n         ")) << "\n"
+        u8"    V⁻¹: " << MatrixXd(M.Vinv()).format(IOFormat(StreamPrecision, 0, " ", "\n         ")) << "\n"
 
 #define print_OLS(name, beta, X, y) std::cout << name << ":\n" << \
     u8"    β^: " << beta.transpose() << "\n" << \

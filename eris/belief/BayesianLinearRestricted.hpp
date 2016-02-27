@@ -463,7 +463,7 @@ class BayesianLinearRestricted : public BayesianLinear {
         double draw_auto_min_success_rate = 0.2; ///< The minimum draw success rate below which we switch to Gibbs sampling
 
         /// Accesses the restriction coefficient selection matrix (the \f$R\f$ in \f$R\beta <= r\f$).
-        Eigen::Block<const Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>, Eigen::Dynamic, Eigen::Dynamic, true> R() const;
+        Eigen::Block<const Eigen::MatrixXd> R() const;
 
         /// Accesses the restriction value vector (the \f$r\f$ in \f$R\beta <= r\f$).
         Eigen::VectorBlock<const Eigen::VectorXd> r() const;
@@ -606,7 +606,7 @@ class BayesianLinearRestricted : public BayesianLinear {
          * This matrix is stored in row-major order, because it is primarily accessed and assigned
          * to row-by-row.
          */
-        Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> restrict_select_;
+        Eigen::MatrixXd restrict_select_;
         /** Stores the value restrictions for arbitrary linear restrictions passed to
          * addRestriction() or addRestrictions().  Note that the only the first
          * `restrict_linear_size_` values of the vector will be set, but other values might exist
