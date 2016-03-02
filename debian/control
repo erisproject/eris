@@ -4,9 +4,9 @@ Maintainer: Jason Rhinelander <jason@imaginary.ca>
 Homepage: https://git.imaginary.ca/eris/eris
 Priority: optional
 Standards-Version: 3.9.6
-Build-Depends: debhelper (>= 9), cmake, libeigen3-dev (>= 3.2.2), libboost-dev, doxygen, libgtest-dev, graphviz
+Build-Depends: debhelper (>= 9), cmake, libeigen3-dev (>= 3.2.7), libboost-dev, doxygen, libgtest-dev, graphviz
 
-Package: liberis4
+Package: liberis5
 Section: libs
 Architecture: any
 Multi-Arch: same
@@ -24,7 +24,7 @@ Package: liberis-dev
 Section: libdevel
 Architecture: any
 Multi-Arch: same
-Depends: liberis4 (= ${binary:Version}), libeigen3-dev (>= 3.2.2), libboost-dev, ${misc:Depends}
+Depends: liberis5 (= ${binary:Version}), libeigen3-dev (>= 3.2.7), libboost-dev, ${misc:Depends}
 Suggests: eris-doc
 Description: Eris economics agent-based modelling library (development files)
  Eris is a C++ library for creating agent-based economics models that simulate
