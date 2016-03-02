@@ -84,7 +84,13 @@ set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -DERIS_DEBUG")
 
 find_package(Threads REQUIRED)
 
+# Move semantics were during 3.3 development, and backported in 3.2.7:
 find_package(Eigen3 REQUIRED)
+if (EIGEN3_VERSION_STRING VERSION_LESS "3.2.7")
+    message(FATAL_ERROR "Eigen v3.2.7 required, but found v${EIGEN3_VERSION_STRING}")
+else()
+    message(STATUS "Eigen version: ${EIGEN3_VERSION_STRING}")
+endif()
 include_directories(${EIGEN3_INCLUDE_DIR})
 
 find_package(Boost REQUIRED)

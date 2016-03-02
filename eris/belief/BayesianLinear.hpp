@@ -7,6 +7,10 @@
 #include <stdexcept>
 #include <string>
 
+#ifndef EIGEN_HAVE_RVALUE_REFERENCES
+static_assert(false, "Eigen rvalue reference support is required (Eigen v3.2.7 or above required).")
+#endif
+
 /** This macro is provided to easily provide versions of update() and weaken() that return a proper
  * Derived type (instead of the base class BayesianLinear type), so that expressions such as
  * `derived = devired.update(...)` work as expected.  Without this, the above will fail due to there
@@ -57,30 +61,10 @@ class BayesianLinear {
         BayesianLinear(const BayesianLinear &copy) = default;
         /// Default copy assignment operator
         BayesianLinear& operator=(const BayesianLinear &copy) = default;
-
-#ifdef EIGEN_HAVE_RVALUE_REFERENCES
         /// Default move constructor
         BayesianLinear(BayesianLinear &&move) = default;
         /// Default move assignment
         BayesianLinear& operator=(BayesianLinear &&move) = default;
-#else
-        /** Move constructor for Eigen versions before 3.3.  Eigen 3.2 and earlier don't have proper
-         * move support, and the implicit ones break things, so we work around this by providing a
-         * Move constructor that just calls the implicit copy constructor.  This, of course, means
-         * that for old Eigen versions, almost nothing is saved by moving since we actually copy.
-         *
-         * Eigen 3.3 adds a proper move constructor, and so we don't need this: the default implicit
-         * move constructor should work just fine.
-         *
-         * Note that BayesianLinear subclasses, so long as they aren't storing additional Eigen types, can
-         * rely on their default move constructors.
-         */
-        BayesianLinear(BayesianLinear &&move) : BayesianLinear(move) {}
-        /** Move assignment for Eigen versions before 3.3: this simply invokes the copy constructor,
-         * but is provided so that subclasses still have implicit move constructors.
-         */
-        BayesianLinear& operator=(BayesianLinear &&move) { *this = move; return *this; }
-#endif
 
         /** Constructs a BayesianLinear model of `K` parameters and initializes the various variables (beta,
          * s2, V, n) with highly noninformative priors; specifically this model will initialize
@@ -434,7 +418,7 @@ class BayesianLinear {
         /** Exactly like the above update() method, but optimized for the case where the caller is
          * an rvalue, typically the result of something like:
          *
-         *     new = linearmodel.weaken(1.1).update(y, X);
+         *     auto newmodel = linearmodel.weaken(1.1).update(y, X);
          *
          * The new object is created by moving the current object rather than copying the current
          * object.
