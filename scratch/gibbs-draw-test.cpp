@@ -33,7 +33,7 @@ int main() {
     model.restrict(4) <= -1.0;
     model.draw_mode = BayesianLinearRestricted::DrawMode::Gibbs;
 
-    std::cout << "s2=" << model.s2() << ", s2*V:\n" << s2*model.VinvLDLT().solve(MatrixXd::Identity(5,5)) << "\n";
+    std::cout << "s2=" << model.s2() << ", s2*V:\n" << s2*model.Vinvinv() << "\n";
 
     constexpr size_t draws = 1000;
     MatrixXd beta_rej(5+1, draws), beta_gibbs(5+1, draws);

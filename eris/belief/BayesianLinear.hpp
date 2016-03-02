@@ -224,6 +224,15 @@ class BayesianLinear {
          * decomposition is stored and reused if called again. */
         const Eigen::LLT<Eigen::MatrixXd>& VinvLLT() const;
 
+        /** Computes and returns an inverse of Vinv(), that is, the V matrix.  This shouldn't
+         * typically be used for any calculations: it is simply provided as a debugging tool (and
+         * hence the more explicit `Vinvinv` name rather than just `V`).
+         *
+         * The current implementation uses VinvLDLT().solve(I), where I is an identity matrix of the
+         * proper size.
+         */
+        Eigen::MatrixXd Vinvinv() const;
+
         /** Returns the X data that has been added into this model but hasn't yet been used due to
          * it not being sufficiently large and different enough to achieve full column rank.  The
          * data will be scaled appropriately if weaken() has been called, and so does not

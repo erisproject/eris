@@ -87,6 +87,10 @@ const LDLT<MatrixXd>& BayesianLinear::VinvLDLT() const {
     return *V_inv_ldlt_;
 }
 
+MatrixXd BayesianLinear::Vinvinv() const {
+    return VinvLDLT().solve(MatrixXd::Identity(K_, K_));
+}
+
 const bool& BayesianLinear::noninformative() const { NO_EMPTY_MODEL; return noninformative_; }
 
 const std::vector<std::string>& BayesianLinear::names() const {
