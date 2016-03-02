@@ -23,7 +23,8 @@ int main() {
     BayesianLinearRestricted model(beta, s2, V.fullPivHouseholderQr().inverse(), n);
     model.draw_mode = BayesianLinearRestricted::DrawMode::Gibbs;
 
-    std::cout << "s2=" << model.s2() << ", V:\n" << model.Vinv().fullPivHouseholderQr().inverse() << "\n";
+#define VINVINV VinvLDLT().solve(MatrixXd::Identity(3,3))
+    std::cout << "s2=" << model.s2() << ", V:\n" << model.VINVINV << "\n";
     MatrixXd X(5, 3);
     X <<
       1, 4, 0,
@@ -40,10 +41,7 @@ int main() {
     MatrixXd betadraws(model.K(), ndraws);
     MatrixXd ypred(X.rows(), ndraws);
     MatrixXd gammadraws(model.K(), ndraws);
-    std::cerr << "Vinv -> inverse -> cholL:\n" << MatrixXd(model.Vinv().fullPivHouseholderQr().inverse().llt().matrixL()) << "\n";
-    std::cerr << "VcholL():\n" << model.VcholL() << "\n";
-    std::cerr << "VinvChol():\n" << model.VinvCholL() << "\n";
-    MatrixXd gammaL = model.VcholL(); //(model.Vinv().fullPivHouseholderQr().inverse()).llt().matrixL();
+    MatrixXd gammaL = model.VinvLLT().matrixU().solve(MatrixXd::Identity(model.K(), model.K())); //(model.Vinv().fullPivHouseholderQr().inverse()).llt().matrixL();
     for (unsigned i = 0; i < ndraws; i++) {
         model.discard();
         ypred.col(i) = model.predict(X, 1);
@@ -62,14 +60,14 @@ int main() {
     MatrixXd beta_demeaned = betadraws.colwise() - betadrawmeans;
     MatrixXd betadrawvar = beta_demeaned * beta_demeaned.transpose() / (ndraws-1);
     std::cout << "betamean: " << betadrawmeans.transpose() << " (expect " << model.beta().transpose() << ")\n";
-    std::cout << "betavar:\n" << betadrawvar << "\nexpected var:\n" << model.n() * model.s2() / (model.n()-2) * model.Vinv().fullPivHouseholderQr().inverse()
+    std::cout << "betavar:\n" << betadrawvar << "\nexpected var:\n" << model.n() * model.s2() / (model.n()-2) * model.VINVINV
         << "\n";
 
     VectorXd gammadrawmeans = gammadraws.rowwise().mean();
     MatrixXd gamma_demeaned = gammadraws.colwise() - gammadrawmeans;
     MatrixXd gammadrawvar = gamma_demeaned * gamma_demeaned.transpose() / (ndraws-1);
     std::cout << "gammamean: " << gammadrawmeans.transpose() << " (expect " << model.beta().transpose() << ")\n";
-    std::cout << "gammavar:\n" << gammadrawvar << "\nexpected var:\n" << model.n() * model.s2() / (model.n()-2) * model.Vinv().fullPivHouseholderQr().inverse()
+    std::cout << "gammavar:\n" << gammadrawvar << "\nexpected var:\n" << model.n() * model.s2() / (model.n()-2) * model.VINVINV
         << "\n";
 
     std::cout << "y* means: " << means.transpose() << "\n";

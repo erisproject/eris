@@ -102,7 +102,7 @@ void BayesianLinearRestricted::reset() {
     chisq_n_median_ = std::numeric_limits<double>::signaling_NaN();
 }
 
-Block<const MatrixXdR, Dynamic, Dynamic, true> BayesianLinearRestricted::R() const {
+Block<const MatrixXd> BayesianLinearRestricted::R() const {
     return restrict_select_.topRows(restrict_size_);
 }
 
@@ -156,25 +156,23 @@ void BayesianLinearRestricted::gibbsInitialize(const Ref<const VectorXd> &initia
 
     gibbs_draws_ = 0;
 
-    const MatrixXd &A = VinvCholL();
-    MatrixXd Ainv = VinvCholL().triangularView<Lower>().solve(MatrixXd::Identity(beta_.size(), beta_.size()));
+    const auto &A = VinvLLT().matrixL();
 
     if (not gibbs_D_) gibbs_D_.reset(
             restrict_size_ == 0
-            ? new MatrixXdR(0, K_) // It's rather pointless to use drawGibbs() with no restrictions, but allow it for debugging purposes
-            : new MatrixXdR(R() * Ainv));
-//            : new MatrixXdR(R() * A_qr.inverse()));
+            ? new MatrixXd(0, K_) // It's rather pointless to use drawGibbs() with no restrictions, but allow it for debugging purposes
+            : new MatrixXd(R() * A.solve(MatrixXd::Identity(K_, K_))));
     const auto &D = *gibbs_D_;
 
     if (not gibbs_r_Rbeta_) gibbs_r_Rbeta_.reset(
             restrict_size_ == 0
             ? new VectorXd()
-            : new VectorXd(r() - R() * beta_));
+            : new VectorXd(r() - R() * beta()));
     const auto &r_minus_Rbeta_ = *gibbs_r_Rbeta_;
 
     auto &rng = Random::rng();
 
-    VectorXd z = A * (initial.head(K_) - beta_);
+    VectorXd z = A * (initial.head(K_) - beta());
     if (restrict_size_ == 0) {
         // No restrictions, nothing special to do!
         if (not gibbs_last_z_ or gibbs_last_z_->size() != K_) gibbs_last_z_.reset(new VectorXd(z));
@@ -216,22 +214,20 @@ void BayesianLinearRestricted::gibbsInitialize(const Ref<const VectorXd> &initia
 const VectorXd& BayesianLinearRestricted::drawGibbs() {
     last_draw_mode = DrawMode::Gibbs;
 
-    auto &A_qr = VinvCholLqr();
-    MatrixXd Ainv = A_qr.inverse();
-    //MatrixXd Ainv = VinvCholL().triangularView<Lower>().solve(MatrixXd::Identity(beta_.size(), beta_.size()));
+    const auto &A = VinvLLT().matrixL();
     double s = std::sqrt(s2_);
 
     if (not gibbs_D_) gibbs_D_.reset(
             restrict_size_ == 0
-            ? new MatrixXdR(0, K_) // It's rather pointless to use drawGibbs() with no restrictions, but allow it for debugging purposes
-            : new MatrixXdR(R() * Ainv));
-//            : new MatrixXdR(R() * A_qr.inverse()));
+            ? new MatrixXd(0, K_) // It's rather pointless to use drawGibbs() with no restrictions, but allow it for debugging purposes
+            : new MatrixXd(R() * A.solve(MatrixXd::Identity(K_, K_))));
+
     const auto &D = *gibbs_D_;
 
     if (not gibbs_r_Rbeta_) gibbs_r_Rbeta_.reset(
             restrict_size_ == 0
             ? new VectorXd()
-            : new VectorXd(r() - R() * beta_));
+            : new VectorXd(r() - R() * beta()));
     const auto &r_minus_Rbeta_ = *gibbs_r_Rbeta_;
 
     if (not gibbs_last_z_) {
@@ -280,7 +276,7 @@ const VectorXd& BayesianLinearRestricted::drawGibbs() {
             // Otherwise we need to look at the z values we drew in the previous round (or in
             // gibbsInitialize()) and draw an admissable sigma^2 value from the range of values that
             // wouldn't have caused a constraint violation had we used it (instead of the current
-            // value) to draw z to form beta = beta_ + Ainv*z.  (See the method documentation for
+            // value) to draw z to form beta = beta() + Ainv*z.  (See the method documentation for
             // thorough details)
 
 
@@ -309,11 +305,12 @@ const VectorXd& BayesianLinearRestricted::drawGibbs() {
                     }
                 }
                 else {
-                    throw draw_failure(std::string("sigma draw failure (no 2nd last): range is: [") + std::to_string(range.second) + "," + std::to_string(range.first) + "]: " + df.what()); // Don't have a previous beta to save us, so just throw with the underlying exception message
+                    // Don't have a previous beta to save us, so just throw with the underlying exception message
+                    throw draw_failure("sigma draw failure (no 2nd last): range is: [" + std::to_string(range.first) + "," + std::to_string(range.second) + "]: " + df.what());
                 }
             }
 
-            // We want sigma s.t. beta_ + sigma * (s * A) * z has the right distribution for a
+            // We want sigma s.t. beta() + sigma * (s * A) * z has the right distribution for a
             // multivariate t, which is sigma ~ sqrt(n_ / chisq(n_)), *but* truncated to [sigma_l,
             // sigma_u].  To accomplish that truncation for sigma, we need to truncate the chisq(n_)
             // to [n_/sigma_u^2, n/sigma_l^2].
@@ -385,7 +382,7 @@ const VectorXd& BayesianLinearRestricted::drawGibbs() {
 
     if (last_draw_.size() != K_ + 1) last_draw_.resize(K_ + 1);
 
-    last_draw_.head(K_) = beta_ + Ainv * z;
+    last_draw_.head(K_) = beta() + A.solve(z);
     last_draw_[K_] = s_sigma * s_sigma;
 
     return last_draw_;
@@ -393,8 +390,8 @@ const VectorXd& BayesianLinearRestricted::drawGibbs() {
 
 std::pair<double, double> BayesianLinearRestricted::sigmaRange(const Eigen::VectorXd &z) {
     std::pair<double, double> range(0, INFINITY);
-    // The current beta = beta_ + A^{-1}z, and so is modifying beta_ by A^{-1}z:
-    VectorXd denom = (R() * VinvCholLqr().solve(z));
+    // The current beta = beta() + A^{-1}z, and so is modifying beta() by A^{-1}z:
+    VectorXd denom = (R() * VinvLLT().matrixL().solve(z));
     for (size_t i = 0; i < restrict_size_; i++) {
         if (denom[i] == 0) {
             // This means our z draw was exactly parallel to the restriction line--in which

@@ -5,7 +5,7 @@ flags = [
         '-Wall',
         '-Wextra',
         '-std=c++11',
-        '-I', 'include',
+        '-I', '.',
         '-I', '/usr/include/eigen3',
         '-DERIS_TESTS' # Needed for test scripts to compile
         ]

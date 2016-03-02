@@ -13,28 +13,29 @@ using namespace Eigen;
 constexpr double BayesianLinear::NONINFORMATIVE_N, BayesianLinear::NONINFORMATIVE_S2, BayesianLinear::NONINFORMATIVE_Vc;
 
 BayesianLinear::BayesianLinear(
-        const Ref<const VectorXd> beta,
+        VectorXd beta,
         double s2,
-        const Ref<const MatrixXd> V_inverse,
+        MatrixXd V_inverse,
         double n)
-    : beta_(beta), s2_{s2}, V_inv_(V_inverse.selfadjointView<Lower>()), n_{n}, K_(beta_.rows())
+    : K_(beta.rows()), beta_cache_(std::move(beta)), s2_{s2}, V_inv_store_(std::move(V_inverse)),
+    V_inv_beta_(V_inv_store_.selfadjointView<Lower>() * beta_cache_), n_{n}
 {
     // Check that the given matrices conform
     checkLogic();
 }
 
-BayesianLinear::BayesianLinear(unsigned int K, const Ref<const MatrixXdR> noninf_X, const Ref<const VectorXd> noninf_y) :
-    beta_{VectorXd::Zero(K)}, s2_{NONINFORMATIVE_S2}, V_inv_{1.0/NONINFORMATIVE_Vc * MatrixXd::Identity(K, K)},
-    n_{NONINFORMATIVE_N}, noninformative_{true}, K_{K}
+BayesianLinear::BayesianLinear(unsigned int K, MatrixXd noninf_X, VectorXd noninf_y) :
+    K_{K}, beta_cache_(VectorXd::Zero(K)), s2_{NONINFORMATIVE_S2}, V_inv_store_(1.0/NONINFORMATIVE_Vc * MatrixXd::Identity(K, K)),
+    V_inv_beta_(VectorXd::Zero(K)), n_{NONINFORMATIVE_N}, noninformative_{true}
 {
-    if (K < 1) throw std::logic_error("BayesianLinear model requires at least one parameter");
-    auto fixed = fixedModelSize();
-    if (fixed and K != fixed) throw std::logic_error("BayesianLinear model constructed with incorrect number of model parameters");
+    // Safety check to make sure everything we just set is fine:
+    checkLogic();
 
+    // Additional checks on the non-informative data:
     if (noninf_X.rows() != noninf_y.rows()) throw std::logic_error("Partially informed model construction error: X.rows() != y.rows()");
     if (noninf_X.rows() > 0) {
         if (noninf_X.cols() != K_) throw std::logic_error("Partially informed model construction error: X.cols() != K");
-        noninf_X_.reset(new MatrixXdR(noninf_X));
+        noninf_X_.reset(new MatrixXd(noninf_X));
         noninf_y_.reset(new VectorXd(noninf_y));
     }
 }
@@ -43,10 +44,11 @@ BayesianLinear::BayesianLinear(unsigned int K, const Ref<const MatrixXdR> noninf
 void BayesianLinear::checkLogic() {
     auto k = K();
     if (k < 1) throw std::logic_error("BayesianLinear model requires at least one parameter");
-    if (V_inv_.rows() != V_inv_.cols()) throw std::logic_error("BayesianLinear requires square V_inverse matrix");
-    if (k != V_inv_.rows()) throw std::logic_error("BayesianLinear requires beta and V_inverse of same number of rows");
-    if (V_inv_chol_L_ and (V_inv_chol_L_->rows() != V_inv_chol_L_->cols() or V_inv_chol_L_->rows() != k))
-        throw std::logic_error("BayesianLinear constructed with invalid VinvCholL() matrix");
+    if (beta_cache_.size() > 0 and beta_cache_.size() != k)
+        throw std::logic_error("beta value is not a K vector");
+    if (V_inv_store_.rows() != V_inv_store_.cols())
+        throw std::logic_error("BayesianLinear requires square V_inverse matrix");
+    if (k != V_inv_store_.rows()) throw std::logic_error("BayesianLinear requires beta and V_inverse of same number of rows");
     auto fixed = fixedModelSize();
     if (fixed and k != fixed) throw std::logic_error("BayesianLinear model constructed with incorrect number of model parameters");
 }
@@ -55,27 +57,34 @@ unsigned int BayesianLinear::fixedModelSize() const { return 0; }
 
 #define NO_EMPTY_MODEL if (K_ == 0) { throw std::logic_error("Cannot use default constructed model object as a model"); }
 
-const VectorXd& BayesianLinear::beta() const { NO_EMPTY_MODEL; return beta_; }
+const VectorXd& BayesianLinear::beta() const {
+    NO_EMPTY_MODEL;
+    if (beta_cache_.size() == 0) updateBeta();
+    return beta_cache_;
+}
+void BayesianLinear::updateBeta() const {
+    if (beta_cache_.size() != K_)
+        beta_cache_.resize(K_);
+
+    // recalculate beta from V^{-1}b and V^{-1}: b = V^{-1}^{-1} V^{-1} b
+    // This lets us use V^{-1}b when updating, which is better because it never relies on an
+    // inversion, while beta, on the other hand, does, so we want to invert as late as possible,
+    // i.e. only when the actual value of beta is needed, here, and avoid using that
+    // inverse-dependent value except where absolutely needed.
+    beta_cache_ = VinvLDLT().solve(V_inv_beta_);
+}
 const double& BayesianLinear::s2() const { NO_EMPTY_MODEL; return s2_; }
 const double& BayesianLinear::n() const { NO_EMPTY_MODEL; return n_; }
-const MatrixXd& BayesianLinear::Vinv() const { NO_EMPTY_MODEL; return V_inv_; }
-const MatrixXd& BayesianLinear::VcholL() const {
+SelfAdjointView<const MatrixXd, Lower> BayesianLinear::Vinv() const { NO_EMPTY_MODEL; return V_inv_store_.selfadjointView<Lower>(); }
+const LLT<MatrixXd>& BayesianLinear::VinvLLT() const {
     NO_EMPTY_MODEL;
-    if (not V_chol_L_)
-        V_chol_L_ = std::make_shared<MatrixXd>(V_inv_.fullPivHouseholderQr().inverse().llt().matrixL());
-    return *V_chol_L_;
+    if (not V_inv_llt_) V_inv_llt_ = std::make_shared<LLT<MatrixXd>>(V_inv_store_);
+    return *V_inv_llt_;
 }
-const MatrixXd& BayesianLinear::VinvCholL() const {
+const LDLT<MatrixXd>& BayesianLinear::VinvLDLT() const {
     NO_EMPTY_MODEL;
-    if (not V_inv_chol_L_)
-        V_inv_chol_L_ = std::make_shared<MatrixXd>(V_inv_.selfadjointView<Lower>().llt().matrixL());
-    return *V_inv_chol_L_;
-}
-const FullPivHouseholderQR<MatrixXd>& BayesianLinear::VinvCholLqr() const {
-    NO_EMPTY_MODEL;
-    if (not V_inv_chol_L_qr_)
-        V_inv_chol_L_qr_ = std::make_shared<FullPivHouseholderQR<MatrixXd>>(VinvCholL());
-    return *V_inv_chol_L_qr_;
+    if (not V_inv_ldlt_) V_inv_ldlt_ = std::make_shared<LDLT<MatrixXd>>(V_inv_store_);
+    return *V_inv_ldlt_;
 }
 
 const bool& BayesianLinear::noninformative() const { NO_EMPTY_MODEL; return noninformative_; }
@@ -232,7 +241,7 @@ const VectorXd& BayesianLinear::draw() {
 
     // Now use that to draw a multivariate normal conditional on h, with mean beta and variance
     // h^{-1} V; this is the beta portion of the draw:
-    last_draw_.head(K_) = multivariateNormal(beta_, VcholL(), std::sqrt(last_draw_[K_]));
+    last_draw_.head(K_) = multivariateNormal(beta(), VinvLLT().matrixU().solve(MatrixXd::Identity(K_, K_)), std::sqrt(last_draw_[K_]));
 
     return last_draw_;
 }
@@ -287,8 +296,8 @@ BayesianLinear::operator std::string() const {
             }
         }
         summary <<
-            "\n  beta = " << beta_.transpose().format(IOFormat(StreamPrecision, 0, ", ")) <<
-            "\n  V = " << V_inv_.fullPivHouseholderQr().inverse().format(IOFormat(6, 0, " ", "\n      ")) << "\n";
+            "\n  beta = " << beta().transpose().format(IOFormat(StreamPrecision, 0, ", ")) <<
+            "\n  V = " << Vinv().ldlt().solve(MatrixXd::Identity(K_, K_)).format(IOFormat(6, 0, " ", "\n      ")) << "\n";
     }
     return summary.str();
 }
@@ -297,25 +306,46 @@ std::string BayesianLinear::display_name() const { return "BayesianLinear"; }
 
 void BayesianLinear::verifyParameters() const { NO_EMPTY_MODEL; }
 
-// Called on an lvalue object, creates a new object with *this as prior
-BayesianLinear BayesianLinear::update(const Ref<const VectorXd> &y, const Ref<const MatrixXd> &X) const & {
-    BayesianLinear updated(*this);
-    updated.updateInPlace(y, X);
-    return updated;
+// Posterior constructor (prior copy version)
+BayesianLinear::BayesianLinear(
+        const BayesianLinear &prior,
+        const Ref<const VectorXd> &y,
+        const Ref<const MatrixXd> &X,
+        double w) : BayesianLinear(prior) {
+    if (w != 1.0) weakenInPlace(w);
+    updateInPlace(y, X);
 }
 
-// Called on rvalue, so just update *this as needed, using itself as the prior, then return std::move(*this)
-BayesianLinear BayesianLinear::update(const Ref<const VectorXd> &y, const Ref<const MatrixXd> &X) && {
+// Posterior constructor (prior move version)
+BayesianLinear::BayesianLinear(
+        BayesianLinear &&prior,
+        const Ref<const VectorXd> &y,
+        const Ref<const MatrixXd> &X,
+        double w) : BayesianLinear(std::move(prior)) {
+    if (w != 1.0) weakenInPlace(w);
     updateInPlace(y, X);
-    return std::move(*this);
+}
+
+// Posterior constructor, just weakening (prior copy version)
+BayesianLinear::BayesianLinear(const BayesianLinear &prior, double w) : BayesianLinear(prior) {
+    // NB: call even if w == 1, unlike above, because this does a needed reset()--above the
+    // updateInPlace also does a reset().
+    weakenInPlace(w);
+}
+
+// Posterior constructor, just weakening (prior move version)
+BayesianLinear::BayesianLinear(BayesianLinear &&prior, double w) : BayesianLinear(std::move(prior)) {
+    // NB: call even if w == 1, unlike above, because this does a needed reset()--above the
+    // updateInPlace also does a reset().
+    weakenInPlace(w);
 }
 
 void BayesianLinear::updateInPlace(const Ref<const VectorXd> &y, const Ref<const MatrixXd> &X) {
     NO_EMPTY_MODEL;
-    if (X.cols() != K())
-        throw std::logic_error("update(y, X) failed: X has wrong number of columns (expected " + std::to_string(K()) + ", got " + std::to_string(X.cols()) + ")");
     if (y.rows() != X.rows())
         throw std::logic_error("update(y, X) failed: y and X are non-conformable");
+    if (X.rows() > 0 and X.cols() != K())
+        throw std::logic_error("update(y, X) failed: X has wrong number of columns (expected " + std::to_string(K()) + ", got " + std::to_string(X.cols()) + ")");
 
     reset();
 
@@ -323,18 +353,18 @@ void BayesianLinear::updateInPlace(const Ref<const VectorXd> &y, const Ref<const
         return;
 
     if (noninformative_) {
-        if (not noninf_X_ or noninf_X_->rows() == 0) noninf_X_.reset(new MatrixXdR(X.rows(), K()));
+        if (not noninf_X_ or noninf_X_->rows() == 0) noninf_X_.reset(new MatrixXd(X.rows(), K()));
         else if (not noninf_X_.unique()) {
             auto old_x = noninf_X_;
-            noninf_X_.reset(new MatrixXdR(old_x->rows() + X.rows(), K()));
+            noninf_X_.reset(new MatrixXd(old_x->rows() + X.rows(), K()));
             noninf_X_->topRows(old_x->rows()) = *old_x;
         }
         else noninf_X_->conservativeResize(noninf_X_->rows() + X.rows(), K());
 
-        if (not noninf_X_unweakened_ or noninf_X_unweakened_->rows() == 0) noninf_X_unweakened_.reset(new MatrixXdR(X.rows(), K()));
+        if (not noninf_X_unweakened_ or noninf_X_unweakened_->rows() == 0) noninf_X_unweakened_.reset(new MatrixXd(X.rows(), K()));
         else if (not noninf_X_unweakened_.unique()) {
             auto old_x = noninf_X_unweakened_;
-            noninf_X_unweakened_.reset(new MatrixXdR(old_x->rows() + X.rows(), K()));
+            noninf_X_unweakened_.reset(new MatrixXd(old_x->rows() + X.rows(), K()));
             noninf_X_unweakened_->topRows(old_x->rows()) = *old_x;
         }
         else noninf_X_unweakened_->conservativeResize(noninf_X_unweakened_->rows() + X.rows(), K());
@@ -362,18 +392,25 @@ void BayesianLinear::updateInPlace(const Ref<const VectorXd> &y, const Ref<const
         noninf_y_unweakened_->tail(y.rows()) = y;
 
         if (noninf_X_->rows() > K()) {
-            MatrixXd XtX = (noninf_X_->transpose() * *noninf_X_).selfadjointView<Lower>();
-            auto qr = XtX.fullPivHouseholderQr();
+            auto qr = noninf_X_->fullPivHouseholderQr();
             if (qr.rank() >= K()) {
-                beta_ = noninf_X_->jacobiSvd(ComputeThinU | ComputeThinV).solve(*noninf_y_);
-                V_inv_ = std::move(XtX);
+                //beta_ = noninf_X_->jacobiSvd(ComputeThinU | ComputeThinV).solve(*noninf_y_);
+                // R^T R will equal X^T X, but with slightly better numerical properties--and since
+                // we need the QR decomposition anyway to test the rank, might as well do that:
+                MatrixXd RPi = qr.matrixQR().triangularView<Upper>();
+                RPi *= qr.colsPermutation().inverse();
+                V_inv_store_ = RPi.transpose() * RPi;
+
+                V_inv_beta_ = noninf_X_->transpose() * *noninf_y_;
+
+                updateBeta();
+
                 n_ = noninf_X_->rows();
-                s2_ = (*noninf_y_unweakened_ - *noninf_X_unweakened_ * beta_).squaredNorm() / n_;
+                s2_ = (*noninf_y_unweakened_ - *noninf_X_unweakened_ * beta()).squaredNorm() / n_;
 
                 // These are unlikely to be set since this model was noninformative, but just in case:
-                if (V_chol_L_) V_chol_L_.reset();
-                if (V_inv_chol_L_) V_inv_chol_L_.reset();
-                if (V_inv_chol_L_qr_) V_inv_chol_L_qr_.reset();
+                if (V_inv_llt_) V_inv_llt_.reset();
+                if (V_inv_ldlt_) V_inv_ldlt_.reset();
                 noninf_X_.reset();
                 noninf_y_.reset();
                 noninf_X_unweakened_.reset();
@@ -389,28 +426,30 @@ void BayesianLinear::updateInPlace(const Ref<const VectorXd> &y, const Ref<const
 }
 
 void BayesianLinear::updateInPlaceInformative(const Ref<const VectorXd> &y, const Ref<const MatrixXd> &X) {
-    MatrixXd Xt = X.transpose();
 
-    // betanew = Vnew (Vold^{-1}*betaold + X'y), but we don't want to actually do a matrix inverse,
-    // so calculate the inside first (this is essentially the X'y term for the entire data)
-    VectorXd inside = V_inv_ * beta_ + Xt * y;
+    // We need the prior values later, so copy them now before we update them:
+    auto vinv = V_inv_store_.selfadjointView<Lower>();
+    MatrixXd V_inv_pr = vinv;
+    VectorXd beta_pr = beta();
 
     // New V^{-1} is just the old one plus the new data X'X:
-    MatrixXd V_inv_post = V_inv_ + Xt * X;
+    vinv.rankUpdate(X.transpose());
 
-    // Now get new beta:
-    VectorXd beta_post(V_inv_post.fullPivHouseholderQr().solve(inside));
+    // V^{-1}\beta gets X'y added to it:
+    V_inv_beta_ += X.transpose() * y;
 
     double n_prior = n_;
     n_ += X.rows();
 
+    // Recalculated beta_cache_ using the new vinv and vinvbeta values
+    updateBeta();
     // Now calculate the residuals for the new data:
-    VectorXd residualspost = y - X * beta_post;
+    VectorXd residualspost = y - X * beta();
 
     // And get the difference between new and old beta:
-    VectorXd beta_diff = beta_post - beta_;
+    VectorXd beta_diff = beta() - beta_pr;
 
-    double s2_prior_beta_delta = beta_diff.transpose() * V_inv_ * beta_diff;
+    double s2_prior_beta_delta = beta_diff.transpose() * V_inv_pr * beta_diff;
     s2_prior_beta_delta *= pending_weakening_;
     pending_weakening_ = 1.0;
 
@@ -418,24 +457,9 @@ void BayesianLinear::updateInPlaceInformative(const Ref<const VectorXd> &y, cons
     // to the old SSR that would are a result of beta changing:
     s2_ = (residualspost.squaredNorm() + n_prior * s2_ +  s2_prior_beta_delta) / n_;
 
-    beta_ = std::move(beta_post);
-    V_inv_ = std::move(V_inv_post);
-
     // The decompositions will have to be recalculated, if set:
-    if (V_chol_L_) V_chol_L_.reset();
-    if (V_inv_chol_L_) V_inv_chol_L_.reset();
-    if (V_inv_chol_L_qr_) V_inv_chol_L_qr_.reset();
-}
-
-BayesianLinear BayesianLinear::weaken(const double stdev_scale) const & {
-    BayesianLinear weakened(*this);
-    weakened.weakenInPlace(stdev_scale);
-    return weakened;
-}
-
-BayesianLinear BayesianLinear::weaken(const double stdev_scale) && {
-    weakenInPlace(stdev_scale);
-    return std::move(*this);
+    if (V_inv_llt_) V_inv_llt_.reset();
+    if (V_inv_ldlt_) V_inv_ldlt_.reset();
 }
 
 void BayesianLinear::weakenInPlace(const double stdev_scale) {
@@ -449,7 +473,7 @@ void BayesianLinear::weakenInPlace(const double stdev_scale) {
 
     if (noninf_X_) {
         // Partially informed model
-        if (not noninf_X_.unique()) noninf_X_.reset(new MatrixXdR(*noninf_X_ / stdev_scale));
+        if (not noninf_X_.unique()) noninf_X_.reset(new MatrixXd(*noninf_X_ / stdev_scale));
         else *noninf_X_ /= stdev_scale;
         if (not noninf_y_.unique()) noninf_y_.reset(new VectorXd(*noninf_y_ / stdev_scale));
         else *noninf_y_ /= stdev_scale;
@@ -458,34 +482,27 @@ void BayesianLinear::weakenInPlace(const double stdev_scale) {
     if (noninformative()) return; // Nothing else to do
 
     double var_scale = stdev_scale*stdev_scale;
-    // scale V^{-1} appropriately
-    V_inv_ /= var_scale;
+    // scale V^{-1} and V^{-1}\beta appropriately
+    V_inv_store_.triangularView<Lower>() /= var_scale;
+    V_inv_beta_ /= var_scale;
 
-    // This tracks how to undo the V_inv_ weakening when calculating an updated s2 value
+    // This tracks how to undo the Vinv weakening when calculating an updated s2 value
     pending_weakening_ *= var_scale;
 
-    // Likewise for the Cholesky decomposition (and its inverse), if set
-    if (V_chol_L_) {
-        if (V_chol_L_.unique())
-            *V_chol_L_ *= stdev_scale;
-        else
-            V_chol_L_.reset(new MatrixXd(*V_chol_L_ * stdev_scale));
-    }
-    if (V_inv_chol_L_) {
-        if (V_inv_chol_L_.unique())
-            *V_inv_chol_L_ /= stdev_scale;
-        else
-            V_inv_chol_L_.reset(new MatrixXd(*V_inv_chol_L_ / stdev_scale));
-    }
-    if (V_inv_chol_L_qr_) V_inv_chol_L_qr_.reset();
+    // The decompositions will have to be recalculated, if set (in theory these could be updated by
+    // scaling D by 1/var_scale for the LDLT and scaling L by 1/stdev_scale for the LLT, but
+    // Eigen::L(D)LT doesn't expose mutator access to the internals we'd need to change, so just
+    // clear and recalculate them whenever we need them again).
+    if (V_inv_llt_) V_inv_llt_.reset();
+    if (V_inv_ldlt_) V_inv_ldlt_.reset();
 
     return;
 }
 
-const MatrixXdR& BayesianLinear::noninfXData() const {
+const MatrixXd& BayesianLinear::noninfXData() const {
     if (not noninformative_) throw std::logic_error("noninfXData() cannot be called on a fully-informed model");
 
-    if (not noninf_X_) const_cast<std::shared_ptr<MatrixXdR>&>(noninf_X_).reset(new MatrixXdR());
+    if (not noninf_X_) const_cast<std::shared_ptr<MatrixXd>&>(noninf_X_).reset(new MatrixXd());
 
     return *noninf_X_;
 }

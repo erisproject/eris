@@ -1,6 +1,6 @@
 #pragma once
 #include <Eigen/Core>
-#include <Eigen/QR>
+#include <Eigen/Cholesky>
 #include <memory>
 #include <ostream>
 #include <vector>
@@ -11,36 +11,11 @@
 static_assert(false, "Eigen rvalue reference support is required (Eigen v3.2.7 or above required).")
 #endif
 
-/** This macro is provided to easily provide versions of update() and weaken() that return a proper
- * Derived type (instead of the base class BayesianLinear type), so that expressions such as
- * `derived = devired.update(...)` work as expected.  Without this, the above will fail due to there
- * being no conversion from BayesianLinear to Derived.
- *
- * This macro will put the methods in "public:" scope, which means "public:" scope will still be in
- * effect after the macro, so either put it in the public: scope, or at the end of some existing
- * scope.
- */
-#define ERIS_BELIEF_BAYESIANLINEAR_DERIVED_COMMON_METHODS(Derived) \
-    public: \
-        /** Updates the model, as done in BayesianLinear::update(), but returns an object of this derived type instead of a BayesianLinear object. */ \
-        [[gnu::warn_unused_result]] Derived update(const Eigen::Ref<const Eigen::VectorXd> &y, const Eigen::Ref<const Eigen::MatrixXd> &X) const & { Derived u(*this); u.updateInPlace(y, X); return u; } \
-        /** Updates the model, as done in BayesianLinear::update(), but returns an object of this derived type instead of a BayesianLinear object. */ \
-        [[gnu::warn_unused_result]] Derived update(const Eigen::Ref<const Eigen::VectorXd> &y, const Eigen::Ref<const Eigen::MatrixXd> &X)      && { updateInPlace(y, X); return std::move(*this); } \
-        /** Weakens the model, as done in BayesianLinear::weaken(), but returns an object of this derived type instead of a BayesianLinear object. */ \
-        [[gnu::warn_unused_result]] Derived weaken(double s) const & { Derived w(*this); w.weakenInPlace(s); return w; } \
-        /** Weakens the model, as done in BayesianLinear::weaken(), but returns an object of this derived type instead of a BayesianLinear object. */ \
-        [[gnu::warn_unused_result]] Derived weaken(double s)      && { weakenInPlace(s); return std::move(*this); }
-
 namespace eris {
 /// Namespace for classes designed for handling agent beliefs and belief updating.
 namespace belief {
 
-/// Add a MatrixXdR typedef for a row-major MatrixXd
-using MatrixXdR = Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
-
-/** Base class for a linear model with a natural conjugate, normal-gamma prior.  If deriving from
- * this class, you almost certainly want to use the
- * CREATIVITY_LINEAR_DERIVED_COMMON_METHODS(DerivationName) macro in your class definition.
+/** Base class for a linear model with a natural conjugate, normal-gamma prior.
  */
 class BayesianLinear {
     public:
@@ -82,21 +57,22 @@ class BayesianLinear {
          * this stores the given data and the model becomes noninformative, but with initial data
          * that will be incorporated the next time data is added.
          *
-         * The first update() call with return a model with `n` set to the number of rows in the
-         * updated data (plus noninformative data, if any) without adding the initial small n value.
+         * The first update (via the data updating constructor) will result in a model with `n` set
+         * to the number of rows in the updated data (plus noninformative data, if any) without
+         * adding the initial small n value.
          *
-         * noninformative() will return true, and the model cannot be used for prediction until more data
-         * is incorporated via update().
+         * noninformative() will return true, and the model cannot be used for prediction (until more data
+         * is incorporated by constructor a new model with this model as a prior).
          *
          * \param K the number of model parameters
          * \param noninf_X a matrix of `K` columns of data that this model should be loaded with,
-         * once enough additional data is added to make \f$X^\top X\f$ invertible.
+         * once enough additional data is added to make \f$X\f$ full rank.
          * \param noninf_y the y data associated with `noninf_X`
          */
         explicit BayesianLinear(
                 const unsigned int K,
-                const Eigen::Ref<const MatrixXdR> noninf_X = MatrixXdR(),
-                const Eigen::Ref<const Eigen::VectorXd> noninf_y = Eigen::VectorXd()
+                Eigen::MatrixXd noninf_X = Eigen::MatrixXd(),
+                Eigen::VectorXd noninf_y = Eigen::VectorXd()
                 );
 
         /** Constructs a BayesianLinear model with the given parameters.  These parameters will be those
@@ -105,23 +81,94 @@ class BayesianLinear {
          * \param beta the coefficient mean parameters (which, because of restrictions, might not be
          * the actual means).
          *
-         * \param s2 the \f$\sigma^2\f$ value of the error term variance.  Typically the \f$\sigma^2\f$ estimate.
+         * \param s2 the \f$\sigma^2\f$ value of the error term variance.  Typically the
+         * \f$\sigma^2\f$ estimate.
          *
          * \param V_inverse the inverse of the model's V matrix (where \f$s^2 V\f$ is the variance
-         * matrix of \f$\beta\f$).  Note: only the lower triangle of the matrix will be used.
+         * matrix of \f$\beta\f$).  Note: only values in the lower triangle of the matrix will be
+         * used.
          *
          * \param n the number of data points supporting the other values (which can be a
          * non-integer value).
          *
-         * \throws std::runtime_error if any of (`K >= 1`, `V.rows() == V.cols()`, `K == V.rows()`)
+         * \throws std::logic_error if any of (`K >= 1`, `V.rows() == V.cols()`, `K == V.rows()`)
          * are not satisfied (where `K` is determined by the number of rows of `beta`).
          */
         BayesianLinear(
-                const Eigen::Ref<const Eigen::VectorXd> beta,
+                Eigen::VectorXd beta,
                 double s2,
-                const Eigen::Ref<const Eigen::MatrixXd> V_inverse,
+                Eigen::MatrixXd V_inverse,
                 double n
               );
+
+        /** Constructor for generating a posterior from a prior and a set of new data with an
+         * optional weakening factor to apply to the prior.
+         *
+         * Typical use:
+         *
+         *     BayesianLinear posterior(prior, y, X);
+         *
+         * \param prior the BayesianLinear prior
+         * \param y the new y data
+         * \param X the new X data
+         * \param stdev_scale the weakening factor to apply to the prior before incorporating the
+         * new data.  The value must be 1.0 or above.  The value if omitted, 1.0, applies no prior
+         * weakening.  The variance of the prior will be scaled by the square of this value (so that
+         * the standard deviation of parameters is scaled by the given value).
+         */
+        BayesianLinear(
+                const BayesianLinear &prior,
+                const Eigen::Ref<const Eigen::VectorXd> &y,
+                const Eigen::Ref<const Eigen::MatrixXd> &X,
+                double stdev_scale = 1.0);
+
+        /** Constructor for generating a posterior from an rvalue-prior and a set of new data and
+         * optional weakening factor.  The prior's data is first moved into this object, then this
+         * object is updated in-place, avoiding requiring creation of an intermediate, temporary
+         * object.  Typical use:
+         *
+         *     BayesianLinear posterior(std::move(prior), y, X);
+         *     // prior is left in a valid but indeterminate state
+         *
+         * or
+         *
+         *     // in-place weakening and update without a temporary object:
+         *     belief = BayesianLinear(std::move(belief), y, X, 1.05);
+         *
+         * \param prior the BayesianLinear prior rvalue reference, typical the result of std::move
+         * \param y the new y data.  If an empty vector, no updating is performed.
+         * \param X the new X data.  The number of rows must agree with `y` and the number of
+         * columns must equal `prior.K()`.
+         * \param stdev_scale the weakening factor to apply to the prior before incorporating the
+         * new data.  The value must be 1.0 or above.  The value if omitted, 1.0, applies no prior
+         * weakening.  The variance of the prior will be scaled by the square of this value (so that
+         * the standard deviation of parameters is scaled by the given value).
+         */
+        BayesianLinear(
+                BayesianLinear &&prior,
+                const Eigen::Ref<const Eigen::VectorXd> &y,
+                const Eigen::Ref<const Eigen::MatrixXd> &X,
+                double stdev_scale = 1.0);
+
+        /** Constructor for generating a posterior by copying and weakening a prior but without any
+         * data updates.  The is equivalent to calling the posterior-with-data constructor with an
+         * empty set of data and the given weakening factor.
+         *
+         * \param prior the BayesianLinear prior
+         * \param stdev_scale the weakening factor to apply to the prior.  Must be greater than or
+         * equal to 1.
+         */
+        BayesianLinear(const BayesianLinear &prior, double stdev_scale);
+
+        /** Constructor for generating a posterior by moving and weakening a prior but without any
+         * data updates.  The is equivalent to calling the posterior-with-data moving constructor
+         * with an empty set of data and the given weakening factor.
+         *
+         * \param prior the BayesianLinear prior rvalue reference, typical the result of std::move
+         * \param stdev_scale the weakening factor to apply to the prior.  Must be greater than or
+         * equal to 1.
+         */
+        BayesianLinear(BayesianLinear &&prior, double stdev_scale);
 
         /// Virtual destructor
         virtual ~BayesianLinear() = default;
@@ -146,10 +193,14 @@ class BayesianLinear {
          */
         virtual unsigned int fixedModelSize() const;
 
-        /** Accesses the base distribution means value of beta.  Note that this is *not* necessarily
-         * the mean of beta and should not be used for prediction; rather it simply returns the
-         * distribution parameter value used, which may well not be the mean if any of the beta
-         * values have data restrictions.
+        /** Accesses (computing first, if necessary) the base distribution means value of beta.
+         * Note that this should not be used or reported in any significant way: it is not
+         * guaranteed to be the mean of the actual distribution but is merely a parameter of the
+         * distribution.  Any inference or prediction should be done by using distribution draws.
+         *
+         * Note also that this value is computed as needed from the \f$V^{-1}\beta\f$ and
+         * \f$V^{-1}\f$ matrices, but it is those matrices, not this vector, that are used when
+         * incorporating new data.
          */
         const Eigen::VectorXd& beta() const;
 
@@ -159,25 +210,19 @@ class BayesianLinear {
         /** Accesses the n value of the model. */
         const double& n() const;
 
-        /** Accesses the inverse of the V value of the model.  If the inverse has not been
-         * calculated yet, this calculates and caches the value before returning it.
+        /** Accesses the \f$V^{-1}\f$ matrix of the model.
          */
-        const Eigen::MatrixXd& Vinv() const;
+        Eigen::SelfAdjointView<const Eigen::MatrixXd, Eigen::Lower> Vinv() const;
 
-        /** Accesses (calculating if not previously calculated) the "L" matrix of the cholesky
-         * decomposition of V, where LL' = V.  This is calculated by inverting Vinv() and then
-         * obtaining the Cholesky decomposition of that inverse; the value is cached, however, so
-         * that subsequent calls involve no additional calculation.
-         */
-        const Eigen::MatrixXd& VcholL() const;
+        /** Accesses (calculating if not previous calculated) the LDLT Cholesky decomposition of
+         * `Vinv()`. This is essentially the same as calling `Vinv().ldlt()`, except that the
+         * decomposition is stored and reused if called again. */
+        const Eigen::LDLT<Eigen::MatrixXd>& VinvLDLT() const;
 
-        /** Accesses (calculating if not previous calculated) the Cholesky decomposition of
-         * `Vinv()`. */
-        const Eigen::MatrixXd& VinvCholL() const;
-
-        /** Accesses (calculating if not previous calculated) the QR decomposition of VinvCholL().
-         */
-        const Eigen::FullPivHouseholderQR<Eigen::MatrixXd>& VinvCholLqr() const;
+        /** Accesses (calculating if not previous calculated) the LLT Cholesky decomposition of
+         * `Vinv()`.  This is essentially the same as calling `Vinv().llt()`, except that the
+         * decomposition is stored and reused if called again. */
+        const Eigen::LLT<Eigen::MatrixXd>& VinvLLT() const;
 
         /** Returns the X data that has been added into this model but hasn't yet been used due to
          * it not being sufficiently large and different enough to achieve full column rank.  The
@@ -187,7 +232,7 @@ class BayesianLinear {
          *
          * \throws std::logic_error if noninformative() would return false.
          */
-        const MatrixXdR& noninfXData() const;
+        const Eigen::MatrixXd& noninfXData() const;
 
         /** Returns the y data associated with noninfXData().  Like that data, this will be scaled
          * if the model has been weakened.
@@ -390,69 +435,6 @@ class BayesianLinear {
          */
         virtual std::string display_name() const;
 
-        /** Using the calling object as a prior, uses the provided data to create a new BayesianLinear
-         * model.
-         *
-         * If the prior is a noninformative model, and the data (plus any previously incorporated
-         * data) will be checked to see if \f$X^\top X\f$ is full-rank: if so, beta, V, s2, and n
-         * will be updated using just the data; otherwise, the data will be stored until a
-         * subsequent update provides enough (sufficiently varied) data.
-         *
-         * \param X the new X data
-         * \param y the new y data
-         *
-         * X and y must have the same number of rows, but it is permitted that the number of rows be
-         * less than the number of parameters.  Updating iteratively with a data set broken into
-         * small portions will yield exactly the same posterior as updating once with the full data
-         * set.
-         *
-         * Calling this method with y and X having no rows at all is permitted: in such a case the
-         * returned object is simply a copy of the calling object, but with various state variables
-         * (such as last draw) reset.
-         */
-        [[gnu::warn_unused_result]]
-        BayesianLinear update(
-                const Eigen::Ref<const Eigen::VectorXd> &y,
-                const Eigen::Ref<const Eigen::MatrixXd> &X) const &;
-
-        /** Exactly like the above update() method, but optimized for the case where the caller is
-         * an rvalue, typically the result of something like:
-         *
-         *     auto newmodel = linearmodel.weaken(1.1).update(y, X);
-         *
-         * The new object is created by moving the current object rather than copying the current
-         * object.
-         */
-        [[gnu::warn_unused_result]]
-        BayesianLinear update(
-                const Eigen::Ref<const Eigen::VectorXd> &y,
-                const Eigen::Ref<const Eigen::MatrixXd> &X) &&;
-
-        /** Returns a new BayesianLinear object with exactly the same beta, n, and s2 as the caller, but
-         * with its `V()` (and related) matrices scaled so that the standard deviation of the
-         * parameters is multiplied by given value.  Thus a value of 2 results in a parameter
-         * distribution with the same mean, but with double the standard deviation (and 4 times the
-         * variance).
-         *
-         * If the model is noninformative, but has stored data (i.e. the data isn't yet sufficiently
-         * large or varied for \f$X^\top X\f$ to be invertible), the stored data itself is
-         * "weakened" by scaling both X and y values by the reciprocal of the given scale value.
-         * This ensures that the results of the noninformative will be affected in the exact same
-         * way as the results had the stored data been sufficient to make the model informative.
-         *
-         * This is designed to allow using this belief as a prior (via update()), but with a
-         * deliberately weakened weight on the prior.
-         */
-        [[gnu::warn_unused_result]]
-        BayesianLinear weaken(double stdev_scale) const &;
-
-        /** Just like the above weaken(), but operates on an rvalue reference: the new object that
-         * is returned is the result of moving the current object instead of copying the current
-         * object into a new object.
-         */
-        [[gnu::warn_unused_result]]
-        BayesianLinear weaken(double stdev_scale) &&;
-
         /** Returns the parameter names.  If not set explicitly, returns a vector of {"0", "1", "2",
          * ...}.
          */
@@ -468,6 +450,14 @@ class BayesianLinear {
         void names(const std::vector<std::string> &names);
 
     protected:
+
+        /** Updates beta.  This is called internally by beta() when the current beta_cache_ value is
+         * empty, but can be called by other methods as well.  It resizes beta_cache_ (if necessary)
+         * to size K, then populates it using Vinv() and V_inv_beta_.
+         *
+         * The method is const, though it does modify beta_cache_ (which is mutable).
+         */
+        virtual void updateBeta() const;
 
         /** Weakens the current linear model.  This functionality should only be used internally and
          * by subclasses as required for move and copy update methods; weakening should be
@@ -499,27 +489,32 @@ class BayesianLinear {
          */
         virtual void verifyParameters() const;
 
-        /// The column vector prior of coefficient means
-        Eigen::VectorXd beta_;
+        /// The model size.  If 0, this is a default-constructed object which isn't a valid model.
+        unsigned int K_{0};
+
+        /** The column vector prior of coefficient means, if calculated.  Should be reset to an
+         * empty vector if it needs to be recalculated (i.e. whenever \f$V^{-1}\f$ or
+         * \f$V^{-1}\beta\f$ are updated).
+         */
+        mutable Eigen::VectorXd beta_cache_{0};
+
         /// The prior value of \f$s^2\f$, the error term variance estimator
         double s2_;
-        /** The inverse of the prior V matrix, that is, which would be the \f$X^\top X\f$ in OLS
-         * (and if model weakening is not used)., This matrix should be symmetric and positive
-         * definite.
+        /** The underlying matrix for the V_inv_ self adjoint view.  Only the lower triangle is
+         * used.
          */
-        Eigen::MatrixXd V_inv_;
+        Eigen::MatrixXd V_inv_store_ = Eigen::MatrixXd::Zero(K_, K_);
 
-        mutable std::shared_ptr<Eigen::MatrixXd>
-            /** The inverse of the "L" matrix of the Cholesky decomposition of V^{-1}, where LL' =
-             * V^{-1}.  This is effectively the Cholesky decomposition of V.
-             */
-            V_chol_L_,
+        /** The \f$V^{-1} \beta\f$ vector (used when possible instead of beta, since it involves no
+         * inverse).
+         */
+        Eigen::VectorXd V_inv_beta_ = Eigen::VectorXd::Zero(K_);
 
-            /// The cached "L" matrix of the Cholesky decomposition of V^{-1}, where LL' = V^{-1}.
-            V_inv_chol_L_;
+        /// The cached LLT decomposition of V^{-1}, where LL' = V^{-1}.  \sa VinvLLT()
+        mutable std::shared_ptr<Eigen::LLT<Eigen::MatrixXd>> V_inv_llt_;
 
-            /// The cached QR decomposition of V_inv_chol_L_
-        mutable std::shared_ptr<Eigen::FullPivHouseholderQR<Eigen::MatrixXd>> V_inv_chol_L_qr_;
+        /// The cached LDLT decomposition of V^{-1}, where LL' = V^{-1}.  \sa VinvLDLT()
+        mutable std::shared_ptr<Eigen::LDLT<Eigen::MatrixXd>> V_inv_ldlt_;
 
         /// The number of data points supporting this model, which need not be an integer.
         double n_;
@@ -538,9 +533,6 @@ class BayesianLinear {
          * \sa BayesianLinear(unsigned int)
          */
         bool noninformative_{false};
-
-        /// The model size.  If 0, this is a default-constructed object which isn't a valid model.
-        unsigned int K_{0};
 
         /** The `K+1` length vector containing the last random draw of \f$\beta\f$ and \f$s^2\f$
          * produced by the draw() method.  Will be an empty vector before the first call to draw().
@@ -580,7 +572,7 @@ class BayesianLinear {
          * associated y data is scaled by 1/w, where w is the weakening factor, so that \f$(X\^top
          * X)^{-1}\f$ is scaled by \f$w^2\f$, and that y data stays proportional to X.
          */
-        std::shared_ptr<MatrixXdR> noninf_X_, noninf_X_unweakened_;
+        std::shared_ptr<Eigen::MatrixXd> noninf_X_, noninf_X_unweakened_;
         /// The y data for a non-informative model.  \sa noninf_X_.
         std::shared_ptr<Eigen::VectorXd> noninf_y_, noninf_y_unweakened_;
 
