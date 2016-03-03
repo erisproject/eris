@@ -11,11 +11,11 @@ namespace random {
  */
 class rng_t : public boost::random::mt19937_64, private eris::noncopyable {};
 
-// Thread-specific variables:
-/// \internal
+#ifndef DOXYGEN_SHOULD_SEE_THIS
+// Internal, thread-specific variables:
 thread_local extern bool seeded_;
-/// \internal
 thread_local extern rng_t rng_;
+#endif
 
 /** Returns the initial seed used for the current thread's random number generator.  If the
  * current thread's RNG is not yet seeded, it is seeded with an initial seed before
