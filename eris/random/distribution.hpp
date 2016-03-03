@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <boost/math/distributions/normal.hpp>
 #include <boost/random/normal_distribution.hpp>
+#include <boost/random/uniform_real_distribution.hpp>
 
 namespace eris { namespace random {
 
@@ -207,7 +208,7 @@ static auto truncDist(
 
             // Both alpha and omega are complements, so take a draw from [omega,alpha], then pass it
             // through the quantile_complement
-            return quantile(complement(dist, std::uniform_real_distribution<ResultType>(omega, alpha)(rng())));
+            return quantile(complement(dist, boost::random::uniform_real_distribution<ResultType>(omega, alpha)(rng())));
         }
         else {
             // Check for underflow (essentially, is omega equal to or closer to 0 than a ResultType
