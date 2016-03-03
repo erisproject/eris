@@ -217,7 +217,7 @@ static auto truncDist(
                 throw std::underflow_error("truncDist(): Unable to draw from truncated distribution: truncation range is too far in the lower tail");
 
             // Otherwise they are ordinary cdf values, draw from the uniform and invert:
-            return quantile(dist, std::uniform_real_distribution<ResultType>(alpha, omega)(rng()));
+            return quantile(dist, boost::random::uniform_real_distribution<ResultType>(alpha, omega)(rng()));
         }
     }
 }
