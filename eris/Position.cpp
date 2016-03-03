@@ -1,5 +1,6 @@
 #include <eris/Position.hpp>
-#include <eris/Random.hpp>
+#include <eris/random/rng.hpp>
+#include <eris/random/distribution.hpp>
 #include <cmath>
 
 namespace eris {
@@ -18,11 +19,10 @@ Position Position::zero(const size_t dimensions) {
 Position Position::random(const size_t dimensions) {
     Position offset = Position::zero(dimensions);
     double tss = 0.0;
-    auto &rng = Random::rng();
-    std::normal_distribution<double> stdnormal;
+    auto &rng = random::rng();
     while (tss == 0.0) { // Extremely likely that this loop runs only once (we would need D draws of exactly 0 to repeat)
         for (size_t i = 0; i < dimensions; i++) {
-            const double x = stdnormal(rng);
+            const double x = random::stdnorm(rng);
             offset[i] = x;
             tss += x*x;
         }

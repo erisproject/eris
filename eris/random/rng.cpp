@@ -3,6 +3,7 @@
 #include <cmath>
 #include <limits>
 #include <type_traits>
+#include <random> // for std::random_device
 
 namespace eris { namespace random {
 

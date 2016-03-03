@@ -1,7 +1,8 @@
 #include <eris/market/Bertrand.hpp>
 #include <eris/firm/PriceFirm.hpp>
 #include <eris/Market.hpp>
-#include <eris/Random.hpp>
+#include <eris/random/rng.hpp>
+#include <boost/random/uniform_int_distribution.hpp>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -129,7 +130,7 @@ Bertrand::allocation Bertrand::allocate(double q) const {
             // Otherwise life is more complicated: there is excess capacity, so we need to worry
             // about allocation rules among multiple firms.
             while (need_q > 0) {
-                int nFirms = firms.size();
+                unsigned nFirms = firms.size();
                 if (nFirms == 1) {
                     // Only one firm left, use it for everything remaining (we're guaranteed,
                     // by the above if (agg_q ..), that there is enough quantity available).
@@ -143,8 +144,7 @@ Bertrand::allocation Bertrand::allocate(double q) const {
                     // its capacity and them randomly select from the remaining firms until we have the
                     // needed capacity.
                     // (NB: can't move this outside the loop because nFirms changes each iteration)
-                    std::uniform_int_distribution<unsigned int> randFirmDist(0, nFirms-1);
-                    int luckyFirm = randFirmDist(Random::rng());
+                    unsigned luckyFirm = boost::random::uniform_int_distribution<unsigned>{0, nFirms-1}(random::rng());
                     auto f = firms[luckyFirm];
                     if (f.second >= need_q) {
                         a.shares[f.first].q += need_q;

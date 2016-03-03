@@ -1,6 +1,7 @@
-#include <eris/Random.hpp>
+#include <eris/random/rng.hpp>
 #include <eris/SharedMember.hpp>
 #include <eris/agent/AssetAgent.hpp>
+#include <iostream>
 
 using namespace eris;
 
@@ -24,7 +25,7 @@ int main() {
         std::cerr << "b->id = " << b->id() << "\n";
     }
 
-    std::shuffle(v.begin(), v.end(), Random::rng());
+    std::shuffle(v.begin(), v.end(), random::rng());
     std::cerr << "shuffled:\n";
     for (auto &b : v) {
         std::cerr << "b->id = " << b->id() << "\n";

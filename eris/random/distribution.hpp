@@ -1,24 +1,25 @@
 #pragma once
 #include <eris/random/rng.hpp>
-#include <random>
 #include <stdexcept>
+#include <boost/math/distributions/normal.hpp>
+#include <boost/random/normal_distribution.hpp>
 
 namespace eris { namespace random {
 
 /** A pre-defined, per-thread, reusable N(0,1) distribution.  Using this is preferred to using your
  * own when requesting only a single value as normal values are typically generated in pairs (thus
- * using this should be around twice as fast as constructing multiple std::normal_distribution
+ * using this should be around twice as fast as constructing multiple boost::random::normal_distribution
  * objects that are used only once).
  *
  * \sa rstdnorm()
  */
-thread_local extern std::normal_distribution<double> stdnorm;
+extern thread_local boost::random::normal_distribution<double> stdnorm;
 
 /** Returns a draw from a double N(0,1) distribution using the current rng().  Equivalent to:
  * `eris::random::stdnorm(eris::random::rng())`.  If drawing multiple values at once, it is
- * preferrable to use stdnorm directly, or to use your own std::normal_distribution<double> object,
- * in either case using a stored rng() reference (which avoids the slight overhead of needing to
- * make sure the RNG is seeded each time).
+ * preferrable to use stdnorm directly, or to use your own
+ * boost::random::normal_distribution<double> object, in either case using a stored rng() reference
+ * (which avoids the slight overhead of needing to make sure the RNG is seeded each time).
  */
 inline double rstdnorm() {
     return stdnorm(rng());

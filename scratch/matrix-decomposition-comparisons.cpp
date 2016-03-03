@@ -2,7 +2,7 @@
 #include <Eigen/SVD>
 #include <Eigen/QR>
 #include <Eigen/LU>
-#include <eris/Random.hpp>
+#include <eris/random/distribution.hpp>
 #include <iostream>
 #include <map>
 #include <cstdlib>
@@ -32,7 +32,7 @@ int main() {
     beta0 << -1.4, .77, .01, .45;
     for (unsigned c = 0; c < Z.cols(); c++) {
         for (unsigned r = 0; r < n; r++) {
-            Z(r,c) = Random::rstdnorm();
+            Z(r,c) = random::rstdnorm();
         }
     }
     X.col(0).setConstant(1);
