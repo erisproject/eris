@@ -1,11 +1,18 @@
 #include <eris/Position.hpp>
 #include <eris/random/rng.hpp>
-#include <eris/random/distribution.hpp>
+#include <boost/random/uniform_on_sphere.hpp>
+#include <boost/random/bernoulli_distribution.hpp>
+#include <boost/version.hpp>
 #include <cmath>
 
 namespace eris {
 
 Position::Position(const std::initializer_list<double> &coordinates) : Position(std::vector<double>(coordinates)) {}
+
+Position::Position(const std::vector<double> &coordinates) : pos_{coordinates} {
+    if (not dimensions)
+        throw std::out_of_range("Cannot initialize a Position with 0 dimensions");
+}
 
 Position::Position(std::vector<double> &&coordinates) : pos_{std::move(coordinates)} {
     if (not dimensions)
@@ -17,18 +24,11 @@ Position Position::zero(const size_t dimensions) {
 }
 
 Position Position::random(const size_t dimensions) {
-    Position offset = Position::zero(dimensions);
-    double tss = 0.0;
-    auto &rng = random::rng();
-    while (tss == 0.0) { // Extremely likely that this loop runs only once (we would need D draws of exactly 0 to repeat)
-        for (size_t i = 0; i < dimensions; i++) {
-            const double x = random::stdnorm(rng);
-            offset[i] = x;
-            tss += x*x;
-        }
-    }
-    offset /= sqrt(tss);
-    return offset;
+// Work around boost bug #11454, introduced in 1.56.0, fixed after 1.60.0
+#if BOOST_VERSION >= 105600 && BOOST_VERSION <= 106000
+    if (dimensions == 1) return Position(std::vector<double>(1, boost::random::bernoulli_distribution<>()(random::rng()) ? 1.0 : -1.0));
+#endif
+    return Position(boost::random::uniform_on_sphere<double, std::vector<double>>(dimensions)(random::rng()));
 }
 
 #define POSITIONCPP_ITERATOR_MAP(iterator_type, method) \
