@@ -1,9 +1,11 @@
-#include <eris/random/rng.hpp>
+#include <boost/random/mersenne_twister.hpp>
 #include <boost/random/normal_distribution.hpp>
 #include <boost/random/uniform_real_distribution.hpp>
 #include <boost/random/exponential_distribution.hpp>
+#include <random>
 #include <iomanip>
 #include <chrono>
+#include <string>
 
 using clk = std::chrono::high_resolution_clock;
 using dur = std::chrono::duration<double>;
@@ -13,17 +15,17 @@ struct draws_result {
     double seconds, sum;
 };
 
+boost::random::mt19937_64 rng;
 constexpr unsigned incr = 500000;
 // Draw from the given distribution 500,000 times, repeating until at least the given number of
 // seconds has elapsed.  Returns a draws_result with the number of draws, total elapsed time, and
 // sum of the draws.
-template <typename T> draws_result drawTest(T& dist, eris::random::rng_t &rng, double seconds = 2.0) {
+template <typename T> draws_result drawTest(T& dist, double seconds) {
     draws_result ret = {};
     auto start = clk::now();
     do {
         for (unsigned i = 0; i < incr; i++) {
-            double d = dist(rng);
-            ret.sum += d;
+            ret.sum += dist(rng);
         }
         ret.draws += incr;
         ret.seconds = dur(clk::now() - start).count();
@@ -31,27 +33,67 @@ template <typename T> draws_result drawTest(T& dist, eris::random::rng_t &rng, d
     return ret;
 }
 
+// Benchmark a generator by drawing from it for at least 3 seconds and printing the speed
+template <typename Generator> double benchmark(const std::string &name, Generator &gen) {
+    auto result = drawTest(gen, 3.0);
+    double speed = result.draws/(1000000*result.seconds);
+    std::cout << std::setw(20) << std::left << name + ":" <<
+        std::setw(10) << speed << " Mdraws/s;    " << std::setw(10) << 1/speed << " µs/draw\n";
+    return result.sum;
+}
+// rvalue wrapper around the above
+template <typename Generator> double benchmark(const std::string &name, Generator &&gen) {
+    return benchmark(name, gen);
+}
+
 // Test the draw speed of various distributions
-int main() {
-    auto &rng = eris::random::rng();
+int main(int argc, char *argv[]) {
+    // If we're given an argument, use that as a seed
+    uint64_t seed = 0;
+    if (argc == 2) {
+        try {
+            static_assert(sizeof(unsigned long) == 8 or sizeof(unsigned long long) == 8,
+                    "Internal error: don't know how to parse an unsigned 64-bit int on this architecture!");
+            seed = sizeof(unsigned long) == 8 ? std::stoul(argv[1]) : std::stoull(argv[1]);
+        }
+        catch (const std::logic_error &) {
+            std::cerr << "Invalid SEED value specified!\n\nUsage: " << argv[0] << " [SEED]\n";
+            exit(1);
+        }
+    }
+    else if (argc != 1) {
+        std::cerr << "Usage: " << argv[0] << " [SEED]\n";
+        exit(1);
+    }
+    else {
+        std::random_device rd;
+        static_assert(sizeof(decltype(rd())) == 4, "Internal error: std::random_device doesn't give 32-bit values!?");
+        seed = (uint64_t(rd()) << 32) + rd();
+    }
+    std::cout << "Using mt19937_64 generator with seed = " << seed << "\n";
+    rng.seed(seed);
 
-    boost::random::normal_distribution<double> normal(1e9, 2e7);
-    boost::random::uniform_real_distribution<double> unif(1e9, 1e10);
-    boost::random::exponential_distribution<double> exp(20);
+    double sumsum = 0;
 
-#define RESULTS(NAME, RES) std::setw(10) << std::left << NAME ":" << \
-    std::setw(10) << RES.draws/(1000000*RES.seconds) << " Mdraws/s; " << \
-    std::setw(10) << (1000000*RES.seconds)/RES.draws << u8" μs/draw"
+    sumsum += benchmark("boost N(1e9,2e7)", boost::random::normal_distribution<double>(1e9, 2e7));
+    sumsum += benchmark("boost U[1e9,1e10)", boost::random::uniform_real_distribution<double>(1e9, 1e10));
+    sumsum += benchmark("boost Exp(30)", boost::random::exponential_distribution<double>(30));
 
-    auto result_n = drawTest(normal, rng, 5.0);
-    std::cout << RESULTS("N(0,1)", result_n) << "\n";
-    auto result_u = drawTest(unif, rng, 5.0);
-    std::cout << RESULTS("U[0,1]", result_u) << "\n";
-    auto result_e = drawTest(exp, rng, 5.0);
-    std::cout << RESULTS("Exp(1)", result_e) << "\n";
+    std::cout << "\n";
+    sumsum += benchmark("boost N(0,1)", boost::random::normal_distribution<double>(0, 1));
+    sumsum += benchmark("boost U[0,1)", boost::random::uniform_real_distribution<double>(0, 1));
+    sumsum += benchmark("boost Exp(1)", boost::random::exponential_distribution<double>(1));
+
+    std::cout << "\n";
+    sumsum += benchmark("stl N(1e9,2e7)", std::normal_distribution<double>(1e9, 2e7));
+    sumsum += benchmark("stl U[1e9,1e10)", std::uniform_real_distribution<double>(1e9, 1e10));
+    sumsum += benchmark("stl Exp(30)", std::exponential_distribution<double>(30));
+
+    std::cout << "\n";
+    sumsum += benchmark("stl N(0,1)", std::normal_distribution<double>(0, 1));
+    sumsum += benchmark("stl U[0,1)", std::uniform_real_distribution<double>(0, 1));
+    sumsum += benchmark("stl Exp(1)", std::exponential_distribution<double>(1));
 
     // Do this just so the compiler can't optimize away the results
-    if (result_n.sum + result_u.sum + result_e.sum == 0.0) {
-        std::cout << "Something went wrong: the sum of all the draws equals 0!\n";
-    }
+    std::cout << "Sum of all random draws: " << std::setprecision(17) << sumsum;
 }
