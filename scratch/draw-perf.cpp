@@ -74,34 +74,37 @@ int main(int argc, char *argv[]) {
     std::cout << "Using mt19937_64 generator with seed = " << seed << "\n";
     rng.seed(seed);
 
-    double meana = 0, meanb = 0, meanc = 0, meand = 0;
+    double mean = 0;
     auto default_prec = std::cout.precision();
 #define PRECISE(v) std::setprecision(std::numeric_limits<double>::max_digits10) << v << std::setprecision(default_prec)
 
-    meana += benchmark("boost N(1e9,2e7)", boost::random::normal_distribution<double>(1e9, 2e7));
-    meana += benchmark("boost U[1e9,1e10)", boost::random::uniform_real_distribution<double>(1e9, 1e10));
-    meana += benchmark("boost Exp(30)", boost::random::exponential_distribution<double>(30));
+    mean += benchmark("boost N(1e9,2e7)", boost::random::normal_distribution<double>(1e9, 2e7));
+    mean += benchmark("boost U[1e9,1e10)", boost::random::uniform_real_distribution<double>(1e9, 1e10));
+    mean += benchmark("boost Exp(30)", boost::random::exponential_distribution<double>(30));
 
-    std::cout << "sum of these means: " << PRECISE(meana) << "\n";
-
-    std::cout << "\n";
-    meanb += benchmark("boost N(0,1)", boost::random::normal_distribution<double>(0, 1));
-    meanb += benchmark("boost U[0,1)", boost::random::uniform_real_distribution<double>(0, 1));
-    meanb += benchmark("boost Exp(1)", boost::random::exponential_distribution<double>(1));
-
-    std::cout << "sum of these means: " << PRECISE(meanb) << "\n";
+    std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 
     std::cout << "\n";
-    meanc += benchmark("stl N(1e9,2e7)", std::normal_distribution<double>(1e9, 2e7));
-    meanc += benchmark("stl U[1e9,1e10)", std::uniform_real_distribution<double>(1e9, 1e10));
-    meanc += benchmark("stl Exp(30)", std::exponential_distribution<double>(30));
+    mean = 0;
+    mean += benchmark("boost N(0,1)", boost::random::normal_distribution<double>());
+    mean += benchmark("boost U[0,1)", boost::random::uniform_real_distribution<double>());
+    mean += benchmark("boost Exp(1)", boost::random::exponential_distribution<double>());
 
-    std::cout << "sum of these means: " << PRECISE(meanc) << "\n";
+    std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 
     std::cout << "\n";
-    meand += benchmark("stl N(0,1)", std::normal_distribution<double>(0, 1));
-    meand += benchmark("stl U[0,1)", std::uniform_real_distribution<double>(0, 1));
-    meand += benchmark("stl Exp(1)", std::exponential_distribution<double>(1));
+    mean = 0;
+    mean += benchmark("stl N(1e9,2e7)", std::normal_distribution<double>(1e9, 2e7));
+    mean += benchmark("stl U[1e9,1e10)", std::uniform_real_distribution<double>(1e9, 1e10));
+    mean += benchmark("stl Exp(30)", std::exponential_distribution<double>(30));
 
-    std::cout << "sum of these means: " << PRECISE(meand) << "\n";
+    std::cout << "sum of these means: " << PRECISE(mean) << "\n";
+
+    std::cout << "\n";
+    mean = 0;
+    mean += benchmark("stl N(0,1)", std::normal_distribution<double>(0, 1));
+    mean += benchmark("stl U[0,1)", std::uniform_real_distribution<double>(0, 1));
+    mean += benchmark("stl Exp(1)", std::exponential_distribution<double>(1));
+
+    std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 }
