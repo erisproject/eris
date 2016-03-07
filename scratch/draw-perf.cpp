@@ -75,31 +75,33 @@ int main(int argc, char *argv[]) {
     rng.seed(seed);
 
     double meana = 0, meanb = 0, meanc = 0, meand = 0;
+    auto default_prec = std::cout.precision();
+#define PRECISE(v) std::setprecision(std::numeric_limits<double>::max_digits10) << v << std::setprecision(default_prec)
 
     meana += benchmark("boost N(1e9,2e7)", boost::random::normal_distribution<double>(1e9, 2e7));
     meana += benchmark("boost U[1e9,1e10)", boost::random::uniform_real_distribution<double>(1e9, 1e10));
     meana += benchmark("boost Exp(30)", boost::random::exponential_distribution<double>(30));
 
-    std::cout << "sum of these means: " << std::setprecision(17) << meana << "\n";
+    std::cout << "sum of these means: " << PRECISE(meana) << "\n";
 
     std::cout << "\n";
     meanb += benchmark("boost N(0,1)", boost::random::normal_distribution<double>(0, 1));
     meanb += benchmark("boost U[0,1)", boost::random::uniform_real_distribution<double>(0, 1));
     meanb += benchmark("boost Exp(1)", boost::random::exponential_distribution<double>(1));
 
-    std::cout << "sum of these means: " << std::setprecision(17) << meanb << "\n";
+    std::cout << "sum of these means: " << PRECISE(meanb) << "\n";
 
     std::cout << "\n";
     meanc += benchmark("stl N(1e9,2e7)", std::normal_distribution<double>(1e9, 2e7));
     meanc += benchmark("stl U[1e9,1e10)", std::uniform_real_distribution<double>(1e9, 1e10));
     meanc += benchmark("stl Exp(30)", std::exponential_distribution<double>(30));
 
-    std::cout << "sum of these means: " << std::setprecision(17) << meanc << "\n";
+    std::cout << "sum of these means: " << PRECISE(meanc) << "\n";
 
     std::cout << "\n";
     meand += benchmark("stl N(0,1)", std::normal_distribution<double>(0, 1));
     meand += benchmark("stl U[0,1)", std::uniform_real_distribution<double>(0, 1));
     meand += benchmark("stl Exp(1)", std::exponential_distribution<double>(1));
 
-    std::cout << "sum of these means: " << std::setprecision(17) << meand << "\n";
+    std::cout << "sum of these means: " << PRECISE(meand) << "\n";
 }
