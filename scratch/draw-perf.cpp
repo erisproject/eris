@@ -2,6 +2,7 @@
 #include <boost/random/normal_distribution.hpp>
 #include <boost/random/uniform_real_distribution.hpp>
 #include <boost/random/exponential_distribution.hpp>
+#include <boost/math/distributions/normal.hpp>
 #include <random>
 #include <iomanip>
 #include <chrono>
@@ -100,6 +101,14 @@ int main(int argc, char *argv[]) {
     mean += benchmark("boost N(0,1)", boost::random::normal_distribution<double>());
     mean += benchmark("boost U[0,1)", boost::random::uniform_real_distribution<double>());
     mean += benchmark("boost Exp(1)", boost::random::exponential_distribution<double>());
+
+    std::cout << "sum of these means: " << PRECISE(mean) << "\n";
+
+    std::cout << "\n";
+    mean = 0;
+    boost::math::normal_distribution<double> N01;
+    mean += benchmark("N cdf", [&](decltype(rng)&) { return cdf(N01, two); });
+    mean += benchmark("N pdf", [&](decltype(rng)&) { return pdf(N01, two); });
 
     std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 
