@@ -39,7 +39,7 @@ template <typename Generator> double benchmark(const std::string &name, Generato
     auto result = drawTest(gen, 3.0);
     double speed = result.draws/(1000000*result.seconds);
     std::cout << std::setw(20) << std::left << name + ":" <<
-        std::setw(10) << speed << " Mdraws/s;    " << std::setw(10) << 1/speed << " µs/draw\n";
+        std::setw(10) << speed << " Mdraws/s;    " << std::setw(10) << 1000/speed << " ns/draw\n";
     return result.mean;
 }
 // rvalue wrapper around the above
