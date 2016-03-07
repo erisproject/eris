@@ -78,6 +78,17 @@ int main(int argc, char *argv[]) {
     auto default_prec = std::cout.precision();
 #define PRECISE(v) std::setprecision(std::numeric_limits<double>::max_digits10) << v << std::setprecision(default_prec)
 
+    volatile double ten = 10.0, minusten = -10.0, two = 2.0, minustwo = -2.0, eight = 8.;
+    mean += benchmark("constant", [&](decltype(rng)&) { return minustwo; });
+    mean += benchmark("evaluate exp(10)", [&](decltype(rng)&) { return std::exp(ten); });
+    mean += benchmark("evaluate exp(-10)", [&](decltype(rng)&) { return std::exp(minusten); });
+    mean += benchmark("evaluate exp(-2)", [&](decltype(rng)&) { return std::exp(minustwo); });
+    mean += benchmark("evaluate exp(2)", [&](decltype(rng)&) { return std::exp(two); });
+    mean += benchmark("evaluate sqrt(8)", [&](decltype(rng)&) { return std::sqrt(eight); });
+    std::cout << "sum of these means: " << PRECISE(mean) << "\n";
+
+    std::cout << "\n";
+    mean = 0;
     mean += benchmark("boost N(1e9,2e7)", boost::random::normal_distribution<double>(1e9, 2e7));
     mean += benchmark("boost U[1e9,1e10)", boost::random::uniform_real_distribution<double>(1e9, 1e10));
     mean += benchmark("boost Exp(30)", boost::random::exponential_distribution<double>(30));
