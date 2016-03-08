@@ -35,12 +35,13 @@ template <typename T> draws_result drawTest(T& dist, double seconds) {
     return ret;
 }
 
+
 // Benchmark a generator by drawing from it for at least 3 seconds and printing the speed
 template <typename Generator> double benchmark(const std::string &name, Generator &gen) {
     auto result = drawTest(gen, 3.0);
     double speed = result.draws/(1000000*result.seconds);
-    std::cout << std::setw(20) << std::left << name + ":" <<
-        std::setw(10) << speed << " Mdraws/s;    " << std::setw(10) << 1000/speed << " ns/draw\n";
+    std::cout << std::setw(25) << std::left << name + ":" <<
+        std::setw(8) << speed << " MHz = " << std::setw(8) << 1000/speed << " ns/op\n";
     return result.mean;
 }
 // rvalue wrapper around the above
@@ -79,13 +80,28 @@ int main(int argc, char *argv[]) {
     auto default_prec = std::cout.precision();
 #define PRECISE(v) std::setprecision(std::numeric_limits<double>::max_digits10) << v << std::setprecision(default_prec)
 
-    volatile double ten = 10.0, minusten = -10.0, two = 2.0, minustwo = -2.0, eight = 8.;
-    mean += benchmark("constant", [&](decltype(rng)&) { return minustwo; });
-    mean += benchmark("evaluate exp(10)", [&](decltype(rng)&) { return std::exp(ten); });
-    mean += benchmark("evaluate exp(-10)", [&](decltype(rng)&) { return std::exp(minusten); });
-    mean += benchmark("evaluate exp(-2)", [&](decltype(rng)&) { return std::exp(minustwo); });
-    mean += benchmark("evaluate exp(2)", [&](decltype(rng)&) { return std::exp(two); });
-    mean += benchmark("evaluate sqrt(8)", [&](decltype(rng)&) { return std::sqrt(eight); });
+    // Modern CPUs have a variable clock, and may take a few ms to increase to maximum frequency, so
+    // run a fake test for a second to (hopefully) get the CPU at full speed.
+    {
+        auto fake = [&](decltype(rng)&) -> double { return 1.0; };
+        drawTest(fake, 1.0);
+    }
+    volatile double ten = 10.0, minusten = -10.0, two = 2.0, minustwo = -2.0, eight = 8.,
+             e = std::exp(1), pi = boost::math::constants::pi<double>();
+    mean += benchmark("constant (e)", [&](decltype(rng)&) -> double { return e; });
+    mean += benchmark("evaluate exp(10)", [&](decltype(rng)&) -> double { return std::exp(ten); });
+    mean += benchmark("evaluate exp(-10)", [&](decltype(rng)&) -> double { return std::exp(minusten); });
+    mean += benchmark("evaluate exp(-2)", [&](decltype(rng)&) -> double { return std::exp(minustwo); });
+    mean += benchmark("evaluate exp(pi)", [&](decltype(rng)&) -> double { return std::exp(pi); });
+    mean += benchmark("evaluate sqrt(8)", [&](decltype(rng)&) -> double { return std::sqrt(eight); });
+    mean += benchmark("eval 1/pi", [&](decltype(rng)&) -> double { return 1.0/pi; });
+    mean += benchmark("eval 1/sqrt(pi)", [&](decltype(rng)&) -> double { return 1.0/std::sqrt(pi); });
+    mean += benchmark("eval sqrt(1/pi)", [&](decltype(rng)&) -> double { return std::sqrt(1.0/pi); });
+    mean += benchmark("evaluate e*pi", [&](decltype(rng)&) -> double { return e*pi; });
+    mean += benchmark("evaluate e+pi", [&](decltype(rng)&) -> double { return e+pi; });
+    mean += benchmark("evaluate e*(2+pi)", [&](decltype(rng)&) -> double { return e*(2+pi); });
+    mean += benchmark("evaluate e*0.5*(2+pi)", [&](decltype(rng)&) -> double { return e*0.5*(2+pi); });
+    mean += benchmark("e*e*...*e (e^10)", [&](decltype(rng)&) -> double { return e*e*e*e*e*e*e*e*e*e; });
     std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 
     std::cout << "\n";
