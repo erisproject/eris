@@ -23,6 +23,8 @@ constexpr unsigned incr = 2000000;
 volatile double value_store;
 double last_benchmark_ns = std::numeric_limits<double>::quiet_NaN(), benchmark_overhead = last_benchmark_ns;
 
+boost::math::normal_distribution<double> N01;
+
 // Call a given function (or function-like object) 2 million times, repeating until at least the given number of
 // seconds has elapsed.  Returns a calls_result with the number of draws, total elapsed time, and
 // mean of the draws.
@@ -76,6 +78,36 @@ double lambertW(const double z, const double tol = 1e-12) {
     return wnext;//wnext * std::exp(wnext);
 }
 
+double astar(const double cer, const double ccheck, const double cur, const double tol=1e-10) {
+    const double cer_over_cur = cer/cur, ccheck_over_cur = ccheck/cur;
+    double left = 1e-10, right = 10;
+    auto f = [&cer_over_cur, &ccheck_over_cur](const double a) -> double {
+        const double sqrta2p4 = std::sqrt(a*a + 4);
+        return
+            (
+                cer_over_cur * std::exp(-0.5*a*a)
+                /
+                (boost::math::constants::root_two_pi<double>() * (cdf(complement(N01, a)) - cdf(complement(N01, a + cer_over_cur/a))))
+            )
+            *
+            (
+                1/a - 2 / (a + sqrta2p4) * std::exp(0.5 + 0.25*(a*a - a*sqrta2p4))
+            )
+            -
+            ccheck_over_cur;
+    };
+    if (f(right) > 0 or f(left) < 0) throw std::logic_error("Unable to calculate astar (end-points not right)");
+
+    while (right - left > tol*left) {
+        double mid = 0.5*(right + left);
+        double fmid = f(mid);
+        if (fmid > 0) left = mid;
+        else if (fmid < 0) right = mid;
+        else return mid;
+    }
+    return 0.5*(right+left);
+}
+
 // Test the draw speed of various distributions
 int main(int argc, char *argv[]) {
     // If we're given one argument, it's the number of seconds; if 2, it's seconds and a seed
@@ -119,7 +151,6 @@ int main(int argc, char *argv[]) {
     // optimizing them away.
     volatile const double ten = 10.0, minusten = -10.0, two = 2.0, minustwo = -2.0, eight = 8.,
              e = std::exp(1), pi = boost::math::constants::pi<double>();
-    boost::math::normal_distribution<double> N01;
 
     // Modern CPUs have a variable clock, and may take a few ms to increase to maximum frequency, so
     // run a fake test for a second to (hopefully) get the CPU at full speed.
@@ -214,6 +245,10 @@ int main(int argc, char *argv[]) {
            a0_stl   = sqrtL_stl   - 1/sqrtL_stl,
            a0_best  = sqrtL_best  - 1/sqrtL_best;
 
+    double astar_boost = astar(c_er_boost, c_sqrt+c_e, c_ur_boost),
+           astar_stl   = astar(c_er_stl,   c_sqrt+c_e, c_ur_stl),
+           astar_best  = astar(c_er_best,  c_sqrt+c_e, c_ur_best);
+
     std::cout << "\n\n\nSummary:\n\n" <<
         std::fixed << std::setprecision(4) <<
 
@@ -246,5 +281,13 @@ int main(int argc, char *argv[]) {
             " (" << (c_u_boost < c_u_stl ? "boost" : "stl") << ")\n\n" <<
 
       u8"    a₀ | c_ER, c_HR               " <<
-            std::setw(8) << a0_boost << "    " << std::setw(8) << a0_stl << "    " << std::setw(8) << a0_best << "\n\n";
+            std::setw(8) << a0_boost << "    " << std::setw(8) << a0_stl << "    " << std::setw(8) << a0_best << "\n\n" <<
+
+      u8"    a* | c_ER, c_UR, c_√, c_e^x   " <<
+            std::setw(8) << astar_boost << (astar_boost <= a0_boost ? u8"†   " : "    ") <<
+            std::setw(8) << astar_stl   << (astar_stl   <= a0_stl   ? u8"†   " : "    ") <<
+            std::setw(8) << astar_best  << (astar_best  <= a0_best  ? u8"†\n" : "\n");
+    if (astar_boost <= a0_boost or astar_stl < a0_stl or astar_best < a0_best)
+        std::cout << u8"        †: a* ≤ a₀ ≤ a, so a ≥ a* is trivially satisfied";
+    std::cout << "\n\n\n";
 }
