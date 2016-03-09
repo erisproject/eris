@@ -236,8 +236,8 @@ int main(int argc, char *argv[]) {
             " (" << (
                         c_exp_stl <= c_exp_boost and c_u_stl <= c_u_boost ? "stl" :
                         c_exp_boost <= c_exp_stl and c_u_boost <= c_u_stl ? "boost" :
-                        c_exp_stl <= c_exp_boost ? "~ Exp from boost, ~ U from stl" :
-                        "Exp from stl, U from boost") << ")\n" <<
+                        c_exp_stl <= c_exp_boost ? "~ Exp from stl, ~ U from boost" :
+                        "~ Exp from boost, ~ U from stl") << ")\n" <<
         "    " << std::setw(30) << "c_UR = 2 c_u + c_e^x" <<
             std::setw(8) << c_ur_boost << "  " <<
             std::setw(8) << c_ur_stl << "  " <<
