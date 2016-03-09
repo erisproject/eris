@@ -27,7 +27,7 @@ double last_benchmark_ns = std::numeric_limits<double>::quiet_NaN(), benchmark_o
 // seconds has elapsed.  Returns a calls_result with the number of draws, total elapsed time, and
 // mean of the draws.
 template <typename Callable> calls_result callTest(const Callable &callable, double seconds) {
-    calls_result ret = {};
+    calls_result ret = {0, 0, 0};
     auto start = clk::now();
     do {
         for (unsigned i = 0; i < incr; i++) {
@@ -51,7 +51,8 @@ template <typename Callable> double benchmark(const std::string &name, const Cal
     if (not std::isnan(benchmark_overhead)) {
         std::cout << "; net of overhead: " << std::setw(8) << last_benchmark_ns - benchmark_overhead << " ns/op";
     }
-    std::cout << "\n" << std::defaultfloat;
+    std::cout << "\n";
+    std::cout.unsetf(std::ios_base::floatfield);
     return result.mean;
 }
 // Benchmark a RNG distribution by constructing it then calling it a bunch of times
