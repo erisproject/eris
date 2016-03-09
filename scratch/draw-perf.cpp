@@ -11,42 +11,53 @@
 using clk = std::chrono::high_resolution_clock;
 using dur = std::chrono::duration<double>;
 
-struct draws_result {
-    unsigned long draws;
+struct calls_result {
+    unsigned long calls;
     double seconds, mean;
 };
 
 boost::random::mt19937_64 rng;
-constexpr unsigned incr = 500000;
-// Draw from the given distribution 500,000 times, repeating until at least the given number of
-// seconds has elapsed.  Returns a draws_result with the number of draws, total elapsed time, and
+constexpr unsigned incr = 2000000;
+// Variable in which to store call return values.  Declared volatile so that it can't be optimized
+// away.
+volatile double value_store;
+double last_benchmark_ns = std::numeric_limits<double>::quiet_NaN(), benchmark_overhead = last_benchmark_ns;
+
+// Call a given function (or function-like object) 2 million times, repeating until at least the given number of
+// seconds has elapsed.  Returns a calls_result with the number of draws, total elapsed time, and
 // mean of the draws.
-template <typename T> draws_result drawTest(T& dist, double seconds) {
-    draws_result ret = {};
+template <typename Callable> calls_result callTest(const Callable &callable, double seconds) {
+    calls_result ret = {};
     auto start = clk::now();
     do {
         for (unsigned i = 0; i < incr; i++) {
-            ret.mean += dist(rng);
+            value_store = callable();
+            ret.mean += value_store;
         }
-        ret.draws += incr;
+        ret.calls += incr;
         ret.seconds = dur(clk::now() - start).count();
     } while (ret.seconds < seconds);
-    ret.mean /= ret.draws;
+    ret.mean /= ret.calls;
     return ret;
 }
 
 
-// Benchmark a generator by drawing from it for at least 3 seconds and printing the speed
-template <typename Generator> double benchmark(const std::string &name, Generator &gen) {
-    auto result = drawTest(gen, 3.0);
-    double speed = result.draws/(1000000*result.seconds);
-    std::cout << std::setw(25) << std::left << name + ":" <<
-        std::setw(8) << speed << " MHz = " << std::setw(8) << 1000/speed << " ns/op\n";
+// Benchmark a function by calling it for at least 3 seconds and printing the speed
+template <typename Callable> double benchmark(const std::string &name, const Callable &c) {
+    auto result = callTest(c, 3.0);
+    last_benchmark_ns = 1000000000*result.seconds / result.calls;
+    std::cout << std::setw(25) << std::left << name + ":" << std::right << std::fixed << std::setprecision(2) <<
+        std::setw(7) << 1000/last_benchmark_ns << " MHz = " << std::setw(8) << last_benchmark_ns << " ns/op";
+    if (not std::isnan(benchmark_overhead)) {
+        std::cout << "; net of overhead: " << std::setw(8) << last_benchmark_ns - benchmark_overhead << " ns/op";
+    }
+    std::cout << "\n" << std::defaultfloat;
     return result.mean;
 }
-// rvalue wrapper around the above
-template <typename Generator> double benchmark(const std::string &name, Generator &&gen) {
-    return benchmark(name, gen);
+// Benchmark a RNG distribution by constructing it then calling it a bunch of times
+template <typename Dist, typename... Args> double benchmarkDraw(const std::string &name, Args&&... args) {
+    Dist dist(std::forward<Args>(args)...);
+    return benchmark(name, [&dist]() -> double { return dist(rng); });
 }
 
 // Test the draw speed of various distributions
@@ -74,73 +85,76 @@ int main(int argc, char *argv[]) {
         seed = (uint64_t(rd()) << 32) + rd();
     }
     std::cout << "Using mt19937_64 generator with seed = " << seed << "\n";
+    std::cout << std::showpoint;
     rng.seed(seed);
 
     double mean = 0;
     auto default_prec = std::cout.precision();
 #define PRECISE(v) std::setprecision(std::numeric_limits<double>::max_digits10) << v << std::setprecision(default_prec)
 
+    // Some constants to use below.  These are declared volatile to prevent the compiler from
+    // optimizing them away.
+    volatile const double ten = 10.0, minusten = -10.0, two = 2.0, minustwo = -2.0, eight = 8.,
+             e = std::exp(1), pi = boost::math::constants::pi<double>();
+    boost::math::normal_distribution<double> N01;
+
     // Modern CPUs have a variable clock, and may take a few ms to increase to maximum frequency, so
     // run a fake test for a second to (hopefully) get the CPU at full speed.
-    {
-        auto fake = [&](decltype(rng)&) -> double { return 1.0; };
-        drawTest(fake, 1.0);
-    }
-    volatile double ten = 10.0, minusten = -10.0, two = 2.0, minustwo = -2.0, eight = 8.,
-             e = std::exp(1), pi = boost::math::constants::pi<double>();
-    mean += benchmark("constant (e)", [&](decltype(rng)&) -> double { return e; });
-    mean += benchmark("evaluate exp(10)", [&](decltype(rng)&) -> double { return std::exp(ten); });
-    mean += benchmark("evaluate exp(-10)", [&](decltype(rng)&) -> double { return std::exp(minusten); });
-    mean += benchmark("evaluate exp(-2)", [&](decltype(rng)&) -> double { return std::exp(minustwo); });
-    mean += benchmark("evaluate exp(pi)", [&](decltype(rng)&) -> double { return std::exp(pi); });
-    mean += benchmark("evaluate sqrt(8)", [&](decltype(rng)&) -> double { return std::sqrt(eight); });
-    mean += benchmark("eval 1/pi", [&](decltype(rng)&) -> double { return 1.0/pi; });
-    mean += benchmark("eval 1/sqrt(pi)", [&](decltype(rng)&) -> double { return 1.0/std::sqrt(pi); });
-    mean += benchmark("eval sqrt(1/pi)", [&](decltype(rng)&) -> double { return std::sqrt(1.0/pi); });
-    mean += benchmark("evaluate e*pi", [&](decltype(rng)&) -> double { return e*pi; });
-    mean += benchmark("evaluate e+pi", [&](decltype(rng)&) -> double { return e+pi; });
-    mean += benchmark("evaluate e*(2+pi)", [&](decltype(rng)&) -> double { return e*(2+pi); });
-    mean += benchmark("evaluate e*0.5*(2+pi)", [&](decltype(rng)&) -> double { return e*0.5*(2+pi); });
-    mean += benchmark("e*e*...*e (e^10)", [&](decltype(rng)&) -> double { return e*e*e*e*e*e*e*e*e*e; });
+    callTest([]() -> double { return 1.0; }, 1.0);
+
+    mean += benchmark("overhead", [&]() -> double { return 1.0; });
+    benchmark_overhead = last_benchmark_ns;
+    mean += benchmark("evaluate exp(10)", [&]() -> double { return std::exp(ten); });
+    mean += benchmark("evaluate exp(-10)", [&]() -> double { return std::exp(minusten); });
+    mean += benchmark("evaluate exp(-2)", [&]() -> double { return std::exp(minustwo); });
+    mean += benchmark("evaluate exp(pi)", [&]() -> double { return std::exp(pi); });
+    mean += benchmark("evaluate sqrt(8)", [&]() -> double { return std::sqrt(eight); });
+    mean += benchmark("eval 1/pi", [&]() -> double { return 1.0/pi; });
+    mean += benchmark("eval 1/sqrt(pi)", [&]() -> double { return 1.0/std::sqrt(pi); });
+    mean += benchmark("eval sqrt(1/pi)", [&]() -> double { return std::sqrt(1.0/pi); });
+    mean += benchmark("evaluate e*pi", [&]() -> double { return e*pi; });
+    mean += benchmark("evaluate e+pi", [&]() -> double { return e+pi; });
+    mean += benchmark("evaluate e*(2+pi)", [&]() -> double { return e*(2+pi); });
+    mean += benchmark("evaluate e*0.5*(2+pi)", [&]() -> double { return e*0.5*(2+pi); });
+    mean += benchmark("e*e*...*e (e^10)", [&]() -> double { return e*e*e*e*e*e*e*e*e*e; });
+    mean += benchmark("N cdf", [&]() -> double { return cdf(N01, two); });
+    mean += benchmark("N pdf", [&]() -> double { return pdf(N01, two); });
     std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 
     std::cout << "\n";
     mean = 0;
-    mean += benchmark("boost N(1e9,2e7)", boost::random::normal_distribution<double>(1e9, 2e7));
-    mean += benchmark("boost U[1e9,1e10)", boost::random::uniform_real_distribution<double>(1e9, 1e10));
-    mean += benchmark("boost Exp(30)", boost::random::exponential_distribution<double>(30));
-
-    std::cout << "sum of these means: " << PRECISE(mean) << "\n";
-
-    std::cout << "\n";
-    mean = 0;
-    mean += benchmark("boost N(0,1)", boost::random::normal_distribution<double>());
-    mean += benchmark("boost U[0,1)", boost::random::uniform_real_distribution<double>());
-    mean += benchmark("boost Exp(1)", boost::random::exponential_distribution<double>());
+    mean += benchmarkDraw<boost::random::normal_distribution<double>>("boost N(1e9,2e7)", 1e9, 2e7);
+    mean += benchmarkDraw<boost::random::uniform_real_distribution<double>>("boost U[1e9,1e10)", 1e9, 1e10);
+    mean += benchmarkDraw<boost::random::exponential_distribution<double>>("boost Exp(30)", 30);
 
     std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 
     std::cout << "\n";
     mean = 0;
-    boost::math::normal_distribution<double> N01;
-    mean += benchmark("N cdf", [&](decltype(rng)&) { return cdf(N01, two); });
-    mean += benchmark("N pdf", [&](decltype(rng)&) { return pdf(N01, two); });
+    mean += benchmarkDraw<boost::random::normal_distribution<double>>("boost N(0,1)");
+    mean += benchmarkDraw<boost::random::uniform_real_distribution<double>>("boost U[0,1)");
+    mean += benchmarkDraw<boost::random::exponential_distribution<double>>("boost Exp(1)");
 
     std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 
     std::cout << "\n";
     mean = 0;
-    mean += benchmark("stl N(1e9,2e7)", std::normal_distribution<double>(1e9, 2e7));
-    mean += benchmark("stl U[1e9,1e10)", std::uniform_real_distribution<double>(1e9, 1e10));
-    mean += benchmark("stl Exp(30)", std::exponential_distribution<double>(30));
 
     std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 
     std::cout << "\n";
     mean = 0;
-    mean += benchmark("stl N(0,1)", std::normal_distribution<double>(0, 1));
-    mean += benchmark("stl U[0,1)", std::uniform_real_distribution<double>(0, 1));
-    mean += benchmark("stl Exp(1)", std::exponential_distribution<double>(1));
+    mean += benchmarkDraw<std::normal_distribution<double>>("stl N(1e9,2e7)", 1e9, 2e7);
+    mean += benchmarkDraw<std::uniform_real_distribution<double>>("stl U[1e9,1e10)", 1e9, 1e10);
+    mean += benchmarkDraw<std::exponential_distribution<double>>("stl Exp(30)", 30);
+
+    std::cout << "sum of these means: " << PRECISE(mean) << "\n";
+
+    std::cout << "\n";
+    mean = 0;
+    mean += benchmarkDraw<std::normal_distribution<double>>("stl N(0,1)", 0, 1);
+    mean += benchmarkDraw<std::uniform_real_distribution<double>>("stl U[0,1)", 0, 1);
+    mean += benchmarkDraw<std::exponential_distribution<double>>("stl Exp(1)", 1);
 
     std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 }
