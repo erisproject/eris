@@ -215,35 +215,36 @@ int main(int argc, char *argv[]) {
            a0_best  = sqrtL_best  - 1/sqrtL_best;
 
     std::cout << "\n\n\nSummary:\n\n" <<
+        std::fixed << std::setprecision(4) <<
 
         "\nOperations:\n\n" <<
       u8"    c_√         = " << std::setw(8) << c_sqrt << "\n" <<
         "    c_e^x       = " << std::setw(8) << c_e    << "\n" <<
         "    c_√ + c_e^x = " << std::setw(8) << c_sqrt + c_e << "\n" <<
         "\n\n" <<
-        // 4 30                                8    2    8    2   8
-        "Draws:                              boost      stl      best  \n" <<
-        "                                  --------  --------  --------\n" <<
-        "    " << std::setw(30) << std::left << "c_NR = c_HR = c_n" <<
-            std::setw(8) << c_n_boost << "  " <<
-            std::setw(8) << c_n_stl << "  " <<
+      // 4   30                            8       4   8       4   8
+        "Draws:                               boost         stl        best\n" <<
+        "                                   -------     -------     ---------------------------\n" <<
+        "    " << std::setw(30) << std::left << "c_NR = c_HR = c_n" << std::right <<
+            std::setw(8) << c_n_boost << "    " <<
+            std::setw(8) << c_n_stl << "    " <<
             std::setw(8) << std::min(c_n_boost, c_n_stl) <<
             " (" << (c_n_boost < c_n_stl ? "boost" : "stl") << ")\n" <<
-        "    " << std::setw(30) << "c_ER = c_exp + c_e^x + c_u" <<
-            std::setw(8) << c_er_boost << "  " <<
-            std::setw(8) << c_er_stl << "  " <<
+        "    " << std::setw(30) << std::left << "c_ER = c_exp + c_e^x + c_u" << std::right <<
+            std::setw(8) << c_er_boost << "    " <<
+            std::setw(8) << c_er_stl << "    " <<
             std::setw(8) << c_er_best <<
             " (" << (
                         c_exp_stl <= c_exp_boost and c_u_stl <= c_u_boost ? "stl" :
                         c_exp_boost <= c_exp_stl and c_u_boost <= c_u_stl ? "boost" :
                         c_exp_stl <= c_exp_boost ? "~ Exp from stl, ~ U from boost" :
                         "~ Exp from boost, ~ U from stl") << ")\n" <<
-        "    " << std::setw(30) << "c_UR = 2 c_u + c_e^x" <<
-            std::setw(8) << c_ur_boost << "  " <<
-            std::setw(8) << c_ur_stl << "  " <<
+        "    " << std::setw(30) << std::left << "c_UR = 2 c_u + c_e^x" << std::right <<
+            std::setw(8) << c_ur_boost << "    " <<
+            std::setw(8) << c_ur_stl << "    " <<
             std::setw(8) << c_ur_best <<
             " (" << (c_u_boost < c_u_stl ? "boost" : "stl") << ")\n\n" <<
 
-        "    " << std::setw(30) << "a0 @ c_ER/c_HR" <<
-            std::setw(8) << a0_boost << "  " << std::setw(8) << a0_stl << "  " << std::setw(8) << a0_best << "\n\n";
+      u8"    a₀ | c_ER, c_HR               " <<
+            std::setw(8) << a0_boost << "    " << std::setw(8) << a0_stl << "    " << std::setw(8) << a0_best << "\n\n";
 }
