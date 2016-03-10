@@ -11,26 +11,28 @@
 using clk = std::chrono::high_resolution_clock;
 using dur = std::chrono::duration<double>;
 
+template <typename T>
 struct calls_result {
     unsigned long calls;
-    double seconds, mean;
+    double seconds;
+    T mean;
 };
 
 boost::random::mt19937_64 rng;
 constexpr unsigned incr = 2000000;
-// Variable in which to store call return values.  Declared volatile so that it can't be optimized
-// away.
-volatile double value_store;
-double last_benchmark_ns = std::numeric_limits<double>::quiet_NaN(), benchmark_overhead = last_benchmark_ns;
+double last_benchmark_ns = std::numeric_limits<double>::quiet_NaN(), benchmark_overhead = last_benchmark_ns, benchmark_overhead_f = benchmark_overhead;
 
-boost::math::normal_distribution<double> N01;
+boost::math::normal_distribution<double> N01d;
+boost::math::normal_distribution<float> N01f;
 
 // Call a given function (or function-like object) 2 million times, repeating until at least the given number of
 // seconds has elapsed.  Returns a calls_result with the number of draws, total elapsed time, and
 // mean of the draws.
-template <typename Callable> calls_result callTest(const Callable &callable, double seconds) {
-    calls_result ret = {0, 0, 0};
+template <typename Callable> auto callTest(const Callable &callable, double seconds) -> calls_result<decltype(callable())> {
+    calls_result<decltype(callable())> ret = {0, 0, 0};
     auto start = clk::now();
+    // Volatile so that it shouldn't be optimized away
+    volatile decltype(callable()) value_store;
     do {
         for (unsigned i = 0; i < incr; i++) {
             value_store = callable();
@@ -43,24 +45,26 @@ template <typename Callable> calls_result callTest(const Callable &callable, dou
     return ret;
 }
 
-double bench_seconds = 3.0;
+// Default number of seconds to benchmark; 0 means 1 iteration (of 2 million calls)
+double bench_seconds = 0.0;
 // Benchmark a function by calling it for at least 2 seconds and printing the speed
-template <typename Callable> double benchmark(const std::string &name, const Callable &c) {
+template <typename Callable> auto benchmark(const std::string &name, const Callable &c) -> decltype(c()) {
     auto result = callTest(c, bench_seconds);
     last_benchmark_ns = 1000000000*result.seconds / result.calls;
     std::cout << std::setw(25) << std::left << name + ":" << std::right << std::fixed << std::setprecision(2) <<
         std::setw(7) << 1000/last_benchmark_ns << " MHz = " << std::setw(8) << last_benchmark_ns << " ns/op";
-    if (not std::isnan(benchmark_overhead)) {
-        std::cout << "; net of overhead: " << std::setw(8) << last_benchmark_ns - benchmark_overhead << " ns/op";
+    double &overhead = (std::is_same<decltype(c()), float>::value ? benchmark_overhead_f : benchmark_overhead);
+    if (not std::isnan(overhead)) {
+        std::cout << "; net of overhead: " << std::setw(8) << last_benchmark_ns - overhead << " ns/op";
     }
     std::cout << "\n";
     std::cout.unsetf(std::ios_base::floatfield);
     return result.mean;
 }
 // Benchmark a RNG distribution by constructing it then calling it a bunch of times
-template <typename Dist, typename... Args> double benchmarkDraw(const std::string &name, Args&&... args) {
+template <typename Dist, typename... Args> typename Dist::result_type benchmarkDraw(const std::string &name, Args&&... args) {
     Dist dist(std::forward<Args>(args)...);
-    return benchmark(name, [&dist]() -> double { return dist(rng); });
+    return benchmark(name, [&dist]() -> typename Dist::result_type { return dist(rng); });
 }
 
 double lambertW(const double z, const double tol = 1e-12) {
@@ -87,7 +91,7 @@ double astar(const double cer, const double ccheck, const double cur, const doub
             (
                 cer_over_cur * std::exp(-0.5*a*a)
                 /
-                (boost::math::constants::root_two_pi<double>() * (cdf(complement(N01, a)) - cdf(complement(N01, a + cer_over_cur/a))))
+                (boost::math::constants::root_two_pi<double>() * (cdf(complement(N01d, a)) - cdf(complement(N01d, a + cer_over_cur/a))))
             )
             *
             (
@@ -150,45 +154,75 @@ int main(int argc, char *argv[]) {
     // Some constants to use below.  These are declared volatile to prevent the compiler from
     // optimizing them away.
     volatile const double ten = 10.0, minusten = -10.0, two = 2.0, minustwo = -2.0, eight = 8.,
-             e = std::exp(1), pi = boost::math::constants::pi<double>();
+             e = boost::math::constants::e<double>(), pi = boost::math::constants::pi<double>(),
+             piandahalf = 1.5*pi;
+
+    volatile const float eightf = 8.f, minustwof = -2.f, tenf = 10.f, minustenf = -10.f, piandahalff = piandahalf;
 
     // Modern CPUs have a variable clock, and may take a few ms to increase to maximum frequency, so
     // run a fake test for a second to (hopefully) get the CPU at full speed.
     callTest([]() -> double { return 1.0; }, 1.0);
 
-    mean += benchmark("overhead", [&]() -> double { return 1.0; });
+    // NB: square brackets around values below indicate compiler time constants (or, at least,
+    // constexprs, which should work the same if the compiler is optimizing)
+    mean += benchmark("overhead (d)", [&]() -> double { return eight; });
     benchmark_overhead = last_benchmark_ns;
+    mean += benchmark("overhead (f)", [&]() -> float { return eightf; });
+    benchmark_overhead_f = last_benchmark_ns;
+
     double c_e = 0;
-    mean += benchmark("evaluate exp(10)", [&]() -> double { return std::exp(ten); });
+    mean += benchmark("evaluate (d) exp(10)", [&]() -> double { return std::exp(ten); });
     c_e += last_benchmark_ns;
-    mean += benchmark("evaluate exp(-10)", [&]() -> double { return std::exp(minusten); });
+    mean += benchmark("evaluate (d) exp(-10)", [&]() -> double { return std::exp(minusten); });
     c_e += last_benchmark_ns;
-    mean += benchmark("evaluate exp(-2)", [&]() -> double { return std::exp(minustwo); });
+    mean += benchmark("evaluate (d) exp(-2)", [&]() -> double { return std::exp(minustwo); });
     c_e += last_benchmark_ns;
-    mean += benchmark("evaluate exp(pi)", [&]() -> double { return std::exp(pi); });
+    mean += benchmark("evaluate (d) exp(1.5pi)", [&]() -> double { return std::exp(piandahalf); });
     c_e += last_benchmark_ns;
     c_e /= 4;
     c_e -= benchmark_overhead;
-    mean += benchmark("evaluate sqrt(8)", [&]() -> double { return std::sqrt(eight); });
+    double c_e_f = 0;
+    mean += benchmark("evaluate (f) exp(10)", [&]() -> float { return std::exp(tenf); });
+    c_e_f += last_benchmark_ns;
+    mean += benchmark("evaluate (f) exp(-10)", [&]() -> float { return std::exp(minustenf); });
+    c_e_f += last_benchmark_ns;
+    mean += benchmark("evaluate (f) exp(-2)", [&]() -> float { return std::exp(minustwof); });
+    c_e_f += last_benchmark_ns;
+    mean += benchmark("evaluate (f) exp(1.5pi)", [&]() -> float { return std::exp(piandahalff); });
+    c_e_f += last_benchmark_ns;
+    c_e_f /= 4;
+    c_e_f -= benchmark_overhead_f;
+
+    mean += benchmark("evaluate (d) sqrt(8)", [&]() -> double { return std::sqrt(eight); });
+    mean += benchmark("evaluate (d) sqrt(1.5pi)", [&]() -> double { return std::sqrt(piandahalf); });
     double c_sqrt = last_benchmark_ns - benchmark_overhead;
-    mean += benchmark("eval 1/pi", [&]() -> double { return 1.0/pi; });
-    mean += benchmark("eval 1/sqrt(pi)", [&]() -> double { return 1.0/std::sqrt(pi); });
-    mean += benchmark("eval sqrt(1/pi)", [&]() -> double { return std::sqrt(1.0/pi); });
+    mean += benchmark("evaluate (f) sqrt(8)", [&]() -> float { return std::sqrt(eightf); });
+    mean += benchmark("evaluate (f) sqrt(1.5pi)", [&]() -> float { return std::sqrt(piandahalff); });
+    double c_sqrt_f = last_benchmark_ns - benchmark_overhead_f;
+
+    mean += benchmark("eval [1]/pi", [&]() -> double { return 1.0/pi; });
+    mean += benchmark("eval [1]/sqrt(pi)", [&]() -> double { return 1.0/std::sqrt(pi); });
+    mean += benchmark("eval sqrt([1]/pi)", [&]() -> double { return std::sqrt(1.0/pi); });
+    
+    mean += benchmark("eval [1]/pi", [&]() -> double { return 1.0/pi; });
+    mean += benchmark("eval [1]/sqrt(pi)", [&]() -> double { return 1.0/std::sqrt(pi); });
+    mean += benchmark("eval sqrt([1]/pi)", [&]() -> double { return std::sqrt(1.0/pi); });
+
     mean += benchmark("evaluate e*pi", [&]() -> double { return e*pi; });
     mean += benchmark("evaluate e+pi", [&]() -> double { return e+pi; });
-    mean += benchmark("evaluate e*(2+pi)", [&]() -> double { return e*(2+pi); });
-    mean += benchmark("evaluate e*0.5*(2+pi)", [&]() -> double { return e*0.5*(2+pi); });
+    mean += benchmark("evaluate e*([2]+pi)", [&]() -> double { return e*(2.0+pi); });
+    mean += benchmark("evaluate e*[0.5]*([2]+pi)", [&]() -> double { return e*0.5*(2.0+pi); });
     mean += benchmark("e*e*...*e (e^10)", [&]() -> double { return e*e*e*e*e*e*e*e*e*e; });
     mean += benchmark("pi*pi", [&]() -> double { return pi*pi; });
-    // The compiler should be smart enough to de-pos this one:
-    mean += benchmark("pow(pi,2)", [&]() -> double { return std::pow(pi, 2); });
+    // The compiler should be smart enough to de-pow this one:
+    mean += benchmark("pow(pi,[2])", [&]() -> double { return std::pow(pi, 2.0); });
     // Since `two` is volatile, it can't here; performance will depend on how well the c++ library
     // can handle integer powers.
-    mean += benchmark("pow(pi,two)", [&]() -> double { return std::pow(pi, two); });
+    mean += benchmark("pow(pi,2)", [&]() -> double { return std::pow(pi, two); });
     // This one is typically very slow:
-    mean += benchmark("pow(pi,2.01)", [&]() -> double { return std::pow(pi, 2.01); });
-    mean += benchmark("N cdf", [&]() -> double { return cdf(N01, two); });
-    mean += benchmark("N pdf", [&]() -> double { return pdf(N01, two); });
+    mean += benchmark("pow(pi,2.0001)", [&]() -> double { return std::pow(pi, 2.0001); });
+    mean += benchmark("N cdf", [&]() -> double { return cdf(N01d, two); });
+    mean += benchmark("N pdf", [&]() -> double { return pdf(N01d, two); });
     std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 
     std::cout << "\n";
@@ -220,11 +254,11 @@ int main(int argc, char *argv[]) {
 
     std::cout << "\n";
     mean = 0;
-    mean += benchmarkDraw<std::normal_distribution<double>>("stl N(0,1)", 0, 1);
+    mean += benchmarkDraw<std::normal_distribution<double>>("stl N(0,1)");
     double c_n_stl = last_benchmark_ns - benchmark_overhead;
-    mean += benchmarkDraw<std::uniform_real_distribution<double>>("stl U[0,1)", 0, 1);
+    mean += benchmarkDraw<std::uniform_real_distribution<double>>("stl U[0,1)");
     double c_u_stl = last_benchmark_ns - benchmark_overhead;
-    mean += benchmarkDraw<std::exponential_distribution<double>>("stl Exp(1)", 1);
+    mean += benchmarkDraw<std::exponential_distribution<double>>("stl Exp(1)");
     double c_exp_stl = last_benchmark_ns - benchmark_overhead;
 
     std::cout << "sum of these means: " << PRECISE(mean) << "\n";
@@ -253,19 +287,26 @@ int main(int argc, char *argv[]) {
         std::fixed << std::setprecision(4) <<
 
         "\nOperations:\n\n" <<
-      u8"    c_√         = " << std::setw(8) << c_sqrt << "\n" <<
-        "    c_e^x       = " << std::setw(8) << c_e    << "\n" <<
-        "    c_√ + c_e^x = " << std::setw(8) << c_sqrt + c_e << "\n" <<
-        "\n\n" <<
-      // 4   30                            8       4   8       4   8
-        "Draws:                               boost         stl        best\n" <<
-        "                                   -------     -------     ---------------------------\n" <<
-        "    " << std::setw(30) << std::left << "c_NR = c_HR = c_n" << std::right <<
+      u8"    c_√ (double)         = " << std::setw(8) << c_sqrt << "\n" <<
+      u8"    c_e^x (double)       = " << std::setw(8) << c_e    << "\n" <<
+      u8"    c_√ + c_e^x (double) = " << std::setw(8) << c_sqrt + c_e << "\n" <<
+      "\n" <<
+      u8"    c_√ (float)          = " << std::setw(8) << c_sqrt_f << "\n" <<
+      u8"    c_e^x (float)        = " << std::setw(8) << c_e_f    << "\n" <<
+      u8"    c_√ + c_e^x (float)  = " << std::setw(8) << c_sqrt_f + c_e_f << "\n" <<
+        "\n\n";
+
+    constexpr int fieldwidth = 35;
+    std::cout << "Draws:" <<
+      // 8       4   8       4   8
+      std::setw(fieldwidth-2) << "" << "   boost         stl        best\n" <<
+        "    " << std::setw(fieldwidth) << "" << " -------     -------     ---------------------------\n" <<
+        "    " << std::setw(fieldwidth) << std::left << "c_NR = c_HR = c_n" << std::right <<
             std::setw(8) << c_n_boost << "    " <<
             std::setw(8) << c_n_stl << "    " <<
             std::setw(8) << std::min(c_n_boost, c_n_stl) <<
             " (" << (c_n_boost < c_n_stl ? "boost" : "stl") << ")\n" <<
-        "    " << std::setw(30) << std::left << "c_ER = c_exp + c_e^x + c_u" << std::right <<
+        "    " << std::setw(fieldwidth) << std::left << "c_ER = c_exp + c_e^x + c_u" << std::right <<
             std::setw(8) << c_er_boost << "    " <<
             std::setw(8) << c_er_stl << "    " <<
             std::setw(8) << c_er_best <<
@@ -274,20 +315,20 @@ int main(int argc, char *argv[]) {
                         c_exp_boost <= c_exp_stl and c_u_boost <= c_u_stl ? "boost" :
                         c_exp_stl <= c_exp_boost ? "~ Exp from stl, ~ U from boost" :
                         "~ Exp from boost, ~ U from stl") << ")\n" <<
-        "    " << std::setw(30) << std::left << "c_UR = 2 c_u + c_e^x" << std::right <<
+        "    " << std::setw(fieldwidth) << std::left << "c_UR = 2 c_u + c_e^x" << std::right <<
             std::setw(8) << c_ur_boost << "    " <<
             std::setw(8) << c_ur_stl << "    " <<
             std::setw(8) << c_ur_best <<
             " (" << (c_u_boost < c_u_stl ? "boost" : "stl") << ")\n\n" <<
 
-      u8"    a₀ | c_ER, c_HR               " <<
+      u8"    a₀ | c_ER, c_HR                    " <<
             std::setw(8) << a0_boost << "    " << std::setw(8) << a0_stl << "    " << std::setw(8) << a0_best << "\n\n" <<
 
-      u8"    a* | c_ER, c_UR, c_√, c_e^x   " <<
+      u8"    a* | c_ER, c_UR, c_√, c_e^x        " <<
             std::setw(8) << astar_boost << (astar_boost <= a0_boost ? u8"†   " : "    ") <<
             std::setw(8) << astar_stl   << (astar_stl   <= a0_stl   ? u8"†   " : "    ") <<
             std::setw(8) << astar_best  << (astar_best  <= a0_best  ? u8"†\n" : "\n");
     if (astar_boost <= a0_boost or astar_stl < a0_stl or astar_best < a0_best)
-        std::cout << u8"        †: a* ≤ a₀ ≤ a, so a ≥ a* is trivially satisfied";
+        std::cout << std::setw(fieldwidth+4) << "" << u8"†: a* ≤ a₀ ≤ a, so a ≥ a* is trivially satisfied";
     std::cout << "\n\n\n";
 }
