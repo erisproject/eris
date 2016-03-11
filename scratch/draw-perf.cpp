@@ -3,10 +3,16 @@
 #include <boost/random/uniform_real_distribution.hpp>
 #include <boost/random/exponential_distribution.hpp>
 #include <boost/math/distributions/normal.hpp>
+#include <boost/lexical_cast.hpp>
 #include <random>
 #include <iomanip>
 #include <chrono>
 #include <string>
+extern "C" {
+#include <gsl/gsl_rng.h>
+#include <gsl/gsl_randist.h>
+#include <gsl/gsl_cdf.h>
+}
 
 using clk = std::chrono::high_resolution_clock;
 using dur = std::chrono::duration<double>;
@@ -18,7 +24,9 @@ struct calls_result {
     T mean;
 };
 
-boost::random::mt19937_64 rng;
+boost::random::mt19937 rng;
+gsl_rng *rng_gsl;
+
 constexpr unsigned incr = 2000000;
 double last_benchmark_ns = std::numeric_limits<double>::quiet_NaN(), benchmark_overhead = last_benchmark_ns, benchmark_overhead_f = benchmark_overhead;
 
@@ -51,7 +59,7 @@ double bench_seconds = 0.0;
 template <typename Callable> auto benchmark(const std::string &name, const Callable &c) -> decltype(c()) {
     auto result = callTest(c, bench_seconds);
     last_benchmark_ns = 1000000000*result.seconds / result.calls;
-    std::cout << std::setw(25) << std::left << name + ":" << std::right << std::fixed << std::setprecision(2) <<
+    std::cout << std::setw(30) << std::left << name + ":" << std::right << std::fixed << std::setprecision(2) <<
         std::setw(7) << 1000/last_benchmark_ns << " MHz = " << std::setw(8) << last_benchmark_ns << " ns/op";
     double &overhead = (std::is_same<decltype(c()), float>::value ? benchmark_overhead_f : benchmark_overhead);
     if (not std::isnan(overhead)) {
@@ -115,25 +123,24 @@ double astar(const double cer, const double ccheck, const double cur, const doub
 // Test the draw speed of various distributions
 int main(int argc, char *argv[]) {
     // If we're given one argument, it's the number of seconds; if 2, it's seconds and a seed
-    uint64_t seed = 0;
+    unsigned long seed = 0;
     if (argc < 1 or argc > 3) {
         std::cerr << "Usage: " << argv[0] << " [SECONDS [SEED]]\n";
         exit(1);
     }
     if (argc >= 2) {
-        double seconds = std::stod(argv[1]);
-        if (seconds < 0 or seconds > 1000) {
+        try {
+            bench_seconds = boost::lexical_cast<double>(argv[1]);
+        }
+        catch (const boost::bad_lexical_cast &) {
             std::cerr << "Invalid SECONDS value `" << argv[1] << "'\n\nUsage: " << argv[0] << " [SECONDS [SEED]]\n";
         }
-        bench_seconds = seconds;
     }
     if (argc >= 3) {
         try {
-            static_assert(sizeof(unsigned long) == 8 or sizeof(unsigned long long) == 8,
-                    "Internal error: don't know how to parse an unsigned 64-bit int on this architecture!");
-            seed = sizeof(unsigned long) == 8 ? std::stoul(argv[2]) : std::stoull(argv[2]);
+            seed = boost::lexical_cast<decltype(seed)>(argv[2]);
         }
-        catch (const std::logic_error &) {
+        catch (const boost::bad_lexical_cast &) {
             std::cerr << "Invalid SEED value `" << argv[2] << "'\n\nUsage: " << argv[0] << " [SECONDS [SEED]]\n";
             exit(1);
         }
@@ -143,9 +150,11 @@ int main(int argc, char *argv[]) {
         static_assert(sizeof(decltype(rd())) == 4, "Internal error: std::random_device doesn't give 32-bit values!?");
         seed = (uint64_t(rd()) << 32) + rd();
     }
-    std::cout << "Using mt19937_64 generator with seed = " << seed << "\n";
+    std::cout << "Using mt19937 generator with seed = " << seed << "\n";
     std::cout << std::showpoint;
     rng.seed(seed);
+    rng_gsl = gsl_rng_alloc(gsl_rng_mt19937);
+    gsl_rng_set(rng_gsl, seed);
 
     double mean = 0;
     auto default_prec = std::cout.precision();
@@ -200,29 +209,31 @@ int main(int argc, char *argv[]) {
     mean += benchmark("evaluate (f) sqrt(1.5pi)", [&]() -> float { return std::sqrt(piandahalff); });
     double c_sqrt_f = last_benchmark_ns - benchmark_overhead_f;
 
-    mean += benchmark("eval [1]/pi", [&]() -> double { return 1.0/pi; });
-    mean += benchmark("eval [1]/sqrt(pi)", [&]() -> double { return 1.0/std::sqrt(pi); });
-    mean += benchmark("eval sqrt([1]/pi)", [&]() -> double { return std::sqrt(1.0/pi); });
+    mean += benchmark("evaluate [1]/pi", [&]() -> double { return 1.0/pi; });
+    mean += benchmark("evaluate [1]/sqrt(pi)", [&]() -> double { return 1.0/std::sqrt(pi); });
+    mean += benchmark("evaluate sqrt([1]/pi)", [&]() -> double { return std::sqrt(1.0/pi); });
     
-    mean += benchmark("eval [1]/pi", [&]() -> double { return 1.0/pi; });
-    mean += benchmark("eval [1]/sqrt(pi)", [&]() -> double { return 1.0/std::sqrt(pi); });
-    mean += benchmark("eval sqrt([1]/pi)", [&]() -> double { return std::sqrt(1.0/pi); });
+    mean += benchmark("evaluate [1]/pi", [&]() -> double { return 1.0/pi; });
+    mean += benchmark("evaluate [1]/sqrt(pi)", [&]() -> double { return 1.0/std::sqrt(pi); });
+    mean += benchmark("evaluate sqrt([1]/pi)", [&]() -> double { return std::sqrt(1.0/pi); });
 
     mean += benchmark("evaluate e*pi", [&]() -> double { return e*pi; });
     mean += benchmark("evaluate e+pi", [&]() -> double { return e+pi; });
     mean += benchmark("evaluate e*([2]+pi)", [&]() -> double { return e*(2.0+pi); });
     mean += benchmark("evaluate e*[0.5]*([2]+pi)", [&]() -> double { return e*0.5*(2.0+pi); });
-    mean += benchmark("e*e*...*e (e^10)", [&]() -> double { return e*e*e*e*e*e*e*e*e*e; });
-    mean += benchmark("pi*pi", [&]() -> double { return pi*pi; });
+    mean += benchmark("evaluate e*e*...*e (e^10)", [&]() -> double { return e*e*e*e*e*e*e*e*e*e; });
+    mean += benchmark("evaluate pi*pi", [&]() -> double { return pi*pi; });
     // The compiler should be smart enough to de-pow this one:
-    mean += benchmark("pow(pi,[2])", [&]() -> double { return std::pow(pi, 2.0); });
+    mean += benchmark("evaluate pow(pi,[2])", [&]() -> double { return std::pow(pi, 2.0); });
     // Since `two` is volatile, it can't here; performance will depend on how well the c++ library
     // can handle integer powers.
-    mean += benchmark("pow(pi,2)", [&]() -> double { return std::pow(pi, two); });
+    mean += benchmark("evaluate pow(pi,2)", [&]() -> double { return std::pow(pi, two); });
     // This one is typically very slow:
-    mean += benchmark("pow(pi,2.0001)", [&]() -> double { return std::pow(pi, 2.0001); });
-    mean += benchmark("N cdf", [&]() -> double { return cdf(N01d, two); });
-    mean += benchmark("N pdf", [&]() -> double { return pdf(N01d, two); });
+    mean += benchmark("evaluate pow(pi,2.0001)", [&]() -> double { return std::pow(pi, 2.0001); });
+    mean += benchmark("evaluate N cdf (boost)", [&]() -> double { return cdf(N01d, two); });
+    mean += benchmark("evaluate N pdf (boost)", [&]() -> double { return pdf(N01d, two); });
+    mean += benchmark("evaluate N cdf (gsl)", [&]() -> double { return gsl_cdf_ugaussian_P(two); });
+    mean += benchmark("evaluate N pdf (gsl)", [&]() -> double { return gsl_ran_ugaussian_pdf(two); });
     std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 
     std::cout << "\n";
@@ -263,29 +274,51 @@ int main(int argc, char *argv[]) {
 
     std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 
+    std::cout << "\n";
+    mean = 0;
+    mean += benchmark("gsl N(1e9,2e7) (Box-Mul.)", [&]() -> double { return 1e9 + gsl_ran_gaussian(rng_gsl, 2e7); });
+    mean += benchmark("gsl N(1e9,2e7) (ratio)", [&]() -> double { return 1e9 + gsl_ran_gaussian_ratio_method(rng_gsl, 2e7); });
+    mean += benchmark("gsl N(1e9,2e7) (ziggurat)", [&]() -> double { return 1e9 + gsl_ran_gaussian_ziggurat(rng_gsl, 2e7); });
+    mean += benchmark("gsl U[1e9,1e10]", [&]() -> double { return gsl_ran_flat(rng_gsl, 1e9, 1e10); });
+    mean += benchmark("gsl Exp(1/30)", [&]() -> double { return gsl_ran_exponential(rng_gsl, 1./30.); });
+
+    std::cout << "sum of these means: " << PRECISE(mean) << "\n";
+
+    std::cout << "\n";
+    mean = 0;
+    mean += benchmark("gsl N(0,1) (Box-Muller)", [&]() -> double { return gsl_ran_gaussian(rng_gsl, 1); });
+    mean += benchmark("gsl N(0,1) (ratio)", [&]() -> double { return gsl_ran_gaussian_ratio_method(rng_gsl, 1); });
+    mean += benchmark("gsl N(0,1) (ziggurat)", [&]() -> double { return gsl_ran_gaussian_ziggurat(rng_gsl, 1); });
+    double c_n_gsl = last_benchmark_ns - benchmark_overhead;
+    mean += benchmark("gsl U[0,1]", [&]() -> double { return gsl_ran_flat(rng_gsl, 0, 1); });
+    double c_u_gsl = last_benchmark_ns - benchmark_overhead;
+    mean += benchmark("gsl Exp(1)", [&]() -> double { return gsl_ran_exponential(rng_gsl, 1); });
+    double c_exp_gsl = last_benchmark_ns - benchmark_overhead;
+
+    std::cout << "sum of these means: " << PRECISE(mean) << "\n";
+
     double c_er_boost = c_exp_boost + c_e + c_u_boost,
            c_er_stl   = c_exp_stl   + c_e + c_u_stl,
-           c_er_best  = std::min(c_exp_boost, c_exp_stl) + c_e + std::min(c_u_boost, c_u_stl),
+           c_er_gsl   = c_exp_gsl   + c_e + c_u_gsl,
            c_ur_boost = 2*c_u_boost + c_e,
            c_ur_stl   = 2*c_u_stl   + c_e,
-           c_ur_best  = std::min(c_ur_stl, c_ur_boost),
-           c_n_best   = std::min(c_n_boost, c_n_stl);
+           c_ur_gsl   = 2*c_u_gsl   + c_e;
 
     double sqrtL_boost = std::sqrt(lambertW(2/M_PI*M_E*M_E*std::pow(c_er_boost/c_n_boost, 2))),
            sqrtL_stl   = std::sqrt(lambertW(2/M_PI*M_E*M_E*std::pow(c_er_stl  /c_n_stl  , 2))),
-           sqrtL_best  = std::sqrt(lambertW(2/M_PI*M_E*M_E*std::pow(c_er_best /c_n_best,  2)));
+           sqrtL_gsl   = std::sqrt(lambertW(2/M_PI*M_E*M_E*std::pow(c_er_gsl  /c_n_gsl  , 2)));
 
     double a0_boost = sqrtL_boost - 1/sqrtL_boost,
            a0_stl   = sqrtL_stl   - 1/sqrtL_stl,
-           a0_best  = sqrtL_best  - 1/sqrtL_best;
+           a0_gsl   = sqrtL_gsl   - 1/sqrtL_gsl;
 
     double astar_boost = astar(c_er_boost, c_sqrt+c_e, c_ur_boost),
            astar_stl   = astar(c_er_stl,   c_sqrt+c_e, c_ur_stl),
-           astar_best  = astar(c_er_best,  c_sqrt+c_e, c_ur_best);
+           astar_gsl   = astar(c_er_gsl ,  c_sqrt+c_e, c_ur_gsl);
 
     double astar_boost_f = astar(c_er_boost, c_sqrt_f+c_e_f, c_ur_boost),
            astar_stl_f   = astar(c_er_stl,   c_sqrt_f+c_e_f, c_ur_stl),
-           astar_best_f  = astar(c_er_best,  c_sqrt_f+c_e_f, c_ur_best);
+           astar_gsl_f   = astar(c_er_gsl,   c_sqrt_f+c_e_f, c_ur_gsl);
 
     std::cout << "\n\n\nSummary:\n\n" <<
         std::fixed << std::setprecision(4) <<
@@ -303,45 +336,39 @@ int main(int argc, char *argv[]) {
     constexpr int fieldwidth = 35;
     std::cout << "Draws:" <<
       // 8       4   8       4   8
-      std::setw(fieldwidth-2) << "" << "   boost         stl        best\n" <<
-        "    " << std::setw(fieldwidth) << "" << " -------     -------     ---------------------------\n" <<
+      std::setw(fieldwidth-2) << ""           << "  boost        stl         gsl\n" <<
+        "    " << std::setw(fieldwidth) << "" << " -------     -------     -------\n" <<
         "    " << std::setw(fieldwidth) << std::left << "c_NR = c_HR = c_n" << std::right <<
             std::setw(8) << c_n_boost << "    " <<
             std::setw(8) << c_n_stl << "    " <<
-            std::setw(8) << std::min(c_n_boost, c_n_stl) <<
-            " (" << (c_n_boost < c_n_stl ? "boost" : "stl") << ")\n" <<
+            std::setw(8) << c_n_gsl << "\n" <<
         "    " << std::setw(fieldwidth) << std::left << "c_ER = c_exp + c_e^x + c_u" << std::right <<
             std::setw(8) << c_er_boost << "    " <<
             std::setw(8) << c_er_stl << "    " <<
-            std::setw(8) << c_er_best <<
-            " (" << (
-                        c_exp_stl <= c_exp_boost and c_u_stl <= c_u_boost ? "stl" :
-                        c_exp_boost <= c_exp_stl and c_u_boost <= c_u_stl ? "boost" :
-                        c_exp_stl <= c_exp_boost ? "~ Exp from stl, ~ U from boost" :
-                        "~ Exp from boost, ~ U from stl") << ")\n" <<
+            std::setw(8) << c_er_gsl << "\n" <<
         "    " << std::setw(fieldwidth) << std::left << "c_UR = 2 c_u + c_e^x" << std::right <<
             std::setw(8) << c_ur_boost << "    " <<
             std::setw(8) << c_ur_stl << "    " <<
-            std::setw(8) << c_ur_best <<
-            " (" << (c_u_boost < c_u_stl ? "boost" : "stl") << ")\n\n" <<
+            std::setw(8) << c_ur_gsl << "\n" <<
 
       u8"    a₀ | c_ER, c_HR                    " <<
-            std::setw(8) << a0_boost << "    " << std::setw(8) << a0_stl << "    " << std::setw(8) << a0_best << "\n\n" <<
+            std::setw(8) << a0_boost << "    " << std::setw(8) << a0_stl << "    " << std::setw(8) << a0_gsl << "\n\n" <<
 
       u8"    a* | c_ER, c_UR, c_√, c_e^x        " <<
-            std::setw(8) << astar_boost << (astar_boost <= a0_boost ? u8"†   " : "    ") <<
-            std::setw(8) << astar_stl   << (astar_stl   <= a0_stl   ? u8"†   " : "    ") <<
-            std::setw(8) << astar_best  << (astar_best  <= a0_best  ? u8"†\n" : "\n");
-    if (astar_boost <= a0_boost or astar_stl < a0_stl or astar_best < a0_best)
-        std::cout << std::setw(fieldwidth+4) << "" << u8"†: a* ≤ a₀ ≤ a, so a ≥ a* is trivially satisfied";
+            std::setw(8) << astar_boost << (astar_boost <= a0_boost ? u8"††  " : "    ") <<
+            std::setw(8) << astar_stl   << (astar_stl   <= a0_stl   ? u8"††  " : "    ") <<
+            std::setw(8) << astar_gsl   << (astar_gsl   <= a0_gsl   ? u8"††" : "") << "\n";
+    if (astar_boost <= a0_boost or astar_stl < a0_stl or astar_gsl < a0_gsl)
+        std::cout << std::setw(fieldwidth+4) << "" << u8"††: a* ≤ a₀ ≤ a, so a ≥ a* is trivially satisfied";
 
     std::cout << "\n\n" <<
       u8"    a* | c_ER, c_UR, c_√(f), c_e^x(f)  " <<
-            std::setw(8) << astar_boost_f << (astar_boost_f <= a0_boost ? u8"†   " : "    ") <<
-            std::setw(8) << astar_stl_f   << (astar_stl_f   <= a0_stl   ? u8"†   " : "    ") <<
-            std::setw(8) << astar_best_f  << (astar_best_f  <= a0_best  ? u8"†\n" : "\n");
-    if (astar_boost_f <= a0_boost or astar_stl_f < a0_stl or astar_best_f < a0_best)
-        std::cout << std::setw(fieldwidth+4) << "" << u8"†: a* ≤ a₀ ≤ a, so a ≥ a* is trivially satisfied";
+            std::setw(8) << astar_boost_f << (astar_boost_f <= a0_boost ? u8"††  " : "    ") <<
+            std::setw(8) << astar_stl_f   << (astar_stl_f   <= a0_stl   ? u8"††  " : "    ") <<
+            std::setw(8) << astar_gsl_f   << (astar_gsl_f   <= a0_gsl  ? u8"††\n" : "\n");
+    if (astar_boost_f <= a0_boost or astar_stl_f < a0_stl or astar_gsl_f < a0_gsl)
+        std::cout << std::setw(fieldwidth+4) << "" << u8"††: a* ≤ a₀ ≤ a, so a ≥ a* is trivially satisfied";
 
+    gsl_rng_free(rng_gsl);
     std::cout << "\n\n\n";
 }
