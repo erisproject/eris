@@ -283,6 +283,10 @@ int main(int argc, char *argv[]) {
            astar_stl   = astar(c_er_stl,   c_sqrt+c_e, c_ur_stl),
            astar_best  = astar(c_er_best,  c_sqrt+c_e, c_ur_best);
 
+    double astar_boost_f = astar(c_er_boost, c_sqrt_f+c_e_f, c_ur_boost),
+           astar_stl_f   = astar(c_er_stl,   c_sqrt_f+c_e_f, c_ur_stl),
+           astar_best_f  = astar(c_er_best,  c_sqrt_f+c_e_f, c_ur_best);
+
     std::cout << "\n\n\nSummary:\n\n" <<
         std::fixed << std::setprecision(4) <<
 
@@ -330,5 +334,14 @@ int main(int argc, char *argv[]) {
             std::setw(8) << astar_best  << (astar_best  <= a0_best  ? u8"†\n" : "\n");
     if (astar_boost <= a0_boost or astar_stl < a0_stl or astar_best < a0_best)
         std::cout << std::setw(fieldwidth+4) << "" << u8"†: a* ≤ a₀ ≤ a, so a ≥ a* is trivially satisfied";
+
+    std::cout << "\n\n" <<
+      u8"    a* | c_ER, c_UR, c_√(f), c_e^x(f)  " <<
+            std::setw(8) << astar_boost_f << (astar_boost_f <= a0_boost ? u8"†   " : "    ") <<
+            std::setw(8) << astar_stl_f   << (astar_stl_f   <= a0_stl   ? u8"†   " : "    ") <<
+            std::setw(8) << astar_best_f  << (astar_best_f  <= a0_best  ? u8"†\n" : "\n");
+    if (astar_boost_f <= a0_boost or astar_stl_f < a0_stl or astar_best_f < a0_best)
+        std::cout << std::setw(fieldwidth+4) << "" << u8"†: a* ≤ a₀ ≤ a, so a ≥ a* is trivially satisfied";
+
     std::cout << "\n\n\n";
 }
