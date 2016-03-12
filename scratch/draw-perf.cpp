@@ -24,14 +24,14 @@ struct calls_result {
     T mean;
 };
 
-boost::random::mt19937 rng;
+boost::random::mt19937 rng_boost;
+std::mt19937 rng_stl;
 gsl_rng *rng_gsl;
 
 constexpr unsigned incr = 2000000;
 double last_benchmark_ns = std::numeric_limits<double>::quiet_NaN(), benchmark_overhead = last_benchmark_ns, benchmark_overhead_f = benchmark_overhead;
 
 boost::math::normal_distribution<double> N01d;
-boost::math::normal_distribution<float> N01f;
 
 // Call a given function (or function-like object) 2 million times, repeating until at least the given number of
 // seconds has elapsed.  Returns a calls_result with the number of draws, total elapsed time, and
@@ -70,9 +70,9 @@ template <typename Callable> auto benchmark(const std::string &name, const Calla
     return result.mean;
 }
 // Benchmark a RNG distribution by constructing it then calling it a bunch of times
-template <typename Dist, typename... Args> typename Dist::result_type benchmarkDraw(const std::string &name, Args&&... args) {
+template <typename Dist, typename RNG, typename... Args> typename Dist::result_type benchmarkDraw(const std::string &name, RNG &rng, Args&&... args) {
     Dist dist(std::forward<Args>(args)...);
-    return benchmark(name, [&dist]() -> typename Dist::result_type { return dist(rng); });
+    return benchmark(name, [&dist,&rng]() -> typename Dist::result_type { return dist(rng); });
 }
 
 double lambertW(const double z, const double tol = 1e-12) {
@@ -152,7 +152,8 @@ int main(int argc, char *argv[]) {
     }
     std::cout << "Using mt19937 generator with seed = " << seed << "\n";
     std::cout << std::showpoint;
-    rng.seed(seed);
+    rng_stl.seed(seed);
+    rng_boost.seed(seed);
     rng_gsl = gsl_rng_alloc(gsl_rng_mt19937);
     gsl_rng_set(rng_gsl, seed);
 
@@ -238,38 +239,38 @@ int main(int argc, char *argv[]) {
 
     std::cout << "\n";
     mean = 0;
-    mean += benchmarkDraw<boost::random::normal_distribution<double>>("boost N(1e9,2e7)", 1e9, 2e7);
-    mean += benchmarkDraw<boost::random::uniform_real_distribution<double>>("boost U[1e9,1e10)", 1e9, 1e10);
-    mean += benchmarkDraw<boost::random::exponential_distribution<double>>("boost Exp(30)", 30);
+    mean += benchmarkDraw<boost::random::normal_distribution<double>>("boost N(1e9,2e7)", rng_boost, 1e9, 2e7);
+    mean += benchmarkDraw<boost::random::uniform_real_distribution<double>>("boost U[1e9,1e10)", rng_boost, 1e9, 1e10);
+    mean += benchmarkDraw<boost::random::exponential_distribution<double>>("boost Exp(30)", rng_boost, 30);
 
     std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 
     std::cout << "\n";
     mean = 0;
-    mean += benchmarkDraw<boost::random::normal_distribution<double>>("boost N(0,1)");
+    mean += benchmarkDraw<boost::random::normal_distribution<double>>("boost N(0,1)", rng_boost);
     double c_n_boost = last_benchmark_ns - benchmark_overhead;
-    mean += benchmarkDraw<boost::random::uniform_real_distribution<double>>("boost U[0,1)");
+    mean += benchmarkDraw<boost::random::uniform_real_distribution<double>>("boost U[0,1)", rng_boost);
     double c_u_boost = last_benchmark_ns - benchmark_overhead;
-    mean += benchmarkDraw<boost::random::exponential_distribution<double>>("boost Exp(1)");
+    mean += benchmarkDraw<boost::random::exponential_distribution<double>>("boost Exp(1)", rng_boost);
     double c_exp_boost = last_benchmark_ns - benchmark_overhead;
 
     std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 
     std::cout << "\n";
     mean = 0;
-    mean += benchmarkDraw<std::normal_distribution<double>>("stl N(1e9,2e7)", 1e9, 2e7);
-    mean += benchmarkDraw<std::uniform_real_distribution<double>>("stl U[1e9,1e10)", 1e9, 1e10);
-    mean += benchmarkDraw<std::exponential_distribution<double>>("stl Exp(30)", 30);
+    mean += benchmarkDraw<std::normal_distribution<double>>("stl N(1e9,2e7)", rng_stl, 1e9, 2e7);
+    mean += benchmarkDraw<std::uniform_real_distribution<double>>("stl U[1e9,1e10)", rng_stl, 1e9, 1e10);
+    mean += benchmarkDraw<std::exponential_distribution<double>>("stl Exp(30)", rng_stl, 30);
 
     std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 
     std::cout << "\n";
     mean = 0;
-    mean += benchmarkDraw<std::normal_distribution<double>>("stl N(0,1)");
+    mean += benchmarkDraw<std::normal_distribution<double>>("stl N(0,1)", rng_stl);
     double c_n_stl = last_benchmark_ns - benchmark_overhead;
-    mean += benchmarkDraw<std::uniform_real_distribution<double>>("stl U[0,1)");
+    mean += benchmarkDraw<std::uniform_real_distribution<double>>("stl U[0,1)", rng_stl);
     double c_u_stl = last_benchmark_ns - benchmark_overhead;
-    mean += benchmarkDraw<std::exponential_distribution<double>>("stl Exp(1)");
+    mean += benchmarkDraw<std::exponential_distribution<double>>("stl Exp(1)", rng_stl);
     double c_exp_stl = last_benchmark_ns - benchmark_overhead;
 
     std::cout << "sum of these means: " << PRECISE(mean) << "\n";
