@@ -163,11 +163,12 @@ int main(int argc, char *argv[]) {
 
     // Some constants to use below.  These are declared volatile to prevent the compiler from
     // optimizing them away.
-    volatile const double ten = 10.0, minusten = -10.0, two = 2.0, minustwo = -2.0, eight = 8.,
+    volatile const double ten = 10.0, minusten = -10.0, two = 2.0, minustwo = -2.0, onehalf = 0.5, eight = 8.,
              e = boost::math::constants::e<double>(), pi = boost::math::constants::pi<double>(),
-             piandahalf = 1.5*pi;
+             piandahalf = 1.5*pi, pointone = 0.1, one = 1.0, onepointfive = 1.5;
 
-    volatile const float eightf = 8.f, minustwof = -2.f, tenf = 10.f, minustenf = -10.f, piandahalff = piandahalf;
+    volatile const float eightf = 8.f, minustwof = -2.f, tenf = 10.f, minustenf = -10.f, twof = 2.f, onehalff = 0.5f,
+             piandahalff = piandahalf, ef = boost::math::constants::e<float>();
 
     // Modern CPUs have a variable clock, and may take a few ms to increase to maximum frequency, so
     // run a fake test for a second to (hopefully) get the CPU at full speed.
@@ -185,23 +186,128 @@ int main(int argc, char *argv[]) {
     c_e += last_benchmark_ns;
     mean += benchmark("evaluate (d) exp(-10)", [&]() -> double { return std::exp(minusten); });
     c_e += last_benchmark_ns;
+    mean += benchmark("evaluate (d) exp(2)", [&]() -> double { return std::exp(two); });
+    c_e += last_benchmark_ns;
     mean += benchmark("evaluate (d) exp(-2)", [&]() -> double { return std::exp(minustwo); });
     c_e += last_benchmark_ns;
     mean += benchmark("evaluate (d) exp(1.5pi)", [&]() -> double { return std::exp(piandahalf); });
     c_e += last_benchmark_ns;
-    c_e /= 4;
+    c_e /= 5;
     c_e -= benchmark_overhead;
     double c_e_f = 0;
     mean += benchmark("evaluate (f) exp(10)", [&]() -> float { return std::exp(tenf); });
     c_e_f += last_benchmark_ns;
     mean += benchmark("evaluate (f) exp(-10)", [&]() -> float { return std::exp(minustenf); });
     c_e_f += last_benchmark_ns;
+    mean += benchmark("evaluate (f) exp(2)", [&]() -> float { return std::exp(twof); });
+    c_e_f += last_benchmark_ns;
     mean += benchmark("evaluate (f) exp(-2)", [&]() -> float { return std::exp(minustwof); });
     c_e_f += last_benchmark_ns;
     mean += benchmark("evaluate (f) exp(1.5pi)", [&]() -> float { return std::exp(piandahalff); });
     c_e_f += last_benchmark_ns;
-    c_e_f /= 4;
+    c_e_f /= 5;
     c_e_f -= benchmark_overhead_f;
+    std::cout << "sum of these means: " << PRECISE(mean) << "\n";
+
+    std::cout << "Testing exp approximations\n" << std::setprecision(8);
+    mean = 0;
+#define DUMP_MEAN std::cout << "    -> " << PRECISE(mean) << "\n"; mean = 0
+    // These "exp1" values are approximations are the evaluation of the limit definition of e:
+    // e^x = lim_{n -> inf} (1 + 1/n)^n, with n of the given value.
+    // NB: relying on the compiler to unroll these loops, especially for the low number cases.
+    mean += benchmark("evaluate (d) exp1_8(0.5)", [&]() -> double { double x = 1.0 + 1./8*onehalf; for (int i = 0; i < 2; i++) x *= x; return x*x; });
+    DUMP_MEAN;
+    mean += benchmark("evaluate (d) exp1_32(0.5)", [&]() -> double { double x = 1.0 + 1./32*onehalf; for (int i = 0; i < 4; i++) x *= x; return x*x; });
+    DUMP_MEAN;
+    // Note the slight difference between these onehalf (looping 8 times, not returning x*x): this
+    // results in better performance, most likely because of better vectorization for SSE
+    // instructions.
+    mean += benchmark("evaluate (d) exp1_256a(0.5)", [&]() -> double { double x = 1.0 + 1./256*onehalf; for (int i = 0; i < 7; i++) x *= x; return x*x; });
+    DUMP_MEAN;
+    mean += benchmark("evaluate (d) exp1_256b(0.5)", [&]() -> double { double x = 1.0 + 1./256*onehalf; for (int i = 0; i < 8; i++) x *= x; return x; });
+    DUMP_MEAN;
+    mean += benchmark("evaluate (d) exp1_4Ka(0.5)", [&]() -> double { double x = 1.0 + 1./4096*onehalf; for (int i = 0; i < 11; i++) x *= x; return x*x; });
+    DUMP_MEAN;
+    mean += benchmark("evaluate (d) exp1_4Kb(0.5)", [&]() -> double { double x = 1.0 + 1./4096*onehalf; for (int i = 0; i < 12; i++) x *= x; return x; });
+    DUMP_MEAN;
+    mean += benchmark("evaluate (d) exp1_16Ka(0.5)", [&]() -> double { double x = 1.0 + 1./16384*onehalf; for (int i = 0; i < 13; i++) x *= x; return x*x; });
+    DUMP_MEAN;
+    mean += benchmark("evaluate (d) exp1_16Kb(0.5)", [&]() -> double { double x = 1.0 + 1./16384*onehalf; for (int i = 0; i < 14; i++) x *= x; return x; });
+    DUMP_MEAN;
+    mean += benchmark("evaluate (d) exp1_64Ka(0.5)", [&]() -> double { double x = 1.0 + 1./65536*onehalf; for (int i = 0; i < 15; i++) x *= x; return x*x; });
+    DUMP_MEAN;
+    mean += benchmark("evaluate (d) exp1_64Kb(0.5)", [&]() -> double { double x = 1.0 + 1./65536*onehalf; for (int i = 0; i < 16; i++) x *= x; return x; });
+    DUMP_MEAN;
+    mean += benchmark("evaluate (f) exp1_8(0.5)", [&]() -> float { float x = 1.f + 1.f/8*onehalff; for (int i = 0; i < 2; i++) x *= x; return x*x; });
+    DUMP_MEAN;
+    mean += benchmark("evaluate (f) exp1_32(0.5)", [&]() -> float { float x = 1.f + 1.f/32*onehalff; for (int i = 0; i < 4; i++) x *= x; return x*x; });
+    DUMP_MEAN;
+    mean += benchmark("evaluate (f) exp1_256a(0.5)", [&]() -> float { float x = 1.f + 1.f/256*onehalf; for (int i = 0; i < 7; i++) x *= x; return x*x; });
+    DUMP_MEAN;
+    mean += benchmark("evaluate (f) exp1_256b(0.5)", [&]() -> float { float x = 1.f + 1.f/256*onehalf; for (int i = 0; i < 8; i++) x *= x; return x; });
+    DUMP_MEAN;
+    mean += benchmark("evaluate (f) exp1_1024a(0.5)", [&]() -> float { float x = 1.f + 1.f/1024*onehalf; for (int i = 0; i < 9; i++) x *= x; return x*x; });
+    DUMP_MEAN;
+    mean += benchmark("evaluate (f) exp1_1024b(0.5)", [&]() -> float { float x = 1.f + 1.f/1024*onehalf; for (int i = 0; i < 10; i++) x *= x; return x; });
+    DUMP_MEAN;
+    mean += benchmark("evaluate (f) exp1_16Ka(0.5)", [&]() -> float { float x = 1.f + 1.f/16384*onehalf; for (int i = 0; i < 13; i++) x *= x; return x*x; });
+    DUMP_MEAN;
+    mean += benchmark("evaluate (f) exp1_16Kb(0.5)", [&]() -> float { float x = 1.f + 1.f/16384*onehalf; for (int i = 0; i < 14; i++) x *= x; return x; });
+    DUMP_MEAN;
+    mean += benchmark("evaluate (f) exp1_64Ka(0.5)", [&]() -> float { float x = 1.f + 1.f/65536*onehalf; for (int i = 0; i < 15; i++) x *= x; return x*x; });
+    DUMP_MEAN;
+    mean += benchmark("evaluate (f) exp1_64Kb(0.5)", [&]() -> float { float x = 1.f + 1.f/65536*onehalf; for (int i = 0; i < 16; i++) x *= x; return x; });
+
+    // The "expT_n" values are nth order Taylor expansions of e^x
+    mean += benchmark("evaluate (d) expT_2(0.5)", [&]() -> double { double x = onehalf; return 1. + x + 0.5*x*x; });
+    DUMP_MEAN;
+    mean += benchmark("evaluate (d) expT_3(0.5)", [&]() -> double { double x = onehalf; return 1. + x*(1 + 0.5*x*(1 + (1./3.)*x)); });
+    DUMP_MEAN;
+    mean += benchmark("evaluate (d) expT_4(0.5)", [&]() -> double { double x = onehalf; return 1. + x*(1. + 1./2.*x*(1. + 1./3.*x*(1. + 1./4.*x))); });
+    DUMP_MEAN;
+    mean += benchmark("evaluate (d) expT_5(0.5)", [&]() -> double { double x = onehalf; return 1. + x*(1. + 1./2.*x*(1. + 1./3.*x*(1. + 1./4.*x*(1. + 1./5.*x)))); });
+    DUMP_MEAN;
+    mean += benchmark("evaluate (d) expT_6(0.5)", [&]() -> double { double x = onehalf; return 1. + x*(1. + 1./2.*x*(1. + 1./3.*x*(1. + 1./4.*x*(1. + 1./5.*x*(1. + 1./6.*x))))); });
+    DUMP_MEAN;
+    mean += benchmark("evaluate (d) expT_7(0.5)", [&]() -> double { double x = onehalf; return 1. + x*(1. + 1./2.*x*(1. + 1./3.*x*(1. + 1./4.*x*(1. + 1./5.*x*(1. + 1./6.*x*(1. + 1./7.*x)))))); });
+    DUMP_MEAN;
+    mean += benchmark("evaluate (d) expT_8(0.5)", [&]() -> double { double x = onehalf; return 1. + x*(1. + 1./2.*x*(1. + 1./3.*x*(1. + 1./4.*x*(1. + 1./5.*x*(1. + 1./6.*x*(1. + 1./7.*x*(1. + 1./8.*x))))))); });
+    DUMP_MEAN;
+    mean += benchmark("evaluate (d) expT_12(0.5)", [&]() -> double { double x = onehalf; return 1. + x*(1. + 1./2.*x*(1. + 1./3.*x*(1. + 1./4.*x*(1. + 1./5.*x*(1. + 1./6.*x*(1. + 1./7.*x*(1. + 1./8.*x*
+                                        (1.+1./9.*x*(1.+1./10.*x*(1.+1./11.*x*(1.+1./12.*x))))
+                                         ))))))); });
+    DUMP_MEAN;
+    mean += benchmark("evaluate (d) expT_4(0.01)", [&]() -> double { double x = onehalf; return 1. + x*(1. + 1./2.*x*(1. + 1./3.*x*(1. + 1./4.*x))); });
+    DUMP_MEAN;
+
+    mean += benchmark("evaluate (f) expT_2(0.5)", [&]() -> float { float x = onehalff; return 1.f + x + 0.5f*x*x; });
+    DUMP_MEAN;
+    mean += benchmark("evaluate (f) expT_4(0.5)", [&]() -> float { float x = onehalff; return 1.f + x*(1.f + 1.f/2.f*x*(1.f + 1.f/3.f*x*(1.f + 1.f/4.f*x))); });
+    DUMP_MEAN;
+    mean += benchmark("evaluate (f) expT_8(0.5)", [&]() -> float { float x = onehalff; return 1.f + x*(1.f + 1.f/2.f*x*(1.f + 1.f/3.f*x*(1.f + 1.f/4.f*x*(1.f + 1.f/5.f*x*(1.f + 1.f/6.f*x*(1.f + 1.f/7.f*x*(1.f + 1.f/8.f*x))))))); });
+    DUMP_MEAN;
+
+    mean += benchmark("evaluate (d) expT_4(0.1)", [&]() -> double { double x = pointone; return 1. + x*(1. + 1./2.*x*(1. + 1./3.*x*(1. + 1./4.*x))); });
+    std::cout << "exp(0.1)=" << PRECISE(std::exp(0.1)) << "; approximation: "; DUMP_MEAN;
+    mean += benchmark("evaluate (d) expT_4(0.5)", [&]() -> double { double x = onehalf; return 1. + x*(1. + 1./2.*x*(1. + 1./3.*x*(1. + 1./4.*x))); });
+    std::cout << "exp(0.5)=" << PRECISE(std::exp(0.5)) << "; approximation: "; DUMP_MEAN;
+    mean += benchmark("evaluate (d) expT_4(1.0)", [&]() -> double { double x = one; return 1. + x*(1. + 1./2.*x*(1. + 1./3.*x*(1. + 1./4.*x))); });
+    std::cout << "exp(1.0)=" << PRECISE(std::exp(1.0)) << "; approximation: "; DUMP_MEAN;
+    mean += benchmark("evaluate (d) expT_4(1.5)", [&]() -> double { double x = onepointfive; return 1. + x*(1. + 1./2.*x*(1. + 1./3.*x*(1. + 1./4.*x))); });
+    std::cout << "exp(1.5)=" << PRECISE(std::exp(1.5)) << "; approximation: "; DUMP_MEAN;
+    mean += benchmark("evaluate (d) expT_4(2.0)", [&]() -> double { double x = two; return 1. + x*(1. + 1./2.*x*(1. + 1./3.*x*(1. + 1./4.*x))); });
+    std::cout << "exp(2.0)=" << PRECISE(std::exp(2.0)) << "; approximation: "; DUMP_MEAN;
+    mean += benchmark("evaluate (d) expT_5(2.0)", [&]() -> double { double x = two; return 1. + x*(1. + 1./2.*x*(1. + 1./3.*x*(1. + 1./4.*x*(1. + 1./5.*x)))); });
+    std::cout << "exp(2.0)=" << PRECISE(std::exp(2.0)) << "; approximation: "; DUMP_MEAN;
+
+    std::cout.precision(default_prec);
+
+    mean += benchmark("evaluate (d) log(10)", [&]() -> double { return std::log(ten); });
+    mean += benchmark("evaluate (d) log(piandahalf)", [&]() -> double { return std::log(piandahalf); });
+    mean += benchmark("evaluate (d) log(e)", [&]() -> double { return std::log(e); });
+    mean += benchmark("evaluate (f) log(10)", [&]() -> float { return std::log(tenf); });
+    mean += benchmark("evaluate (f) log(piandahalf)", [&]() -> float { return std::log(piandahalff); });
+    mean += benchmark("evaluate (f) log(e)", [&]() -> float { return std::log(ef); });
 
     mean += benchmark("evaluate (d) sqrt(8)", [&]() -> double { return std::sqrt(eight); });
     mean += benchmark("evaluate (d) sqrt(1.5pi)", [&]() -> double { return std::sqrt(piandahalf); });
