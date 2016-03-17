@@ -320,34 +320,41 @@ void benchmarkCalculations() {
     // Calculate the costs of Taylor expansions of order n; 1 is 0 (because 1 is the value 1+x, which is basically free)
     c_op["expT1"] = 0;
     // The "expT_n" values are nth order Taylor expansions of e^x
-    mean += benchmark("evaluate (d) expT_2(0.5)", [&]() -> double { double x = onehalf; return 1. + x + 0.5*x*x; });
+    // The general pattern here started out as:
+    //     1. + x*(1. + x*(1./2. + ...
+    // instead of:
+    //     1. + x + x*x*(1./2. + ...
+    // but that ended up being slightly slower.  In effect, the first one forces:
+    // Mult -> Add -> Mult -> Add -> ...
+    // while the second is:
+    // Mult -> Mult -> Add -> Add
+    // which is, apparently, faster.  What's weird is this is faster on the inside, too, where we
+    // are actually doing an extra multiplication:
+    // -> Mult -> Mult -> Mult -> Add -> Add ->
+    // instead of
+    // -> Mult -> Add -> Mult -> Add ->
+    // ... except on T4, where it's better to not expand the inside term.
+    //
+    // (These results on my Core i5-2500K CPU)
+    //
+    mean += benchmark("evaluate (d) expT_2(0.5)", [&]() -> double { double x = onehalf; return 1 + x + x*x*(1./2); });
     c_op["expT2"] = last_benchmark_ns - benchmark_overhead;
-    mean += benchmark("evaluate (d) expT_3(0.5)", [&]() -> double { double x = onehalf; return 1. + x*(1 + 0.5*x*(1 + (1./3.)*x)); });
+    mean += benchmark("evaluate (d) expT_3(0.5)", [&]() -> double { double x = onehalf; return 1 + x + x*x*(1./2 + 1./6*x); });
     c_op["expT3"] = last_benchmark_ns - benchmark_overhead;
-    mean += benchmark("evaluate (d) expT_4(0.5)", [&]() -> double { double x = onehalf; return 1. + x*(1. + 1./2.*x*(1. + 1./3.*x*(1. + 1./4.*x))); });
+    mean += benchmark("evaluate (d) expT_4(0.5)", [&]() -> double { double x = onehalf; return 1 + x + x*x*(1./2 + x*(1./6 + x*(1./24))); });
     c_op["expT4"] = last_benchmark_ns - benchmark_overhead;
-    mean += benchmark("evaluate (d) expT_5(0.5)", [&]() -> double { double x = onehalf; return 1. + x*(1. + 1./2.*x*(1. + 1./3.*x*(1. + 1./4.*x*(1. + 1./5.*x)))); });
+    mean += benchmark("evaluate (d) expT_5(0.5)", [&]() -> double { double x = onehalf; return 1 + x + x*x*(1./2 + 1./6*x + x*x*(1./24 + 1./120*x)); });
     c_op["expT5"] = last_benchmark_ns - benchmark_overhead;
-    mean += benchmark("evaluate (d) expT_6(0.5)", [&]() -> double { double x = onehalf; return 1. + x*(1. + 1./2.*x*(1. + 1./3.*x*(1. + 1./4.*x*(1. + 1./5.*x*(1. + 1./6.*x))))); });
+    mean += benchmark("evaluate (d) expT_6(0.5)", [&]() -> double { double x = onehalf; return 1 + x + x*x*(1./2 + 1./6*x + x*x*(1./24 + 1./120*x + x*x*(1./720))); });
     c_op["expT6"] = last_benchmark_ns - benchmark_overhead;
-    mean += benchmark("evaluate (d) expT_7(0.5)", [&]() -> double { double x = onehalf; return 1. + x*(1. + 1./2.*x*(1. + 1./3.*x*(1. + 1./4.*x*(1. + 1./5.*x*(1. + 1./6.*x*(1. + 1./7.*x)))))); });
+    mean += benchmark("evaluate (d) expT_7(0.5)", [&]() -> double { double x = onehalf; return 1 + x + x*x*(1./2 + 1./6*x + x*x*(1./24 + 1./120*x + x*x*(1./720 + x*(1./5040)))); });
     c_op["expT7"] = last_benchmark_ns - benchmark_overhead;
-    mean += benchmark("evaluate (d) expT_8(0.5)", [&]() -> double { double x = onehalf; return 1. + x*(1. + 1./2.*x*(1. + 1./3.*x*(1. + 1./4.*x*(1. + 1./5.*x*(1. + 1./6.*x*(1. + 1./7.*x*(1. + 1./8.*x))))))); });
+    mean += benchmark("evaluate (d) expT_8(0.5)", [&]() -> double { double x = onehalf; return 1 + x + x*x*(1./2 + 1./6*x + x*x*(1./24 + 1./120*x + x*x*(1./720 + 1./5040*x + x*x*(1./40320)))); });
     c_op["expT8"] = last_benchmark_ns - benchmark_overhead;
 
-    mean += benchmark("evaluate (d) expT_12(0.5)", [&]() -> double { double x = onehalf; return 1. + x*(1. + 1./2.*x*(1. + 1./3.*x*(1. + 1./4.*x*(1. + 1./5.*x*(1. + 1./6.*x*(1. + 1./7.*x*(1. + 1./8.*x*
-                                        (1.+1./9.*x*(1.+1./10.*x*(1.+1./11.*x*(1.+1./12.*x))))
-                                         ))))))); });
-    DUMP_MEAN;
-    mean += benchmark("evaluate (d) expT_4(0.01)", [&]() -> double { double x = onehalf; return 1. + x*(1. + 1./2.*x*(1. + 1./3.*x*(1. + 1./4.*x))); });
-    DUMP_MEAN;
-
-    mean += benchmark("evaluate (f) expT_2(0.5)", [&]() -> float { float x = onehalff; return 1.f + x + 0.5f*x*x; });
-    DUMP_MEAN;
-    mean += benchmark("evaluate (f) expT_4(0.5)", [&]() -> float { float x = onehalff; return 1.f + x*(1.f + 1.f/2.f*x*(1.f + 1.f/3.f*x*(1.f + 1.f/4.f*x))); });
-    DUMP_MEAN;
-    mean += benchmark("evaluate (f) expT_8(0.5)", [&]() -> float { float x = onehalff; return 1.f + x*(1.f + 1.f/2.f*x*(1.f + 1.f/3.f*x*(1.f + 1.f/4.f*x*(1.f + 1.f/5.f*x*(1.f + 1.f/6.f*x*(1.f + 1.f/7.f*x*(1.f + 1.f/8.f*x))))))); });
-    DUMP_MEAN;
+    mean += benchmark("evaluate (f) expT_2(0.5)", [&]() -> float { float x = onehalff; return 1.f + x + x*x*(1.f/2.f); });
+    mean += benchmark("evaluate (f) expT_4(0.5)", [&]() -> float { float x = onehalff; return 1.f + x + x*x*(1.f/2.f + x*(1.f/6.f + x*(1.f/24.f))); });
+    mean += benchmark("evaluate (f) expT_8(0.5)", [&]() -> float { float x = onehalff; return 1.f + x + x*x*(1.f/2.f + 1.f/6.f*x + x*x*(1.f/24.f + 1.f/120.f*x + x*x*(1.f/720.f + 1.f/5040.f*x + x*x*(1.f/40320.f)))); });
 
     mean += benchmark("evaluate (d) expT_4(0.1)", [&]() -> double { double x = pointone; return 1. + x*(1. + 1./2.*x*(1. + 1./3.*x*(1. + 1./4.*x))); });
     std::cout << "exp(0.1)=" << PRECISE(std::exp(0.1)) << "; approximation: "; DUMP_MEAN;
