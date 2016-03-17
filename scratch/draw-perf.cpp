@@ -100,15 +100,21 @@ double lambertW(const double z, const double tol = 1e-12) {
     return wnext;
 }
 
+// Calculates a root by starting at right/left and cutting off half the space each time until right
+// and left are within the given tolerance.  f(left) and f(right) must have opposite signs; if the
+// function has multiple roots, this will find an arbitrary one.  If the function is not continuous
+// with a discontinuity that changes sign, this may well find the discontinuity.
 double root(const std::function<double(double)> &f, double left, double right, double tol) {
-    if (f(right) > 0 or f(left) < 0) throw std::logic_error(u8"Unable to calculate a₁: invalid end-points invalid");
+    bool increasing = std::signbit(f(left));
+    bool right_incr = !std::signbit(f(right));
+    if (increasing != right_incr) throw std::logic_error(u8"Unable to calculate root: f(left) and f(right) have same sign");
 
     while (right - left > tol*left) {
         double mid = 0.5*(right + left);
         double fmid = f(mid);
-        if (fmid > 0) left = mid;
-        else if (fmid < 0) right = mid;
-        else return mid;
+        if (fmid > 0) (increasing ? right : left) = mid;
+        else if (fmid < 0) (increasing ? left : right) = mid;
+        else return mid; // Found exactly 0
     }
     return 0.5*(right+left);
 }
@@ -158,18 +164,15 @@ double a1(const std::string &library, bool float_op = false, const double tol=1e
             )
             -
             ccheck_over_cur;
-    }, 1e-10, 10, tol);
+    }, 1e-10, 10.1, tol);
 }
 
 // Returns the expected extra cost incurred by using the given approximation of e^(a^2/2) instead of
 // the actual calculation when deciding between UR and HR.
 inline double exp_cost_delta(const double a, const double approx_exp_halfaa, const double chr, const double cur) {
-    return 0.5 * chr /
-        (
-            (cdf(complement(N01d, a)) - cdf(complement(N01d, a + chr/cur * boost::math::constants::root_half_pi<double>() * approx_exp_halfaa)))
-            *
-            (1 - approx_exp_halfaa / std::exp(0.5*a*a))
-        );
+    return 0.5 * chr
+        / (cdf(complement(N01d, a)) - cdf(complement(N01d, a + chr/cur * boost::math::constants::root_half_pi<double>() * approx_exp_halfaa)))
+        * (1 - approx_exp_halfaa / std::exp(0.5*a*a));
 }
 
 // This returns the value of a at which the savings of using a Tn approximation of e^x is equal to the
@@ -197,19 +200,19 @@ inline double exp_cost_delta(const double a, const double approx_exp_halfaa, con
 // tol - the desired tolerance level.
 double aT(const unsigned n, const std::string &library, bool float_op = false, const double tol=1e-10) {
     const double &chr = cost[library].at("HR"), &cur = cost[library].at("UR"),
-          cdiff = (c_op.at(float_op ? "e^x(f)" : "e^x") - c_op.at("expT" + std::to_string(n)));
+          cdiff = c_op.at(float_op ? "e^x(f)" : "e^x") - c_op.at("expT" + std::to_string(n));
     return root([&chr, &cur, &cdiff, &n](const double a) -> double {
             const double x = 0.5*a*a;
             double xn = 1;
-            double fact = 1;
+            long fact = 1;
             double approx = 1;
-            for (unsigned i = 0; i < n; i++) {
+            for (unsigned i = 1; i <= n; i++) {
                 xn *= x;
                 fact *= i;
                 approx += xn / fact;
             }
             return exp_cost_delta(a, approx, chr, cur) - cdiff;
-    }, 1e-10, 10, tol);
+    }, 1e-10, 10.2, tol);
 }
 
 // This returns the value of a above which using the Tn approximation is preferred to using the
@@ -239,17 +242,18 @@ double aTT1(const unsigned n, const std::string &library, const double tol=1e-10
     return root([&chr, &cur, &cdiff, &n](const double a) -> double {
             const double x = 0.5*a*a;
             double xn = 1;
-            double fact = 1;
+            long fact = 1;
             double approx = 1, approx_2ndlast = 1;
-            for (unsigned i = 0; i < n; i++) {
+            for (unsigned i = 1; i <= n; i++) {
+                approx_2ndlast = approx;
                 xn *= x;
                 fact *= i;
-                if (i == n-1) approx_2ndlast = approx;
                 approx += xn / fact;
             }
+
             return
                 (exp_cost_delta(a, approx_2ndlast, chr, cur) - exp_cost_delta(a, approx, chr, cur)) - cdiff;
-    }, 1e-10, 10, tol);
+    }, 0.01, 3.0, tol);
 }
 
 // Test the draw speed of various distributions
