@@ -36,7 +36,8 @@ std::vector<std::string> rng_libs = {"stl", "boost", "gsl"};
 // c_op is cleaner to type than cost[""]:
 std::unordered_map<std::string, double> &c_op = cost[""];
 
-constexpr unsigned incr = 2000000;
+constexpr unsigned incr = 1<<21; // ~ 2 million, but also a power of 2, which may *slightly* improve the mean
+                                 // calculation in callTest, particular in the default one-iteration case
 double last_benchmark_ns = std::numeric_limits<double>::quiet_NaN(), benchmark_overhead = last_benchmark_ns, benchmark_overhead_f = benchmark_overhead;
 
 boost::math::normal_distribution<double> N01d;
