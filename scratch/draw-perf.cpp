@@ -15,6 +15,23 @@ extern "C" {
 #include <gsl/gsl_cdf.h>
 }
 
+
+// This script computes the time required for various calculations including random draws, then uses
+// these to calculate optimal threshold values for an mixed rejection sampling algorithm to draw
+// truncated normal variates.
+//
+// Adding new library calculations for the uniform, exponential, and normal draws is relatively
+// straightforward, you just need to:
+// - add the necessary headers, above.
+// - if the library requires runtime linking, update CMakeLists.txt appropriately.
+// - add the name, e.g. "somelib", to the "rng_libs" variable below
+// - add a method benchmarkSomeLibrary() which does basically what benchmarkStl() and
+//   benchmarkBoost() do, but using calls to your library.  The critical part is to make sure the
+//   c["somelib"]["N"], c["somelib"]["U"], and c["somelib"]["Exp"] values are set.  Keep the print
+//   statements and mean calculations: they are there to prevent the compiler from being to optimize
+//   away the result.
+// - inside main(), look for the call to benchmarkStl(), and add a call to benchmarkSomeLibrary()
+
 using clk = std::chrono::high_resolution_clock;
 using dur = std::chrono::duration<double>;
 
@@ -31,8 +48,9 @@ gsl_rng *rng_gsl;
 
 // library => { testname => cost }; if library is "", this is op costs
 std::unordered_map<std::string, std::unordered_map<std::string, double>> cost;
-// The libraries (in the order we want to display them)
-std::vector<std::string> rng_libs = {"stl", "boost", "gsl"};
+// The libraries (in the order we want to display them).  Keep these names 11 characters or less
+// (otherwise the table headers will be misaligned).
+std::vector<std::string> rng_libs = {"stl", "boost", "gsl-zigg", "gsl-rat", "gsl-BoxM"};
 // c_op is cleaner to type than cost[""]:
 std::unordered_map<std::string, double> &c_op = cost[""];
 
@@ -256,67 +274,19 @@ double aTT1(const unsigned n, const std::string &library, const double tol=1e-10
     }, 0.01, 3.0, tol);
 }
 
-// Test the draw speed of various distributions
-int main(int argc, char *argv[]) {
-    // If we're given one argument, it's the number of seconds; if 2, it's seconds and a seed
-    unsigned long seed = 0;
-    if (argc < 1 or argc > 3) {
-        std::cerr << "Usage: " << argv[0] << " [SECONDS [SEED]]\n";
-        exit(1);
-    }
-    if (argc >= 2) {
-        try {
-            bench_seconds = boost::lexical_cast<double>(argv[1]);
-        }
-        catch (const boost::bad_lexical_cast &) {
-            std::cerr << "Invalid SECONDS value `" << argv[1] << "'\n\nUsage: " << argv[0] << " [SECONDS [SEED]]\n";
-        }
-    }
-    if (argc >= 3) {
-        try {
-            seed = boost::lexical_cast<decltype(seed)>(argv[2]);
-        }
-        catch (const boost::bad_lexical_cast &) {
-            std::cerr << "Invalid SEED value `" << argv[2] << "'\n\nUsage: " << argv[0] << " [SECONDS [SEED]]\n";
-            exit(1);
-        }
-    }
-    else {
-        std::random_device rd;
-        static_assert(sizeof(decltype(rd())) == 4, "Internal error: std::random_device doesn't give 32-bit values!?");
-        seed = (uint64_t(rd()) << 32) + rd();
-    }
-    std::cout << "Using mt19937 generator with seed = " << seed << "\n";
-    std::cout << std::showpoint;
-    rng_stl.seed(seed);
-    rng_boost.seed(seed);
-    rng_gsl = gsl_rng_alloc(gsl_rng_mt19937);
-    gsl_rng_set(rng_gsl, seed);
+// Some constants to use below.  These are declared volatile to prevent the compiler from
+// optimizing them away.
+volatile const double ten = 10.0, minusten = -10.0, two = 2.0, minustwo = -2.0, onehalf = 0.5, eight = 8.,
+         e = boost::math::constants::e<double>(), pi = boost::math::constants::pi<double>(),
+         piandahalf = 1.5*pi, pointone = 0.1, one = 1.0, onepointfive = 1.5;
 
+volatile const float eightf = 8.f, minustwof = -2.f, tenf = 10.f, minustenf = -10.f, twof = 2.f, onehalff = 0.5f,
+         piandahalff = piandahalf, ef = boost::math::constants::e<float>();
+
+#define PRECISE(v) std::setprecision(std::numeric_limits<double>::max_digits10) << v << std::setprecision(6)
+
+void benchmarkCalculations() {
     double mean = 0;
-    auto default_prec = std::cout.precision();
-#define PRECISE(v) std::setprecision(std::numeric_limits<double>::max_digits10) << v << std::setprecision(default_prec)
-
-    // Some constants to use below.  These are declared volatile to prevent the compiler from
-    // optimizing them away.
-    volatile const double ten = 10.0, minusten = -10.0, two = 2.0, minustwo = -2.0, onehalf = 0.5, eight = 8.,
-             e = boost::math::constants::e<double>(), pi = boost::math::constants::pi<double>(),
-             piandahalf = 1.5*pi, pointone = 0.1, one = 1.0, onepointfive = 1.5;
-
-    volatile const float eightf = 8.f, minustwof = -2.f, tenf = 10.f, minustenf = -10.f, twof = 2.f, onehalff = 0.5f,
-             piandahalff = piandahalf, ef = boost::math::constants::e<float>();
-
-    // Modern CPUs have a variable clock, and may take a few ms to increase to maximum frequency, so
-    // run a fake test for a second to (hopefully) get the CPU at full speed.
-    callTest([]() -> double { return 1.0; }, 1.0);
-
-    // NB: square brackets around values below indicate compiler time constants (or, at least,
-    // constexprs, which should work the same if the compiler is optimizing)
-    mean += benchmark("overhead (d)", [&]() -> double { return eight; });
-    benchmark_overhead = last_benchmark_ns;
-    mean += benchmark("overhead (f)", [&]() -> float { return eightf; });
-    benchmark_overhead_f = last_benchmark_ns;
-
     mean += benchmark("evaluate (d) exp(10)", [&]() -> double { return std::exp(ten); });
     c_op["e^x"] += last_benchmark_ns;
     mean += benchmark("evaluate (d) exp(-10)", [&]() -> double { return std::exp(minusten); });
@@ -392,7 +362,7 @@ int main(int argc, char *argv[]) {
     mean += benchmark("evaluate (d) expT_5(2.0)", [&]() -> double { double x = two; return 1. + x*(1. + 1./2.*x*(1. + 1./3.*x*(1. + 1./4.*x*(1. + 1./5.*x)))); });
     std::cout << "exp(2.0)=" << PRECISE(std::exp(2.0)) << "; approximation: "; DUMP_MEAN;
 
-    std::cout.precision(default_prec);
+    std::cout.precision(6);
 
     mean += benchmark("evaluate (d) log(10)", [&]() -> double { return std::log(ten); });
     mean += benchmark("evaluate (d) log(piandahalf)", [&]() -> double { return std::log(piandahalf); });
@@ -434,15 +404,20 @@ int main(int argc, char *argv[]) {
     mean += benchmark("evaluate N cdf (gsl)", [&]() -> double { return gsl_cdf_ugaussian_P(two); });
     mean += benchmark("evaluate N pdf (gsl)", [&]() -> double { return gsl_ran_ugaussian_pdf(two); });
     std::cout << "sum of these means: " << PRECISE(mean) << "\n";
+}
 
+void benchmarkBoost() {
     std::cout << "\n";
-    mean = 0;
+    // Include these with some large numbers so that we can visually inspect the result: these
+    // timings should be essentially identical to the standard argument draws, below.  (If they
+    // aren't, investigation is warranted).
+    double mean = 0;
     mean += benchmarkDraw<boost::random::normal_distribution<double>>("boost N(1e9,2e7)", rng_boost, 1e9, 2e7);
     mean += benchmarkDraw<boost::random::uniform_real_distribution<double>>("boost U[1e9,1e10)", rng_boost, 1e9, 1e10);
     mean += benchmarkDraw<boost::random::exponential_distribution<double>>("boost Exp(30)", rng_boost, 30);
-
     std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 
+    // boost draw benchmarks:
     std::cout << "\n";
     mean = 0;
     mean += benchmarkDraw<boost::random::normal_distribution<double>>("boost N(0,1)", rng_boost);
@@ -451,17 +426,21 @@ int main(int argc, char *argv[]) {
     cost["boost"]["U"] = last_benchmark_ns - benchmark_overhead;
     mean += benchmarkDraw<boost::random::exponential_distribution<double>>("boost Exp(1)", rng_boost);
     cost["boost"]["Exp"] = last_benchmark_ns - benchmark_overhead;
-
     std::cout << "sum of these means: " << PRECISE(mean) << "\n";
+}
 
+void benchmarkStl() {
     std::cout << "\n";
-    mean = 0;
+    // Include these with some large numbers so that we can visually inspect the result: these
+    // timings should be essentially identical to the standard argument draws, below.  (If they
+    // aren't, investigation is warranted).
+    double mean = 0;
     mean += benchmarkDraw<std::normal_distribution<double>>("stl N(1e9,2e7)", rng_stl, 1e9, 2e7);
     mean += benchmarkDraw<std::uniform_real_distribution<double>>("stl U[1e9,1e10)", rng_stl, 1e9, 1e10);
     mean += benchmarkDraw<std::exponential_distribution<double>>("stl Exp(30)", rng_stl, 30);
-
     std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 
+    // stl draw benchmarks:
     std::cout << "\n";
     mean = 0;
     mean += benchmarkDraw<std::normal_distribution<double>>("stl N(0,1)", rng_stl);
@@ -470,31 +449,95 @@ int main(int argc, char *argv[]) {
     cost["stl"]["U"] = last_benchmark_ns - benchmark_overhead;
     mean += benchmarkDraw<std::exponential_distribution<double>>("stl Exp(1)", rng_stl);
     cost["stl"]["Exp"] = last_benchmark_ns - benchmark_overhead;
-
     std::cout << "sum of these means: " << PRECISE(mean) << "\n";
+}
 
+void benchmarkGsl() {
     std::cout << "\n";
-    mean = 0;
+    double mean = 0;
+    // Like the boost/stl benchmarks, draw some large values to make sure the timings don't depend
+    // on the distribution arguments:
     mean += benchmark("gsl N(1e9,2e7) (Box-Mul.)", [&]() -> double { return 1e9 + gsl_ran_gaussian(rng_gsl, 2e7); });
     mean += benchmark("gsl N(1e9,2e7) (ratio)", [&]() -> double { return 1e9 + gsl_ran_gaussian_ratio_method(rng_gsl, 2e7); });
     mean += benchmark("gsl N(1e9,2e7) (ziggurat)", [&]() -> double { return 1e9 + gsl_ran_gaussian_ziggurat(rng_gsl, 2e7); });
     mean += benchmark("gsl U[1e9,1e10]", [&]() -> double { return gsl_ran_flat(rng_gsl, 1e9, 1e10); });
     mean += benchmark("gsl Exp(1/30)", [&]() -> double { return gsl_ran_exponential(rng_gsl, 1./30.); });
-
     std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 
     std::cout << "\n";
     mean = 0;
+    // gsl draw benchmarks (we draw using the three different normal draw algorithms for
+    // comparison):
     mean += benchmark("gsl N(0,1) (Box-Muller)", [&]() -> double { return gsl_ran_gaussian(rng_gsl, 1); });
+    cost["gsl-BoxM"]["N"] = last_benchmark_ns - benchmark_overhead;
     mean += benchmark("gsl N(0,1) (ratio)", [&]() -> double { return gsl_ran_gaussian_ratio_method(rng_gsl, 1); });
+    cost["gsl-rat"]["N"] = last_benchmark_ns - benchmark_overhead;
     mean += benchmark("gsl N(0,1) (ziggurat)", [&]() -> double { return gsl_ran_gaussian_ziggurat(rng_gsl, 1); });
-    cost["gsl"]["N"] = last_benchmark_ns - benchmark_overhead;
+    cost["gsl-zigg"]["N"] = last_benchmark_ns - benchmark_overhead;
     mean += benchmark("gsl U[0,1]", [&]() -> double { return gsl_ran_flat(rng_gsl, 0, 1); });
-    cost["gsl"]["U"] = last_benchmark_ns - benchmark_overhead;
+    cost["gsl-BoxM"]["U"] = cost["gsl-rat"]["U"] = cost["gsl-zigg"]["U"] = last_benchmark_ns - benchmark_overhead;
     mean += benchmark("gsl Exp(1)", [&]() -> double { return gsl_ran_exponential(rng_gsl, 1); });
-    cost["gsl"]["Exp"] = last_benchmark_ns - benchmark_overhead;
-
+    cost["gsl-BoxM"]["Exp"] = cost["gsl-rat"]["Exp"] = cost["gsl-zigg"]["Exp"] = last_benchmark_ns - benchmark_overhead;
     std::cout << "sum of these means: " << PRECISE(mean) << "\n";
+}
+
+
+// Test the draw speed of various distributions
+int main(int argc, char *argv[]) {
+    // If we're given one argument, it's the number of seconds; if 2, it's seconds and a seed
+    unsigned long seed = 0;
+    if (argc < 1 or argc > 3) {
+        std::cerr << "Usage: " << argv[0] << " [SECONDS [SEED]]\n";
+        exit(1);
+    }
+    if (argc >= 2) {
+        try {
+            bench_seconds = boost::lexical_cast<double>(argv[1]);
+        }
+        catch (const boost::bad_lexical_cast &) {
+            std::cerr << "Invalid SECONDS value `" << argv[1] << "'\n\nUsage: " << argv[0] << " [SECONDS [SEED]]\n";
+        }
+    }
+    if (argc >= 3) {
+        try {
+            seed = boost::lexical_cast<decltype(seed)>(argv[2]);
+        }
+        catch (const boost::bad_lexical_cast &) {
+            std::cerr << "Invalid SEED value `" << argv[2] << "'\n\nUsage: " << argv[0] << " [SECONDS [SEED]]\n";
+            exit(1);
+        }
+    }
+    else {
+        std::random_device rd;
+        static_assert(sizeof(decltype(rd())) == 4, "Internal error: std::random_device doesn't give 32-bit values!?");
+        seed = (uint64_t(rd()) << 32) + rd();
+    }
+    std::cout << "Using mt19937 generator with seed = " << seed << "\n";
+    std::cout << std::showpoint;
+    rng_stl.seed(seed);
+    rng_boost.seed(seed);
+    rng_gsl = gsl_rng_alloc(gsl_rng_mt19937);
+    gsl_rng_set(rng_gsl, seed);
+
+    double mean = 0;
+
+    // Modern CPUs have a variable clock, and may take a couple seconds to increase to maximum frequency, so
+    // run a fake test for a few seconds to (hopefully) get the CPU at full speed.
+    std::cout << "Busy-waiting to get CPU at full speed\n";
+    callTest([]() -> double { return 1.0; }, 3.0);
+
+    // NB: square brackets around values below indicate compiler time constants (or, at least,
+    // constexprs, which should work the same if the compiler is optimizing)
+    mean += benchmark("overhead (d)", [&]() -> double { return eight; });
+    benchmark_overhead = last_benchmark_ns;
+    mean += benchmark("overhead (f)", [&]() -> float { return eightf; });
+    benchmark_overhead_f = last_benchmark_ns;
+
+    benchmarkCalculations();
+
+    benchmarkBoost();
+    benchmarkStl();
+    benchmarkGsl();
 
     for (const auto &l : rng_libs) {
         cost[l]["HR"] = cost[l]["NR"] = cost[l].at("N");
@@ -502,12 +545,27 @@ int main(int argc, char *argv[]) {
         cost[l]["UR"] = 2*cost[l].at("U") + c_op.at("e^x");
     }
 
+    unsigned max_aTi = 1;
     for (const auto &l : rng_libs) {
         double &sqrtL = cost[l]["sqrtL"];
         sqrtL = std::sqrt(lambertW(2/M_PI*M_E*M_E*std::pow(cost[l]["ER"]/cost[l]["HR"], 2)));
-        cost[l]["a0"] = sqrtL - 1.0/sqrtL;
+        const double &a0 = cost[l]["a0"] = sqrtL - 1.0/sqrtL;
         cost[l]["a1"] = a1(l);
         cost[l]["a1(f)"] = a1(l, true);
+        cost[l]["aT1"] = aT(1, l);
+        for (unsigned i = 2; i <= 8; i++) {
+            double &ai = cost[l]["aT" + std::to_string(i)];
+            ai = aT(i, l);
+            // an is the minimum order Taylor expansion needed if using just one Taylor expansion
+            if (cost[l].count("aTn") == 0 and ai > a0) {
+                cost[l]["aTn"] = i;
+            }
+            double aTi = aTT1(i, l);
+            if (aTi < a0) {
+                cost[l]["aT" + std::to_string(i-1) + "-" + std::to_string(i)] = aTi;
+                if (max_aTi < i) max_aTi = i;
+            }
+        }
     }
 
     std::cout << "\n\n\nSummary:\n\n" <<
@@ -524,17 +582,21 @@ int main(int argc, char *argv[]) {
         "\n\n";
 
     constexpr int fieldwidth = 35;
-    std::cout << "Draws:" << std::setw(fieldwidth-2) << "";
+    std::cout << "Draws:" << std::setw(fieldwidth-5) << "";
 #define FOR_l for (const auto &l : rng_libs)
-    FOR_l { std::cout << std::setw(8) << std::right << l << "    ";  }
+    FOR_l { std::cout << std::setw(11) << std::right << l << " ";  }
     std::cout << "\n" << std::setw(4+fieldwidth) << "";
     for (unsigned i = 0; i < rng_libs.size(); i++) { std::cout << " -------    "; }
-    std::cout << "\n    " << std::setw(fieldwidth) << std::left << "c_NR = c_HR = c_n" << std::right;
+    std::cout << "\n    " << std::setw(fieldwidth) << std::left << "c_HR = c_NR = c_N" << std::right;
     FOR_l { std::cout << std::setw(8) << cost[l].at("NR") << "    "; }
-    std::cout << "\n    " << std::setw(fieldwidth) << std::left << "c_ER = c_exp + c_e^x + c_u" << std::right;
-    FOR_l { std::cout << std::setw(8) << cost[l].at("ER") << "    "; }
-    std::cout << "\n    " << std::setw(fieldwidth) << std::left << "c_UR = 2 c_u + c_e^x" << std::right;
+    std::cout << "\n    " << std::setw(fieldwidth) << std::left << "c_U" << std::right;
+    FOR_l { std::cout << std::setw(8) << cost[l].at("U") << "    "; }
+    std::cout << "\n    " << std::setw(fieldwidth) << std::left << "c_Exp" << std::right;
+    FOR_l { std::cout << std::setw(8) << cost[l].at("Exp") << "    "; }
+    std::cout << "\n    " << std::setw(fieldwidth) << std::left << "c_UR = 2 c_U + c_e^x" << std::right;
     FOR_l { std::cout << std::setw(8) << cost[l].at("UR") << "    "; }
+    std::cout << "\n    " << std::setw(fieldwidth) << std::left << "c_ER = c_Exp + c_e^x + c_U" << std::right;
+    FOR_l { std::cout << std::setw(8) << cost[l].at("ER") << "    "; }
 
     std::cout << u8"\n\n    a₀" << std::setw(fieldwidth-2) << std::left << " | c_ER, c_HR" << std::right;
     FOR_l { std::cout << std::setw(8) << cost[l].at("a0") << "    "; }
@@ -553,6 +615,24 @@ int main(int argc, char *argv[]) {
     if (show_dagger)
         std::cout << "\n    " << std::setw(fieldwidth) << "" << u8"††: a₁ ≤ a₀ ≤ a, so a ≥ a₁ is trivially satisfied";
     show_dagger = false;
+
+    std::cout << u8"\n\n    aₙ " << std::setw(fieldwidth-3) << std::left << "(min. Taylor order)" << std::right;
+    unsigned max_an = 0;
+    FOR_l { const double &an = cost[l].at("aTn"); std::cout << std::setw(8) << (unsigned) an << "    "; if (an > max_an) max_an = an; }
+    for (unsigned i = 1; i <= max_an; i++) {
+        std::cout << "\n    a_T" << i << std::setw(fieldwidth-4-(unsigned)std::log10(i)) << "";
+        FOR_l { std::cout << std::setw(8); if (i <= cost[l].at("aTn")) std::cout << cost[l].at("aT"+std::to_string(i)); else std::cout << ""; std::cout << "    "; }
+    }
+    for (unsigned i = 2; i <= max_aTi; i++) {
+        std::cout << u8"\n    aT{" << i-1 << "→" << i << "}" << std::setw(fieldwidth-7-(unsigned)std::log10(i)-(unsigned)std::log10(i-1)) << "";
+        FOR_l {
+            if (cost[l].count("aT" + std::to_string(i-1) + "-" + std::to_string(i)))
+                std::cout << std::setw(8) << cost[l]["aT" + std::to_string(i-1) + "-" + std::to_string(i)];
+            else
+                std::cout << std::setw(10 /* really 8 - utf8 makes us lie */) << u8"> a₀";
+            std::cout << "    ";
+        }
+    }
 
     gsl_rng_free(rng_gsl);
     std::cout << "\n\n\n";
