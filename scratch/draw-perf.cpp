@@ -212,51 +212,6 @@ int main(int argc, char *argv[]) {
     std::cout << "Testing exp approximations\n" << std::setprecision(8);
     mean = 0;
 #define DUMP_MEAN std::cout << "    -> " << PRECISE(mean) << "\n"; mean = 0
-    // These "exp1" values are approximations are the evaluation of the limit definition of e:
-    // e^x = lim_{n -> inf} (1 + 1/n)^n, with n of the given value.
-    // NB: relying on the compiler to unroll these loops, especially for the low number cases.
-    mean += benchmark("evaluate (d) exp1_8(0.5)", [&]() -> double { double x = 1.0 + 1./8*onehalf; for (int i = 0; i < 2; i++) x *= x; return x*x; });
-    DUMP_MEAN;
-    mean += benchmark("evaluate (d) exp1_32(0.5)", [&]() -> double { double x = 1.0 + 1./32*onehalf; for (int i = 0; i < 4; i++) x *= x; return x*x; });
-    DUMP_MEAN;
-    // Note the slight difference between these onehalf (looping 8 times, not returning x*x): this
-    // results in better performance, most likely because of better vectorization for SSE
-    // instructions.
-    mean += benchmark("evaluate (d) exp1_256a(0.5)", [&]() -> double { double x = 1.0 + 1./256*onehalf; for (int i = 0; i < 7; i++) x *= x; return x*x; });
-    DUMP_MEAN;
-    mean += benchmark("evaluate (d) exp1_256b(0.5)", [&]() -> double { double x = 1.0 + 1./256*onehalf; for (int i = 0; i < 8; i++) x *= x; return x; });
-    DUMP_MEAN;
-    mean += benchmark("evaluate (d) exp1_4Ka(0.5)", [&]() -> double { double x = 1.0 + 1./4096*onehalf; for (int i = 0; i < 11; i++) x *= x; return x*x; });
-    DUMP_MEAN;
-    mean += benchmark("evaluate (d) exp1_4Kb(0.5)", [&]() -> double { double x = 1.0 + 1./4096*onehalf; for (int i = 0; i < 12; i++) x *= x; return x; });
-    DUMP_MEAN;
-    mean += benchmark("evaluate (d) exp1_16Ka(0.5)", [&]() -> double { double x = 1.0 + 1./16384*onehalf; for (int i = 0; i < 13; i++) x *= x; return x*x; });
-    DUMP_MEAN;
-    mean += benchmark("evaluate (d) exp1_16Kb(0.5)", [&]() -> double { double x = 1.0 + 1./16384*onehalf; for (int i = 0; i < 14; i++) x *= x; return x; });
-    DUMP_MEAN;
-    mean += benchmark("evaluate (d) exp1_64Ka(0.5)", [&]() -> double { double x = 1.0 + 1./65536*onehalf; for (int i = 0; i < 15; i++) x *= x; return x*x; });
-    DUMP_MEAN;
-    mean += benchmark("evaluate (d) exp1_64Kb(0.5)", [&]() -> double { double x = 1.0 + 1./65536*onehalf; for (int i = 0; i < 16; i++) x *= x; return x; });
-    DUMP_MEAN;
-    mean += benchmark("evaluate (f) exp1_8(0.5)", [&]() -> float { float x = 1.f + 1.f/8*onehalff; for (int i = 0; i < 2; i++) x *= x; return x*x; });
-    DUMP_MEAN;
-    mean += benchmark("evaluate (f) exp1_32(0.5)", [&]() -> float { float x = 1.f + 1.f/32*onehalff; for (int i = 0; i < 4; i++) x *= x; return x*x; });
-    DUMP_MEAN;
-    mean += benchmark("evaluate (f) exp1_256a(0.5)", [&]() -> float { float x = 1.f + 1.f/256*onehalf; for (int i = 0; i < 7; i++) x *= x; return x*x; });
-    DUMP_MEAN;
-    mean += benchmark("evaluate (f) exp1_256b(0.5)", [&]() -> float { float x = 1.f + 1.f/256*onehalf; for (int i = 0; i < 8; i++) x *= x; return x; });
-    DUMP_MEAN;
-    mean += benchmark("evaluate (f) exp1_1024a(0.5)", [&]() -> float { float x = 1.f + 1.f/1024*onehalf; for (int i = 0; i < 9; i++) x *= x; return x*x; });
-    DUMP_MEAN;
-    mean += benchmark("evaluate (f) exp1_1024b(0.5)", [&]() -> float { float x = 1.f + 1.f/1024*onehalf; for (int i = 0; i < 10; i++) x *= x; return x; });
-    DUMP_MEAN;
-    mean += benchmark("evaluate (f) exp1_16Ka(0.5)", [&]() -> float { float x = 1.f + 1.f/16384*onehalf; for (int i = 0; i < 13; i++) x *= x; return x*x; });
-    DUMP_MEAN;
-    mean += benchmark("evaluate (f) exp1_16Kb(0.5)", [&]() -> float { float x = 1.f + 1.f/16384*onehalf; for (int i = 0; i < 14; i++) x *= x; return x; });
-    DUMP_MEAN;
-    mean += benchmark("evaluate (f) exp1_64Ka(0.5)", [&]() -> float { float x = 1.f + 1.f/65536*onehalf; for (int i = 0; i < 15; i++) x *= x; return x*x; });
-    DUMP_MEAN;
-    mean += benchmark("evaluate (f) exp1_64Kb(0.5)", [&]() -> float { float x = 1.f + 1.f/65536*onehalf; for (int i = 0; i < 16; i++) x *= x; return x; });
 
     // The "expT_n" values are nth order Taylor expansions of e^x
     mean += benchmark("evaluate (d) expT_2(0.5)", [&]() -> double { double x = onehalf; return 1. + x + 0.5*x*x; });
