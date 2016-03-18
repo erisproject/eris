@@ -165,7 +165,7 @@ double root(const std::function<double(double)> &f, double left, double right, d
 //
 // tol - the relative tolerance desired for the returned value.
 //
-double a1(const std::string &library, bool float_op = false, const double tol=1e-10) {
+double a1(const std::string &library, bool float_op = false, const double tol=1e-12) {
     const double cer_over_cur = cost[library].at("ER")/cost[library].at("UR"),
           ccheck_over_cur = (c_op.at(float_op ? "sqrt(f)" : "sqrt") + c_op.at(float_op ? "e^x(f)" : "e^x")) / cost[library].at("UR");
     return root([&cer_over_cur, &ccheck_over_cur](const double a) -> double {
@@ -216,7 +216,7 @@ inline double exp_cost_delta(const double a, const double approx_exp_halfaa, con
 // float_op - if true, use speed of floating point exp rather than double exp.
 //
 // tol - the desired tolerance level.
-double aT(const unsigned n, const std::string &library, bool float_op = false, const double tol=1e-10) {
+double aT(const unsigned n, const std::string &library, bool float_op = false, const double tol=1e-12) {
     const double &chr = cost[library].at("HR"), &cur = cost[library].at("UR"),
           cdiff = c_op.at(float_op ? "e^x(f)" : "e^x") - c_op.at("expT" + std::to_string(n));
     return root([&chr, &cur, &cdiff, &n](const double a) -> double {
