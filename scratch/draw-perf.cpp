@@ -706,6 +706,21 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    std::cout << "\n\nR code for the above (for acceptance-speed.R):\n\n" << std::setprecision(4);
+    FOR_l {
+        const auto &c = cost[l];
+        std::cout << "# Costs from draw-perf (for " << l << ")\n";
+        std::cout <<
+              "c_N <- " << c.at("N") <<
+            "; c_U <- " << c.at("U") <<
+            "; c_Exp <- " << c.at("Exp") <<
+            "; c_ex <- " << cost[""].at("e^x") <<
+            "; c_sqrt <- " << cost[""].at("sqrt") <<
+            "; a0 <- " << c.at("a0") <<
+            "; a0s <- " << c.at("a0'") <<
+            "\n\n";
+    }
+
     gsl_rng_free(rng_gsl);
-    std::cout << "\n\n\n";
+    std::cout << "\n";
 }
