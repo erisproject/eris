@@ -157,6 +157,48 @@ double a0(const std::string &library, const double tol=1e-12) {
     }, 0, 10, tol);
 }
 
+// Calculates the constant at which we want to use lambda=a instead of (a+sqrt(a^2+4)/2) in
+// 1-sided-truncation ER sampling.  In other words, this calculates the point where the efficiency
+// gain of using the proper lambda stops exceeding the cost of calculating it in the first place.
+//
+// Parameters:
+//
+// library - the cost library (e.g. "boost") from which to read RNG cost values.  In particular,
+// the following cost values must be set in cost[library]:
+//     - "HR" - the cost of half-normal rejection sampling.  Since a half-normal pdf divided by a
+//       normal pdf is a constant, half-normal rejection needs no separate rejection draw or
+//       calculation, and so this is just the cost of drawing a normal.
+//     - "ER" - the cost of an exponential rejection draw (including related acceptance draws and
+//       calculations), but not including the sqrt cost of calculating lambda(a)
+// The following must also be set in cost[""]:
+//     - "sqrt" - the cost of a sqrt
+//
+// tol - the relative tolerance desired for the returned value.
+//
+// TODO: extend to two-sided
+//
+double a0_simplify(const std::string &library, const double tol=1e-12) {
+    const double
+          &c_ER = cost[library].at("ER"),
+          &c_sqrt = cost[""].at("sqrt");
+    return root([&c_ER, &c_sqrt](const double a) -> double {
+        const double lambda = 0.5*(a + std::sqrt(a*a + 4));
+        return
+        c_ER * (
+                1.0 / (
+                    boost::math::constants::root_two_pi<double>() * cdf(complement(N01d, a))
+                    * a * std::exp(0.5*a*a)
+                )
+                -
+                1.0 / (
+                    boost::math::constants::root_two_pi<double>() * cdf(complement(N01d, a))
+                    * lambda * std::exp(lambda*(a - 0.5*lambda))
+                )
+               )
+            - c_sqrt;
+    }, 1e-10, 10, tol);
+}
+
 // This returns the value of a at which the benefit of using 1/a as an approximation in the decision
 // between ER and UR sampling equals the expected value of the cost increase due to using the
 // suboptimal UR when ER would be better.  The approximation is:
@@ -576,6 +618,7 @@ int main(int argc, char *argv[]) {
     unsigned max_aTi = 1;
     for (const auto &l : rng_libs) {
         cost[l]["a0"] = a0(l);
+        cost[l]["a0'"] = a0_simplify(l);
         cost[l]["a1"] = a1(l);
         cost[l]["a1(f)"] = a1(l, true);
         cost[l]["aT1"] = aT(1, l);
@@ -626,6 +669,9 @@ int main(int argc, char *argv[]) {
 
     std::cout << u8"\n\n    a₀" << std::setw(fieldwidth) << std::left << u8" | c_ER, c_HR, c_√" << std::right;
     FOR_l { std::cout << std::setw(8) << cost[l].at("a0") << "    "; }
+
+    std::cout << u8"\n\n    a₀'" << std::setw(fieldwidth-1) << std::left << u8" | c_ER, c_√" << std::right;
+    FOR_l { std::cout << std::setw(8) << cost[l].at("a0'") << "    "; }
 
     // NB: the string.length()-2 thing here is to fool setw into properly displaying the literal
     // utf8 label
