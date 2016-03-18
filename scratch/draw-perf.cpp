@@ -415,7 +415,9 @@ void benchmarkCalculations() {
     mean += benchmark("evaluate e*pi", [&]() -> double { return e*pi; });
     mean += benchmark("evaluate e+pi", [&]() -> double { return e+pi; });
     mean += benchmark("evaluate e*([2]+pi)", [&]() -> double { return e*(2.0+pi); });
+    mean += benchmark("evaluate e+([2]*pi)", [&]() -> double { return e+(2.0*pi); });
     mean += benchmark("evaluate e*[0.5]*([2]+pi)", [&]() -> double { return e*0.5*(2.0+pi); });
+    mean += benchmark("evaluate [0.5]*(e + sqrt(e^2 + [4]))", [&]() -> double { return 0.5*(e + std::sqrt(e*e + 4)); });
     mean += benchmark("evaluate e*e*...*e (e^10)", [&]() -> double { return e*e*e*e*e*e*e*e*e*e; });
     mean += benchmark("evaluate pi*pi", [&]() -> double { return pi*pi; });
     // The compiler should be smart enough to de-pow this one:
