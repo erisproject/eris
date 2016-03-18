@@ -102,22 +102,6 @@ template <typename Dist, typename RNG, typename... Args> typename Dist::result_t
     return benchmark(name, [&dist,&rng]() -> typename Dist::result_type { return dist(rng); });
 }
 
-// LambertW approximation (using Newton's method)
-double lambertW(const double z, const double tol = 1e-12) {
-    if (z == 0) return 0;
-    else if (z < 0) throw "not handled";
-
-    double wcur, wnext = 1;
-    do {
-        wcur = wnext;
-        double ew = std::exp(wcur);
-        wnext = wcur - (wcur*ew - z) / (ew + wcur*ew);
-    }
-    while (std::fabs((wnext - wcur) / wcur) > tol);
-
-    return wnext;
-}
-
 // Calculates a root by starting at right/left and cutting off half the space each time until right
 // and left are within the given tolerance.  f(left) and f(right) must have opposite signs; if the
 // function has multiple roots, this will find an arbitrary one.  If the function is not continuous
@@ -137,6 +121,41 @@ double root(const std::function<double(double)> &f, double left, double right, d
     return 0.5*(right+left);
 }
 
+// Calculates and returns a0, the value of a at which ER is more efficient than HR.  When there is
+// no extra cost for the sqrt (required for ER, but only once, i.e. not in the sampling loop), this
+// equals: sqrt(L) - 1/sqrt(L), where L = LambertW(e^2 * 2/pi * (c_ER/c_HR)), but with the extra
+// constant term, the equation becomes a mess, so we just solve for the root (which will also avoid
+// any numerical error in the LambertW calculation).
+//
+// Parameters:
+//
+// library - the cost library (e.g. "boost") from which to read RNG cost values.  In particular,
+// the following cost values must be set in cost[library]:
+//     - "HR" - the cost of half-normal rejection sampling.  Since a half-normal pdf divided by a
+//       normal pdf is a constant, half-normal rejection needs no separate rejection draw or
+//       calculation, and so this is just the cost of drawing a normal.
+//     - "ER" - the cost of an exponential rejection draw (including related acceptance draws and
+//       calculations), but not including the sqrt cost of calculating lambda(a)
+// The following must also be set in cost[""]:
+//     - "sqrt" - the cost of a sqrt
+//
+// tol - the relative tolerance desired for the returned value.
+//
+double a0(const std::string &library, const double tol=1e-12) {
+    const double &c_HR = cost[library].at("HR"),
+          &c_ER = cost[library].at("ER"),
+          &c_sqrt = cost[""].at("sqrt");
+    return root([&c_HR, &c_ER, &c_sqrt](const double a) -> double {
+        const double lambda = 0.5*(a + std::sqrt(a*a + 4));
+        return
+            0.5 * c_HR
+            -
+            c_ER / (
+                    boost::math::constants::root_two_pi<double>() * lambda * std::exp(-0.5*lambda*lambda + lambda*a)
+                   )
+            - c_sqrt * cdf(complement(N01d, a));
+    }, 0, 10, tol);
+}
 
 // This returns the value of a at which the benefit of using 1/a as an approximation in the decision
 // between ER and UR sampling equals the expected value of the cost increase due to using the
@@ -554,9 +573,7 @@ int main(int argc, char *argv[]) {
 
     unsigned max_aTi = 1;
     for (const auto &l : rng_libs) {
-        double &sqrtL = cost[l]["sqrtL"];
-        sqrtL = std::sqrt(lambertW(2/M_PI*M_E*M_E*std::pow(cost[l]["ER"]/cost[l]["HR"], 2)));
-        const double &a0 = cost[l]["a0"] = sqrtL - 1.0/sqrtL;
+        cost[l]["a0"] = a0(l);
         cost[l]["a1"] = a1(l);
         cost[l]["a1(f)"] = a1(l, true);
         cost[l]["aT1"] = aT(1, l);
@@ -564,11 +581,11 @@ int main(int argc, char *argv[]) {
             double &ai = cost[l]["aT" + std::to_string(i)];
             ai = aT(i, l);
             // an is the minimum order Taylor expansion needed if using just one Taylor expansion
-            if (cost[l].count("aTn") == 0 and ai > a0) {
+            if (cost[l].count("aTn") == 0 and ai > cost[l]["a0"]) {
                 cost[l]["aTn"] = i;
             }
             double aTi = aTT1(i, l);
-            if (aTi < a0) {
+            if (aTi < cost[l]["a0"]) {
                 cost[l]["aT" + std::to_string(i-1) + "-" + std::to_string(i)] = aTi;
                 if (max_aTi < i) max_aTi = i;
             }
@@ -605,7 +622,7 @@ int main(int argc, char *argv[]) {
     std::cout << "\n    " << std::setw(fieldwidth) << std::left << "c_ER = c_Exp + c_e^x + c_U" << std::right;
     FOR_l { std::cout << std::setw(8) << cost[l].at("ER") << "    "; }
 
-    std::cout << u8"\n\n    a₀" << std::setw(fieldwidth-2) << std::left << " | c_ER, c_HR" << std::right;
+    std::cout << u8"\n\n    a₀" << std::setw(fieldwidth) << std::left << u8" | c_ER, c_HR, c_√" << std::right;
     FOR_l { std::cout << std::setw(8) << cost[l].at("a0") << "    "; }
 
     // NB: the string.length()-2 thing here is to fool setw into properly displaying the literal
