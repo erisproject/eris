@@ -1,20 +1,14 @@
 rm(list=ls())
 
-# Costs from draw-perf (for stl)
-#c_N <- 39.7509; c_U <- 10.4649; c_Exp <- 40.6493; c_ex <- 17.3252; c_ex_T2 <- 0.3782; c_sqrt <- 4.5262; a0 <- 0.7252; a0s <- 2.6914; a1 <- 1.1384
-
-# Costs from draw-perf (for boost)
-c_N <- 11.6967; c_U <- 7.5142; c_Exp <- 33.2705; c_ex <- 17.3252; c_ex_T2 <- 0.3782; c_sqrt <- 4.5262; a0 <- 1.3728; a0s <- 2.4695; a1 <- 1.0248
-
-# Costs from draw-perf (for gsl-zigg)
-#c_N <- 11.2659; c_U <- 7.2304; c_Exp <- 24.3954; c_ex <- 17.3252; c_ex_T2 <- 0.3782; c_sqrt <- 4.5262; a0 <- 1.3076; a0s <- 2.2546; a1 <- 0.9260
-
-# Costs from draw-perf (for gsl-rat)
-#c_N <- 26.1169; c_U <- 7.2304; c_Exp <- 24.3954; c_ex <- 17.3252; c_ex_T2 <- 0.3782; c_sqrt <- 4.5262; a0 <- 0.7987; a0s <- 2.2546; a1 <- 0.9260
-
-# Costs from draw-perf (for gsl-BoxM)
-#c_N <- 54.3899; c_U <- 7.2304; c_Exp <- 24.3954; c_ex <- 17.3252; c_ex_T2 <- 0.3782; c_sqrt <- 4.5262; a0 <- 0.2263; a0s <- 2.2546; a1 <- 0.9260
-
+# Costs and thresholds calculated by draw-perf:
+costs <- list(
+  stl=list(N=39.7998, U=10.5046, Exp=40.5734, e.x=17.3242, e.x_T2=0.3778, sqrt=4.5276, a0=0.7240, a0s=2.6902, a1=1.1383),
+  boost=list(N=11.9809, U=7.5338, Exp=33.3370, e.x=17.3242, e.x_T2=0.3778, sqrt=4.5276, a0=1.3609, a0s=2.4710, a1=1.0258),
+  gsl.zigg=list(N=11.5016, U=6.9827, Exp=24.3539, e.x=17.3242, e.x_T2=0.3778, sqrt=4.5276, a0=1.2934, a0s=2.2471, a1=0.9215),
+  gsl.ratio=list(N=26.0464, U=6.9827, Exp=24.3539, e.x=17.3242, e.x_T2=0.3778, sqrt=4.5276, a0=0.7968, a0s=2.2471, a1=0.9215),
+  gsl.BoxM=list(N=54.3270, U=6.9827, Exp=24.3539, e.x=17.3242, e.x_T2=0.3778, sqrt=4.5276, a0=0.2224, a0s=2.2471, a1=0.9215),
+  fairytale=list(N=1.0000, U=1.0000, Exp=1.0000, e.x=0.0000, e.x_T2=0.0000, sqrt=0.0000, a0=0.2570, a0s=Inf, a1=Inf)
+);
 
 # I could add timings for multiplications and additions, too, but when combined with other operations
 # they often require no extra time.  For example, to compute:
@@ -26,47 +20,65 @@ c_N <- 11.6967; c_U <- 7.5142; c_Exp <- 33.2705; c_ex <- 17.3252; c_ex_T2 <- 0.3
 # extremely fast calculations relative to the above timings (around 19 times faster than c_sqrt).
 
 
-c_NR <- c_HR <- c_N
-c_UR <- 2*c_U + c_ex
+for (lib in names(costs)) for (graph_inverse in (if (lib == "fairytale") c(T,F) else F)) {
+
+c <- costs[[lib]]
+
+# If true, draw the inverse graphs (that is, acceptance probabilities divided by costs).
+# In particular, this enabled with the fairytale lib should reproduce the diagrams of
+# Li and Ghosh.  This is fairly useless *except* in that case, where the costs are all 1,
+# and so it actually depicts acceptance rates (but even then, it is misleading, which is
+# the whole point).
+#graph_inverse <- F
+
+
+
+pdf_filename <- paste(sep="", "acceptance-", ifelse(graph_inverse, "rate-", "speed-"), lib, ".pdf")
+cairo_pdf(pdf_filename, width=6, height=6, onefile=T)
+
+
+
+
+
+c$NR <- c$HR <- c$N
+c$UR <- 2*c$U + c$e.x
 
 # Drawing from a 1-sided exponential requires an exponential draw, a uniform draw, and
 # an exponential calculation
-c_ER1_draw <- c_Exp + c_U + c_ex
+c$ER1_draw <- c$Exp + c$U + c$e.x
 # Drawing from a 2-sided exponential is more complicated: we draw exponentials (and add a to them)
 # until we get one less than b, THEN draw a uniform and calculate the exponential.  But the expected
 # cost then depends on the likelihood of getting admissable Exp draws, i.e. it depends on the cdf
 # of b-a, which also depends on the lambda parameter for the Exponential distribution being used.
-Ec_ER2_draw <- function(b_less_a, lambda)
-  c_Exp / pexp(b_less_a, lambda) + c_U + c_ex
+c$E_ER2_draw <- function(b_less_a, lambda)
+  c$Exp / pexp(b_less_a, lambda) + c$U + c$e.x
 
-
-# Enable this code to get all the ratios equal to 1, which should correspond to Li and Ghosh
-if (F) {
-  c_U <- 1
-  c_NR <- 1
-  c_HR <- 1
-  c_UR <- 1
-  c_ER1_draw <- 1
-  c_ER2_draw <- function(...) 1
-  c_ex <- 0
-  c_ex_T2 <- 0
-  c_sqrt <- 0
-  a0 <- 0.2570
+# In fairytale land, we pretend that the uniform draws for rejection sampling are is free,
+# and that the Exp draw always gives us an admissable value (in the ER2 case)
+if (lib == "fairytale") {
+  c$UR = c$U + c$e.x
+  c$ER1_draw <- c$Exp + c$e.x
+  c$E_ER2_draw <- function(b_less_a, lambda) c$ER1_draw
 }
 
 # Ratios (relative to U[a,b] draw time)
-cr_NR <- c_NR / c_U
-cr_HR <- c_HR / c_U
-cr_UR <- c_UR / c_U
-cr_ER1_draw <- c_ER1_draw / c_U
-cr_ER2_draw <- function(...) Ec_ER2_draw(...) / c_U
-cr_sqrt <- c_sqrt / c_U
-cr_ex <- c_ex / c_U
-cr_ex_T2 <- c_ex_T2 / c_U
+cr <- list(
+  NR=c$NR/c$U,
+  HR=c$HR/c$U,
+  UR=c$UR/c$U,
+  ER1_draw=c$ER1_draw/c$U,
+  ER2_draw=function(...) c$E_ER2_draw(...) / c$U,
+  sqrt=c$sqrt/c$U,
+  e.x=c$e.x/c$U,
+  e.x_T2=c$e.x_T2/c$U
+)
 
 
-# Functions we use (the constants are above)
-b1_T2 <- function(a) a + c_HR / c_UR * sqrt(pi/2) * (
+# Functions and constants we use:
+a0 <- c$a0
+a0s <- c$a0s
+a1 <- c$a1
+b1_T2 <- function(a) a + c$HR / c$UR * sqrt(pi/2) * (
   # The optimal (ignoring costs) is exp(a^2/2) here (see b1_LG, below); use a 2nd-order
   # Taylor approximation instead.  The efficiency loss of doing so is less than the cost
   # of calculating the e^x.  There are further efficiency gains of a T3 or T4 approximation,
@@ -78,13 +90,13 @@ b1_T2 <- function(a) a + c_HR / c_UR * sqrt(pi/2) * (
 # as if the intermediate Exp draw is always admissable: but of course it isn't for two-sided
 # truncation: when the draw is > b, we have to redraw.  The precise probability depends on both
 # a and b, but is typically fairly high.
-b2_full <- function(a) a + cr_ER1_draw/cr_UR * 2/(a + sqrt(a^2+4))*exp((a^2-a*sqrt(a^2+4))/4 + 1/2)
+b2_full <- function(a) a + cr$ER1_draw/cr$UR * 2/(a + sqrt(a^2+4))*exp((a^2-a*sqrt(a^2+4))/4 + 1/2)
 # For a > a1, it's more efficient to use 1/a instead of the messy calculation above; below
 # a1, this can be less efficient.  What's a little bit interesting is that 1/a overestimates
 # the true value, above (with this error descending to 0 as a increases), but in practice that
 # ends up yielding a *better* threshold value, because the above underestimates the true value
 # (by not taking into account the exected number of Exp draws required).
-b2_simp <- function(a) a + cr_ER1_draw/cr_UR * 1/a
+b2_simp <- function(a) a + cr$ER1_draw/cr$UR * 1/a
 
 # Li and Ghosh constant/functions:
 # a threshold for switching to exponential
@@ -125,14 +137,42 @@ lty_Ro <- 4
 # colour for the second one:
 col_alt <- rgb(0.5,0,0.5,1)
 
+
 # Shift the lines vertically by this amount for the older implementations to make them visible
 # For precision, set this to F, for a less precise but easier to read graph, T
-enable_vshift <- F
-vshift_LG <- ifelse(enable_vshift, -0.05, 0)
-vshift_Gw <- ifelse(enable_vshift,  0.05, 0)
-vshift_Ro <- ifelse(enable_vshift, -0.10, 0)
+enable_vshift <- T
+vshift_LG <- ifelse(enable_vshift, -1*lwd, 0)
+vshift_Gw <- ifelse(enable_vshift,  1*lwd, 0)
+vshift_Ro <- ifelse(enable_vshift, -2*lwd, 0)
+
+# Some hand-tuned scales (xbegin, xend, ybegin, yend)
+graph_lim <- list(
+  case1=c(0,5,0,12),
+  case2=c(-2,5.5,0,13),
+  case3=c(0,5,0,25)
+)
+if (lib == "fairytale") {
+  graph_lim$case1[3:4] <- c(0.8,5)
+  graph_lim$case2[3:4] <- c(0.8,3.2)
+  graph_lim$case3 <- c(0,3,0.8,3.2)
+}
+
+graph_ylab <- "Average draw time (relative to U[0,1])"
+
+# If inverting, change the vertical range to [0, 1.2]
+if (graph_inverse) {
+  for (case in names(graph_lim)) {
+    graph_lim[[case]][3:4] <- c(0, 1.2)
+  }
+  
+  if (lib == "fairytale") graph_ylab <- "Acceptance rate"
+  else graph_ylab <- "Acceptance rate ÷ average draw time"
+}
 
 
+
+
+# The "optimal" lambda (ignoring the cost of the sqrt)
 lambda <- function(a) (a+sqrt(a*a+4))/2
 
 # Acceptance probabilities as a function of a and b; returns NA if b <= a
@@ -153,15 +193,21 @@ p_UR <- function(a, b) sqrt(2*pi) / (b-a) * p_NR(a, b) * ifelse(a > 0, exp(a^2/2
 #
 # funcs - a vector of functions
 # jumps - a vector of x values where the function jumps; must be 1 shorter than funcs
-# vshift - if non-zero (0 = default), a vertical adjustment to apply to the function (for visual distinguishing)
+# vshift - if non-zero (0 = default), a vertical adjustment to apply to the function
+#          (for visual distinguishing), in display units
 # ... - extra things to pass to curve (e.g. col and/or lty)
 #
 # funcs[1] is drawn from the current left xlim to change[1], funcs[2] from change[1] to change[2],
 # ..., funcs[n] from change[n-1] to right xlim.  Functions with any change intervals outside the current
 # graph x limits are skipped; for example, if the graph xlim is c(0,1) and change=c(-0.5) then funcs[1]
 # is skipped and funcs[2] is plotted without any limits.
+#
+# Note that, when graph_inverse is enabled, the plotted values are actually the inverse of the
+# function values.
 curve_piecewise <- function(funcs, jumps=c(), vshift=0, ...) {
   bounds <- par("usr")
+  vshift_ <- grconvertY(c(0,vshift), from="device", to="user") 
+  vshift_gr <- vshift_[2]-vshift_[1]
   left_bound <- bounds[1]
   right_bound <- bounds[2]
   if (length(funcs) != 1 + length(jumps)) stop("curve_piecewise error: #funcs != 1+#jumps")
@@ -175,9 +221,16 @@ curve_piecewise <- function(funcs, jumps=c(), vshift=0, ...) {
     if (from < left_bound) from <- left_bound
     if (to > right_bound) to <- right_bound
 
-    curve(funcs[[i]](x) + vshift, add=T, from=from, to=to, lwd=lwd, ...)
+    maybe_inverse <- if (graph_inverse) function(v) 1/v else function(v) v
+
+    curve(maybe_inverse(funcs[[i]](x)) + vshift_gr, add=T, from=from, to=to, lwd=lwd, ...)
+
     if (i > 1 && jumps[i-1] >= from && jumps[i-1] <= to)
-      lines(c(jumps[i-1], jumps[i-1]), vshift + c(funcs[[i-1]](jumps[i-1]), funcs[[i]](jumps[i-1])), lwd=lwd, ...)
+      lines(
+        c(jumps[i-1], jumps[i-1]),
+        vshift_gr + maybe_inverse(c(funcs[[i-1]](jumps[i-1]), funcs[[i]](jumps[i-1]))),
+        lwd=lwd,
+        ...)
   }
 }
 
@@ -192,9 +245,9 @@ curve_piecewise <- function(funcs, jumps=c(), vshift=0, ...) {
 
 # Produce a plot for various values of a
 for (casea in c(-2, -1.4, -1, -0.5, -0.1)) {
-  plot(1, type="n", xlab=expression(b), ylab="Draw time (relative to uniform draw time)",
-       xlim=c(0, 5), ylim=c(1,12), xaxs="i", yaxs="i",
-       main=bquote("Case 1: " ~ a == .(casea) ~ "; " ~ b > 0)
+  plot(1, type="n", xlab=expression(b), ylab=graph_ylab,
+       xlim=graph_lim$case1[1:2], ylim=graph_lim$case1[3:4], xaxs="i", yaxs="i",
+       main=paste(sep="", "Case 1: a = ", casea, "; b > 0\n(", lib, ")")
        )
 
   legend_items <- c("Proposed", "Robert; Li & Ghosh", "Robert (via Li & Ghosh)", "Geweke")
@@ -206,23 +259,23 @@ for (casea in c(-2, -1.4, -1, -0.5, -0.1)) {
     legend_cols[length(legend_cols)+1] <- col_alt
     legend_ltys[length(legend_ltys)+1] <- lty_Gw
   }
-  legend("topleft", legend=legend_items, col=legend_cols, lty=legend_ltys, lwd=lwd)
+  legend(ifelse(graph_inverse, "bottomright", "topleft"), legend=legend_items, col=legend_cols, lty=legend_ltys, lwd=lwd)
 
   # Ours:
   # Uniform rejection for b < a + sqrt(2pi)*c_NR/c_UR, Normal rejection after that
   curve_piecewise(
-    c(function(b) cr_UR / p_UR(casea,b),
-      function(b) cr_NR / p_NR(casea,b)
+    c(function(b) cr$UR / p_UR(casea,b),
+      function(b) cr$NR / p_NR(casea,b)
     ),
-    c(casea + sqrt(2*pi)*c_NR/c_UR), col=col, lty=lty
+    c(casea + sqrt(2*pi)*c$NR/c$UR), col=col, lty=lty
   )
 
   # Robert: Uniform rejection for b - a < sqrt(2pi).
   # Li and Ghosh is identical, but claim Robert's result as their own, apparently
   # missing the part where Robert says this is more efficientonly for b - a < sqrt(2pi).
   curve_piecewise(
-    c(function(b) cr_UR / p_UR(casea,b),
-      function(b) cr_NR / p_NR(casea,b)
+    c(function(b) cr$UR / p_UR(casea,b),
+      function(b) cr$NR / p_NR(casea,b)
     ),
     c(casea + sqrt(2*pi)),
     col=col_LG, lty=lty_LG, vshift=vshift_LG
@@ -230,7 +283,7 @@ for (casea in c(-2, -1.4, -1, -0.5, -0.1)) {
 
   # Robert, as claimed by Li and Ghosh:
   curve_piecewise(
-    c(function(b) cr_UR / p_UR(casea,b)),
+    c(function(b) cr$UR / p_UR(casea,b)),
     col=col_Ro, lty=lty_Ro, vshift=vshift_Ro
   )
 
@@ -238,8 +291,8 @@ for (casea in c(-2, -1.4, -1, -0.5, -0.1)) {
   # Normal if phi(a) <= t1_Gw or phi(b) <= t1_Gw
   # Or, equivalently, a <= a1_Gw or b >= b1_Gw
   curve_piecewise(
-    c(function(b) cr_UR / p_UR(casea,b),
-      function(b) cr_NR / p_NR(casea,b)
+    c(function(b) cr$UR / p_UR(casea,b),
+      function(b) cr$NR / p_NR(casea,b)
     ),
     c(ifelse(casea <= a1_Gw, -1e10, b1_Gw)),
     col=col_Gw, lty=lty_Gw, vshift=vshift_Gw
@@ -249,8 +302,8 @@ for (casea in c(-2, -1.4, -1, -0.5, -0.1)) {
   # the other side of the threshold from -1.4
   if (casea == -1.4)
     curve_piecewise(
-      c(function(b) cr_UR / p_UR(-1.398,b),
-        function(b) cr_NR / p_NR(-1.398,b)
+      c(function(b) cr$UR / p_UR(-1.398,b),
+        function(b) cr$NR / p_NR(-1.398,b)
       ),
       c(b1_Gw),
       vshift=vshift_Gw, col=col_alt, lty=lty_Gw
@@ -271,11 +324,11 @@ for (casea in c(-2, -1.4, -1, -0.5, -0.1)) {
 # Case 2, in the special case 0 <= a, b = infinity
 # We plot a values for this (fixed) b
 
-plot(1, type="n", xlab=expression(a), ylab="Draw time (relative to uniform draw time)",
-     xlim=c(-2.5, 5.5), ylim=c(1,13), xaxs="i", yaxs="i",
-     main=expression("Case 1: " ~ b == infinity))
+plot(1, type="n", xlab=expression(a), ylab=graph_ylab,
+     xlim=graph_lim$case2[1:2], ylim=graph_lim$case2[3:4], xaxs="i", yaxs="i",
+     main=paste(sep="", "Case 2: b = ∞\n(", lib, ")"))
 
-legend("topleft", legend=c("Proposed", "Li & Ghosh", "Geweke", "Robert"),
+legend(ifelse(graph_inverse, "bottomright", "topleft"), legend=c("Proposed", "Li & Ghosh", "Geweke", "Robert"),
        col=c(col,col_LG,col_Gw,col_Ro), lty=c(lty,lty_LG,lty_Gw,lty_Ro), lwd=lwd
        )
 
@@ -285,10 +338,10 @@ legend("topleft", legend=c("Proposed", "Li & Ghosh", "Geweke", "Robert"),
 # simplified exponential
 curve_piecewise(
   c(
-    function(a) cr_NR / p_NR(a),
-    function(a) cr_HR / p_HR(a),
-    function(a) cr_sqrt + cr_ER1_draw / p_ER(a),
-    function(a) cr_ER1_draw / p_ER_s(a)
+    function(a) cr$NR / p_NR(a),
+    function(a) cr$HR / p_HR(a),
+    function(a) cr$sqrt + cr$ER1_draw / p_ER(a),
+    function(a) cr$ER1_draw / p_ER_s(a)
   ),
   c(0, a0, a0s),
   col=col, lty=lty
@@ -298,9 +351,9 @@ curve_piecewise(
 # Normal for a < 0; then half-normal until a0_LG, then exponential:
 curve_piecewise(
   c(
-    function(a) cr_NR / p_NR(a),
-    function(a) cr_HR / p_HR(a),
-    function(a) cr_sqrt + cr_ER1_draw / p_ER(a)
+    function(a) cr$NR / p_NR(a),
+    function(a) cr$HR / p_HR(a),
+    function(a) cr$sqrt + cr$ER1_draw / p_ER(a)
   ),
   c(0, a0_LG),
   vshift=vshift_LG, col=col_LG, lty=lty_LG
@@ -310,8 +363,8 @@ curve_piecewise(
 # Normal for a <= t4_Gw; then simplified exponential:
 curve_piecewise(
   c(
-    function(a) cr_NR / p_NR(a),
-    function(a) cr_ER1_draw / p_ER_s(a)
+    function(a) cr$NR / p_NR(a),
+    function(a) cr$ER1_draw / p_ER_s(a)
   ),
   c(t4_Gw),
   vshift=vshift_Gw, col=col_Gw, lty=lty_Gw
@@ -321,9 +374,9 @@ curve_piecewise(
 # Normal for a <= 0, exponential after that:
 curve_piecewise(
   c(
-    function(a) cr_NR / p_NR(a),
+    function(a) cr$NR / p_NR(a),
     # FIXME: does Robert require the sqrt?  Check it.
-    function(a) cr_sqrt + cr_ER1_draw / p_ER(a)
+    function(a) cr$sqrt + cr$ER1_draw / p_ER(a)
   ),
   c(0),
   vshift=vshift_Ro, col=col_Ro, lty=lty_Ro
@@ -332,25 +385,26 @@ curve_piecewise(
 
 
 
-# Case 2, 0 <= a < b < infinity; plot b for various a
+# Case 3, 0 <= a < b < infinity; plot b for various a
 for (casea in c(0, a0_LG, 0.5, t3_Gw, 1, 1.1, 1.25, 1.5, 2, 5, 10)) {
-  plot(1, type="n", xlab=expression(b-a), ylab="Draw time (relative to uniform draw time)",
-       xlim=c(0, 5), # These are b-a values
-       ylim=c(0,25),
+  plot(1, type="n", xlab=expression(b-a), ylab=graph_ylab,
+       xlim=graph_lim$case3[1:2], # These are b-a values
+       ylim=graph_lim$case3[3:4],
        xaxs="i", yaxs="i",
-       main=bquote("Case 2: " ~ a == .(casea)))
+       main=paste(sep="", "Case 3: a = ", casea, ", b > a\n(", lib, ")"))
 
+  legendpos <- ifelse(graph_inverse, "bottomright", "topright")
   if (casea < a0_LG)
-    legend("topright", legend=c("Proposed", "Li & Ghosh", "Robert", "Geweke"),
+    legend(legendpos, legend=c("Proposed", "Li & Ghosh", "Robert", "Geweke"),
            col=c(col,col_LG,col_Ro,col_Gw), lty=c(lty,lty_LG,lty_Ro,lty_Gw), lwd=lwd)
   else if (casea == a0_LG)
-    legend("topright", legend=c("Proposed", "Robert; Li & Ghosh", "Li & Ghosh (a=0.256)", "Geweke"),
+    legend(legendpos, legend=c("Proposed", "Robert; Li & Ghosh", "Li & Ghosh (a=0.256)", "Geweke"),
            col=c(col,col_Ro,col_LG,col_Gw), lty=c(lty,lty_Ro,lty_LG,lty_Gw), lwd=lwd)
   else if (casea == t3_Gw)
-    legend("topright", legend=c("Proposed", "Robert; Li & Ghosh", "Geweke (a=0.725)", "Geweke (a=0.724)"),
+    legend(legendpos, legend=c("Proposed", "Robert; Li & Ghosh", "Geweke (a=0.725)", "Geweke (a=0.724)"),
            col=c(col,col_Ro,col_Gw,col_alt), lty=c(lty,lty_Ro,lty_Gw,lty_Gw), lwd=lwd)
   else
-    legend("topright", legend=c("Proposed", "Robert; Li & Ghosh", "Geweke"),
+    legend(legendpos, legend=c("Proposed", "Robert; Li & Ghosh", "Geweke"),
            col=c(col,col_Ro,col_Gw), lty=c(lty,lty_Ro,lty_Gw), lwd=lwd)
 
   # Precalculate this (used in mine, L&G, and Robert):
@@ -368,23 +422,23 @@ for (casea in c(0, a0_LG, 0.5, t3_Gw, 1, 1.1, 1.25, 1.5, 2, 5, 10)) {
   # it doesn't even need to be evaluated (i.e. it can be eliminated at compile time).
   if (casea <= a0) {
     myfuncs <- c(
-      function(bma) cr_ex_T2 + cr_UR / p_UR(casea,bma+casea),
-      function(bma) cr_ex_T2 + cr_HR / p_HR(casea,bma+casea)
+      function(bma) cr$e.x_T2 + cr$UR / p_UR(casea,bma+casea),
+      function(bma) cr$e.x_T2 + cr$HR / p_HR(casea,bma+casea)
     )
     mychange <- c(b1_T2(casea)-casea)
   }
   else if (casea >= a1) {
     myfuncs <- c(
-      function(bma) cr_UR / p_UR(casea, bma+casea),
+      function(bma) cr$UR / p_UR(casea, bma+casea),
       # FIXME: I think I can do better than this
-      function(bma) cr_sqrt + cr_ER2_draw(bma, lam_a) / p_ER(casea, bma+casea)
+      function(bma) cr$sqrt + cr$ER2_draw(bma, lam_a) / p_ER(casea, bma+casea)
     )
     mychange <- c(b2_simp(casea)-casea)
   }
   else {
     myfuncs <- c(
-      function(bma) cr_ex + cr_sqrt + cr_UR / p_UR(casea, bma+casea),
-      function(bma) cr_ex + cr_sqrt + cr_ER2_draw(bma, lam_a) / p_ER(casea, bma+casea)
+      function(bma) cr$e.x + cr$sqrt + cr$UR / p_UR(casea, bma+casea),
+      function(bma) cr$e.x + cr$sqrt + cr$ER2_draw(bma, lam_a) / p_ER(casea, bma+casea)
     )
     mychange <- c(b2_full(casea)-casea)
   }
@@ -401,8 +455,8 @@ for (casea in c(0, a0_LG, 0.5, t3_Gw, 1, 1.1, 1.25, 1.5, 2, 5, 10)) {
   if (casea < a0_LG) {
     curve_piecewise(
       c(
-        function(bma) cr_ex + cr_UR / p_UR(casea, bma+casea),
-        function(bma) cr_ex + cr_HR / p_HR(casea, bma+casea)
+        function(bma) cr$e.x + cr$UR / p_UR(casea, bma+casea),
+        function(bma) cr$e.x + cr$HR / p_HR(casea, bma+casea)
       ),
       c(b1_LG(casea)-casea),
       vshift=vshift_LG, col=col_LG, lty=lty_LG
@@ -412,8 +466,8 @@ for (casea in c(0, a0_LG, 0.5, t3_Gw, 1, 1.1, 1.25, 1.5, 2, 5, 10)) {
   else if (casea == a0_LG) {
     curve_piecewise(
       c(
-        function(bma) cr_ex + cr_UR / p_UR(0.256, bma+casea),
-        function(bma) cr_ex + cr_HR / p_HR(0.256, bma+casea)
+        function(bma) cr$e.x + cr$UR / p_UR(0.256, bma+casea),
+        function(bma) cr$e.x + cr$HR / p_HR(0.256, bma+casea)
       ),
       c(sqrt(pi/2)*exp(0.256^2/2)),
       vshift=vshift_LG, col=col_LG, lty=lty_LG
@@ -426,11 +480,11 @@ for (casea in c(0, a0_LG, 0.5, t3_Gw, 1, 1.1, 1.25, 1.5, 2, 5, 10)) {
   # one e^x and one sqrt just to decide which to do (but can save the sqrt for the ER)
   curve_piecewise(
     c(
-      function(bma) cr_sqrt + cr_ex + cr_UR / p_UR(casea, bma+casea),
-      function(bma) cr_sqrt + cr_ex + cr_ER2_draw(bma, lam_a) / p_ER(casea, bma+casea)
+      function(bma) cr$sqrt + cr$e.x + cr$UR / p_UR(casea, bma+casea),
+      function(bma) cr$sqrt + cr$e.x + cr$ER2_draw(bma, lam_a) / p_ER(casea, bma+casea)
     ),
     c(b2_LG(casea) - casea),
-    vshift=vshift_Ro, col=col_Ro, lty=lty_Ro
+    vshift=ifelse(casea > a0_LG, vshift_LG, vshift_Ro), col=col_Ro, lty=lty_Ro
   )
 
 
@@ -443,13 +497,13 @@ for (casea in c(0, a0_LG, 0.5, t3_Gw, 1, 1.1, 1.25, 1.5, 2, 5, 10)) {
   # b <= sqrt(a^2 + 2 ln(t2)).  Since the ln(t2) is a constant, it can be computed
   # at compilation time, so evaluating this requires a sqrt (but not an exp).
   if (casea < t3_Gw)
-    rightfunc <- function(bma) cr_sqrt + cr_HR / p_HR(casea, bma+casea)
+    rightfunc <- function(bma) cr$sqrt + cr$HR / p_HR(casea, bma+casea)
   else
-    rightfunc <- function(bma) cr_sqrt + cr_ER2_draw(bma,casea) / p_ER_s(casea, bma+casea)
+    rightfunc <- function(bma) cr$sqrt + cr$ER2_draw(bma,casea) / p_ER_s(casea, bma+casea)
 
   curve_piecewise(
     c(
-      function(bma) cr_sqrt + cr_UR / p_UR(casea, bma+casea),
+      function(bma) cr$sqrt + cr$UR / p_UR(casea, bma+casea),
       rightfunc
     ),
     c(b2_Gw(casea)-casea),
@@ -460,8 +514,8 @@ for (casea in c(0, a0_LG, 0.5, t3_Gw, 1, 1.1, 1.25, 1.5, 2, 5, 10)) {
   if (casea == t3_Gw) {
     curve_piecewise(
       c(
-        function(bma) cr_sqrt + cr_UR / p_UR(casea, bma+casea),
-        function(bma) cr_sqrt + cr_HR / p_HR(0.724, bma+casea)
+        function(bma) cr$sqrt + cr$UR / p_UR(casea, bma+casea),
+        function(bma) cr$sqrt + cr$HR / p_HR(0.724, bma+casea)
       ),
       c(b2_Gw(0.724)-casea),
       vshift=vshift_Gw, col=col_alt, lty=lty_Gw
@@ -470,16 +524,20 @@ for (casea in c(0, a0_LG, 0.5, t3_Gw, 1, 1.1, 1.25, 1.5, 2, 5, 10)) {
 }
 
 # Half-normal rejection for 0 <= a <= a0
-#curve(cr_HR / p_HR(x), col="black", add=T, from=0, to=a0)
-#curve(cr_HR / p_HR(x), col=rgb(0,0,1,0.5), add=T, from=a0, lty=2)
+#curve(cr$HR / p_HR(x), col="black", add=T, from=0, to=a0)
+#curve(cr$HR / p_HR(x), col=rgb(0,0,1,0.5), add=T, from=a0, lty=2)
 
 
 # Exponential rejection for a > a0
-#curve(cr_ER / p_ER(x),
+#curve(cr$ER / p_ER(x),
 #      col=rgb(0,0.5,0,1), add=T, from=a0)
-#curve(cr_ER / p_ER(x),
+#curve(cr$ER / p_ER(x),
 #      col=rgb(0,0.5,0,0.5), add=T, from=0, to=a0, lty=2)
 
 # Add a line at Li and Ghosh's a0 and Geweke's a0 to show the inefficiency
 #abline(v=a0_LG, lty=2)
 #abline(v=a0_LG, lty=2)
+
+dev.off()
+
+}
