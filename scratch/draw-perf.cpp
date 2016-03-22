@@ -206,6 +206,12 @@ double a0_simplify(const std::string &library, const double tol=1e-12) {
 // In short, when a is above this value, use the approximation to determine the threshold b value
 // above which ER is preferred.
 //
+// The decision threshold value of b is at: b = a + z(a), where z(a) is the function above.
+//
+// Also note that this calculation doesn't use the cost of a division (which is typically around the
+// same as the cost of a square root) because the division in this case can be trivally eliminated by
+// converting it to a multiplication as needed. (e.g. instead of b < a + 1/a, calculate (b - a)*a < 1)
+//
 // The approximation is always larger than the true value, and so errors here involve using UR when
 // ER would be better; the returned value is the point at which the extra cost of the full
 // calculation equals the expected extra cost of using the inferior choice.
@@ -256,7 +262,7 @@ inline double exp_cost_delta(const double a, const double approx_exp_halfaa, con
 
 // This returns the value of a at which the savings of using a Tn approximation of e^x is equal to the
 // maximum extra cost incurred by the approximation error, when deciding between uniform rejection
-// and half-normal rejection.
+// and half-normal rejection (for the a < a0 case).
 //
 // Parameters:
 //
@@ -308,7 +314,7 @@ double aT(const unsigned n, const std::string &library, bool float_op = false, c
 //       calculation, and so this is just the cost of drawing a normal.
 //     - "UR" - the cost of a uniform rejection draw (including calculation/draw for acceptance)
 // The following must also be set in cost[""]:
-//     - "expT{n}" and "expT{n-1}", where {n} and {n-1} are replaced using the value of n passed
+//     - "expT$n" and "expT${n-1}", where $n and ${n-1} are replaced using the value of n passed
 //       into the function; these are the costs of the nth and (n-1)th order Taylor approximations.
 //
 // tol the desired tolerance level.
@@ -715,10 +721,16 @@ int main(int argc, char *argv[]) {
             "; c_U <- " << c.at("U") <<
             "; c_Exp <- " << c.at("Exp") <<
             "; c_ex <- " << cost[""].at("e^x") <<
+            "; c_ex_T2 <- " << cost[""].at("expT2") <<
             "; c_sqrt <- " << cost[""].at("sqrt") <<
             "; a0 <- " << c.at("a0") <<
             "; a0s <- " << c.at("a0'") <<
-            "\n\n";
+            "; a1 <- " << c.at("a1") <<
+            "\n";
+        // The current R code simply assumes a 2nd-order Taylor approximation: add an error message
+        // if that won't work for all a < a0:
+        if (c.at("aTn") > 2) std::cout << "stop(\"Error: 2nd-order Tayler approximation insufficient for some a < a0!\")\n";
+        std::cout << "\n";
     }
 
     gsl_rng_free(rng_gsl);
