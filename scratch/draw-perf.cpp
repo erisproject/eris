@@ -675,12 +675,19 @@ int main(int argc, char *argv[]) {
     std::cout << "Busy-waiting to get CPU at full speed\n";
     callTest([]() -> double { return 1.0; }, 3.0);
 
+    {
+        volatile const double __attribute__((aligned(16))) overheadd = 1.25;
+        mean += benchmark("overhead (d)", [&]() -> double { return overheadd; });
+        benchmark_overhead = last_benchmark_ns;
+
+        volatile const float __attribute__((aligned(16))) overheadf = 1.25;
+        mean += benchmark("overhead (f)", [&]() -> float { return overheadf; });
+        benchmark_overhead_f = last_benchmark_ns;
+    }
+
     // NB: square brackets around values below indicate compiler time constants (or, at least,
     // constexprs, which should work the same if the compiler is optimizing)
-    mean += benchmark("overhead (d)", [&]() -> double { return eight; });
-    benchmark_overhead = last_benchmark_ns;
-    mean += benchmark("overhead (f)", [&]() -> float { return eightf; });
-    benchmark_overhead_f = last_benchmark_ns;
+
 
     benchmarkCalculations();
 
