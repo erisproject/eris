@@ -91,13 +91,14 @@ double bench_seconds = 0.0;
 template <typename Callable> auto benchmark(const std::string &name, const Callable &c) -> decltype(c()) {
     auto result = callTest(c, bench_seconds);
     last_benchmark_ns = 1000000000*result.seconds / result.calls;
-    std::cout << std::setw(30) << std::left << name + ":" << std::right << std::fixed << std::setprecision(2) <<
-        std::setw(7) << 1000/last_benchmark_ns << " MHz = " << std::setw(8) << last_benchmark_ns << " ns/op";
+
     double &overhead = (std::is_same<decltype(c()), float>::value ? benchmark_overhead_f : benchmark_overhead);
     if (not std::isnan(overhead)) {
-        std::cout << "; net of overhead: " << std::setw(8) << last_benchmark_ns - overhead << " ns/op";
+        last_benchmark_ns -= overhead;
     }
-    std::cout << "\n";
+
+    std::cout << std::setw(30) << std::left << name + ":" << std::right << std::fixed << std::setprecision(2) <<
+        std::setw(7) << 1000/last_benchmark_ns << " MHz = " << std::setw(8) << last_benchmark_ns << " ns/op\n";
     std::cout.unsetf(std::ios_base::floatfield);
     return result.mean;
 }
@@ -688,6 +689,9 @@ int main(int argc, char *argv[]) {
         mean += benchmark("overhead (f)", [&]() -> float { return overheadf; });
         benchmark_overhead_f = last_benchmark_ns;
     }
+
+    if (mean == -123.456) std::cout << "sum of these means: " << PRECISE(mean) << "\n";
+    std::cout << "\nNB: all following results are net of the above overhead values.\n\n";
 
     // NB: square brackets around values below indicate compiler time constants (or, at least,
     // constexprs, which should work the same if the compiler is optimizing)
