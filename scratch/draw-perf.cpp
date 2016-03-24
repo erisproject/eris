@@ -97,7 +97,7 @@ template <typename Callable> auto benchmark(const std::string &name, const Calla
         last_benchmark_ns -= overhead;
     }
 
-    std::cout << std::setw(30) << std::left << name + ":" << std::right << std::fixed << std::setprecision(2) <<
+    std::cout << std::setw(40) << std::left << name + ":" << std::right << std::fixed << std::setprecision(2) <<
         std::setw(7) << 1000/last_benchmark_ns << " MHz = " << std::setw(8) << last_benchmark_ns << " ns/op\n";
     std::cout.unsetf(std::ios_base::floatfield);
     return result.mean;
@@ -445,7 +445,6 @@ void benchmarkCalculations() {
     c_op["e^x(f)"] -= benchmark_overhead_f;
     if (mean == -123.456) std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 
-    std::cout << "Testing exp approximations\n" << std::setprecision(8);
     mean = 0;
 
     // Calculate the costs of Taylor expansions of order n
