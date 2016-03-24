@@ -477,7 +477,8 @@ void benchmarkCalculations() {
     // Put something here that is essentially impossible, but that the compiler can't tell is
     // impossible at compile time so that the mean accumulation (and thus the returned values and
     // thus the calculations) can't be compiled away
-    if (mean == -123.456) std::cout << "sum of these means: " << PRECISE(mean) << "\n"; mean = 0;
+    if (mean == -123.456) std::cout << "sum of these means: " << PRECISE(mean) << "\n";
+    mean = 0;
 
     // Branching versions of the above that *should* select one value at compile-time and thus be
     // identical to all of the above, if the compiler is doing its job.
@@ -503,7 +504,8 @@ void benchmarkCalculations() {
     mean += benchmark("evaluate (d) e^x_T7(0.5) (ccbr.)", [&]() -> double { double x = onehalf; Tn_branching(use_T7); });
     mean += benchmark("evaluate (d) e^x_T8(0.5) (ccbr.)", [&]() -> double { double x = onehalf; Tn_branching(use_T8); });
 
-    if (mean == -123.456) std::cout << "sum of these means: " << PRECISE(mean) << "\n"; mean = 0;
+    if (mean == -123.456) std::cout << "sum of these means: " << PRECISE(mean) << "\n";
+    mean = 0;
     // The above are actually the Maclaurin series (i.e. approximated at a=0), but since we're going
     // to be using this for the range [0, a0], we could also try evaluating the approximation in the
     // middle of this range.
