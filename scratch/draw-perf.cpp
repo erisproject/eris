@@ -65,14 +65,18 @@ boost::math::normal_distribution<double> N01d;
 // seconds has elapsed.  Returns a calls_result with the number of draws, total elapsed time, and
 // mean of the draws.
 template <typename Callable> auto callTest(const Callable &callable, double seconds) -> calls_result<decltype(callable())> {
+    // This should never be true, but the compiler shouldn't be able to figure that out.
+    // (This should be impossible since doubles should always be 8-byte aligned; but even if not,
+    // this is extraordinarily unlikely)
+    volatile bool always_false = ((int64_t) &seconds) == 123456789;
+
     calls_result<decltype(callable())> ret = {0, 0, 0};
     auto start = clk::now();
-    // Volatile so that it shouldn't be optimized away
-    volatile decltype(callable()) value_store;
     do {
         for (unsigned i = 0; i < incr; i++) {
-            value_store = callable();
-            ret.mean += value_store;
+            auto intermediate = callable();
+            if (always_false) intermediate = 123.456;
+            ret.mean += intermediate;
         }
         ret.calls += incr;
         ret.seconds = dur(clk::now() - start).count();
