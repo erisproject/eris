@@ -439,7 +439,7 @@ void benchmarkCalculations() {
     c_op["e^x(f)"] += last_benchmark_ns;
     c_op["e^x(f)"] /= 5;
     c_op["e^x(f)"] -= benchmark_overhead_f;
-    std::cout << "sum of these means: " << PRECISE(mean) << "\n";
+    if (mean == -123.456) std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 
     std::cout << "Testing exp approximations\n" << std::setprecision(8);
     mean = 0;
@@ -480,6 +480,10 @@ void benchmarkCalculations() {
     mean += benchmark("evaluate (d) e^x_T8(0.5)", [&]() -> double { double x = onehalf; return 1 + x + x*x*(1./2 + 1./6*x + x*x*(1./24 + 1./120*x + x*x*(1./720 + 1./5040*x + x*x*(1./40320)))); });
     c_op["e^x_T8"] = last_benchmark_ns - benchmark_overhead;
 
+    // Put something here that is essentially impossible, but that the compiler can't tell is
+    // impossible at compile time so that the mean accumulation (and thus the returned values and
+    // thus the calculations) can't be compiled away
+    if (mean == -123.456) std::cout << "sum of these means: " << PRECISE(mean) << "\n"; mean = 0;
     mean += benchmark("evaluate (f) e^x_T2(0.5)", [&]() -> float { float x = onehalff; return 1.f + x + x*x*(1.f/2.f); });
     mean += benchmark("evaluate (f) e^x_T4(0.5)", [&]() -> float { float x = onehalff; return 1.f + x + x*x*(1.f/2.f + x*(1.f/6.f + x*(1.f/24.f))); });
     mean += benchmark("evaluate (f) e^x_T8(0.5)", [&]() -> float { float x = onehalff; return 1.f + x + x*x*(1.f/2.f + 1.f/6.f*x + x*x*(1.f/24.f + 1.f/120.f*x + x*x*(1.f/720.f + 1.f/5040.f*x + x*x*(1.f/40320.f)))); });
@@ -540,7 +544,7 @@ void benchmarkCalculations() {
     mean += benchmark("evaluate N pdf (boost)", [&]() -> double { return pdf(N01d, two); });
     mean += benchmark("evaluate N cdf (gsl)", [&]() -> double { return gsl_cdf_ugaussian_P(two); });
     mean += benchmark("evaluate N pdf (gsl)", [&]() -> double { return gsl_ran_ugaussian_pdf(two); });
-    std::cout << "sum of these means: " << PRECISE(mean) << "\n";
+    if (mean == -123.456) std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 }
 
 void benchmarkBoost() {
@@ -552,7 +556,7 @@ void benchmarkBoost() {
     mean += benchmarkDraw<boost::random::normal_distribution<double>>("boost N(1e9,2e7)", rng_boost, 1e9, 2e7);
     mean += benchmarkDraw<boost::random::uniform_real_distribution<double>>("boost U[1e9,1e10)", rng_boost, 1e9, 1e10);
     mean += benchmarkDraw<boost::random::exponential_distribution<double>>("boost Exp(30)", rng_boost, 30);
-    std::cout << "sum of these means: " << PRECISE(mean) << "\n";
+    if (mean == -123.456) std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 
     // boost draw benchmarks:
     std::cout << "\n";
@@ -563,7 +567,7 @@ void benchmarkBoost() {
     cost["boost"]["U"] = last_benchmark_ns - benchmark_overhead;
     mean += benchmarkDraw<boost::random::exponential_distribution<double>>("boost Exp(1)", rng_boost);
     cost["boost"]["Exp"] = last_benchmark_ns - benchmark_overhead;
-    std::cout << "sum of these means: " << PRECISE(mean) << "\n";
+    if (mean == -123.456) std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 }
 
 void benchmarkStl() {
@@ -575,7 +579,7 @@ void benchmarkStl() {
     mean += benchmarkDraw<std::normal_distribution<double>>("stl N(1e9,2e7)", rng_stl, 1e9, 2e7);
     mean += benchmarkDraw<std::uniform_real_distribution<double>>("stl U[1e9,1e10)", rng_stl, 1e9, 1e10);
     mean += benchmarkDraw<std::exponential_distribution<double>>("stl Exp(30)", rng_stl, 30);
-    std::cout << "sum of these means: " << PRECISE(mean) << "\n";
+    if (mean == -123.456) std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 
     // stl draw benchmarks:
     std::cout << "\n";
@@ -586,7 +590,7 @@ void benchmarkStl() {
     cost["stl"]["U"] = last_benchmark_ns - benchmark_overhead;
     mean += benchmarkDraw<std::exponential_distribution<double>>("stl Exp(1)", rng_stl);
     cost["stl"]["Exp"] = last_benchmark_ns - benchmark_overhead;
-    std::cout << "sum of these means: " << PRECISE(mean) << "\n";
+    if (mean == -123.456) std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 }
 
 void benchmarkGsl() {
@@ -599,7 +603,7 @@ void benchmarkGsl() {
     mean += benchmark("gsl N(1e9,2e7) (ziggurat)", [&]() -> double { return 1e9 + gsl_ran_gaussian_ziggurat(rng_gsl, 2e7); });
     mean += benchmark("gsl U[1e9,1e10]", [&]() -> double { return gsl_ran_flat(rng_gsl, 1e9, 1e10); });
     mean += benchmark("gsl Exp(1/30)", [&]() -> double { return gsl_ran_exponential(rng_gsl, 1./30.); });
-    std::cout << "sum of these means: " << PRECISE(mean) << "\n";
+    if (mean == -123.456) std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 
     std::cout << "\n";
     mean = 0;
@@ -615,7 +619,7 @@ void benchmarkGsl() {
     cost["gsl-BoxM"]["U"] = cost["gsl-ratio"]["U"] = cost["gsl-zigg"]["U"] = last_benchmark_ns - benchmark_overhead;
     mean += benchmark("gsl Exp(1)", [&]() -> double { return gsl_ran_exponential(rng_gsl, 1); });
     cost["gsl-BoxM"]["Exp"] = cost["gsl-ratio"]["Exp"] = cost["gsl-zigg"]["Exp"] = last_benchmark_ns - benchmark_overhead;
-    std::cout << "sum of these means: " << PRECISE(mean) << "\n";
+    if (mean == -123.456) std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 }
 
 // This isn't really a benchmark: it just sets up the fairytale costs and constants by assuming that
