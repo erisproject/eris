@@ -372,44 +372,46 @@ double aT(const unsigned n, const std::string &library, bool float_op = false, c
 //
 // If the cost difference is 0, this returns 0 (i.e. always use the higher approximation order when
 // doing so is free).
-double aTT1(const unsigned n, const std::string &library, const double tol=1e-12) {
-    if (n < 2) throw std::logic_error("aTT1(n, ...) requires n >= 2");
+double aTTl(const unsigned n, const unsigned l, const std::string &library, const double tol=1e-12) {
+    if (n <= l or l < 1) throw std::logic_error("aTT1(n, l, ...) requires n < l >= 1");
     const std::string e_x_Tn_key  = "e^x_T" + std::to_string(n);
-    const std::string e_x_Tn1_key = "e^x_T" + std::to_string(n-1);
+    const std::string e_x_Tl_key = "e^x_T" + std::to_string(l);
 
     const double
-        cdiff = (cost[library].count(e_x_Tn_key)  ? cost[library].at(e_x_Tn_key)  : c_op.at(e_x_Tn_key))
-              - (cost[library].count(e_x_Tn1_key) ? cost[library].at(e_x_Tn1_key) : c_op.at(e_x_Tn1_key)),
+        cdiff = (cost[library].count(e_x_Tn_key) ? cost[library].at(e_x_Tn_key) : c_op.at(e_x_Tn_key))
+              - (cost[library].count(e_x_Tl_key) ? cost[library].at(e_x_Tl_key) : c_op.at(e_x_Tl_key)),
         &chr = cost[library].at("HR"),
         &cur = cost[library].at("UR");
 
     if (cdiff <= 0) return 0;
 
-    return root([&chr, &cur, &cdiff, &n](const double a) -> double {
+    return root([&chr, &cur, &cdiff, &n, &l](const double a) -> double {
             const double x = 0.5*a*a;
             double xn = 1;
             long fact = 1;
-            double approx = 1, approx_2ndlast = 1;
+            double approx_n = 1, approx_l = 1;
             for (unsigned i = 1; i <= n; i++) {
-                approx_2ndlast = approx;
                 xn *= x;
                 fact *= i;
-                approx += xn / fact;
+                approx_n += xn / fact;
+                if (i <= l) approx_l = approx_n;
             }
 
             return
-                (exp_cost_delta(a, approx_2ndlast, chr, cur) - exp_cost_delta(a, approx, chr, cur)) - cdiff;
+                (exp_cost_delta(a, approx_l, chr, cur) - exp_cost_delta(a, approx_n, chr, cur)) - cdiff;
     }, 0.01, 3.0, tol);
 }
 
 // Some constants to use below.  These are declared volatile to prevent the compiler from
 // optimizing them away.
-volatile const double ten = 10.0, minusten = -10.0, two = 2.0, minustwo = -2.0, onehalf = 0.5, eight = 8.,
-         e = boost::math::constants::e<double>(), pi = boost::math::constants::pi<double>(),
-         piandahalf = 1.5*pi, pointone = 0.1, one = 1.0, onepointfive = 1.5;
+volatile const double
+        ten = 10.0, minusten = -10.0, two = 2.0, minustwo = -2.0, onehalf = 0.5, eight = 8.,
+        e = boost::math::constants::e<double>(), pi = boost::math::constants::pi<double>(),
+        piandahalf = 1.5*pi, pointone = 0.1, one = 1.0, onepointfive = 1.5;
 
-volatile const float eightf = 8.f, minustwof = -2.f, tenf = 10.f, minustenf = -10.f, twof = 2.f, onehalff = 0.5f,
-         piandahalff = piandahalf, ef = boost::math::constants::e<float>();
+volatile const float
+        eightf = 8.f, minustwof = -2.f, tenf = 10.f, minustenf = -10.f, twof = 2.f, onehalff = 0.5f,
+        piandahalff = piandahalf, ef = boost::math::constants::e<float>();
 
 #define PRECISE(v) std::setprecision(std::numeric_limits<double>::max_digits10) << v << std::setprecision(6)
 
@@ -445,31 +447,23 @@ void benchmarkCalculations() {
     mean = 0;
 #define DUMP_MEAN std::cout << "    -> " << PRECISE(mean) << "\n"; mean = 0
 
-    // Calculate the costs of Taylor expansions of order n; 1 is 0 (because 1 is the value 1+x, which is basically free)
-    c_op["e^x_T1"] = 0;
+    // Calculate the costs of Taylor expansions of order n
+    //
     // The "e^x_T$n" values are nth order Taylor expansions of e^x
-    // The general pattern here started out as:
-    //     1. + x*(1. + x*(1./2. + ...
-    // instead of:
-    //     1. + x + x*x*(1./2. + ...
-    // but that ended up being slightly slower.  In effect, the first one forces:
-    // Mult -> Add -> Mult -> Add -> ...
-    // while the second is:
-    // Mult -> Mult -> Add -> Add
-    // which is, apparently, faster.  What's weird is this is faster on the inside, too, where we
-    // are actually doing an extra multiplication:
-    // -> Mult -> Mult -> Mult -> Add -> Add ->
-    // instead of
-    // -> Mult -> Add -> Mult -> Add ->
-    // ... except on T4, where it's better to not expand the inside term.
     //
-    // (These results on my Core i5-2500K CPU)
+    // At n=5, the calculation pattern changes: up to 5, the 1-step recursive form a+x*(b+x*(c+x*(...)))
+    // is faster; after n=5, the two-step recursive form is faster: a + b*x + x*x*(c + d*x + x*x*(...))
+    // (at n=5, the speed is essentially identical).
     //
-    mean += benchmark("evaluate (d) e^x_T2(0.5)", [&]() -> double { double x = onehalf; return 1 + x + x*x*(1./2); });
+    // I suspect this has to do with SSE optimizations--it can do two double operations at once, but
+    // I suppose there is some overhead of switching into SSE mode.
+    mean += benchmark("evaluate (d) e^x_T1(0.5)", [&]() -> double { double x = onehalf; return 1 + x; });
+    c_op["e^x_T1"] = last_benchmark_ns - benchmark_overhead;
+    mean += benchmark("evaluate (d) e^x_T2(0.5)", [&]() -> double { double x = onehalf; return 1 + x*(1 + x*(1./2)); });
     c_op["e^x_T2"] = last_benchmark_ns - benchmark_overhead;
-    mean += benchmark("evaluate (d) e^x_T3(0.5)", [&]() -> double { double x = onehalf; return 1 + x + x*x*(1./2 + 1./6*x); });
+    mean += benchmark("evaluate (d) e^x_T3(0.5)", [&]() -> double { double x = onehalf; return 1 + x*(1 + x*(1./2 + 1./6*x)); });
     c_op["e^x_T3"] = last_benchmark_ns - benchmark_overhead;
-    mean += benchmark("evaluate (d) e^x_T4(0.5)", [&]() -> double { double x = onehalf; return 1 + x + x*x*(1./2 + x*(1./6 + x*(1./24))); });
+    mean += benchmark("evaluate (d) e^x_T4(0.5)", [&]() -> double { double x = onehalf; return 1 + x*(1 + x*(1./2 + x*(1./6 + 1./24*x))); });
     c_op["e^x_T4"] = last_benchmark_ns - benchmark_overhead;
     mean += benchmark("evaluate (d) e^x_T5(0.5)", [&]() -> double { double x = onehalf; return 1 + x + x*x*(1./2 + 1./6*x + x*x*(1./24 + 1./120*x)); });
     c_op["e^x_T5"] = last_benchmark_ns - benchmark_overhead;
@@ -484,6 +478,41 @@ void benchmarkCalculations() {
     // impossible at compile time so that the mean accumulation (and thus the returned values and
     // thus the calculations) can't be compiled away
     if (mean == -123.456) std::cout << "sum of these means: " << PRECISE(mean) << "\n"; mean = 0;
+
+    // Branching versions of the above that *should* select one value at compile-time and thus be
+    // identical to all of the above, if the compiler is doing its job.
+#define Tn_branching(which) \
+    static_assert(which >= 1 and which <= 8, "Error: requested Taylor expansion order is not implemented!"); \
+    return \
+        (which == 1) ? 1 + x : \
+        (which == 2) ? 1 + x*(1 + x*(1./2)) : \
+        (which == 3) ? 1 + x*(1 + x*(1./2 + x*(1./6))) : \
+        (which == 4) ? 1 + x*(1 + x*(1./2 + x*(1./6 + 1./24*x))) : \
+        (which == 5) ? 1 + x + x*x*(1./2 + 1./6*x + x*x*(1./24 + 1./120*x)) : \
+        (which == 6) ? 1 + x + x*x*(1./2 + 1./6*x + x*x*(1./24 + 1./120*x + x*x*(1./720))) : \
+        (which == 7) ? 1 + x + x*x*(1./2 + 1./6*x + x*x*(1./24 + 1./120*x + x*x*(1./720 + x*(1./5040)))) : \
+        /*which == 8*/ 1 + x + x*x*(1./2 + 1./6*x + x*x*(1./24 + 1./120*x + x*x*(1./720 + 1./5040*x + x*x*(1./40320))));
+
+    constexpr unsigned use_T1 = 1, use_T2 = 2, use_T3 = 3, use_T4 = 4, use_T5 = 5, use_T6 = 6, use_T7 = 7, use_T8 = 8;
+    mean += benchmark("evaluate (d) e^x_T1(0.5) (ccbr.)", [&]() -> double { double x = onehalf; Tn_branching(use_T1); });
+    mean += benchmark("evaluate (d) e^x_T2(0.5) (ccbr.)", [&]() -> double { double x = onehalf; Tn_branching(use_T2); });
+    mean += benchmark("evaluate (d) e^x_T3(0.5) (ccbr.)", [&]() -> double { double x = onehalf; Tn_branching(use_T3); });
+    mean += benchmark("evaluate (d) e^x_T4(0.5) (ccbr.)", [&]() -> double { double x = onehalf; Tn_branching(use_T4); });
+    mean += benchmark("evaluate (d) e^x_T5(0.5) (ccbr.)", [&]() -> double { double x = onehalf; Tn_branching(use_T5); });
+    mean += benchmark("evaluate (d) e^x_T6(0.5) (ccbr.)", [&]() -> double { double x = onehalf; Tn_branching(use_T6); });
+    mean += benchmark("evaluate (d) e^x_T7(0.5) (ccbr.)", [&]() -> double { double x = onehalf; Tn_branching(use_T7); });
+    mean += benchmark("evaluate (d) e^x_T8(0.5) (ccbr.)", [&]() -> double { double x = onehalf; Tn_branching(use_T8); });
+
+    if (mean == -123.456) std::cout << "sum of these means: " << PRECISE(mean) << "\n"; mean = 0;
+    // The above are actually the Maclaurin series (i.e. approximated at a=0), but since we're going
+    // to be using this for the range [0, a0], we could also try evaluating the approximation in the
+    // middle of this range.
+    constexpr double exp_T_a = 0.25;
+    constexpr double exp_at_a = 1.284025416687741484073420568062436458336; // Accurate to 40 digits
+    mean += benchmark("evaluate (d) e^x_T2@a=.25(0.5)", [&]() -> double { double x = onehalf; double x_m_a = x-exp_T_a; return exp_at_a + exp_at_a*x_m_a + 0.5*exp_at_a*x_m_a*x_m_a; });
+
+    mean += benchmark("evaluate (d) e^x_T3@a=.25(0.5)", [&]() -> double { double x = onehalf; return exp_at_a*(1 + (x-exp_T_a) + (x-exp_T_a)*(x-exp_T_a)*(1./2 + 1./6*(x-exp_T_a))); });
+
     mean += benchmark("evaluate (f) e^x_T2(0.5)", [&]() -> float { float x = onehalff; return 1.f + x + x*x*(1.f/2.f); });
     mean += benchmark("evaluate (f) e^x_T4(0.5)", [&]() -> float { float x = onehalff; return 1.f + x + x*x*(1.f/2.f + x*(1.f/6.f + x*(1.f/24.f))); });
     mean += benchmark("evaluate (f) e^x_T8(0.5)", [&]() -> float { float x = onehalff; return 1.f + x + x*x*(1.f/2.f + 1.f/6.f*x + x*x*(1.f/24.f + 1.f/120.f*x + x*x*(1.f/720.f + 1.f/5040.f*x + x*x*(1.f/40320.f)))); });
