@@ -447,7 +447,6 @@ void benchmarkCalculations() {
 
     std::cout << "Testing exp approximations\n" << std::setprecision(8);
     mean = 0;
-#define DUMP_MEAN std::cout << "    -> " << PRECISE(mean) << "\n"; mean = 0
 
     // Calculate the costs of Taylor expansions of order n
     //
@@ -512,27 +511,7 @@ void benchmarkCalculations() {
     constexpr double exp_T_a = 0.25;
     constexpr double exp_at_a = 1.284025416687741484073420568062436458336; // Accurate to 40 digits
     mean += benchmark("evaluate (d) e^x_T2@a=.25(0.5)", [&]() -> double { double x = onehalf; double x_m_a = x-exp_T_a; return exp_at_a + exp_at_a*x_m_a + 0.5*exp_at_a*x_m_a*x_m_a; });
-
     mean += benchmark("evaluate (d) e^x_T3@a=.25(0.5)", [&]() -> double { double x = onehalf; return exp_at_a*(1 + (x-exp_T_a) + (x-exp_T_a)*(x-exp_T_a)*(1./2 + 1./6*(x-exp_T_a))); });
-
-    mean += benchmark("evaluate (f) e^x_T2(0.5)", [&]() -> float { float x = onehalff; return 1.f + x + x*x*(1.f/2.f); });
-    mean += benchmark("evaluate (f) e^x_T4(0.5)", [&]() -> float { float x = onehalff; return 1.f + x + x*x*(1.f/2.f + x*(1.f/6.f + x*(1.f/24.f))); });
-    mean += benchmark("evaluate (f) e^x_T8(0.5)", [&]() -> float { float x = onehalff; return 1.f + x + x*x*(1.f/2.f + 1.f/6.f*x + x*x*(1.f/24.f + 1.f/120.f*x + x*x*(1.f/720.f + 1.f/5040.f*x + x*x*(1.f/40320.f)))); });
-
-    mean += benchmark("evaluate (d) e^x_T4(0.1)", [&]() -> double { double x = pointone; return 1. + x*(1. + 1./2.*x*(1. + 1./3.*x*(1. + 1./4.*x))); });
-    std::cout << "exp(0.1)=" << PRECISE(std::exp(0.1)) << "; approximation: "; DUMP_MEAN;
-    mean += benchmark("evaluate (d) e^x_T4(0.5)", [&]() -> double { double x = onehalf; return 1. + x*(1. + 1./2.*x*(1. + 1./3.*x*(1. + 1./4.*x))); });
-    std::cout << "exp(0.5)=" << PRECISE(std::exp(0.5)) << "; approximation: "; DUMP_MEAN;
-    mean += benchmark("evaluate (d) e^x_T4(1.0)", [&]() -> double { double x = one; return 1. + x*(1. + 1./2.*x*(1. + 1./3.*x*(1. + 1./4.*x))); });
-    std::cout << "exp(1.0)=" << PRECISE(std::exp(1.0)) << "; approximation: "; DUMP_MEAN;
-    mean += benchmark("evaluate (d) e^x_T4(1.5)", [&]() -> double { double x = onepointfive; return 1. + x*(1. + 1./2.*x*(1. + 1./3.*x*(1. + 1./4.*x))); });
-    std::cout << "exp(1.5)=" << PRECISE(std::exp(1.5)) << "; approximation: "; DUMP_MEAN;
-    mean += benchmark("evaluate (d) e^x_T4(2.0)", [&]() -> double { double x = two; return 1. + x*(1. + 1./2.*x*(1. + 1./3.*x*(1. + 1./4.*x))); });
-    std::cout << "exp(2.0)=" << PRECISE(std::exp(2.0)) << "; approximation: "; DUMP_MEAN;
-    mean += benchmark("evaluate (d) e^x_T5(2.0)", [&]() -> double { double x = two; return 1. + x*(1. + 1./2.*x*(1. + 1./3.*x*(1. + 1./4.*x*(1. + 1./5.*x)))); });
-    std::cout << "exp(2.0)=" << PRECISE(std::exp(2.0)) << "; approximation: "; DUMP_MEAN;
-
-    std::cout.precision(6);
 
     mean += benchmark("evaluate (d) log(10)", [&]() -> double { return std::log(ten); });
     mean += benchmark("evaluate (d) log(piandahalf)", [&]() -> double { return std::log(piandahalf); });
@@ -753,6 +732,7 @@ int main(int argc, char *argv[]) {
         cost[l]["a0s"] = a0_simplify(l);
         cost[l]["a1"] = a1(l);
         cost[l]["a1(f)"] = a1(l, true);
+        cost[l]["b1"] = boost::math::constants::root_two_pi<double>() * cost[l].at("NR") / cost[l].at("UR");
         for (unsigned i = 1; i <= 8; i++) {
             double &ai = cost[l]["aTlim" + std::to_string(i)];
             ai = aT(i, l);
@@ -812,6 +792,10 @@ int main(int argc, char *argv[]) {
         std::cout << "\n    " << std::setw(fieldwidth) << "" << u8"††: a₁ ≤ a₀ ≤ a, so a ≥ a₁ is trivially satisfied";
     show_dagger = false;
 
+    // b1: the value of b-a in straddling-0 truncation above which we prefer NR, below which, UR.
+    std::cout << "\n    " << std::setw(fieldwidth) << std::left << "b1 | c_ER, c_NR" << std::right;
+    FOR_l { std::cout << std::setw(8) << cost[l].at("b1") << "    "; }
+
     /*
     std::cout << u8"\n\n    " << std::setw(fieldwidth+std::string{u8"₁√"}.length()-2) << std::left << "a₁ | c_ER, c_UR, c_√(f), c_e^x(f)" << std::right;
     FOR_l { std::cout << std::setw(8) << cost[l].at("a1(f)"); if (cost[l].at("a1(f)") <= cost[l].at("a0")) { std::cout << u8"††  "; show_dagger = true; } else std::cout << "    "; }
@@ -852,7 +836,7 @@ int main(int argc, char *argv[]) {
         const auto &c = cost[l];
         std::cout << "\n  " << std::regex_replace(l, std::regex("\\W+"), ".") << "=list(";
         bool first = true;
-        for (const std::string &op : {"N", "U", "Exp", "e^x", "e^x_T2", "sqrt", "a0", "a0s", "a1"}) {
+        for (const std::string &op : {"N", "U", "Exp", "e^x", "e^x_T2", "sqrt", "a0", "a0s", "a1", "b1"}) {
             if (first) first = false; else std::cout << ", ";
             double val = c.count(op) > 0 ? c.at(op) : cost[""].at(op);
             if (l == "fairytale" and op == "e^x_T2") val = 0;
