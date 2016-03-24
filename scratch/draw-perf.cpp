@@ -354,7 +354,9 @@ double aT(const unsigned n, const std::string &library, bool float_op = false, c
 //
 // Parameters:
 //
-// n the order of the Taylor approximations for approximating e^x (Tn and T{n-1} are compared).
+// n the order of the higher Taylor approximation for approximating e^x
+//
+// l the lower order of the Tayler approximations; Tn and Tl are compared.
 //
 // library - the cost library (e.g. "boost") from which to read RNG cost values.  In particular,
 // the following cost values must be set in cost[library]:
@@ -665,7 +667,7 @@ void benchmarkFairytale() {
     // All other operations are free:
     for (const auto &op : {"e^x", "e^x(f)", "sqrt", "sqrt(f)"}) cf[op] = 0;
     //for (unsigned n = 2; n <= 8; n++) cf["e^x_T" + std::to_string(n)] = 0;
-    cf["aTn"] = std::numeric_limits<double>::infinity();
+    cf["aTmin"] = std::numeric_limits<double>::infinity();
 }
 
 
@@ -752,16 +754,18 @@ int main(int argc, char *argv[]) {
         cost[l]["a1"] = a1(l);
         cost[l]["a1(f)"] = a1(l, true);
         for (unsigned i = 1; i <= 8; i++) {
-            double &ai = cost[l]["aT" + std::to_string(i)];
+            double &ai = cost[l]["aTlim" + std::to_string(i)];
             ai = aT(i, l);
             // an is the minimum order Taylor expansion needed (for picking just one Taylor expansion)
-            if (cost[l].count("aTn") == 0 and ai > cost[l]["a0"]) {
-                cost[l]["aTn"] = i;
+            if (cost[l].count("aTmin") == 0 and ai > cost[l]["a0"]) {
+                cost[l]["aTmin"] = i;
             }
-            if (i > 1) {
-                double aTi = aTT1(i, l);
-                cost[l]["aT" + std::to_string(i-1) + "-" + std::to_string(i)] = aTi;
-                if (aTi < cost[l]["a0"] and max_aTi < i) max_aTi = i;
+            for (unsigned j = i-1; j > 0; j--) {
+                double aTj = aTTl(i, j, l);
+                if (aTj == 0) continue;
+                cost[l]["aT" + std::to_string(i)] = aTj;
+                if (aTj < cost[l]["a0"] and max_aTi < i) max_aTi = i;
+                break;
             }
         }
     }
@@ -816,24 +820,26 @@ int main(int argc, char *argv[]) {
     show_dagger = false;
     */
 
-    std::cout << u8"\n\n    aₙ " << std::setw(fieldwidth-3) << std::left << "(min. Taylor order)" << std::right;
+    std::cout << u8"\n\n    " << std::setw(fieldwidth) << std::left << "Min. Taylor order required" << std::right;
     unsigned max_an = 0;
     FOR_l {
-        const double &an = cost[l].at("aTn");
+        const double &an = cost[l].at("aTmin");
         std::cout << std::setw(8);
         if (std::isfinite(an)) { std::cout << (unsigned) an; if (an > max_an) max_an = an; }
         else std::cout << an;
         std::cout << "    ";
     }
     for (unsigned i = 1; i <= max_an; i++) {
-        std::cout << "\n    a_T" << i << std::setw(fieldwidth-4-(unsigned)std::log10(i)) << "";
-        FOR_l { std::cout << std::setw(8); if (i <= cost[l].at("aTn")) std::cout << cost[l].at("aT"+std::to_string(i)); else std::cout << ""; std::cout << "    "; }
+        std::cout << "\n    T" << i << " > e^x for a <" << std::setw(fieldwidth-16-(unsigned)std::log10(i)) << "";
+        FOR_l { std::cout << std::setw(8); if (i <= cost[l].at("aTmin")) std::cout << cost[l].at("aTlim"+std::to_string(i)); else std::cout << ""; std::cout << "    "; }
     }
     for (unsigned i = 2; i <= max_aTi; i++) {
-        std::cout << u8"\n    aT{" << i-1 << "→" << i << "}" << std::setw(fieldwidth-7-(unsigned)std::log10(i)-(unsigned)std::log10(i-1)) << "";
+        std::cout << u8"\n    T" << i << " preferred for a >" << std::setw(fieldwidth-20-(unsigned)std::log10(i)) << "";
         FOR_l {
-            const double &v = cost[l].at("aT" + std::to_string(i-1) + "-" + std::to_string(i));
-            std::cout << std::setw(8) << v << (v >= cost[l].at("a0") ? u8"≥a₀ " : "    ");
+            if (cost[l].count("aT" + std::to_string(i))) {
+                const double &v = cost[l].at("aT" + std::to_string(i));
+                std::cout << std::setw(8) << v << (v >= cost[l].at("a0") ? u8"≥a₀ " : "    ");
+            }
         }
     }
 
@@ -857,7 +863,7 @@ int main(int argc, char *argv[]) {
         // The current R code simply assumes a 2nd-order Taylor approximation: add an error message
         // if that won't work for all a < a0 (my testing has yet to reveal such a case with any of
         // the libraries I've tested, but I see no reason why it isn't theoretically possible).
-        if (c.at("aTn") > 2 and l != "fairytale") std::cout << ", error=stop(\"Error: 2nd-order Taylor approximation insufficient for some a < a0!\")";
+        if (c.at("aTmin") > 2 and l != "fairytale") std::cout << ", error=stop(\"Error: 2nd-order Taylor approximation insufficient for some a < a0!\")";
         std::cout << ")";
     }
     std::cout << "\n);\n\n\n";
