@@ -102,11 +102,6 @@ template <typename Callable> auto benchmark(const std::string &name, const Calla
     std::cout.unsetf(std::ios_base::floatfield);
     return result.mean;
 }
-// Benchmark a RNG distribution by constructing it then calling it a bunch of times
-template <typename Dist, typename RNG, typename... Args> typename Dist::result_type benchmarkDraw(const std::string &name, RNG &rng, Args&&... args) {
-    Dist dist(std::forward<Args>(args)...);
-    return benchmark(name, [&dist,&rng]() -> typename Dist::result_type { return dist(rng); });
-}
 
 // Calculates a root by starting at right/left and cutting off half the space each time until right
 // and left are within the given tolerance.  f(left) and f(right) must have opposite signs; if the
@@ -562,20 +557,29 @@ void benchmarkBoost() {
     // timings should be essentially identical to the standard argument draws, below.  (If they
     // aren't, investigation is warranted).
     double mean = 0;
-    mean += benchmarkDraw<boost::random::normal_distribution<double>>("boost N(1e9,2e7)", rng_boost, 1e9, 2e7);
-    mean += benchmarkDraw<boost::random::uniform_real_distribution<double>>("boost U[1e9,1e10)", rng_boost, 1e9, 1e10);
-    mean += benchmarkDraw<boost::random::exponential_distribution<double>>("boost Exp(30)", rng_boost, 30);
+    mean += benchmark("boost N(1e9,2e7)", []() -> double { return boost::random::normal_distribution<double>(1e9, 2e7)(rng_boost); });
+    mean += benchmark("boost U[1e9,1e10)", []() -> double { return boost::random::uniform_real_distribution<double>(1e9, 1e10)(rng_boost); });
+    mean += benchmark("boost Exp(30)", []() -> double { return boost::random::exponential_distribution<double>(30)(rng_boost); });
     if (mean == -123.456) std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 
     // boost draw benchmarks:
     std::cout << "\n";
     mean = 0;
-    mean += benchmarkDraw<boost::random::normal_distribution<double>>("boost N(0,1)", rng_boost);
+
+    // Constructing on-the-fly vs preconstructing seems basically the same speed for N and Exp, and
+    // slightly faster for uniform, so we'll use the non-preconstruction for timing calculations.
+    mean += benchmark("boost N(0,1) (incl. construction)", []() -> double { return boost::random::normal_distribution<double>(0, 1)(rng_boost); });
     cost["boost"]["N"] = last_benchmark_ns;
-    mean += benchmarkDraw<boost::random::uniform_real_distribution<double>>("boost U[0,1)", rng_boost);
+    mean += benchmark("boost U[0,1] (incl. construction)", []() -> double { return boost::random::uniform_real_distribution<double>(0,1)(rng_boost); });
     cost["boost"]["U"] = last_benchmark_ns;
-    mean += benchmarkDraw<boost::random::exponential_distribution<double>>("boost Exp(1)", rng_boost);
+    mean += benchmark("boost Exp(1) (incl. construction)", []() -> double { return boost::random::exponential_distribution<double>(1)(rng_boost); });
     cost["boost"]["Exp"] = last_benchmark_ns;
+    boost::random::normal_distribution<double> rnorm(0, 1);
+    boost::random::uniform_real_distribution<double> runif(0, 1);
+    boost::random::exponential_distribution<double> rexp(1);
+    mean += benchmark("boost N(0,1) (pre-constructed)", [&rnorm]() -> double { return rnorm(rng_boost); });
+    mean += benchmark("boost U[0,1] (pre-constructed)", [&runif]() -> double { return runif(rng_boost); });
+    mean += benchmark("boost Exp(1) (pre-constructed)", [&rexp]() -> double { return rexp(rng_boost); });
 
     if (mean == -123.456) std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 }
@@ -586,20 +590,32 @@ void benchmarkStl() {
     // timings should be essentially identical to the standard argument draws, below.  (If they
     // aren't, investigation is warranted).
     double mean = 0;
-    mean += benchmarkDraw<std::normal_distribution<double>>("stl N(1e9,2e7)", rng_stl, 1e9, 2e7);
-    mean += benchmarkDraw<std::uniform_real_distribution<double>>("stl U[1e9,1e10)", rng_stl, 1e9, 1e10);
-    mean += benchmarkDraw<std::exponential_distribution<double>>("stl Exp(30)", rng_stl, 30);
+    mean += benchmark("stl N(1e9,2e7)", []() -> double { return std::normal_distribution<double>(1e9, 2e7)(rng_stl); });
+    mean += benchmark("stl U[1e9,1e10)", []() -> double { return std::uniform_real_distribution<double>(1e9, 1e10)(rng_stl); });
+    mean += benchmark("stl Exp(30)", []() -> double { return std::exponential_distribution<double>(30)(rng_stl); });
     if (mean == -123.456) std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 
     // stl draw benchmarks:
     std::cout << "\n";
     mean = 0;
-    mean += benchmarkDraw<std::normal_distribution<double>>("stl N(0,1)", rng_stl);
-    cost["stl"]["N"] = last_benchmark_ns;
-    mean += benchmarkDraw<std::uniform_real_distribution<double>>("stl U[0,1)", rng_stl);
+
+    // Like boost, on-the-fly is just as fast as pre-constructing for uniform and exp, but about
+    // half the speed for normal: libstdc++ generates normals in pairs, so every second call is
+    // essentially free.  So we'll use on-the-fly for uniform and exponential timings,
+    // preconstruction for normal timings.
+    mean += benchmark("stl N(0,1) (incl. construction)", []() -> double { return std::normal_distribution<double>(0, 1)(rng_stl); });
+    mean += benchmark("stl U[0,1] (incl. construction)", []() -> double { return std::uniform_real_distribution<double>(0,1)(rng_stl); });
     cost["stl"]["U"] = last_benchmark_ns;
-    mean += benchmarkDraw<std::exponential_distribution<double>>("stl Exp(1)", rng_stl);
+    mean += benchmark("stl Exp(1) (incl. construction)", []() -> double { return std::exponential_distribution<double>(1)(rng_stl); });
     cost["stl"]["Exp"] = last_benchmark_ns;
+
+    std::normal_distribution<double> rnorm(0, 1);
+    std::uniform_real_distribution<double> runif(0, 1);
+    std::exponential_distribution<double> rexp(1);
+    mean += benchmark("stl N(0,1) (pre-constructed)", [&rnorm]() -> double { return rnorm(rng_stl); });
+    cost["stl"]["N"] = last_benchmark_ns;
+    mean += benchmark("stl U[0,1] (pre-constructed)", [&runif]() -> double { return runif(rng_stl); });
+    mean += benchmark("stl Exp(1) (pre-constructed)", [&rexp]() -> double { return rexp(rng_stl); });
 
     if (mean == -123.456) std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 }
