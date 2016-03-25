@@ -452,20 +452,34 @@ void benchmarkCalculations() {
     // I suppose there is some overhead of switching into SSE mode.
     mean += benchmark("evaluate (d) e^x_T1(0.5)", [&]() -> double { double x = onehalf; return 1 + x; });
     c_op["e^x_T1"] = last_benchmark_ns;
+
     mean += benchmark("evaluate (d) e^x_T2(0.5)", [&]() -> double { double x = onehalf; return 1 + x*(1 + x*(1./2)); });
     c_op["e^x_T2"] = last_benchmark_ns;
+    mean += benchmark("evaluate (d) e^x_T2(0.5) (alt)", [&]() -> double { double x = onehalf; return 1 + x* + x*x*(1./2); });
+
     mean += benchmark("evaluate (d) e^x_T3(0.5)", [&]() -> double { double x = onehalf; return 1 + x*(1 + x*(1./2 + 1./6*x)); });
     c_op["e^x_T3"] = last_benchmark_ns;
+    mean += benchmark("evaluate (d) e^x_T3(0.5) (alt)", [&]() -> double { double x = onehalf; return 1 + x + x*x*(1./2 + 1./6*x); });
+
     mean += benchmark("evaluate (d) e^x_T4(0.5)", [&]() -> double { double x = onehalf; return 1 + x*(1 + x*(1./2 + x*(1./6 + 1./24*x))); });
     c_op["e^x_T4"] = last_benchmark_ns;
+    mean += benchmark("evaluate (d) e^x_T4(0.5) (alt)", [&]() -> double { double x = onehalf; return 1 + x + x*x*(1./2 + x*(1./6) + x*x*(1./24)); });
+
     mean += benchmark("evaluate (d) e^x_T5(0.5)", [&]() -> double { double x = onehalf; return 1 + x + x*x*(1./2 + 1./6*x + x*x*(1./24 + 1./120*x)); });
     c_op["e^x_T5"] = last_benchmark_ns;
+    mean += benchmark("evaluate (d) e^x_T5(0.5) (alt)", [&]() -> double { double x = onehalf; return 1 + x*(1 + x*(1./2 + x*(1./6 + x*(1./24 + 1./120*x)))); });
+
     mean += benchmark("evaluate (d) e^x_T6(0.5)", [&]() -> double { double x = onehalf; return 1 + x + x*x*(1./2 + 1./6*x + x*x*(1./24 + 1./120*x + x*x*(1./720))); });
     c_op["e^x_T6"] = last_benchmark_ns;
+    mean += benchmark("evaluate (d) e^x_T6(0.5) (alt)", [&]() -> double { double x = onehalf; return 1 + x*(1 + x*(1./2 + x*(1./6 + x*(1./24 + x*(1./120 + + x*(1./720)))))); });
+
     mean += benchmark("evaluate (d) e^x_T7(0.5)", [&]() -> double { double x = onehalf; return 1 + x + x*x*(1./2 + 1./6*x + x*x*(1./24 + 1./120*x + x*x*(1./720 + x*(1./5040)))); });
     c_op["e^x_T7"] = last_benchmark_ns;
+    mean += benchmark("evaluate (d) e^x_T7(0.5) (alt)", [&]() -> double { double x = onehalf; return 1 + x*(1 + x*(1./2 + x*(1./6 + x*(1./24 + x*(1./120 + + x*(1./720 + x*(1./5040))))))); });
+
     mean += benchmark("evaluate (d) e^x_T8(0.5)", [&]() -> double { double x = onehalf; return 1 + x + x*x*(1./2 + 1./6*x + x*x*(1./24 + 1./120*x + x*x*(1./720 + 1./5040*x + x*x*(1./40320)))); });
     c_op["e^x_T8"] = last_benchmark_ns;
+    mean += benchmark("evaluate (d) e^x_T8(0.5) (alt)", [&]() -> double { double x = onehalf; return 1 + x*(1 + x*(1./2 + x*(1./6 + x*(1./24 + x*(1./120 + + x*(1./720 + x*(1./5040 + x*(1./40320)))))))); });
 
     // Put something here that is essentially impossible, but that the compiler can't tell is
     // impossible at compile time so that the mean accumulation (and thus the returned values and
