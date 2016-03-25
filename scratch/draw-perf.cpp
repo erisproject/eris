@@ -98,7 +98,7 @@ template <typename Callable> auto benchmark(const std::string &name, const Calla
     }
 
     std::cout << std::setw(40) << std::left << name + ":" << std::right << std::fixed << std::setprecision(2) <<
-        std::setw(7) << 1000/last_benchmark_ns << " MHz = " << std::setw(8) << last_benchmark_ns << " ns/op\n";
+        std::setw(7) << 1000/last_benchmark_ns << " MHz = " << std::setw(8) << last_benchmark_ns << " ns/op" << std::endl;
     std::cout.unsetf(std::ios_base::floatfield);
     return result.mean;
 }
@@ -430,7 +430,6 @@ void benchmarkCalculations() {
     mean += benchmark("evaluate (d) exp(1.5pi)", [&]() -> double { return std::exp(piandahalf); });
     c_op["e^x"] += last_benchmark_ns;
     c_op["e^x"] /= 5;
-    c_op["e^x"] -= benchmark_overhead;
     mean += benchmark("evaluate (f) exp(10)", [&]() -> float { return std::exp(tenf); });
     c_op["e^x(f)"] += last_benchmark_ns;
     mean += benchmark("evaluate (f) exp(-10)", [&]() -> float { return std::exp(minustenf); });
@@ -442,7 +441,6 @@ void benchmarkCalculations() {
     mean += benchmark("evaluate (f) exp(1.5pi)", [&]() -> float { return std::exp(piandahalff); });
     c_op["e^x(f)"] += last_benchmark_ns;
     c_op["e^x(f)"] /= 5;
-    c_op["e^x(f)"] -= benchmark_overhead_f;
     if (mean == -123.456) std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 
     mean = 0;
@@ -458,21 +456,21 @@ void benchmarkCalculations() {
     // I suspect this has to do with SSE optimizations--it can do two double operations at once, but
     // I suppose there is some overhead of switching into SSE mode.
     mean += benchmark("evaluate (d) e^x_T1(0.5)", [&]() -> double { double x = onehalf; return 1 + x; });
-    c_op["e^x_T1"] = last_benchmark_ns - benchmark_overhead;
+    c_op["e^x_T1"] = last_benchmark_ns;
     mean += benchmark("evaluate (d) e^x_T2(0.5)", [&]() -> double { double x = onehalf; return 1 + x*(1 + x*(1./2)); });
-    c_op["e^x_T2"] = last_benchmark_ns - benchmark_overhead;
+    c_op["e^x_T2"] = last_benchmark_ns;
     mean += benchmark("evaluate (d) e^x_T3(0.5)", [&]() -> double { double x = onehalf; return 1 + x*(1 + x*(1./2 + 1./6*x)); });
-    c_op["e^x_T3"] = last_benchmark_ns - benchmark_overhead;
+    c_op["e^x_T3"] = last_benchmark_ns;
     mean += benchmark("evaluate (d) e^x_T4(0.5)", [&]() -> double { double x = onehalf; return 1 + x*(1 + x*(1./2 + x*(1./6 + 1./24*x))); });
-    c_op["e^x_T4"] = last_benchmark_ns - benchmark_overhead;
+    c_op["e^x_T4"] = last_benchmark_ns;
     mean += benchmark("evaluate (d) e^x_T5(0.5)", [&]() -> double { double x = onehalf; return 1 + x + x*x*(1./2 + 1./6*x + x*x*(1./24 + 1./120*x)); });
-    c_op["e^x_T5"] = last_benchmark_ns - benchmark_overhead;
+    c_op["e^x_T5"] = last_benchmark_ns;
     mean += benchmark("evaluate (d) e^x_T6(0.5)", [&]() -> double { double x = onehalf; return 1 + x + x*x*(1./2 + 1./6*x + x*x*(1./24 + 1./120*x + x*x*(1./720))); });
-    c_op["e^x_T6"] = last_benchmark_ns - benchmark_overhead;
+    c_op["e^x_T6"] = last_benchmark_ns;
     mean += benchmark("evaluate (d) e^x_T7(0.5)", [&]() -> double { double x = onehalf; return 1 + x + x*x*(1./2 + 1./6*x + x*x*(1./24 + 1./120*x + x*x*(1./720 + x*(1./5040)))); });
-    c_op["e^x_T7"] = last_benchmark_ns - benchmark_overhead;
+    c_op["e^x_T7"] = last_benchmark_ns;
     mean += benchmark("evaluate (d) e^x_T8(0.5)", [&]() -> double { double x = onehalf; return 1 + x + x*x*(1./2 + 1./6*x + x*x*(1./24 + 1./120*x + x*x*(1./720 + 1./5040*x + x*x*(1./40320)))); });
-    c_op["e^x_T8"] = last_benchmark_ns - benchmark_overhead;
+    c_op["e^x_T8"] = last_benchmark_ns;
 
     // Put something here that is essentially impossible, but that the compiler can't tell is
     // impossible at compile time so that the mean accumulation (and thus the returned values and
@@ -523,10 +521,10 @@ void benchmarkCalculations() {
 
     mean += benchmark("evaluate (d) sqrt(8)", [&]() -> double { return std::sqrt(eight); });
     mean += benchmark("evaluate (d) sqrt(1.5pi)", [&]() -> double { return std::sqrt(piandahalf); });
-    c_op["sqrt"] = last_benchmark_ns - benchmark_overhead;
+    c_op["sqrt"] = last_benchmark_ns;
     mean += benchmark("evaluate (f) sqrt(8)", [&]() -> float { return std::sqrt(eightf); });
     mean += benchmark("evaluate (f) sqrt(1.5pi)", [&]() -> float { return std::sqrt(piandahalff); });
-    c_op["sqrt(f)"] = last_benchmark_ns - benchmark_overhead_f;
+    c_op["sqrt(f)"] = last_benchmark_ns;
 
     mean += benchmark("evaluate [1]/pi", [&]() -> double { return 1.0/pi; });
     mean += benchmark("evaluate [1]/sqrt(pi)", [&]() -> double { return 1.0/std::sqrt(pi); });
@@ -573,11 +571,12 @@ void benchmarkBoost() {
     std::cout << "\n";
     mean = 0;
     mean += benchmarkDraw<boost::random::normal_distribution<double>>("boost N(0,1)", rng_boost);
-    cost["boost"]["N"] = last_benchmark_ns - benchmark_overhead;
+    cost["boost"]["N"] = last_benchmark_ns;
     mean += benchmarkDraw<boost::random::uniform_real_distribution<double>>("boost U[0,1)", rng_boost);
-    cost["boost"]["U"] = last_benchmark_ns - benchmark_overhead;
+    cost["boost"]["U"] = last_benchmark_ns;
     mean += benchmarkDraw<boost::random::exponential_distribution<double>>("boost Exp(1)", rng_boost);
-    cost["boost"]["Exp"] = last_benchmark_ns - benchmark_overhead;
+    cost["boost"]["Exp"] = last_benchmark_ns;
+
     if (mean == -123.456) std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 }
 
@@ -596,11 +595,12 @@ void benchmarkStl() {
     std::cout << "\n";
     mean = 0;
     mean += benchmarkDraw<std::normal_distribution<double>>("stl N(0,1)", rng_stl);
-    cost["stl"]["N"] = last_benchmark_ns - benchmark_overhead;
+    cost["stl"]["N"] = last_benchmark_ns;
     mean += benchmarkDraw<std::uniform_real_distribution<double>>("stl U[0,1)", rng_stl);
-    cost["stl"]["U"] = last_benchmark_ns - benchmark_overhead;
+    cost["stl"]["U"] = last_benchmark_ns;
     mean += benchmarkDraw<std::exponential_distribution<double>>("stl Exp(1)", rng_stl);
-    cost["stl"]["Exp"] = last_benchmark_ns - benchmark_overhead;
+    cost["stl"]["Exp"] = last_benchmark_ns;
+
     if (mean == -123.456) std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 }
 
@@ -620,16 +620,19 @@ void benchmarkGsl() {
     mean = 0;
     // gsl draw benchmarks (we draw using the three different normal draw algorithms for
     // comparison):
+
+    // Box-Muller is half the speed it could be: gsl discards the second value instead of saving it
+    // (like libstdc++ does).
     mean += benchmark("gsl N(0,1) (Box-Muller)", [&]() -> double { return gsl_ran_gaussian(rng_gsl, 1); });
-    cost["gsl-BoxM"]["N"] = last_benchmark_ns - benchmark_overhead;
+    cost["gsl-BoxM"]["N"] = last_benchmark_ns;
     mean += benchmark("gsl N(0,1) (ratio)", [&]() -> double { return gsl_ran_gaussian_ratio_method(rng_gsl, 1); });
-    cost["gsl-ratio"]["N"] = last_benchmark_ns - benchmark_overhead;
+    cost["gsl-ratio"]["N"] = last_benchmark_ns;
     mean += benchmark("gsl N(0,1) (ziggurat)", [&]() -> double { return gsl_ran_gaussian_ziggurat(rng_gsl, 1); });
-    cost["gsl-zigg"]["N"] = last_benchmark_ns - benchmark_overhead;
+    cost["gsl-zigg"]["N"] = last_benchmark_ns;
     mean += benchmark("gsl U[0,1]", [&]() -> double { return gsl_ran_flat(rng_gsl, 0, 1); });
-    cost["gsl-BoxM"]["U"] = cost["gsl-ratio"]["U"] = cost["gsl-zigg"]["U"] = last_benchmark_ns - benchmark_overhead;
+    cost["gsl-BoxM"]["U"] = cost["gsl-ratio"]["U"] = cost["gsl-zigg"]["U"] = last_benchmark_ns;
     mean += benchmark("gsl Exp(1)", [&]() -> double { return gsl_ran_exponential(rng_gsl, 1); });
-    cost["gsl-BoxM"]["Exp"] = cost["gsl-ratio"]["Exp"] = cost["gsl-zigg"]["Exp"] = last_benchmark_ns - benchmark_overhead;
+    cost["gsl-BoxM"]["Exp"] = cost["gsl-ratio"]["Exp"] = cost["gsl-zigg"]["Exp"] = last_benchmark_ns;
     if (mean == -123.456) std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 }
 
@@ -681,7 +684,7 @@ int main(int argc, char *argv[]) {
         static_assert(sizeof(decltype(rd())) == 4, "Internal error: std::random_device doesn't give 32-bit values!?");
         seed = (uint64_t(rd()) << 32) + rd();
     }
-    std::cout << "Using mt19937 generator with seed = " << seed << "\n";
+    std::cout << "Using mt19937 generator with seed = " << seed << std::endl;
     std::cout << std::showpoint;
     rng_stl.seed(seed);
     rng_boost.seed(seed);
@@ -692,7 +695,7 @@ int main(int argc, char *argv[]) {
 
     // Modern CPUs have a variable clock, and may take a couple seconds to increase to maximum frequency, so
     // run a fake test for a few seconds to (hopefully) get the CPU at full speed.
-    std::cout << "Busy-waiting to get CPU at full speed\n";
+    std::cout << "Busy-waiting to get CPU at full speed" << std::endl;
     callTest([]() -> double { return 1.0; }, 3.0);
 
     {
@@ -706,7 +709,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (mean == -123.456) std::cout << "sum of these means: " << PRECISE(mean) << "\n";
-    std::cout << "\nNB: all following results are net of the above overhead values.\n\n";
+    std::cout << "\nNB: all following results are net of the above overhead values.\n" << std::endl;
 
     // NB: square brackets around values below indicate compiler time constants (or, at least,
     // constexprs, which should work the same if the compiler is optimizing)
