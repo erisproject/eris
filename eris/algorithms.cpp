@@ -1,6 +1,7 @@
 #include <eris/algorithms.hpp>
 #include <cmath>
 #include <algorithm>
+#include <boost/math/constants/constants.hpp>
 
 namespace eris {
 
@@ -54,10 +55,10 @@ double Stepper::step(bool up) {
     else return 1.0 / (1 + step_size);
 }
 
-// Relative left midpoint position.  Equal to \f$2 - \varphi\f$.
-const double sps_left_mid_ = 1.5 - std::sqrt(1.25);
 // Relative right midpoint position.  Equal to \f$\varphi - 1\f$.
-const double sps_right_mid_ = 1 - sps_left_mid_;
+constexpr double sps_right_mid_ = boost::math::constants::phi<double>() - 1;
+// Relative left midpoint position.  Equal to 1 minus `sps_right_mid_`, which also equals 2 - phi.
+constexpr double sps_left_mid_ = 1 - sps_right_mid_;
 
 double single_peak_search(
         const std::function<double(const double &)> &f,
