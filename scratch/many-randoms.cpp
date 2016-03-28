@@ -8,7 +8,6 @@
 
 int main(int argc, char *argv[]) {
     auto &rng = eris::random::rng();
-    std::cout << "seed: " << eris::random::seed() << "\n";
 
     std::string th_mean, th_var, th_skew, th_kurt;
     std::function<double()> gen;
@@ -17,28 +16,55 @@ int main(int argc, char *argv[]) {
         if (which == "N" or which == "n") {
             gen = [&rng]() { return boost::random::normal_distribution<double>()(rng); };
             th_mean = "0"; th_var = "1"; th_skew = "0"; th_kurt = "3";
+            std::cout << "Drawing from N(0,1)\n";
         }
         else if (which == "U" or which == "u") {
             gen = [&rng]() { return boost::random::uniform_real_distribution<double>()(rng); };
             th_mean = "0.5"; th_var = "0.08333..."; th_skew = "0"; th_kurt = "1.8";
+            std::cout << "Drawing from U[0,1)\n";
         }
         else if (which == "E" or which == "e") {
             gen = [&rng]() { return boost::random::exponential_distribution<double>()(rng); };
             th_mean = "1"; th_var = "1"; th_skew = "2"; th_kurt = "9";
+            std::cout << "Drawing from Exp(1)\n";
         }
         else {
             std::cerr << "Unknown distribution `" << which << "'\n";
         }
     }
     if (not gen) {
-        std::cerr << "Usage: " << argv[0] << " {E,N,U} -- generate and summarize 1 million draws from exponential, normal, or uniform distribution\n";
+        std::cerr << "Usage: " << argv[0] << " {E,N,U} -- generate and summarize 5 million draws from a distribution\n";
+        std::cerr << "Usage: " << argv[0] << " {E,N,U} -n -- report mean of 200 million draws from a distribution\n";
+        std::cerr << "\nDistributions: E - Exponential(1); N - Normal(0,1); U - Uniform[0,1)\n";
+
         exit(1);
     }
 
-    constexpr int count = 1000000;
+    std::cout << "seed: " << eris::random::seed() << "\n";
+    std::cout.precision(std::numeric_limits<double>::max_digits10);
+
+    bool sum_only = false;
+    if (argc > 2 and std::string(argv[2]) == "-n") {
+        sum_only = true;
+    }
+
+    constexpr int count = 5000000;
+
+    if (sum_only) {
+        double mean = 0;
+        // If we don't have to calculate all that other crap and store all the values, generation is
+        // much faster (somewhere around 20 times).
+        constexpr int sumcount = 40*count;
+        for (int i = 0; i < sumcount; i++) {
+            mean += gen();
+        }
+        mean /= sumcount;
+        std::cout << "mean: " << mean << "\n";
+        exit(0);
+    }
+
     std::vector<double> draws(count);
 
-    std::cout.precision(std::numeric_limits<double>::max_digits10);
     for (int i = 0; i < count; i++) {
         draws[i] = gen();
         std::cout << draws[i] << "\n";
