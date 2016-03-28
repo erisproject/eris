@@ -5,6 +5,10 @@
 #include <boost/random/normal_distribution.hpp>
 #include <boost/random/uniform_real_distribution.hpp>
 #include <boost/random/exponential_distribution.hpp>
+#include <chrono>
+
+using clk = std::chrono::high_resolution_clock;
+using dur = std::chrono::duration<double>;
 
 int main(int argc, char *argv[]) {
     auto &rng = eris::random::rng();
@@ -55,11 +59,15 @@ int main(int argc, char *argv[]) {
         // If we don't have to calculate all that other crap and store all the values, generation is
         // much faster (somewhere around 20 times).
         constexpr int sumcount = 40*count;
+        auto start = clk::now();
         for (int i = 0; i < sumcount; i++) {
             mean += gen();
         }
+        auto end = clk::now();
+        double seconds = dur(end - start).count();
         mean /= sumcount;
         std::cout << "mean: " << mean << "\n";
+        std::cout << "Elapsed: " << seconds << "\n";
         exit(0);
     }
 
