@@ -1,10 +1,25 @@
-eris (1.0.0~pre20160212-1) unstable; urgency=medium
+eris (1.0.0~pre20160409-1) UNRELEASED; urgency=medium
 
-  * BayesianLinear update/weaken redesign
+  * 1.0.0 snapshot
   * Require Eigen 3.2.7+ for proper move support
-  * Bump lib version
+  * Fix eigen version detection
+  * Added probit test script
+  * BayesianLinear update/weaken redesign
+  * BayesianLinear API updates
+  * Added proper truncated_normal_distribution, use it in
+    BayesianLinearRestricted.
+  * Use boost for randomness (rng and distributions) instead of stl.  Boost's
+    implementations are faster, especially for Normal (since 1.56.0); I've
+    submitted patches to make normal a bit faster and exponential much faster,
+    forthcoming (hopefully) in 1.62.0.
+  * Initial bayesian probit class shell (WIP)
+  * Documentation fixes/updates
+  * BayesianLinear: matrix improvements; other fixes
+  * Made Random a namespace with functions instead of a static class; relax
+    thread seeding
+  * Added BayesianLinear.Vinvinv() to get V matrix
 
- -- Jason Rhinelander <jason@imaginary.ca>  Fri, 12 Feb 2016 16:11:44 -0500
+ -- Jason Rhinelander <jason@imaginary.ca>  Sat, 09 Apr 2016 19:10:16 -0400
 
 eris (0.3.7-2) unstable; urgency=low
 
