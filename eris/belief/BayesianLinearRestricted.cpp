@@ -2,6 +2,7 @@
 #include <eris/belief/BayesianLinear.hpp>
 #include <eris/random/rng.hpp>
 #include <eris/random/distribution.hpp>
+#include <eris/random/truncated_normal_distribution.hpp>
 #include <cmath>
 #include <boost/random/chi_squared_distribution.hpp>
 #include <boost/random/uniform_int_distribution.hpp>
@@ -321,8 +322,6 @@ const VectorXd& BayesianLinearRestricted::drawGibbs() {
         }
 
         s_sigma = sigma*s;
-        boost::math::normal_distribution<double> norm_dist(0, s_sigma);
-        boost::random::normal_distribution<double> rnorm(0, s_sigma);
 
         try {
             VectorXd newz(z);
@@ -355,13 +354,7 @@ const VectorXd& BayesianLinearRestricted::drawGibbs() {
                 if (lj >= uj) throw draw_failure("drawGibbs(): found impossible-to-satisfy linear constraints", *this);
 
                 // Our new Z is a truncated standard normal (truncated by the bounds we just found)
-                try {
-                    newz[j] = random::truncDist(norm_dist, rnorm, lj, uj, 0.0);
-                }
-                catch (const std::runtime_error &fail) {
-                    // If the truncated normal fails, wrap in a draw failure and rethrow:
-                    throw draw_failure("drawGibbs(): " + std::string(fail.what()));
-                }
+                newz[j] = random::truncated_normal_distribution<double>(0, s_sigma, lj, uj)(rng);
             }
             // newz contains all new draws, replace z with it:
             z = newz;
