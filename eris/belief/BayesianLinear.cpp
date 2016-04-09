@@ -1,5 +1,7 @@
 #include <eris/belief/BayesianLinear.hpp>
-#include <eris/Random.hpp>
+#include <eris/random/rng.hpp>
+#include <eris/random/distribution.hpp>
+#include <boost/random/chi_squared_distribution.hpp>
 #include <Eigen/QR>
 #include <Eigen/SVD>
 #include <Eigen/Cholesky>
@@ -169,7 +171,7 @@ MatrixXd BayesianLinear::predictGeneric(const Ref<const MatrixXd> &X, const std:
         err_cols = prediction_draws_.cols();
     }
 
-    auto &rng = Random::rng();
+    auto &rng = random::rng();
     if (err_cols != prediction_errors_.cols() or err_rows != prediction_errors_.rows()) {
         // Keep track of where we need to start filling:
         unsigned startc = prediction_errors_.cols();
@@ -178,7 +180,7 @@ MatrixXd BayesianLinear::predictGeneric(const Ref<const MatrixXd> &X, const std:
         for (unsigned c = (startr < err_rows ? 0 : startc); c < err_cols; c++) {
             // For the first startc columns, we need to draw values for any new rows; for startc and
             // beyond we need to draw values for every row:
-            std::normal_distribution<double> err(0, std::sqrt(prediction_draws_(K_, c)));
+            boost::random::normal_distribution<double> err(0, std::sqrt(prediction_draws_(K_, c)));
             for (unsigned r = (c < startc ? startr : 0); r < err_rows; r++) {
                 prediction_errors_(r, c) = err(rng);
             }
@@ -215,11 +217,11 @@ const VectorXd& BayesianLinear::draw() {
 
     if (last_draw_.size() != K_ + 1) last_draw_.resize(K_ + 1);
 
-    auto &rng = Random::rng();
+    auto &rng = random::rng();
 
     // (beta,h) is distributed as a normal-gamma(beta, V, s2^{-1}, n), in Koop's Gamma distribution
     // notation, or NG(beta, V, n/2, 2*s2^{-1}/n) in the more common G(shape,scale) notation
-    // (which std::gamma_distribution wants).
+    // (which boost::random::gamma_distribution wants).
     //
     // Proof:
     // Let $G_{k\theta}(k,\theta)$ be the shape ($k$), scale ($\theta$) notation.  This has mean $k\theta$ and
@@ -241,7 +243,7 @@ const VectorXd& BayesianLinear::draw() {
     // \]
 
     // To draw this, first draw a gamma-distributed "h" value (store its inverse)
-    last_draw_[K_] = n_ * s2_ / std::chi_squared_distribution<double>(n_)(rng);
+    last_draw_[K_] = n_ * s2_ / boost::random::chi_squared_distribution<double>(n_)(rng);
 
     // Now use that to draw a multivariate normal conditional on h, with mean beta and variance
     // h^{-1} V; this is the beta portion of the draw:
@@ -258,7 +260,7 @@ VectorXd BayesianLinear::multivariateNormal(const Ref<const VectorXd> &mu, const
     // of K random \f$N(\mu=0, \sigma^2=h^{-1})\f$ values.  Then \f$beta + Lz\f$ yields a \f$beta\f$
     // draw of the desired distribution.
     VectorXd z(mu.size());
-    for (unsigned int i = 0; i < z.size(); i++) z[i] = Random::rstdnorm();
+    for (unsigned int i = 0; i < z.size(); i++) z[i] = random::rstdnorm();
 
     return mu + L * (s * z);
 }
@@ -266,7 +268,7 @@ VectorXd BayesianLinear::multivariateNormal(const Ref<const VectorXd> &mu, const
 VectorXd BayesianLinear::multivariateT(const Ref<const VectorXd> &mu, double nu, const Ref<const MatrixXd> &L, double s) {
     VectorXd y(multivariateNormal(VectorXd::Zero(mu.size()), L, s));
 
-    double u = std::chi_squared_distribution<double>(nu)(Random::rng());
+    double u = boost::random::chi_squared_distribution<double>(nu)(random::rng());
 
     return mu + std::sqrt(nu / u) * y;
 }

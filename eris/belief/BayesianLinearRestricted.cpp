@@ -1,7 +1,11 @@
 #include <eris/belief/BayesianLinearRestricted.hpp>
 #include <eris/belief/BayesianLinear.hpp>
-#include <eris/Random.hpp>
+#include <eris/random/rng.hpp>
+#include <eris/random/distribution.hpp>
+#include <eris/random/truncated_normal_distribution.hpp>
 #include <cmath>
+#include <boost/random/chi_squared_distribution.hpp>
+#include <boost/random/uniform_int_distribution.hpp>
 #include <boost/math/distributions/normal.hpp>
 #include <boost/math/distributions/chi_squared.hpp>
 #include <boost/math/distributions/complement.hpp>
@@ -170,7 +174,7 @@ void BayesianLinearRestricted::gibbsInitialize(const Ref<const VectorXd> &initia
             : new VectorXd(r() - R() * beta()));
     const auto &r_minus_Rbeta_ = *gibbs_r_Rbeta_;
 
-    auto &rng = Random::rng();
+    auto &rng = random::rng();
 
     VectorXd z = A * (initial.head(K_) - beta());
     if (restrict_size_ == 0) {
@@ -197,7 +201,7 @@ void BayesianLinearRestricted::gibbsInitialize(const Ref<const VectorXd> &initia
             }
 
             // Select a random constraint to fix:
-            size_t fix = violations[std::uniform_int_distribution<size_t>(0, violations.size()-1)(rng)];
+            size_t fix = violations[boost::random::uniform_int_distribution<size_t>(0, violations.size()-1)(rng)];
 
             // Aim at the nearest point on the boundary and overshoot (by 50%):
             z += -overshoot * v[fix] / D.row(fix).squaredNorm() * D.row(fix).transpose();
@@ -247,7 +251,7 @@ const VectorXd& BayesianLinearRestricted::drawGibbs() {
     VectorXd z(*gibbs_last_z_);
     double sigma = 0;
     double s_sigma = 0;
-    auto &rng = Random::rng();
+    auto &rng = random::rng();
 
     int num_draws = 1;
     if (gibbs_draws_ < draw_gibbs_burnin)
@@ -255,7 +259,7 @@ const VectorXd& BayesianLinearRestricted::drawGibbs() {
     else if (draw_gibbs_thinning > 1)
         num_draws = draw_gibbs_thinning;
 
-    std::chi_squared_distribution<double> chisq(n_);
+    boost::random::chi_squared_distribution<double> chisq(n_);
     boost::math::chi_squared_distribution<double> chisq_dist(chisq.n());
     // Calculate the median just once, as the median call is slightly expensive for a chi-squared dist,
     // but having the median avoids potential extra cdf calls below.
@@ -287,7 +291,7 @@ const VectorXd& BayesianLinearRestricted::drawGibbs() {
             try {
                 if (range.first > range.second or range.second < 0)
                     throw draw_failure("sigma draw failure: all admissable sigma values are negative");
-                sigma = std::sqrt(n_ / Random::truncDist(chisq_dist, chisq, n_ / (range.second*range.second), n_ / (range.first*range.first), chisq_n_median_, 0.05, 10));
+                sigma = std::sqrt(n_ / random::truncDist(chisq_dist, chisq, n_ / (range.second*range.second), n_ / (range.first*range.first), chisq_n_median_, 0.05, 10));
             }
             catch (const std::runtime_error &df) {
                 if (gibbs_2nd_last_z_) {
@@ -298,7 +302,7 @@ const VectorXd& BayesianLinearRestricted::drawGibbs() {
                     try {
                         if (range.first > range.second or range.second < 0)
                             throw draw_failure("sigma draw failure: only admissable sigma values are negative");
-                        sigma = std::sqrt(n_ / Random::truncDist(chisq_dist, chisq, n_ / (range.second*range.second), n_ / (range.first*range.first), chisq_n_median_, 0.05, 10));
+                        sigma = std::sqrt(n_ / random::truncDist(chisq_dist, chisq, n_ / (range.second*range.second), n_ / (range.first*range.first), chisq_n_median_, 0.05, 10));
                     }
                     catch (const std::runtime_error &df) {
                         throw draw_failure(std::string("sigma draw failure: ") + df.what());
@@ -318,8 +322,6 @@ const VectorXd& BayesianLinearRestricted::drawGibbs() {
         }
 
         s_sigma = sigma*s;
-        boost::math::normal_distribution<double> norm_dist(0, s_sigma);
-        std::normal_distribution<double> rnorm(0, s_sigma);
 
         try {
             VectorXd newz(z);
@@ -352,13 +354,7 @@ const VectorXd& BayesianLinearRestricted::drawGibbs() {
                 if (lj >= uj) throw draw_failure("drawGibbs(): found impossible-to-satisfy linear constraints", *this);
 
                 // Our new Z is a truncated standard normal (truncated by the bounds we just found)
-                try {
-                    newz[j] = Random::truncDist(norm_dist, rnorm, lj, uj, 0.0);
-                }
-                catch (const std::runtime_error &fail) {
-                    // If the truncated normal fails, wrap in a draw failure and rethrow:
-                    throw draw_failure("drawGibbs(): " + std::string(fail.what()));
-                }
+                newz[j] = random::truncated_normal_distribution<double>(0, s_sigma, lj, uj)(rng);
             }
             // newz contains all new draws, replace z with it:
             z = newz;

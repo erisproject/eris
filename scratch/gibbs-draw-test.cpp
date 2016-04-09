@@ -2,7 +2,7 @@
 #include <eris/belief/BayesianLinearRestricted.hpp>
 #include <Eigen/Cholesky>
 #include <Eigen/QR>
-#include <eris/Random.hpp>
+#include <eris/random/rng.hpp>
 #include <list>
 
 using namespace eris::belief;
@@ -13,7 +13,7 @@ int main() {
     VectorXd beta(5);
     beta << -72.458353, -3.596262, 4.155980, -0.575780, 2.966034;
 
-    std::cerr << "seed: " << eris::Random::seed() << "\n";
+    std::cerr << "seed: " << eris::random::seed() << "\n";
 
     double s2 = 183.837366;
     double n = 323;

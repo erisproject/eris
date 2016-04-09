@@ -2,7 +2,6 @@
 #include <eris/belief/BayesianLinearRestricted.hpp>
 #include <Eigen/Cholesky>
 #include <Eigen/QR>
-#include <eris/Random.hpp>
 #include <list>
 
 using namespace eris::belief;

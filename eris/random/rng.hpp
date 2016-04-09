@@ -1,21 +1,21 @@
 #pragma once
-#include <random>
+#include <boost/random/mersenne_twister.hpp>
 #include <eris/noncopyable.hpp>
 
 namespace eris {    
 /// Namespace for random number generation and distributions variables and functions
 namespace random {
 
-/** The eris RNG class, currently std::mt19937_64.  The wrapper class is non-copyable, thus ensuring
- * that the RNG isn't accidentally copied.
+/** The eris RNG class, currently boost::random::mt19937_64.  The wrapper class is non-copyable,
+ * thus ensuring that the RNG isn't accidentally copied.
  */
-class rng_t : public std::mt19937_64, private eris::noncopyable {};
+class rng_t : public boost::random::mt19937_64, private eris::noncopyable {};
 
-// Thread-specific variables:
-/// \internal
+#ifndef DOXYGEN_SHOULD_SEE_THIS
+// Internal, thread-specific variables:
 thread_local extern bool seeded_;
-/// \internal
 thread_local extern rng_t rng_;
+#endif
 
 /** Returns the initial seed used for the current thread's random number generator.  If the
  * current thread's RNG is not yet seeded, it is seeded with an initial seed before
@@ -68,18 +68,18 @@ void seed(rng_t::result_type seed);
  *
  *     using namespace eris::random;
  *     // Generate random integer in [0,9]
- *     std::uniform_int_distribution<unsigned int> unif(0, 9);
+ *     boost::random::uniform_int_distribution<unsigned int> unif(0, 9);
  *     int lucky = unif(rng());
  *
  *     // Generate a random draw from a student-t distribution with 30 d.f.
- *     std::student_t_distribution t30gen(30);
+ *     boost::random::student_t_distribution t30gen(30);
  *     double draw = t30gen(rng());
  *
  * If drawing multiple times, it is slightly more efficient to obtain a reference to the rng
  * just once, such as:
  *
  *     auto &rng = eris::random::rng();
- *     std::uniform_int_distribution<unsigned int> unif(0, 9);
+ *     boost::random::uniform_int_distribution<unsigned int> unif(0, 9);
  *     for (...) {
  *         unsigned int r = unif(rng);
  *         // ...

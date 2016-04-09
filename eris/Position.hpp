@@ -27,6 +27,12 @@ class Position final {
         template <class Container, typename = typename std::enable_if<std::is_arithmetic<typename Container::value_type>::value>::type>
         Position(const Container &coordinates);
 
+        /** Creates a Position at the given vector, making a copy of the vector.
+         *
+         * The vector must have at least one element (0-dimension Positions are invalid).
+         */
+        Position(const std::vector<double> &coordinates);
+
         /** Creates a Position at the given vector, taking over the vector for position storage.
          *
          * The vector must have at least one element (0-dimension Positions are invalid).
@@ -44,12 +50,14 @@ class Position final {
          */
         static Position zero(const size_t dimensions);
 
-        /** Returns a random Position vector of length 1 of the given dimensionality.  The
-         * returned point is uniform across the surface of a hypersphere of the given dimensions.
+        /** Returns a random Position vector of (Euclidean) length 1 of the given dimensionality.
+         * The returned point is uniform over the surface of a hypersphere of the given number of
+         * dimensions.
          *
-         * To do this uniform hypersphere surface picking, this draw a N(0,1) for each dimension,
-         * then normalizes to a unit distance.  See
-         * http://mathworld.wolfram.com/HyperspherePointPicking.html
+         * boost::random::uniform_on_sphere is used for the calculation; for higher dimensions (and
+         * in boost versions prior to 1.56), this involves drawing N(0,1) values for each dimension
+         * and then multiplying the drawn values to have a unit length.  Newer versions of boost
+         * have more efficient alternatives for `dimensions <= 3`.
          */
         static Position random(const size_t dimensions);
 

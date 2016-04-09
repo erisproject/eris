@@ -1,4 +1,4 @@
-#include <eris/Random.hpp>
+#include <eris/random/distribution.hpp>
 #include <iostream>
 #include <fstream>
 #include <regex>
@@ -18,7 +18,7 @@ int main(int argc, char *argv[]) {
     unsigned long N = std::stoul(argv[1]);
     unsigned long K = std::stoul(argv[2]);
 
-    auto &seed = Random::seed();
+    auto &seed = random::seed();
     std::fstream csv("random-" + std::to_string(N) + "x" + std::to_string(K) + "-" + std::to_string(seed) + ".csv",
             std::fstream::out | std::fstream::trunc);
     csv << std::setprecision(std::numeric_limits<double>::max_digits10);
@@ -27,9 +27,9 @@ int main(int argc, char *argv[]) {
     csv << "u\n";
     for (unsigned long n = 0; n < N; n++) {
         for (unsigned long k = 0; k < K; k++) {
-            csv << Random::rstdnorm() << ",";
+            csv << random::rstdnorm() << ",";
         }
         // And finally the error term:
-        csv << Random::rstdnorm() << "\n";
+        csv << random::rstdnorm() << "\n";
     }
 }

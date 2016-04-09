@@ -1,4 +1,4 @@
-#include <eris/Random.hpp>
+#include <eris/random/distribution.hpp>
 #include <eris/belief/BayesianLinear.hpp>
 #include <boost/math/distributions/normal.hpp>
 #include <boost/math/distributions/complement.hpp>
@@ -103,7 +103,7 @@ int main(int argc, char *argv[]) {
                        upper_bound = (sample_y[i] ? std::numeric_limits<double>::infinity() : 0);
                 double mean = sample_x.row(i) * beta_last;
                 boost::math::normal_distribution<double> norm_dist(mean, s2);
-                std::normal_distribution<double> rnorm(mean, s2);
+                boost::random::normal_distribution<double> rnorm(mean, s2);
                 ystar[i] = Random::truncDist(norm_dist, rnorm, lower_bound, upper_bound, mean);
             }
             //ystar_sum += ystar;

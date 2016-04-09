@@ -1,5 +1,5 @@
 #include <eris/belief/BayesianLinear.hpp>
-#include <eris/Random.hpp>
+#include <eris/random/rng.hpp>
 #include <Eigen/QR>
 #include <Eigen/SVD>
 #include <iostream>
@@ -33,7 +33,7 @@ int main() {
     VectorXd y(100);
     VectorXd u(100);
 
-    auto &rng = Random::rng();
+    auto &rng = random::rng();
     std::normal_distribution<double> stdnormal;
 
     for (int t = 0; t < 100; t++) {

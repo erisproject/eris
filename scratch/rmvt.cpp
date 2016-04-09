@@ -1,7 +1,7 @@
 #include <iostream>
 #include <eris/belief/BayesianLinear.hpp>
 #include <Eigen/Cholesky>
-#include <eris/Random.hpp>
+#include <eris/random/rng.hpp>
 #include <list>
 #include <ctime>
 extern "C" {
@@ -64,7 +64,7 @@ int main() {
     std::ostringstream Rmvtnorm, Rmnormt;
 #define BOTH(WHATEVER) Rmvtnorm << WHATEVER; Rmnormt << WHATEVER
     Rmvtnorm << "require(mvtnorm,quietly=T);";
-    Rmnormt << "require(mnormt,quietly=T);set.seed(" << (int) eris::Random::rng()() << ");";
+    Rmnormt << "require(mnormt,quietly=T);set.seed(" << (int) eris::random::rng()() << ");";
     BOTH("S<-matrix(nrow=" << sigma.rows() << "," << matrix_to_Rc(sigma) << ");" <<
             "M<-" << matrix_to_Rc(mu) << ";");
     BOTH("t0<-proc.time()[3];");

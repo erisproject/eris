@@ -341,24 +341,6 @@ class BayesianLinearRestricted : public BayesianLinear {
          * \chi^2_{\overline{\nu}}\f$ restricted to the range of W that does not violate the prior
          * constraints.
          *
-         * \par Implementation details: drawing from truncated univariate distributions
-         *
-         * Drawing from truncated univariate distributions (specifically, a truncated standard
-         * normal, and truncated \f$\chi^2_{\overline{nu}}\f$) is done by converting the truncation
-         * endpoints into cdf values of the relevant distribution.  A uniform random value is then
-         * drawn from `[cdf(min), cdf(max)]`; the final value is then the distribution quantile for
-         * the drawn uniform value.
-         *
-         * In implementation details, there are some other optimizations that are done: first, if
-         * the truncated range doesn't actually truncate the support of the distribution, we just
-         * return a draw from the untruncated distribution.  Second, for cdf values above 0.5, cdf
-         * complements (i.e. `1 - cdf`) are used so that values far in the right tail of the
-         * distribution have approximately the same numerical precision as values in the left tail
-         * (in particular, cdf values as small as 2.2e-308 are handled in the left tail, and by
-         * using the complement, cdf values as close to 1 as `1 - 2.2e-308` can be handled.
-         * (Without this handling, values closer to 1 than approximately `1 - 4e-17` are numerically
-         * exactly equal to 1).
-         *
          */
         virtual const Eigen::VectorXd& drawGibbs();
 
