@@ -35,6 +35,7 @@ extern "C" {
 
 using clk = std::chrono::high_resolution_clock;
 using dur = std::chrono::duration<double>;
+using RealType = double;
 
 template <typename T>
 struct calls_result {
@@ -87,8 +88,21 @@ template <typename Callable> auto callTest(const Callable &callable, double seco
 
 // Default number of seconds to benchmark; 0 means 1 iteration (of 2 million calls)
 double bench_seconds = 0.0;
-// Benchmark a function by calling it for at least 2 seconds and printing the speed
-template <typename Callable> auto benchmark(const std::string &name, const Callable &c) -> decltype(c()) {
+// If non-empty, only run benchmark if its name contains one of these strings, OR the force argument
+// is given.  The int counts the number of matches (so that we can warn if something never matched).
+std::unordered_map<std::string, int> bench_only;
+// Benchmark a function by repeatedly calling it for at least incr times until at least `bench_seconds` has elapsed
+template <typename Callable> auto benchmark(const std::string &name, const Callable &c, bool force = false) -> decltype(c()) {
+    if (not force and not bench_only.empty()) {
+        bool found = false;
+        for (auto &s : bench_only) {
+            if (name.find(s.first) != name.npos) {
+                s.second++;
+                found = true;
+            }
+        }
+        if (not found) return std::numeric_limits<decltype(c())>::quiet_NaN();
+    }
     auto result = callTest(c, bench_seconds);
     last_benchmark_ns = 1000000000*result.seconds / result.calls;
 
@@ -151,12 +165,14 @@ double a0(const std::string &library, const double tol=1e-12) {
     return root([&c_HR, &c_ER, &c_sqrt](const double a) -> double {
         const double lambda = 0.5*(a + std::sqrt(a*a + 4));
         return
-            0.5 * c_HR
+        (
+            c_HR / 2 // /2 because our acceptance rate is double Phi(-a) that we divide by below
             -
             c_ER / (
                     boost::math::constants::root_two_pi<double>() * lambda * std::exp(-0.5*lambda*lambda + lambda*a)
                    )
-            - c_sqrt * cdf(complement(N01d, a));
+        ) / cdf(complement(N01d, a))
+        - c_sqrt; // ER also requires a sqrt (at least for values near the threshold)
     }, 0, 10, tol);
 }
 
@@ -218,7 +234,8 @@ double a0_simplify(const std::string &library, const double tol=1e-12) {
 // between ER and UR sampling equals the expected value of the cost increase due to using the
 // suboptimal UR when ER would be better.  The approximation is:
 //  1/a =~ 2/(a+sqrt(a^2+4))*exp((a^2-a*sqrt(a^2+4))/4 + 1/2)
-// where the extra cost of calculation involves one sqrt and one e^x.
+// where the extra cost of calculation involves an unavoidable sqrt, e^x, and division (plus various
+// relatively insignificant additions/multiplications).
 //
 // In short, when a is above the returned value, use the approximation to determine the threshold b
 // value above which ER is preferred.
@@ -227,7 +244,7 @@ double a0_simplify(const std::string &library, const double tol=1e-12) {
 //
 // Also note that this calculation doesn't use the cost of a division (which is typically around the
 // same as the cost of a square root) because the division in this case can be trivally eliminated by
-// converting it to a multiplication as needed. (e.g. instead of b < a + 1/a, calculate (b - a)*a < 1)
+// converting it to a multiplication as needed. (e.g. instead of b < a + 1/a, calculate b*a < a*a + 1)
 //
 // The approximation is always larger than the true value, and so errors here involve using UR when
 // ER would be better; the returned value is the point at which the extra cost of the full
@@ -244,10 +261,10 @@ double a0_simplify(const std::string &library, const double tol=1e-12) {
 // actually are) :
 //     - "sqrt" or "sqrt(f)" - the cost of a sqrt; the latter is used if float_op is true.
 //     - "e^x" or "e^x(f)" - the cost of calculating an exponential; the latter is used if float_op
-//     is true.
+//       is true.
 //
-// float_op - if true, use the float costs of sqrt and e^x instead of the double costs to calculate
-// the cost savings.
+// float_op - if true, use the float costs of sqrt, e^x, and division instead of the double costs to
+// calculate the cost savings.
 //
 // tol - the relative tolerance desired for the returned value.
 //
@@ -267,8 +284,9 @@ double a1(const std::string &library, bool float_op = false, const double tol=1e
     return root([&cer_over_cur, &ccheck_over_cur](const double a) -> double {
         const double sqrta2p4 = std::sqrt(a*a + 4);
         return
+            cer_over_cur *
             (
-                cer_over_cur * std::exp(-0.5*a*a)
+                std::exp(-0.5*a*a)
                 /
                 (boost::math::constants::root_two_pi<double>() * (cdf(complement(N01d, a)) - cdf(complement(N01d, a + cer_over_cur/a))))
             )
@@ -408,7 +426,9 @@ volatile const double
 
 volatile const float
         eightf = 8.f, minustwof = -2.f, tenf = 10.f, minustenf = -10.f, twof = 2.f, onehalff = 0.5f,
-        piandahalff = piandahalf, ef = boost::math::constants::e<float>();
+        piandahalff = piandahalf, ef = e, pif = pi;
+
+volatile const bool not_false = true, not_true = false;
 
 #define PRECISE(v) std::setprecision(std::numeric_limits<double>::max_digits10) << v << std::setprecision(6)
 
@@ -528,20 +548,22 @@ void benchmarkCalculations() {
     mean += benchmark("evaluate (f) log(piandahalf)", [&]() -> float { return std::log(piandahalff); });
     mean += benchmark("evaluate (f) log(e)", [&]() -> float { return std::log(ef); });
 
-    mean += benchmark("evaluate (d) sqrt(8)", [&]() -> double { return std::sqrt(eight); });
-    mean += benchmark("evaluate (d) sqrt(1.5pi)", [&]() -> double { return std::sqrt(piandahalf); });
+    mean += benchmark("evaluate sqrt(8)", [&]() -> double { return std::sqrt(eight); });
+    mean += benchmark("evaluate sqrt(1.5pi)", [&]() -> double { return std::sqrt(piandahalf); });
     c_op["sqrt"] = last_benchmark_ns;
     mean += benchmark("evaluate (f) sqrt(8)", [&]() -> float { return std::sqrt(eightf); });
     mean += benchmark("evaluate (f) sqrt(1.5pi)", [&]() -> float { return std::sqrt(piandahalff); });
     c_op["sqrt(f)"] = last_benchmark_ns;
 
     mean += benchmark("evaluate [1]/pi", [&]() -> double { return 1.0/pi; });
+    c_op["/"] = last_benchmark_ns;
     mean += benchmark("evaluate [1]/sqrt(pi)", [&]() -> double { return 1.0/std::sqrt(pi); });
     mean += benchmark("evaluate sqrt([1]/pi)", [&]() -> double { return std::sqrt(1.0/pi); });
 
-    mean += benchmark("evaluate [1]/pi", [&]() -> double { return 1.0/pi; });
-    mean += benchmark("evaluate [1]/sqrt(pi)", [&]() -> double { return 1.0/std::sqrt(pi); });
-    mean += benchmark("evaluate sqrt([1]/pi)", [&]() -> double { return std::sqrt(1.0/pi); });
+    mean += benchmark("evaluate (f) [1]/pi", [&]() -> float { return 1.0f/pi; });
+    c_op["/(f)"] = last_benchmark_ns;
+    mean += benchmark("evaluate (f) [1]/sqrt(pi)", [&]() -> float { return 1.0f/std::sqrt(pif); });
+    mean += benchmark("evaluate (f) sqrt([1]/pi)", [&]() -> float { return std::sqrt(1.0f/pif); });
 
     mean += benchmark("evaluate e*pi", [&]() -> double { return e*pi; });
     mean += benchmark("evaluate e+pi", [&]() -> double { return e+pi; });
@@ -595,6 +617,70 @@ void benchmarkBoost() {
     mean += benchmark("boost U[0,1] (pre-constructed)", [&runif]() -> double { return runif(rng_boost); });
     mean += benchmark("boost Exp(1) (pre-constructed)", [&rexp]() -> double { return rexp(rng_boost); });
 
+
+    mean += benchmark("boost NR", []() -> double {
+        double x;
+        const RealType _mean = onepointfive;
+        const RealType _sigma = pointone;
+        boost::random::normal_distribution<double> normal(_mean, _sigma);
+        // NB: these conditions should be extremely rare, so as to virtually never repeat
+        do { x = normal(rng_boost); } while (x < minusten or x > ten);
+        return x;
+    });
+    cost["boost"]["NR"] = last_benchmark_ns;
+
+    mean += benchmark("boost HR", []() -> double {
+        const RealType _mean = onepointfive;
+        const RealType _sigma = pointone;
+        const RealType signed_sigma(not_true ? -_sigma : _sigma);
+        RealType x;
+        do {
+            x = _mean + signed_sigma*fabs(boost::random::normal_distribution<RealType>()(rng_boost));
+        } while (x < minusten or x > ten);
+        return x;
+    });
+    cost["boost"]["HR"] = last_benchmark_ns;
+
+    mean += benchmark("boost ER", []() -> double {
+        boost::random::exponential_distribution<RealType> exponential;
+        const RealType _sigma = pointone;
+        const RealType _upper_limit = ten, _lower_limit = minusten;
+        const RealType exp_max_times_sigma = ten - pointone;
+        const RealType y_scale = 200 * ten;
+        const RealType x_scale = _sigma / two;
+        const RealType x_delta = onepointfive - two;
+        RealType x;
+        do {
+            // For 2-sided truncation, redraw z until we get one that won't exceed the
+            // outer limit; note that, if x is accepted, our final value will be
+            // (alpha + x/alpha)*sigma + mean, where alpha == a/sigma, the
+            // closer-to-mean limit (and positive; we handle the left tail at the end).
+            // Requiring that this be less than the outer limit is equivalent to
+            // requiring x < alpha*((up-low) / sigma).  The left tail yields exactly the
+            // same condition.
+            do { x = exponential(rng_boost) * x_scale; } while (_sigma * x > exp_max_times_sigma);
+            // x -> x + a - lambda
+        } while (exponential(rng_boost) * y_scale <= (x+x_delta)*(x+x_delta));
+
+        return not_true ? _upper_limit - x*_sigma : _lower_limit + x*_sigma;
+    });
+    cost["boost"]["ER"] = last_benchmark_ns;
+
+    using Unif01 = boost::random::uniform_01<RealType>;
+    mean += benchmark("boost UR", []() -> double {
+        RealType x, rho;
+        const RealType _ur_inv_2_sigma_squared = ten*200;
+        const RealType _ur_shift = two*two;
+        const RealType _mean = onepointfive;
+        boost::random::uniform_real_distribution<RealType> unif_ab(onepointfive, two);
+        do {
+            x = unif_ab(rng_boost);
+            rho = std::exp(_ur_inv_2_sigma_squared * (_ur_shift - (x - _mean)*(x - _mean)));
+        } while (Unif01()(rng_boost) > rho);
+        return x;
+    });
+    cost["boost"]["UR"] = last_benchmark_ns;
+
     if (mean == -123.456) std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 }
 
@@ -631,6 +717,68 @@ void benchmarkStl() {
     mean += benchmark("stl U[0,1] (pre-constructed)", [&runif]() -> double { return runif(rng_stl); });
     mean += benchmark("stl Exp(1) (pre-constructed)", [&rexp]() -> double { return rexp(rng_stl); });
 
+    mean += benchmark("stl NR", [&]() -> double {
+        double x;
+        const RealType _mean = onepointfive;
+        const RealType _sigma = pointone;
+        // NB: these conditions should be extremely rare, so as to virtually never repeat
+        do { x = _mean + _sigma*rnorm(rng_stl); } while (x < minusten or x > ten);
+        return x;
+    });
+    cost["stl"]["NR"] = last_benchmark_ns;
+
+    mean += benchmark("stl HR", [&]() -> double {
+        const RealType _mean = onepointfive;
+        const RealType _sigma = pointone;
+        const RealType signed_sigma(not_true ? -_sigma : _sigma);
+        RealType x;
+        do {
+            x = _mean + signed_sigma*fabs(rnorm(rng_stl));
+        } while (x < minustwo or x > ten);
+        return x;
+    });
+    cost["stl"]["HR"] = last_benchmark_ns;
+
+    mean += benchmark("stl ER", []() -> double {
+        std::exponential_distribution<RealType> exponential;
+        const RealType _sigma = pointone;
+        const RealType _upper_limit = ten, _lower_limit = minusten;
+        const RealType exp_max_times_sigma = ten - pointone;
+        const RealType y_scale = 200 * ten;
+        const RealType x_scale = _sigma / two;
+        const RealType x_delta = onepointfive - two;
+        RealType x;
+        do {
+            // For 2-sided truncation, redraw z until we get one that won't exceed the
+            // outer limit; note that, if x is accepted, our final value will be
+            // (alpha + x/alpha)*sigma + mean, where alpha == a/sigma, the
+            // closer-to-mean limit (and positive; we handle the left tail at the end).
+            // Requiring that this be less than the outer limit is equivalent to
+            // requiring x < alpha*((up-low) / sigma).  The left tail yields exactly the
+            // same condition.
+            do { x = exponential(rng_stl) * x_scale; } while (_sigma * x > exp_max_times_sigma);
+            // x -> x + a - lambda
+        } while (exponential(rng_stl) * y_scale <= (x+x_delta)*(x+x_delta));
+
+        return not_true ? _upper_limit - x*_sigma : _lower_limit + x*_sigma;
+    });
+    cost["stl"]["ER"] = last_benchmark_ns;
+
+    using Unif01 = std::uniform_real_distribution<double>;
+    mean += benchmark("stl UR", []() -> double {
+        RealType x, rho;
+        const RealType _ur_inv_2_sigma_squared = ten*200;
+        const RealType _ur_shift = two*two;
+        const RealType _mean = onepointfive;
+        std::uniform_real_distribution<RealType> unif_ab(onepointfive, two);
+        do {
+            x = unif_ab(rng_stl);
+            rho = std::exp(_ur_inv_2_sigma_squared * (_ur_shift - (x - _mean)*(x - _mean)));
+        } while (Unif01()(rng_stl) > rho);
+        return x;
+    });
+    cost["stl"]["UR"] = last_benchmark_ns;
+
     if (mean == -123.456) std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 }
 
@@ -663,102 +811,88 @@ void benchmarkGsl() {
     cost["gsl-BoxM"]["U"] = cost["gsl-ratio"]["U"] = cost["gsl-zigg"]["U"] = last_benchmark_ns;
     mean += benchmark("gsl Exp(1)", [&]() -> double { return gsl_ran_exponential(rng_gsl, 1); });
     cost["gsl-BoxM"]["Exp"] = cost["gsl-ratio"]["Exp"] = cost["gsl-zigg"]["Exp"] = last_benchmark_ns;
+
+    mean += benchmark("gsl NR", []() -> double {
+        double x;
+        const RealType _mean = onepointfive;
+        const RealType _sigma = pointone;
+        // NB: these conditions should be extremely rare, so as to virtually never repeat
+        do { x = _mean + gsl_ran_gaussian_ziggurat(rng_gsl, _sigma); } while (x < minusten or x > ten);
+        return x;
+    });
+    cost["gsl"]["NR"] = last_benchmark_ns;
+
+    mean += benchmark("gsl HR", []() -> double {
+        const RealType _mean = onepointfive;
+        const RealType _sigma = pointone;
+        const RealType signed_sigma(not_true ? -_sigma : _sigma);
+        RealType x;
+        do {
+            x = _mean + signed_sigma*fabs(gsl_ran_gaussian_ziggurat(rng_gsl, 1));
+        } while (x < minusten or x > ten);
+        return x;
+    });
+    cost["gsl"]["HR"] = last_benchmark_ns;
+
+    mean += benchmark("gsl ER", []() -> double {
+        const RealType _sigma = pointone;
+        const RealType _upper_limit = ten, _lower_limit = minusten;
+        const RealType exp_max_times_sigma = ten - pointone;
+        const RealType y_scale = 200 * ten;
+        const RealType x_scale = _sigma / two;
+        const RealType x_delta = onepointfive - two;
+        RealType x;
+        do {
+            // For 2-sided truncation, redraw z until we get one that won't exceed the
+            // outer limit; note that, if x is accepted, our final value will be
+            // (alpha + x/alpha)*sigma + mean, where alpha == a/sigma, the
+            // closer-to-mean limit (and positive; we handle the left tail at the end).
+            // Requiring that this be less than the outer limit is equivalent to
+            // requiring x < alpha*((up-low) / sigma).  The left tail yields exactly the
+            // same condition.
+            do { x = gsl_ran_exponential(rng_gsl, 1) * x_scale; } while (_sigma * x > exp_max_times_sigma);
+            // x -> x + a - lambda
+        } while (gsl_ran_exponential(rng_gsl, 1) * y_scale <= (x+x_delta)*(x+x_delta));
+
+        return not_true ? _upper_limit - x*_sigma : _lower_limit + x*_sigma;
+    });
+    cost["gsl"]["ER"] = last_benchmark_ns;
+
+    mean += benchmark("gsl UR", []() -> double {
+        RealType x, rho;
+        const RealType _ur_inv_2_sigma_squared = ten*200;
+        const RealType _ur_shift = two*two;
+        const RealType _mean = onepointfive;
+        do {
+            x = gsl_ran_flat(rng_gsl, onepointfive, two);
+            rho = std::exp(_ur_inv_2_sigma_squared * (_ur_shift - (x - _mean)*(x - _mean)));
+        } while (gsl_ran_flat(rng_gsl, 0, 1) > rho);
+        return x;
+    });
+    cost["gsl"]["UR"] = last_benchmark_ns;
+
     if (mean == -123.456) std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 }
 
 // This isn't really a benchmark: it just sets up the fairytale costs and constants by assuming that
 // all numerical calculations (even sqrt and e^x) are free, that draw costs are identical for all
-// distributions, and, that pairs of draws (as required for ER and UR) have the same cost as a
+// distributions, and, that *pairs* of draws (as required for ER and UR) have the same cost as a
 // single draw from (any) distribution.
 //
 // I call this the "fairytale" library for obvious reasons.
 //
 void benchmarkFairytale() {
     auto &cf = cost["fairytale"];
-    // All draws (and pairs of draws) have the same cost:
+    // All draws (and *pairs* of draws, for rejection sampling) have the same cost:
     for (const auto &dist : {"N", "U", "Exp", "NR", "HR", "ER", "UR"}) cf[dist] = 1;
     // All other operations are free:
-    for (const auto &op : {"e^x", "e^x(f)", "sqrt", "sqrt(f)"}) cf[op] = 0;
+    for (const auto &op : {"e^x", "e^x(f)", "sqrt", "sqrt(f)", "/", "/(f)"}) cf[op] = 0;
     //for (unsigned n = 2; n <= 8; n++) cf["e^x_T" + std::to_string(n)] = 0;
     cf["aTmin"] = std::numeric_limits<double>::infinity();
 }
 
 
-// Test the draw speed of various distributions
-int main(int argc, char *argv[]) {
-    // If we're given one argument, it's the number of seconds; if 2, it's seconds and a seed
-    unsigned long seed = 0;
-    if (argc < 1 or argc > 3) {
-        std::cerr << "Usage: " << argv[0] << " [SECONDS [SEED]]\n";
-        exit(1);
-    }
-    if (argc >= 2) {
-        try {
-            bench_seconds = boost::lexical_cast<double>(argv[1]);
-        }
-        catch (const boost::bad_lexical_cast &) {
-            std::cerr << "Invalid SECONDS value `" << argv[1] << "'\n\nUsage: " << argv[0] << " [SECONDS [SEED]]\n";
-        }
-    }
-    if (argc >= 3) {
-        try {
-            seed = boost::lexical_cast<decltype(seed)>(argv[2]);
-        }
-        catch (const boost::bad_lexical_cast &) {
-            std::cerr << "Invalid SEED value `" << argv[2] << "'\n\nUsage: " << argv[0] << " [SECONDS [SEED]]\n";
-            exit(1);
-        }
-    }
-    else {
-        std::random_device rd;
-        static_assert(sizeof(decltype(rd())) == 4, "Internal error: std::random_device doesn't give 32-bit values!?");
-        seed = (uint64_t(rd()) << 32) + rd();
-    }
-    std::cout << "Using mt19937 generator with seed = " << seed << std::endl;
-    std::cout << std::showpoint;
-    rng_stl.seed(seed);
-    rng_boost.seed(seed);
-    rng_gsl = gsl_rng_alloc(gsl_rng_mt19937);
-    gsl_rng_set(rng_gsl, seed);
-
-    double mean = 0;
-
-    // Modern CPUs have a variable clock, and may take a couple seconds to increase to maximum frequency, so
-    // run a fake test for a few seconds to (hopefully) get the CPU at full speed.
-    std::cout << "Busy-waiting to get CPU at full speed" << std::endl;
-    callTest([]() -> double { return 1.0; }, 3.0);
-
-    {
-        volatile const double __attribute__((aligned(16))) overheadd = 1.25;
-        mean += benchmark("overhead (d)", [&]() -> double { return overheadd; });
-        benchmark_overhead = last_benchmark_ns;
-
-        volatile const float __attribute__((aligned(16))) overheadf = 1.25;
-        mean += benchmark("overhead (f)", [&]() -> float { return overheadf; });
-        benchmark_overhead_f = last_benchmark_ns;
-    }
-
-    if (mean == -123.456) std::cout << "sum of these means: " << PRECISE(mean) << "\n";
-    std::cout << "\nNB: all following results are net of the above overhead values.\n" << std::endl;
-
-    // NB: square brackets around values below indicate compiler time constants (or, at least,
-    // constexprs, which should work the same if the compiler is optimizing)
-
-
-    benchmarkCalculations();
-
-    benchmarkBoost();
-    benchmarkStl();
-    benchmarkGsl();
-
-    benchmarkFairytale();
-
-    for (const auto &l : rng_libs) {
-        if (l == "fairytale") continue; // fairytale sets its own costs
-        cost[l]["HR"] = cost[l]["NR"] = cost[l].at("N");
-        cost[l]["ER"] = cost[l].at("Exp") + cost[l].at("U") + c_op.at("e^x");
-        cost[l]["UR"] = 2*cost[l].at("U") + c_op.at("e^x");
-    }
+void printSummary() {
 
     unsigned max_aTi = 1;
     for (const auto &l : rng_libs) {
@@ -784,14 +918,16 @@ int main(int argc, char *argv[]) {
         }
     }
 
+
     std::cout << "\n\n\nSummary:\n\n" <<
         std::fixed << std::setprecision(4) <<
 
         "\nOperations:\n\n" <<
       u8"    c_√                  = " << std::setw(8) << c_op["sqrt"] << "\n" <<
+      u8"    c_/                  = " << std::setw(8) << c_op["/"] << "\n" <<
       u8"    c_e^x                = " << std::setw(8) << c_op["e^x"] << "\n" <<
       u8"    c_e^x (T2 approx.)   = " << std::setw(8) << c_op["e^x_T2"] << "\n" <<
-      u8"    c_√ + c_e^x (double) = " << std::setw(8) << c_op["sqrt"] + c_op["e^x"] << "\n" <<
+      u8"    c_√ + c_e^x + c_/    = " << std::setw(8) << c_op["sqrt"] + c_op["e^x"] + c_op["/"] << "\n" <<
         "\n\n";
 
     constexpr int fieldwidth = 35;
@@ -800,34 +936,38 @@ int main(int argc, char *argv[]) {
     FOR_l { std::cout << std::setw(11) << std::right << l << " ";  }
     std::cout << "\n" << std::setw(4+fieldwidth) << "";
     for (unsigned i = 0; i < rng_libs.size(); i++) { std::cout << " -------    "; }
-    std::cout << "\n    " << std::setw(fieldwidth) << std::left << "c_HR = c_NR = c_N" << std::right;
-    FOR_l { std::cout << std::setw(8) << cost[l].at("NR") << "    "; }
+    std::cout << "\n    " << std::setw(fieldwidth) << std::left << "c_N" << std::right;
+    FOR_l { std::cout << std::setw(8) << cost[l].at("N") << "    "; }
     std::cout << "\n    " << std::setw(fieldwidth) << std::left << "c_U" << std::right;
     FOR_l { std::cout << std::setw(8) << cost[l].at("U") << "    "; }
     std::cout << "\n    " << std::setw(fieldwidth) << std::left << "c_Exp" << std::right;
     FOR_l { std::cout << std::setw(8) << cost[l].at("Exp") << "    "; }
-    std::cout << "\n    " << std::setw(fieldwidth) << std::left << "c_UR = 2 c_U + c_e^x" << std::right;
+    std::cout << "\n    " << std::setw(fieldwidth) << std::left << "c_NR" << std::right;
+    FOR_l { std::cout << std::setw(8) << cost[l].at("NR") << "    "; }
+    std::cout << "\n    " << std::setw(fieldwidth) << std::left << "c_HR" << std::right;
+    FOR_l { std::cout << std::setw(8) << cost[l].at("HR") << "    "; }
+    std::cout << "\n    " << std::setw(fieldwidth) << std::left << "c_UR ~~ 2 c_U + c_e^x" << std::right;
     FOR_l { std::cout << std::setw(8) << cost[l].at("UR") << "    "; }
-    std::cout << "\n    " << std::setw(fieldwidth) << std::left << "c_ER = c_Exp + c_e^x + c_U" << std::right;
+    std::cout << "\n    " << std::setw(fieldwidth) << std::left << "c_ER ~~ 2 c_Exp + c_/" << std::right;
     FOR_l { std::cout << std::setw(8) << cost[l].at("ER") << "    "; }
 
-    std::cout << u8"\n\n    a₀" << std::setw(fieldwidth) << std::left << u8" | c_ER, c_HR, c_√" << std::right;
+    std::cout << u8"\n\n    a₀: " << std::setw(fieldwidth-4) << std::left << u8"HR<>ER threshold" << std::right;
     FOR_l { std::cout << std::setw(8) << cost[l].at("a0") << "    "; }
 
-    std::cout << u8"\n\n    a₀'" << std::setw(fieldwidth-1) << std::left << u8" | c_ER, c_√" << std::right;
+    std::cout << u8"\n\n    " << std::setw(fieldwidth) << std::left << u8"use lambda=a above" << std::right;
     FOR_l { std::cout << std::setw(8) << cost[l].at("a0s") << "    "; }
 
     // NB: the string.length()-2 thing here is to fool setw into properly displaying the literal
     // utf8 label
-    std::cout << u8"\n\n    " << std::setw(fieldwidth+std::string{u8"₁√"}.length()-2) << std::left << "a₁ | c_ER, c_UR, c_√, c_e^x" << std::right;
+    std::cout << u8"\n\n    a₁: " << std::setw(fieldwidth-4) << std::left << "ER<>UR '1/a' simplification" << std::right;
     bool show_dagger = false;
     FOR_l { std::cout << std::setw(8) << cost[l].at("a1"); if (cost[l].at("a1") <= cost[l].at("a0")) { std::cout << u8"††  "; show_dagger = true; } else std::cout << "    "; }
     if (show_dagger)
-        std::cout << "\n    " << std::setw(fieldwidth) << "" << u8"††: a₁ ≤ a₀ ≤ a, so a ≥ a₁ is trivially satisfied";
+        std::cout << "\n    " << std::setw(fieldwidth) << "" << u8"††: a₁ ≤ a₀ ≤ a, so a ≥ a₁ is always satisfied";
     show_dagger = false;
 
     // b1: the value of b-a in straddling-0 truncation above which we prefer NR, below which, UR.
-    std::cout << "\n    " << std::setw(fieldwidth) << std::left << "b1 | c_ER, c_NR" << std::right;
+    std::cout << "\n    " << std::setw(fieldwidth) << std::left << "UR<>NR b-a threshold" << std::right;
     FOR_l { std::cout << std::setw(8) << cost[l].at("b1") << "    "; }
 
     /*
@@ -885,6 +1025,105 @@ int main(int argc, char *argv[]) {
         std::cout << ")";
     }
     std::cout << "\n);\n\n\n";
+}
+
+
+std::regex seconds_re("\\d+\\.?|\\d*\\.\\d+"),
+    seed_re("\\d+"),
+    help_re("-h|--help|-?");
+
+// Test the draw speed of various distributions
+int main(int argc, char *argv[]) {
+    // If we're given one argument, it's the number of seconds; if 2, it's seconds and a seed
+    unsigned long seed = 0;
+    bool need_help = false, saw_seconds = false, saw_seed = false;
+    for (int i = 1; i < argc; i++) {
+        std::string arg(argv[i]);
+        if (std::regex_match(arg, help_re)) {
+            need_help = true;
+        }
+        else if (not saw_seconds and std::regex_match(arg, seconds_re)) {
+            try {
+                bench_seconds = boost::lexical_cast<double>(arg);
+            }
+            catch (const boost::bad_lexical_cast &) {
+                std::cerr << "Invalid SECONDS value `" << arg << "'\n";
+                need_help = true;
+            }
+        }
+        else if (not saw_seed and std::regex_match(arg, seed_re)) {
+            try {
+                seed = boost::lexical_cast<decltype(seed)>(arg);
+            }
+            catch (const boost::bad_lexical_cast &) {
+                std::cerr << "Invalid SEED value `" << arg << "'\n";
+                need_help = true;
+            }
+        }
+        else {
+            bench_only[arg] = 0;
+        }
+    }
+
+    if (need_help) {
+        std::cerr << "Usage: " << argv[0] << " [SECONDS [SEED]] [TEST ...]\n\n";
+        std::cerr << "TEST is one or more substrings to match against test names: if provided, only\n" <<
+                     "matching benchmarks will be performed, and summary values will not be calculated\n";
+        exit(1);
+    }
+
+    if (not saw_seed) {
+        std::random_device rd;
+        static_assert(sizeof(decltype(rd())) == 4, "Internal error: std::random_device doesn't give 32-bit values!?");
+        seed = (uint64_t(rd()) << 32) + rd();
+    }
+    std::cout << "Using mt19937 generator with seed = " << seed << std::endl;
+    std::cout << std::showpoint;
+    rng_stl.seed(seed);
+    rng_boost.seed(seed);
+    rng_gsl = gsl_rng_alloc(gsl_rng_mt19937);
+    gsl_rng_set(rng_gsl, seed);
+
+    double mean = 0;
+
+    // Modern CPUs have a variable clock, and may take a couple seconds to increase to maximum frequency, so
+    // run a fake test for a few seconds to (hopefully) get the CPU at full speed.
+    std::cout << "Busy-waiting to get CPU at full speed" << std::endl;
+    callTest([]() -> double { return 1.0; }, 3.0);
+
+    {
+        volatile const double __attribute__((aligned(16))) overheadd = 1.25;
+        mean += benchmark("overhead (d)", [&]() -> double { return overheadd; }, true);
+        benchmark_overhead = last_benchmark_ns;
+
+        volatile const float __attribute__((aligned(16))) overheadf = 1.25;
+        mean += benchmark("overhead (f)", [&]() -> float { return overheadf; }, true);
+        benchmark_overhead_f = last_benchmark_ns;
+    }
+
+    if (mean == -123.456) std::cout << "sum of these means: " << PRECISE(mean) << "\n";
+    std::cout << "\nNB: all following results are net of the above overhead values.\n" << std::endl;
+
+    // NB: square brackets around values below indicate compiler time constants (or, at least,
+    // constexprs, which should work the same if the compiler is optimizing)
+
+
+    benchmarkCalculations();
+
+    benchmarkBoost();
+    benchmarkStl();
+    benchmarkGsl();
+
+    benchmarkFairytale();
+
+    if (bench_only.empty()) {
+        printSummary();
+    }
+    else {
+        for (const auto &b : bench_only) {
+            if (b.second == 0) std::cerr << "Warning: `" << b.first << "' didn't match any benchmarks\n";
+        }
+    }
 
     gsl_rng_free(rng_gsl);
 }
