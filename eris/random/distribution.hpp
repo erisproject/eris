@@ -45,7 +45,7 @@ inline double rstdnorm(double mean = 0.0, double stdev = 1.0) {
  * \param dist any floating point (typically double) distribution object which supports `cdf(dist,
  * x)`, `quantile(dist, p)`, `cdf(complement(dist, x))`, and `quantile(complement(dist, q))` calls,
  * and has a `value_type` member indicating the type of value handled by the distribution.  The
- * distribution objects supported by boost (such as `boost::math::normal_distribution` are
+ * distribution objects supported by boost (such as `boost::math::exponential_distribution`) are
  * intentionally suitable.
  *
  * \param generator a random number generator such that `generator(eris::Random::rng())` returns a
