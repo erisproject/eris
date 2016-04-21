@@ -1,6 +1,6 @@
 #include <eris/belief/BayesianLinear.hpp>
 #include <eris/random/rng.hpp>
-#include <eris/random/distribution.hpp>
+#include <eris/random/normal_distribution.hpp>
 #include <boost/random/chi_squared_distribution.hpp>
 #include <Eigen/QR>
 #include <Eigen/SVD>
@@ -180,7 +180,7 @@ MatrixXd BayesianLinear::predictGeneric(const Ref<const MatrixXd> &X, const std:
         for (unsigned c = (startr < err_rows ? 0 : startc); c < err_cols; c++) {
             // For the first startc columns, we need to draw values for any new rows; for startc and
             // beyond we need to draw values for every row:
-            boost::random::normal_distribution<double> err(0, std::sqrt(prediction_draws_(K_, c)));
+            eris::random::normal_distribution<double> err(0, std::sqrt(prediction_draws_(K_, c)));
             for (unsigned r = (c < startc ? startr : 0); r < err_rows; r++) {
                 prediction_errors_(r, c) = err(rng);
             }

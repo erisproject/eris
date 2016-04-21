@@ -1,10 +1,10 @@
 #pragma once
 #include <limits>
 #include <boost/random/detail/operators.hpp>
-#include <boost/random/normal_distribution.hpp>
+#include <eris/random/normal_distribution.hpp>
 #include <boost/random/uniform_real_distribution.hpp>
 #include <boost/random/uniform_01.hpp>
-#include <boost/random/exponential_distribution.hpp>
+#include <eris/random/exponential_distribution.hpp>
 #include <boost/math/constants/constants.hpp>
 #include <boost/core/scoped_enum.hpp>
 #include <iostream>
@@ -290,7 +290,7 @@ public:
             case Method::NORMAL:
                 {
                     RealType x;
-                    boost::random::normal_distribution<RealType> normal(_mean, _sigma);
+                    normal_distribution<RealType> normal(_mean, _sigma);
                     do { x = normal(eng); } while (x < _lower_limit or x > _upper_limit);
                     return x;
                 }
@@ -302,7 +302,7 @@ public:
                     const RealType signed_sigma(_left_tail ? -_sigma : _sigma);
                     RealType x;
                     do {
-                        x = _mean + signed_sigma*fabs(boost::random::normal_distribution<RealType>()(eng));
+                        x = _mean + signed_sigma*fabs(normal_distribution<RealType>()(eng));
                     } while (x < _lower_limit or x > _upper_limit);
                     return x;
                 }
@@ -322,7 +322,7 @@ public:
             // Exponential: used out in the tails; accept with appropriate acceptance rate
             case Method::EXPONENTIAL:
                 {
-                    boost::random::exponential_distribution<RealType> exponential;
+                    exponential_distribution<RealType> exponential;
                     const RealType exp_max_times_sigma = _upper_limit - _lower_limit;
                     const RealType y_scale = 2 * _sigma;
                     const RealType x_scale = _sigma / _er_lambda_times_sigma;

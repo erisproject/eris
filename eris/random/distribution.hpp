@@ -2,21 +2,21 @@
 #include <eris/random/rng.hpp>
 #include <stdexcept>
 #include <boost/math/distributions/normal.hpp>
-#include <boost/random/normal_distribution.hpp>
+#include <eris/random/normal_distribution.hpp>
 #include <boost/random/uniform_real_distribution.hpp>
 
 namespace eris { namespace random {
 
 /** Convenience method for obtaining a draw from a normal distribution using eris::random::rng().
  *
- * The current implementation uses boost::random::normal_distribution for draw, but that could
+ * The current implementation uses eris::random::normal_distribution for draw, but that could
  * change.
  *
  * \param mean the mean of the normal distribution; defaults to 0 if omitted.
  * \param stdev the standard deviation of the normal distribution; defaults to 1 if omitted.
  */
 inline double rstdnorm(double mean = 0.0, double stdev = 1.0) {
-    return boost::random::normal_distribution<double>(mean, stdev)(rng());
+    return normal_distribution<double>(mean, stdev)(rng());
 }
 
 
