@@ -32,7 +32,7 @@ struct truncnorm_threshold {
      *     - calculating sqrt()
      *     - calculating exp()
      */
-    static constexpr RealType hr_below_er_above = RealType(0.7565);
+    static constexpr RealType hr_below_er_above = RealType(0.7203);
 
     /* The value of the closer-to-mean limit, expressed as a standardized normal value (i.e.
      * \f$\alpha = \frac{\ell - \mu} / \sigma\f$) above which it is more efficient to use a numerical
@@ -56,7 +56,7 @@ struct truncnorm_threshold {
      *     - calculating sqrt()
      *     - calculating exp()
      */
-    static constexpr RealType simplify_er_ur_above = RealType(0.6234);
+    static constexpr RealType simplify_er_ur_above = RealType(0.6914);
 
     /* The value of the closer-to-mean limit, expressed as a standardized normal value (i.e.
      * \f$\alpha = \frac{\ell - \mu} / \sigma\f$) above which it is more efficient to use a numerical
@@ -73,8 +73,7 @@ struct truncnorm_threshold {
      *     - calculating sqrt()
      *     - calculating exp()
      */
-    static constexpr RealType simplify_er_lambda_above = RealType(1.6193);
-
+    static constexpr RealType simplify_er_lambda_above = RealType(1.6644);
 
     /* This is the threshold value for deciding between NR and UR b-a: when b-a is above this,
      * rejection sampling from a normal distribution is preferred; below this, uniform rejection
@@ -84,19 +83,19 @@ struct truncnorm_threshold {
      * cost (remember that a uniform sample iteration typically requires drawing 2 uniforms and
      * evaluating one exponential, while normal rejection simply involves drawing a normal).
      */
-    static constexpr RealType ur_below_nr_above = RealType(1.4621);
+    static constexpr RealType ur_below_nr_above = RealType(1.0393);
 
     /* This is the average cost of a *single iteration* of the drawing and accept/reject calculation
      * for exponential rejection sampling, relative to the equivalent cost of uniform rejection
      * sampling.  (Obtaining an accepted draw may require more than one iteration, but that
      * probability is handled externally to this value.)
      */
-    static constexpr RealType cost_er_rel_ur = RealType(0.9963);
+    static constexpr RealType cost_er_rel_ur = RealType(0.7997);
 
     /** This is the average cost of a single normal or halfnormal draw, relative to the cost of a
      * single uniform accept/reject iteration.
      */
-    static constexpr RealType cost_nr_rel_ur = RealType(0.5833);
+    static constexpr RealType cost_nr_rel_ur = RealType(0.4146);
 };
 
 /* The Taylor expansion order to use when approximating e^x when deciding between UR and HR.  The
