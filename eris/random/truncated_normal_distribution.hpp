@@ -75,41 +75,6 @@ struct truncnorm_threshold {
      */
     static constexpr RealType simplify_er_lambda_above = RealType(1.6193);
 
-    /* The Taylor expansion order to use when approximating e^x when deciding between UR and HR.  The
-     * minimum required approximation order depends on the specific value of `hr_below_er_above`
-     * and the speed of performing the approximation calculations; it is typically 1 or 2, but 2 or 3
-     * are often a better choice.
-     *
-     * draw-perf reports a few things in this regards: first, it reports whether a T1, T2, or higher
-     * order approximation is required for using the approximation to be at least as good as calculating
-     * the precise optimal value; this value should be no smaller than that.  For example, in my testing,
-     * for boost and gsl-zigg I get a value of 2, for the others a value of 1.
-     *
-     * Secondly, draw-pref reports the values of a at which a Tn approximation is preferred to a
-     * lower-order approximation--usually T{n-1}, but sometimes T{n-2}, depending on CPU/compiler
-     * optimizations.  For example (note that these values change slightly from run-to-run, and change
-     * more noticeably across compilers and CPUs), one run of draw-perf resulted in T2 being preferred
-     * above a=0.4987, but T3 being preferred above a=0.4791--in other words, T3 is always better than
-     * T2, and better than T1 for a > 0.4791.  T4 is preferred for a > 1.1656, but this is close enough
-     * to the reported a0 (1.3619) that it probably isn't worth doing, since it will be less efficient
-     * for values below the 1.1656 threshold.  So, since we need at least T2 to cover the [0,a0]
-     * potential range, and since T3 is apparently always better than T2, we use T3.
-     *
-     * It is, in theory, possible to use multiple approximations depending on the value of \f$\alpha\f$
-     * (continuing the above example, using T1 for [0,0.4791], T3 for (0.4791,1.1656], T4 for
-     * (1.1656,1.3619]), but in practice the overhead of checking and branching isn't worthwhile
-     * (especially when the highest we should use, according to draw-perf, is T4).
-     *
-     * Another possibility is to consider a Taylor expansion around another point--say, a0^2/4 (because
-     * we evaluate this approximation at a^2/2 for a between 0 and a0)--but this ends up trading away
-     * some accurancy near 0 for some accuracy near a0, but moreover is only slightly more accurate than
-     * T3 around a0, and much worse around 0; better, then, to use use T3.  (The story between T3@a and
-     * T4@0 is similar).  So again, not worth the effort.
-     *
-     * The current implementation supports values from 1 to 8 (and compiles away the 7 unused cases);
-     * the default is 3.
-     */
-    static constexpr int ur_hr_approximation_order = 3;
 
     /* This is the threshold value for deciding between NR and UR b-a: when b-a is above this,
      * rejection sampling from a normal distribution is preferred; below this, uniform rejection
@@ -133,6 +98,81 @@ struct truncnorm_threshold {
      */
     static constexpr RealType cost_nr_rel_ur = RealType(0.5833);
 };
+
+/* The Taylor expansion order to use when approximating e^x when deciding between UR and HR.  The
+ * minimum required approximation order depends on the specific value of `hr_below_er_above`
+ * and the speed of performing the approximation calculations; it is typically 1 or 2, but 2 or 3
+ * are often a better choice.
+ *
+ * This is currently a 3rd-order Taylor expansion of e^x, evaluated at 0 (and so, technically, a
+ * 3rd-order Maclaurin series expansion of e^x), because in practice a 3rd order expansion is almost
+ * always sufficient, and seems to have neglible computation cost over a 3nd order expansion.
+ *
+ * draw-perf reports a few things in this regards: first, it reports whether a T1, T2, or higher
+ * order approximation is required for using the approximation to be at least as good as calculating
+ * the precise optimal value; the order of this implementation should be no smaller than that.  For
+ * example, in my testing, for boost and gsl-zigg I get a value of 2, for the others a value of 1.
+ *
+ * Secondly, draw-pref reports the values of a at which a Tn approximation is preferred to a
+ * lower-order approximation--usually T{n-1}, but sometimes T{n-2}, depending on CPU/compiler
+ * optimizations.  For example (note that these values change slightly from run-to-run, and change
+ * more noticeably across compilers and CPUs), one run of draw-perf resulted in T2 being preferred
+ * above a=0.4987, but T3 being preferred above a=0.4791--in other words, T3 is always better than
+ * T2, and better than T1 for a > 0.4791.  T4 is preferred for a > 1.1656, but this is close enough
+ * to the reported a0 (1.3619) that it probably isn't worth doing, since it will be less efficient
+ * for values below the 1.1656 threshold.  So, since we need at least T2 to cover the [0,a0]
+ * potential range, and since T3 is apparently always better than T2, we use T3.
+ *
+ * It is, in theory, possible to use multiple approximations depending on the value of \f$\alpha\f$
+ * (continuing the above example, using T1 for [0,0.4791], T3 for (0.4791,1.1656], T4 for
+ * (1.1656,1.3619]), but in practice the overhead of checking and branching isn't worthwhile
+ * (especially when the highest we should use, according to draw-perf, is T4).
+ *
+ * Another possibility is to consider a Taylor expansion around another point--say, a0^2/4 (because
+ * we evaluate this approximation at a^2/2 for a between 0 and a0)--but this ends up trading away
+ * some accurancy near 0 for some accuracy near a0, and is only slightly more accurate than T3
+ * around a0, and much worse around 0; better, then, to use use T3.  (The story between T3@a and
+ * T4@0 is similar).  So again, not worth the effort.
+ *
+ * Currently supported values are from 0 to 5.
+ */
+#define ERIS_RANDOM_DETAIL_TRUNCATED_NORMAL_DISTRIBUTION_TAYLOR_ORDER 3
+
+// The Taylor expansion calculation itself
+template<class RealType = double>
+inline RealType exp_maclaurin(const RealType &x) {
+    return RealType(1)
+#if ERIS_RANDOM_DETAIL_TRUNCATED_NORMAL_DISTRIBUTION_TAYLOR_ORDER >= 1
+        + x * (RealType(1)
+#if ERIS_RANDOM_DETAIL_TRUNCATED_NORMAL_DISTRIBUTION_TAYLOR_ORDER >= 2
+        + x * (RealType(1)/2
+#if ERIS_RANDOM_DETAIL_TRUNCATED_NORMAL_DISTRIBUTION_TAYLOR_ORDER >= 3
+        + x * (RealType(1)/6
+#if ERIS_RANDOM_DETAIL_TRUNCATED_NORMAL_DISTRIBUTION_TAYLOR_ORDER >= 4
+        + x * (RealType(1)/24
+#if ERIS_RANDOM_DETAIL_TRUNCATED_NORMAL_DISTRIBUTION_TAYLOR_ORDER >= 5
+        + x * (RealType(1)/120
+#if ERIS_RANDOM_DETAIL_TRUNCATED_NORMAL_DISTRIBUTION_TAYLOR_ORDER >= 6
+#error Taylor orders above 5 are not implemented
+// If ever implementing this, note that above 5, it seems (at least with basic SSE optimizations) to
+// be faster to compute the expansion as:
+//     1 + x + x*x*(1/2 + 1/6*x + x*x*(1/24 + ...
+// instead of the alternative, used here, which is faster below 5:
+//     1 + x*(1 + x*(1/2 + ...
+//
+#endif
+        )
+#endif
+        )
+#endif
+        )
+#endif
+        )
+#endif
+        )
+#endif
+        ;
+}
 
 } // namespace detail
 
@@ -481,18 +521,12 @@ private:
 
             // Now 0 <= a < b
 
-            // 3rd-order Taylor approximation of e^x:
-            auto T3 = [](const RealType &x) {
-                return 1 + x*(1 + x*(1./2 + 1./6*x));
-            };
-
-
             // FIXME: these are temporary
-            auto f_1 = [this,&T3](const RealType &a) {
+            auto f_1 = [this](const RealType &a) {
                 // This division is unavoidable:
                 const RealType alpha = a/_sigma;
                 return a + boost::math::constants::root_half_pi<RealType>() *
-                    T3(RealType(0.5)*alpha*alpha);
+                    detail::exp_maclaurin(RealType(0.5)*alpha*alpha);
 //                    std::exp(RealType(0.5)*alpha*alpha);
             };
 
