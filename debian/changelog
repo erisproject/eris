@@ -1,4 +1,4 @@
-eris (1.0.0~pre20160409-1) UNRELEASED; urgency=medium
+eris (1.0.0~pre20160421-1) UNRELEASED; urgency=medium
 
   * 1.0.0 snapshot
   * Require Eigen 3.2.7+ for proper move support
@@ -11,7 +11,8 @@ eris (1.0.0~pre20160409-1) UNRELEASED; urgency=medium
   * Use boost for randomness (rng and distributions) instead of stl.  Boost's
     implementations are faster, especially for Normal (since 1.56.0); I've
     submitted patches to make normal a bit faster and exponential much faster,
-    forthcoming (hopefully) in 1.62.0.
+    forthcoming (hopefully) in 1.62.0.  Until then, these implementations are
+    included in eris/random/{normal,exponential}_distribution.hpp.
   * Initial bayesian probit class shell (WIP)
   * Documentation fixes/updates
   * BayesianLinear: matrix improvements; other fixes
