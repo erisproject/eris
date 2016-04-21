@@ -525,7 +525,7 @@ private:
             auto f_1 = [this](const RealType &a) {
                 // This division is unavoidable:
                 const RealType alpha = a/_sigma;
-                return a + boost::math::constants::root_half_pi<RealType>() *
+                return a + detail::truncnorm_threshold<RealType>::cost_nr_rel_ur * boost::math::constants::root_half_pi<RealType>() *
                     detail::exp_maclaurin(RealType(0.5)*alpha*alpha);
 //                    std::exp(RealType(0.5)*alpha*alpha);
             };
@@ -566,17 +566,17 @@ private:
                 if (detail::truncnorm_threshold<double>::simplify_er_ur_above < detail::truncnorm_threshold<double>::hr_below_er_above
                         or a >= _sigma*detail::truncnorm_threshold<RealType>::simplify_er_ur_above) {
                     // beta - alpha < c * (1/alpha), with beta=b/sigma, alpha=a/sigma becomes:
-                    if (b*a < a*a + _sigma*_sigma*detail::truncnorm_threshold<RealType>::cost_er_rel_ur) {
-                        _method = Method::UNIFORM;
-                        _ur_shift = a*a;
-                    }
-                    else {
+                    if (std::isinf(b) or b*a >= a*a + _sigma*_sigma*detail::truncnorm_threshold<RealType>::cost_er_rel_ur) {
                         _method = Method::EXPONENTIAL;
                         _er_a = a;
                         _er_lambda_times_sigma =
                             a >= _sigma * detail::truncnorm_threshold<RealType>::simplify_er_lambda_above
                             ? a
                             : RealType(0.5) * (a + sqrt(a*a + 4*_sigma*_sigma));
+                    }
+                    else {
+                        _method = Method::UNIFORM;
+                        _ur_shift = a*a;
                     }
                 }
                 else {
@@ -597,18 +597,19 @@ private:
                     // beta - alpha < c * 2/(alpha+sqrt(alpha^2+4)) * exp((alpha^2 - alpha*sqrt(alpha^2+4)) / 4 + 1/2)
                     //
                     // where alpha = a/sigma, beta = b/sigma.  Eliminating divisions leaves:
-                    if ((b-a)*rhs_denominator < _sigma * detail::truncnorm_threshold<RealType>::cost_er_rel_ur *
+                    if (std::isinf(b) or
+                            (b-a)*rhs_denominator < _sigma * detail::truncnorm_threshold<RealType>::cost_er_rel_ur *
                             RealType(2) * std::exp(RealType(0.5) + RealType(0.25) * (alpha*alpha - alpha*sqrtalpha2p4))
                        ) {
-                        _method = Method::UNIFORM;
-                        _ur_shift = a*a;
-                    }
-                    else {
                         _method = Method::EXPONENTIAL;
                         _er_a = a;
                         // We've already had to calculate the sqrt, so use it (i.e. replacing this
                         // with the approximation of a buys us nothing).
                         _er_lambda_times_sigma = 0.5 * (a + _sigma*sqrtalpha2p4);
+                    }
+                    else {
+                        _method = Method::UNIFORM;
+                        _ur_shift = a*a;
                     }
                 }
             }
