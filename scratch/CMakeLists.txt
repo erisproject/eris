@@ -10,9 +10,9 @@ endif()
 
 foreach(prog ${scratch_progs})
     add_executable(${prog} EXCLUDE_FROM_ALL "${prog}.cpp")
-    # draw-perf is special: it depends on gsl, and doesn't depend on eris
     if (prog STREQUAL "draw-perf")
-        target_link_libraries(${prog} ${GSL_LIBRARIES})
+        # draw-perf also depends on gsl
+        target_link_libraries(${prog} eris ${GSL_LIBRARIES})
     else()
         target_link_libraries(${prog} eris)
     endif()

@@ -2,21 +2,21 @@
 #include <eris/random/rng.hpp>
 #include <stdexcept>
 #include <boost/math/distributions/normal.hpp>
-#include <boost/random/normal_distribution.hpp>
+#include <eris/random/normal_distribution.hpp>
 #include <boost/random/uniform_real_distribution.hpp>
 
 namespace eris { namespace random {
 
 /** Convenience method for obtaining a draw from a normal distribution using eris::random::rng().
  *
- * The current implementation uses boost::random::normal_distribution for draw, but that could
+ * The current implementation uses eris::random::normal_distribution for draw, but that could
  * change.
  *
  * \param mean the mean of the normal distribution; defaults to 0 if omitted.
  * \param stdev the standard deviation of the normal distribution; defaults to 1 if omitted.
  */
 inline double rstdnorm(double mean = 0.0, double stdev = 1.0) {
-    return boost::random::normal_distribution<double>(mean, stdev)(rng());
+    return normal_distribution<double>(mean, stdev)(rng());
 }
 
 
@@ -45,7 +45,7 @@ inline double rstdnorm(double mean = 0.0, double stdev = 1.0) {
  * \param dist any floating point (typically double) distribution object which supports `cdf(dist,
  * x)`, `quantile(dist, p)`, `cdf(complement(dist, x))`, and `quantile(complement(dist, q))` calls,
  * and has a `value_type` member indicating the type of value handled by the distribution.  The
- * distribution objects supported by boost (such as `boost::math::normal_distribution` are
+ * distribution objects supported by boost (such as `boost::math::exponential_distribution`) are
  * intentionally suitable.
  *
  * \param generator a random number generator such that `generator(eris::Random::rng())` returns a
