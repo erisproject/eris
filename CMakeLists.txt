@@ -124,7 +124,10 @@ endif()
 
 target_link_libraries(eris ${CMAKE_THREAD_LIBS_INIT})
 
-add_subdirectory(scratch)
+option(SCRATCH "Enable build support for programs in scratch" ON)
+if (SCRATCH)
+    add_subdirectory(scratch)
+endif()
 
 if (API_DOCS)
     add_subdirectory(doc)
