@@ -1,7 +1,7 @@
-#include <eris/random/distribution.hpp>
+#include <eris/random/rng.hpp>
+#include <eris/random/normal_distribution.hpp>
+#include <eris/random/truncated_normal_distribution.hpp>
 #include <eris/belief/BayesianLinear.hpp>
-#include <boost/math/distributions/normal.hpp>
-#include <boost/math/distributions/complement.hpp>
 #include <iostream>
 #include <fstream>
 #include <algorithm>
@@ -18,6 +18,9 @@ int main(int argc, char *argv[]) {
     VectorXd sample_u;
     VectorXd beta0(k);
     beta0 << 0, 0.5;
+
+    auto &rng = eris::random::rng();
+    eris::random::normal_distribution<double> stdnorm;
 
     unsigned n = 0;
     // If given a CSV file, load the data from it
@@ -72,8 +75,8 @@ int main(int argc, char *argv[]) {
         sample_u = VectorXd(n);
         for (unsigned i = 0; i < n; i++) {
             sample_x(i, 0) = 1.0;
-            sample_x(i, 1) = Random::rstdnorm();
-            sample_u(i) = Random::rstdnorm();
+            sample_x(i, 1) = stdnorm(rng);
+            sample_u(i) = stdnorm(rng);
         }
     }
     VectorXd sample_y_latent(n);
@@ -81,8 +84,8 @@ int main(int argc, char *argv[]) {
     // e is also a N(0,1).
     for (unsigned i = 0; i < n; i++) {
         sample_x(i, 0) = 1;
-        sample_x(i, 1) = Random::rstdnorm();
-        sample_y_latent[i] = sample_x.row(i) * beta0 + Random::rstdnorm();
+        sample_x(i, 1) = stdnorm(rng);
+        sample_y_latent[i] = sample_x.row(i) * beta0 + stdnorm(rng);
     }
 
     //sample_y_latent = sample_x * beta0 + sample_u;
@@ -93,7 +96,7 @@ int main(int argc, char *argv[]) {
     MatrixXd beta_store(MatrixXd::Zero(k, draws));
 
     VectorXd ystar_sum(VectorXd::Zero(n));
-    double s2 = 1.0; // Leave fixed at 1 (identification condition)
+    const double sigma = 1.0; // Fix at 1 (identification condition)
 
     for (long d = -(long)burnin; d < draws; d++) {
         for (unsigned thin = thinning; thin > 0; thin--) {
@@ -102,9 +105,7 @@ int main(int argc, char *argv[]) {
                 double lower_bound = (sample_y[i] ? 0 : -std::numeric_limits<double>::infinity()),
                        upper_bound = (sample_y[i] ? std::numeric_limits<double>::infinity() : 0);
                 double mean = sample_x.row(i) * beta_last;
-                boost::math::normal_distribution<double> norm_dist(mean, s2);
-                boost::random::normal_distribution<double> rnorm(mean, s2);
-                ystar[i] = Random::truncDist(norm_dist, rnorm, lower_bound, upper_bound, mean);
+                ystar[i] = random::truncated_normal_distribution<double>(mean, sigma, lower_bound, upper_bound)(rng);
             }
             //ystar_sum += ystar;
 

@@ -1,6 +1,7 @@
 #pragma once
 #include <boost/random/mersenne_twister.hpp>
 #include <eris/noncopyable.hpp>
+#include <eris/random/normal_distribution.hpp>
 
 namespace eris {    
 /// Namespace for random number generation and distributions variables and functions

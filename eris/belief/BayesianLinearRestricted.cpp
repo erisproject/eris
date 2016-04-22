@@ -1,8 +1,8 @@
 #include <eris/belief/BayesianLinearRestricted.hpp>
 #include <eris/belief/BayesianLinear.hpp>
 #include <eris/random/rng.hpp>
-#include <eris/random/distribution.hpp>
 #include <eris/random/truncated_normal_distribution.hpp>
+#include <eris/random/truncated_distribution.hpp>
 #include <cmath>
 #include <boost/random/chi_squared_distribution.hpp>
 #include <boost/random/uniform_int_distribution.hpp>

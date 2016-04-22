@@ -1,27 +1,21 @@
 #pragma once
 #include <eris/random/rng.hpp>
 #include <stdexcept>
-#include <boost/math/distributions/normal.hpp>
-#include <eris/random/normal_distribution.hpp>
 #include <boost/random/uniform_real_distribution.hpp>
 
 namespace eris { namespace random {
 
-/** Convenience method for obtaining a draw from a normal distribution using eris::random::rng().
- *
- * The current implementation uses eris::random::normal_distribution for draw, but that could
- * change.
- *
- * \param mean the mean of the normal distribution; defaults to 0 if omitted.
- * \param stdev the standard deviation of the normal distribution; defaults to 1 if omitted.
- */
-inline double rstdnorm(double mean = 0.0, double stdev = 1.0) {
-    return normal_distribution<double>(mean, stdev)(rng());
-}
-
-
 /** Returns a draw from a truncated univariate distribution given the truncation points using
- * inverse CDF sampling.
+ * inverse CDF sampling.  This method is not particularly efficient, and will not work well for
+ * truncation regions far out in the tails of a distribution, but has the advantage of working with
+ * any distribution.
+ *
+ * If a specific distribution implementation is available, it is preferred to using this method.
+ * For normal distributions, use eris::random::truncated_normal_distribution instead; while this
+ * generic implementation will work, the alternative is considerably faster, more accurate, and can
+ * handle truncation ranges much further out in the tails of the distribution.
+ *
+ * # Implementation notes:
  *
  * If the given min and max values are at (or beyond) the minimum and maximum limits of the
  * distribution, a simple draw (without truncation) is returned from the distribution.  Otherwise,
@@ -33,9 +27,6 @@ inline double rstdnorm(double mean = 0.0, double stdev = 1.0) {
  * and the distribution quantile at that draw is returned.  (Note, however, that the implementation
  * is more sophisticated that this so as to ensure better numerical precision, in particular for
  * cases with CDF truncation ranges close to 1).
- *
- * This method implementation should not be used for drawing from a truncated normal distribution;
- * instead see eris::random::truncated_normal_distribution which is faster and more accurate.
  *
  * Note that when calculting a cdf and/or quantile is very expensive for a distribution, it is often
  * beneficial to use rejection sampling instead, particularly when the truncation region covers a
