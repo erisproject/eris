@@ -46,8 +46,8 @@ struct calls_result {
     T mean;
 };
 
-boost::random::mt19937 rng_boost;
-std::mt19937 rng_stl;
+boost::random::mt19937_64 rng_boost;
+std::mt19937_64 rng_stl;
 gsl_rng *rng_gsl;
 
 // library => { testname => cost }; if library is "", this is op costs

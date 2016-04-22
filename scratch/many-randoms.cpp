@@ -2,9 +2,9 @@
 #include <eris/random/truncated_distribution.hpp>
 #include <eris/random/truncated_normal_distribution.hpp>
 #include <boost/math/distributions/normal.hpp>
-#include <boost/random/normal_distribution.hpp>
+#include <eris/random/normal_distribution.hpp>
 #include <boost/random/uniform_real_distribution.hpp>
-#include <boost/random/exponential_distribution.hpp>
+#include <eris/random/exponential_distribution.hpp>
 #include <boost/multiprecision/cpp_dec_float.hpp>
 #include <random>
 #include <iostream>
@@ -26,7 +26,7 @@ int main(int argc, char *argv[]) {
     if (argc > 1) {
         std::string which(argv[nextarg++]);
         if (which == "N") {
-            gen = [&rng]() { return boost::random::normal_distribution<double>()(rng); };
+            gen = [&rng]() { return eris::random::normal_distribution<double>()(rng); };
             th_mean = "0"; th_var = "1"; th_skew = "0"; th_kurt = "3";
             std::cout << "Drawing from N(0,1)\n";
         }
@@ -88,7 +88,7 @@ int main(int argc, char *argv[]) {
             std::cout << "Drawing from U[0,1)\n";
         }
         else if (which == "E") {
-            gen = [&rng]() { return boost::random::exponential_distribution<double>()(rng); };
+            gen = [&rng]() { return eris::random::exponential_distribution<double>()(rng); };
             th_mean = "1"; th_var = "1"; th_skew = "2"; th_kurt = "9";
             std::cout << "Drawing from Exp(1)\n";
         }
