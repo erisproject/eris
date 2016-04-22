@@ -2,7 +2,7 @@
 #include <Eigen/SVD>
 #include <Eigen/QR>
 #include <Eigen/LU>
-#include <eris/random/distribution.hpp>
+#include <eris/random/util.hpp>
 #include <iostream>
 #include <map>
 #include <cstdlib>
@@ -32,7 +32,7 @@ int main() {
     beta0 << -1.4, .77, .01, .45;
     for (unsigned c = 0; c < Z.cols(); c++) {
         for (unsigned r = 0; r < n; r++) {
-            Z(r,c) = random::rstdnorm();
+            Z(r,c) = random::rnormal();
         }
     }
     X.col(0).setConstant(1);
@@ -41,7 +41,7 @@ int main() {
     X.col(3) = Z.col(5) - 97.5*Z.col(2);
     VectorXd u(X.rows());
     for (unsigned r = 0; r < n; r++) {
-        u[r] = 2.75*Random::rstdnorm();
+        u[r] = 2.75*random::rnormal();
     }
 
     MatrixXd y = X * beta0 + u;
@@ -69,7 +69,7 @@ int main() {
 
     VectorXd random(K);
     for (int i = 0; i < random.size(); i++) {
-        random[i] = Random::rstdnorm();
+        random[i] = random::rnormal();
     }
 
     std::cout << "CPQR SSR - SVD SSR: "   << (y - X * XtX.colPivHouseholderQr().solve(Xty)).squaredNorm() - svdSSR << "\n";
@@ -98,7 +98,7 @@ int main() {
     constexpr unsigned ndraws = 100000;
     MatrixXd rn01(K, ndraws);
     for (unsigned c = 0; c < rn01.cols(); c++) for (unsigned r = 0; r < rn01.rows(); r++) {
-        rn01(r,c) = Random::rstdnorm();
+        rn01(r,c) = random::rnormal();
     }
 
     std::map<std::string, MatrixXd> draws;

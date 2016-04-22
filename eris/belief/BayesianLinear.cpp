@@ -1,5 +1,6 @@
 #include <eris/belief/BayesianLinear.hpp>
 #include <eris/random/rng.hpp>
+#include <eris/random/util.hpp>
 #include <eris/random/normal_distribution.hpp>
 #include <boost/random/chi_squared_distribution.hpp>
 #include <Eigen/QR>
@@ -260,7 +261,7 @@ VectorXd BayesianLinear::multivariateNormal(const Ref<const VectorXd> &mu, const
     // of K random \f$N(\mu=0, \sigma^2=h^{-1})\f$ values.  Then \f$beta + Lz\f$ yields a \f$beta\f$
     // draw of the desired distribution.
     VectorXd z(mu.size());
-    for (unsigned int i = 0; i < z.size(); i++) z[i] = random::rstdnorm();
+    for (unsigned int i = 0; i < z.size(); i++) z[i] = random::rnormal();
 
     return mu + L * (s * z);
 }

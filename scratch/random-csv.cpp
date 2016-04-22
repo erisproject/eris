@@ -1,4 +1,4 @@
-#include <eris/random/distribution.hpp>
+#include <eris/random/util.hpp>
 #include <iostream>
 #include <fstream>
 #include <regex>
@@ -27,7 +27,7 @@ int main(int argc, char *argv[]) {
     csv << "u\n";
     for (unsigned long n = 0; n < N; n++) {
         for (unsigned long k = 0; k < K; k++) {
-            csv << random::rstdnorm() << ",";
+            csv << random::rnormal() << ",";
         }
         // And finally the error term:
         csv << random::rstdnorm() << "\n";

@@ -1,4 +1,5 @@
 #include <eris/random/rng.hpp>
+#include <eris/random/truncated_distribution.hpp>
 #include <eris/random/truncated_normal_distribution.hpp>
 #include <boost/math/distributions/normal.hpp>
 #include <boost/random/normal_distribution.hpp>
@@ -24,18 +25,28 @@ int main(int argc, char *argv[]) {
     int nextarg = 1;
     if (argc > 1) {
         std::string which(argv[nextarg++]);
-        if (which == "N" or which == "n") {
+        if (which == "N") {
             gen = [&rng]() { return boost::random::normal_distribution<double>()(rng); };
             th_mean = "0"; th_var = "1"; th_skew = "0"; th_kurt = "3";
             std::cout << "Drawing from N(0,1)\n";
         }
-        else if (which == "TN" or which == "tn" or which == "NT" or which == "nt") {
+        else if (which == "TN" or which == "TNG") {
             if (argc > nextarg+1) {
                 using std::pow;
                 double da = std::stod(argv[nextarg++]), db = std::stod(argv[nextarg++]);
-                gen = [&rng,da,db]() {
-                    return eris::random::truncated_normal_distribution<double>(0.0, 1.0, da, db)(rng);
-                };
+                if (which == "TN") {
+                    gen = [&rng,da,db]() {
+                        return eris::random::truncated_normal_distribution<double>(0.0, 1.0, da, db)(rng);
+                    };
+                }
+                else { // TNG: i.e. the generic version
+                    ;
+                    boost::math::normal_distribution<double> dnorm(0.0, 1.0);
+                    gen = [=]() {
+                        eris::random::normal_distribution<double> rnorm(0.0, 1.0);
+                        return eris::random::truncDist(dnorm, rnorm, da, db, 0.0);
+                    };
+                }
                 precise a = da, b = db;
                 // Work around boost bug #12112
                 if (std::isinf(da) and da < 0 and a > 0) a = -a;
@@ -63,18 +74,20 @@ int main(int argc, char *argv[]) {
                 { std::ostringstream ss; ss.precision(10); ss << V; th_var = ss.str(); }
                 { std::ostringstream ss; ss.precision(10); ss << s; th_skew = ss.str(); }
                 { std::ostringstream ss; ss.precision(10); ss << k; th_kurt = ss.str(); }
-                std::cout << "Drawing from TN(0,1,["<< a << "," << b << "])\n";
+                std::cout << "Drawing from TN(0,1,["<< a << "," << b << "])";
+                if (which == "TNG") std::cout << " using generic (instead of specialized) algorithm";
+                std::cout << std::endl;
             }
             else {
                 std::cerr << "Error: TN requires A (min) and B (max) parameters\n";
             }
         }
-        else if (which == "U" or which == "u") {
+        else if (which == "U") {
             gen = [&rng]() { return boost::random::uniform_real_distribution<double>()(rng); };
             th_mean = "0.5"; th_var = "0.08333..."; th_skew = "0"; th_kurt = "1.8";
             std::cout << "Drawing from U[0,1)\n";
         }
-        else if (which == "E" or which == "e") {
+        else if (which == "E") {
             gen = [&rng]() { return boost::random::exponential_distribution<double>()(rng); };
             th_mean = "1"; th_var = "1"; th_skew = "2"; th_kurt = "9";
             std::cout << "Drawing from Exp(1)\n";
@@ -97,8 +110,13 @@ int main(int argc, char *argv[]) {
     }
 
     if (bad_args) {
-        std::cerr << "Usage: " << argv[0] << " {E|N|U|TN A B} [COUNT] -- draw and report summary stats (mean/variance/skewness/kurtosis) of COUNT (default 10 million) draws from a distribution\n";
-        std::cerr << "\nDistributions: E - Exponential(1); N - Normal(0,1); U - Uniform[0,1); TN - Normal(0,1) truncated to the given [A,B]\n";
+        std::cerr << "Usage: " << argv[0] << " {E|N|U|TN[G] A B} [COUNT] -- draw and report summary stats (mean/variance/skewness/kurtosis) of COUNT (default 10 million) draws from a distribution\n";
+        std::cerr << "\nDistributions:\n" <<
+            "\tE - Exponential(1)\n" <<
+            "\tN - Normal(0,1)\n" <<
+            "\tU - Uniform[0,1)\n" <<
+            "\tTN - Normal(0,1) truncated to the given [A,B]\n" <<
+            "\tTNG - same as TN, but uses a generic, inverse-cdf truncated distribution generator\n";
 
         exit(1);
     }

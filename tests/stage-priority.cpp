@@ -5,7 +5,8 @@
 #include <eris/Optimize.hpp>
 #include <eris/intraopt/Callback.hpp>
 #include <eris/interopt/Callback.hpp>
-#include <eris/Random.hpp>
+#include <eris/random/rng.hpp>
+#include <eris/random/util.hpp>
 #include <cmath>
 #include <set>
 #include <gtest/gtest.h>
@@ -93,7 +94,7 @@ TEST(Stage, Ordering) {
 
     // Shuffle the ordering so that we don't get sequential ordering that "looks" right only because
     // of the order we added into the simulation
-    std::shuffle(order.begin(), order.end(), Random::rng());
+    std::shuffle(order.begin(), order.end(), random::rng());
 
     for (auto oc : order) {
         switch (oc) {
@@ -152,11 +153,11 @@ TEST(Stage, OrderingWithPriorities) {
 
     // Shuffle the ordering so that we don't get sequential ordering that "looks" right only because
     // of the order we added into the simulation
-    std::shuffle(order.begin(), order.end(), Random::rng());
+    std::shuffle(order.begin(), order.end(), random::rng());
 
     for (auto oc : order) {
         switch (oc) {
-#define CASE(Z, V) case OC::Z: sim->spawn<Z##Test>(Random::rstdnorm(), V); break
+#define CASE(Z, V) case OC::Z: sim->spawn<Z##Test>(random::rnormal(), V); break
             CASE(InterBegin, 1);
             CASE(InterOptimize, 2);
             CASE(InterApply, 3);
@@ -198,7 +199,7 @@ TEST(Priority, WithinStageOrdering) {
         order.emplace_back(std::numeric_limits<double>::infinity(), 8);
     }
 
-    std::shuffle(order.begin(), order.end(), Random::rng());
+    std::shuffle(order.begin(), order.end(), random::rng());
 
     for (auto &pair : order) {
         if (pair.first == 0) {
@@ -265,7 +266,7 @@ TEST(Priority, AcrossStageOrdering) {
         order.emplace_back(std::numeric_limits<double>::infinity(), 32);
     }
 
-    std::shuffle(order.begin(), order.end(), Random::rng());
+    std::shuffle(order.begin(), order.end(), random::rng());
 
     for (auto &pair : order) {
         if (pair.second <= 8) { // First block: interOptimize
