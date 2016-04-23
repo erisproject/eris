@@ -649,11 +649,11 @@ void benchmarkCalculations() {
         const RealType _ur_inv_2_sigma_squared = 50; \
         const RealType _ur_shift = _lower_limit*_lower_limit; \
         const RealType _mean = 0;
-#define BENCH_UR_END(lib, draw_x, draw_rho) \
+#define BENCH_UR_END(lib, draw_x, test_rho) \
         do { \
             x = (draw_x); \
             rho = std::exp(_ur_inv_2_sigma_squared * (_ur_shift - (x - _mean)*(x - _mean))); \
-        } while ((draw_rho) > rho); \
+        } while (test_rho); \
         return x; \
     }); \
     cost[lib]["UR"] = last_benchmark_ns * 0.9;
@@ -686,6 +686,7 @@ void benchmarkBoost(const std::string &key = "boost") {
     cost[key]["N"] = last_benchmark_ns;
     mean += benchmark(key + " U[0,1] (incl. construction)", []() -> double { return Uniform(0,1)(rng_boost); });
     cost[key]["U"] = last_benchmark_ns;
+    mean += benchmark(key + " U01 (incl. construction)", []() -> double { return Unif01()(rng_boost); });
     mean += benchmark(key + " Exp(1) (incl. construction)", []() -> double { return Exponential(1)(rng_boost); });
     cost[key]["Exp"] = last_benchmark_ns;
     Normal rnorm(0, 1);
@@ -706,7 +707,7 @@ void benchmarkBoost(const std::string &key = "boost") {
 
     BENCH_UR(key + " UR", key,
             Uniform(_lower_limit, _upper_limit)(rng_boost),
-            Unif01()(rng_boost));
+            Unif01()(rng_boost) > rho);
 
     if (mean == -123.456) std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 }
@@ -755,7 +756,7 @@ void benchmarkStl() {
 
     BENCH_UR("stl UR", "stl",
             std::uniform_real_distribution<RealType>(_lower_limit, _upper_limit)(rng_stl),
-            std::uniform_real_distribution<RealType>()(rng_stl));
+            std::uniform_real_distribution<RealType>()(rng_stl) > rho);
 
     if (mean == -123.456) std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 }
@@ -791,17 +792,17 @@ void benchmarkGsl() {
     cost["gsl-BoxM"]["Exp"] = cost["gsl-ratio"]["Exp"] = cost["gsl-zigg"]["Exp"] = last_benchmark_ns;
 
     BENCH_NR("gsl NR (ziggurat)", "gsl-zigg", _mean + gsl_ran_gaussian_ziggurat(rng_gsl, _sigma));
-    BENCH_HR("stl HR (ziggurat)", "gsl-zigg", gsl_ran_gaussian_ziggurat(rng_gsl, 1));
+    BENCH_HR("gsl HR (ziggurat)", "gsl-zigg", gsl_ran_gaussian_ziggurat(rng_gsl, 1));
 
     BENCH_NR("gsl NR (ratio)", "gsl-ratio", _mean + gsl_ran_gaussian_ratio_method(rng_gsl, _sigma));
-    BENCH_HR("stl HR (ratio)", "gsl-ratio", gsl_ran_gaussian_ratio_method(rng_gsl, 1));
+    BENCH_HR("gsl HR (ratio)", "gsl-ratio", gsl_ran_gaussian_ratio_method(rng_gsl, 1));
 
     BENCH_NR("gsl NR (Box-Muller)", "gsl-BoxM", _mean + gsl_ran_gaussian(rng_gsl, _sigma));
-    BENCH_HR("stl HR (Box-Muller)", "gsl-BoxM", gsl_ran_gaussian(rng_gsl, 1));
+    BENCH_HR("gsl HR (Box-Muller)", "gsl-BoxM", gsl_ran_gaussian(rng_gsl, 1));
 
     BENCH_ER("gsl ER", "gsl-zigg", gsl_ran_exponential(rng_gsl, 1));
 
-    BENCH_UR("gsl UR", "gsl-zigg", gsl_ran_flat(rng_gsl, _lower_limit, _upper_limit), gsl_ran_flat(rng_gsl, 0, 1));
+    BENCH_UR("gsl UR", "gsl-zigg", gsl_ran_flat(rng_gsl, _lower_limit, _upper_limit), gsl_ran_flat(rng_gsl, 0, 1) > rho);
 
     for (const auto &r : {"ER", "UR"}) for (const auto &g : {"gsl-BoxM", "gsl-ratio"})
         cost[g][r] = cost["gsl-zigg"][r];
