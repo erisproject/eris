@@ -25,7 +25,7 @@ struct truncnorm_threshold {
      * that on either side of this condition, we may still resort to uniform rejection sampling if b
      * is too close to a).
      */
-    static constexpr RealType hr_below_er_above = RealType(0.45);
+    static constexpr RealType hr_below_er_above = RealType(0.55);
 
     /* The value of the closer-to-mean limit, expressed as a standardized normal value (i.e.
      * \f$\alpha = \frac{\ell - \mu} / \sigma\f$) above which it is more efficient to use a numerical
@@ -59,17 +59,12 @@ struct truncnorm_threshold {
      * sampling.  (Obtaining an accepted draw may require more than one iteration, but that
      * probability is handled externally to this value.)
      */
-    static constexpr RealType cost_er_rel_ur = RealType(0.3660);
-
-    /** This is the average cost of a single normal draw, relative to the cost of a single uniform
-     * accept/reject iteration.
-     */
-    static constexpr RealType cost_nr_rel_ur = RealType(0.2464);
+    static constexpr RealType cost_er_rel_ur = RealType(0.3);
 
     /** This is the average cost of a single halfnormal draw, relative to the cost of a single
      * uniform accept/reject iteration.
      */
-    static constexpr RealType cost_hr_rel_ur = RealType(0.2750);
+    static constexpr RealType cost_hr_rel_ur = RealType(0.275);
 };
 
 /* The Taylor expansion order to use when approximating e^x when deciding between UR and HR.  The
