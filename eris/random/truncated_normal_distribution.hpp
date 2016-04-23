@@ -363,7 +363,6 @@ public:
                 {
                     exponential_distribution<RealType> exponential;
                     const RealType exp_max_times_sigma = _upper_limit - _lower_limit;
-                    const RealType y_scale = 2 * _sigma;
                     const RealType x_scale = _sigma / _er_lambda_times_sigma;
                     const RealType x_delta = _er_a - _er_lambda_times_sigma;
                     RealType x;
@@ -377,7 +376,7 @@ public:
                         // same condition.
                         do { x = exponential(eng) * x_scale; } while (_sigma * x > exp_max_times_sigma);
                         // x -> x + a - lambda
-                    } while (exponential(eng) * y_scale <= (x+x_delta)*(x+x_delta));
+                    } while (2 * exponential(eng) <= (x+x_delta)*(x+x_delta));
 
                     return _left_tail ? _upper_limit - x*_sigma : _lower_limit + x*_sigma;
                 }

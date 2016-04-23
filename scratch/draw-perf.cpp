@@ -626,17 +626,16 @@ void benchmarkCalculations() {
 #define BENCH_ER_START(name) \
     mean += benchmark(name, [&]() -> double { \
         const RealType _sigma = 0.1; \
-        const RealType _upper_limit = std::numeric_limits<RealType>::infinity(), _lower_limit = .2325617; \
+        const RealType _upper_limit = std::numeric_limits<RealType>::infinity(), _lower_limit = .373015; \
         const RealType a = _lower_limit - 0.1; \
-        const RealType exp_max_times_sigma = _upper_limit; \
-        const RealType y_scale = 2 * _sigma; \
-        const RealType x_scale = _sigma / RealType(0.5) * (a + sqrt(a*a + 4*_sigma*_sigma)); \
-        const RealType x_delta = a; \
+        const RealType exp_max_times_sigma = _upper_limit - _lower_limit; \
+        const RealType x_scale = _sigma / a; \
+        const RealType x_delta = 0; \
         RealType x;
 #define BENCH_ER_END(lib, draw_exp) \
         do { \
             do { x = (draw_exp) * x_scale; } while (_sigma * x > exp_max_times_sigma); \
-        } while ((draw_exp) * y_scale <= (x+x_delta)*(x+x_delta)); \
+        } while (2 * (draw_exp) <= (x+x_delta)*(x+x_delta)); \
         return not_true ? _upper_limit - x*_sigma : _lower_limit + x*_sigma; \
     }); \
     cost[lib]["ER"] = last_benchmark_ns * 0.9;
