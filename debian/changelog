@@ -1,4 +1,4 @@
-eris (1.0.0~pre20160421-1) UNRELEASED; urgency=medium
+eris (1.0.0~pre20160424-1) UNRELEASED; urgency=medium
 
   * 1.0.0 snapshot
   * Require Eigen 3.2.7+ for proper move support
