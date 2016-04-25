@@ -2,9 +2,10 @@
 #include <eris/random/truncated_distribution.hpp>
 #include <eris/random/truncated_normal_distribution.hpp>
 #include <boost/math/distributions/normal.hpp>
-#include <boost/random/normal_distribution.hpp>
 #include <boost/random/uniform_real_distribution.hpp>
-#include <boost/random/exponential_distribution.hpp>
+#include <eris/random/normal_distribution.hpp>
+#include <eris/random/halfnormal_distribution.hpp>
+#include <eris/random/exponential_distribution.hpp>
 #include <boost/multiprecision/cpp_dec_float.hpp>
 #include <random>
 #include <iostream>
@@ -17,6 +18,10 @@ using dur = std::chrono::duration<double>;
 
 using precise = boost::multiprecision::cpp_dec_float_100;
 
+// Shift the distribution parameters by this tiny amount so that internal calculations won't be
+// trivial operations involving 1 or 0.
+constexpr double approx_zero = 1e-12, approx_one = 1 + 1e-12;
+
 int main(int argc, char *argv[]) {
     auto &rng = eris::random::rng();
 
@@ -26,7 +31,7 @@ int main(int argc, char *argv[]) {
     if (argc > 1) {
         std::string which(argv[nextarg++]);
         if (which == "N") {
-            gen = [&rng]() { return boost::random::normal_distribution<double>()(rng); };
+            gen = [&rng]() { return eris::random::normal_distribution<double>(approx_zero, approx_one)(rng); };
             th_mean = "0"; th_var = "1"; th_skew = "0"; th_kurt = "3";
             std::cout << "Drawing from N(0,1)\n";
         }
@@ -35,16 +40,23 @@ int main(int argc, char *argv[]) {
                 using std::pow;
                 double da = std::stod(argv[nextarg++]), db = std::stod(argv[nextarg++]);
                 if (which == "TN") {
-                    gen = [&rng,da,db]() {
-                        return eris::random::truncated_normal_distribution<double>(0.0, 1.0, da, db)(rng);
-                    };
+                    if (da == 0 and std::isinf(db)) {
+                        gen = [&rng]() {
+                            return eris::random::halfnormal_distribution<double>(approx_zero, approx_one)(rng);
+                        };
+                    }
+                    else {
+                        gen = [&rng,da,db]() {
+                            return eris::random::truncated_normal_distribution<double>(approx_zero, approx_one, da, db)(rng);
+                        };
+                    }
                 }
                 else { // TNG: i.e. the generic version
                     ;
-                    boost::math::normal_distribution<double> dnorm(0.0, 1.0);
+                    boost::math::normal_distribution<double> dnorm(approx_zero, approx_one);
                     gen = [=]() {
-                        eris::random::normal_distribution<double> rnorm(0.0, 1.0);
-                        return eris::random::truncDist(dnorm, rnorm, da, db, 0.0);
+                        eris::random::normal_distribution<double> rnorm(approx_zero, approx_one);
+                        return eris::random::truncDist(dnorm, rnorm, da, db, approx_zero);
                     };
                 }
                 precise a = da, b = db;
@@ -53,6 +65,8 @@ int main(int argc, char *argv[]) {
 
                 // Use extra precision here because we can generate values that are sufficient to
                 // underflow some of the below calculations when using doubles.
+                // (Note also that we aren't applying the shift here, because it's small enough that
+                // it shouldn't really affect the results relative the the sampling noise).
                 boost::math::normal_distribution<precise> N01;
                 complement(N01, a);
                 complement(N01, b);
@@ -83,12 +97,12 @@ int main(int argc, char *argv[]) {
             }
         }
         else if (which == "U") {
-            gen = [&rng]() { return boost::random::uniform_real_distribution<double>()(rng); };
+            gen = [&rng]() { return boost::random::uniform_real_distribution<double>(approx_zero, approx_one)(rng); };
             th_mean = "0.5"; th_var = "0.08333..."; th_skew = "0"; th_kurt = "1.8";
             std::cout << "Drawing from U[0,1)\n";
         }
         else if (which == "E") {
-            gen = [&rng]() { return boost::random::exponential_distribution<double>()(rng); };
+            gen = [&rng]() { return eris::random::exponential_distribution<double>(approx_one)(rng); };
             th_mean = "1"; th_var = "1"; th_skew = "2"; th_kurt = "9";
             std::cout << "Drawing from Exp(1)\n";
         }

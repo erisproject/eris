@@ -2,7 +2,7 @@
 #include <eris/random/rng.hpp>
 #include <eris/random/normal_distribution.hpp>
 #include <boost/random/uniform_real_distribution.hpp>
-#include <boost/random/bernoulli_distribution.hpp>
+#include <boost/random/uniform_01.hpp>
 
 // Utility/shortcut methods that don't fit nicely elsewhere.
 
@@ -34,14 +34,13 @@ inline double runiform(double a = 0.0, double b = 1.0) {
     return boost::random::uniform_real_distribution<double>(a, b)(rng());
 }
 
-/** Returns the true/false result of a (weighted) coin flip using boost::random::bernoulli
- * distribution and eris::random::rng().  The default, if no argument is given, is an equal
- * probability of true or false.
+/** Returns the true/false result of a (weighted) coin flip that returns true with the given
+ * probability.  The default, if no argument is given, is an equal probability of true or false.
  *
  * \param weight the probability of a "true" result; defaults to 0.5 if omitted.
  */
 inline bool rcoin(double prob = 0.5) {
-    return boost::random::bernoulli_distribution<double>(prob)(rng());
+    return boost::random::uniform_01<double>()(rng()) < prob;
 }
 
 }}

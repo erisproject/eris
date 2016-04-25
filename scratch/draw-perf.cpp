@@ -5,6 +5,7 @@
 #include <boost/math/distributions/normal.hpp>
 #include <boost/lexical_cast.hpp>
 #include <eris/random/normal_distribution.hpp>
+#include <eris/random/halfnormal_distribution.hpp>
 #include <eris/random/exponential_distribution.hpp>
 #include <random>
 #include <iomanip>
@@ -46,8 +47,8 @@ struct calls_result {
     T mean;
 };
 
-boost::random::mt19937 rng_boost;
-std::mt19937 rng_stl;
+boost::random::mt19937_64 rng_boost;
+std::mt19937_64 rng_stl;
 gsl_rng *rng_gsl;
 
 // library => { testname => cost }; if library is "", this is op costs
@@ -609,34 +610,33 @@ void benchmarkCalculations() {
 // Macro for doing the above when no pre-loop initialization is needed
 #define BENCH_NR(name, lib, draw_call) BENCH_NR_START(name) BENCH_NR_END(lib, draw_call)
 
-// Same as above, but for half-normal; draw_call should return a standard normal
+// Same as above, but for half-normal; draw_std_halfnormal should return a half-normal draw
 #define BENCH_HR_START(name) \
     mean += benchmark(name, [&]() -> double { \
         const RealType _mean = 0.2, _sigma = 0.1, _upper_limit = 0.3879895, _lower_limit = .205; \
         const RealType signed_sigma(not_true ? -_sigma : _sigma); \
         RealType x;
-#define BENCH_HR_END(lib, draw_std_normal) \
-        do { x = _mean + signed_sigma*fabs(draw_std_normal); } while (x < _lower_limit or x > _upper_limit); \
+#define BENCH_HR_END(lib, draw_std_halfnormal) \
+        do { x = _mean + signed_sigma*(draw_std_halfnormal); } while (x < _lower_limit or x > _upper_limit); \
         return x; \
     }); \
     cost[lib]["HR"] = last_benchmark_ns * 0.9;
-#define BENCH_HR(name, lib, draw_std_normal) BENCH_HR_START(name) BENCH_HR_END(lib, draw_std_normal)
+#define BENCH_HR(name, lib, draw_std_halfnormal) BENCH_HR_START(name) BENCH_HR_END(lib, draw_std_halfnormal)
 
 // Same as above, but for half-normal; draw_exp should return an exponential(1) draw.
 #define BENCH_ER_START(name) \
     mean += benchmark(name, [&]() -> double { \
         const RealType _sigma = 0.1; \
-        const RealType _upper_limit = std::numeric_limits<RealType>::infinity(), _lower_limit = .2325617; \
+        const RealType _upper_limit = std::numeric_limits<RealType>::infinity(), _lower_limit = .373015; \
         const RealType a = _lower_limit - 0.1; \
-        const RealType exp_max_times_sigma = _upper_limit; \
-        const RealType y_scale = 2 * _sigma; \
-        const RealType x_scale = _sigma / RealType(0.5) * (a + sqrt(a*a + 4*_sigma*_sigma)); \
-        const RealType x_delta = a; \
+        const RealType exp_max_times_sigma = _upper_limit - _lower_limit; \
+        const RealType x_scale = _sigma / a; \
+        const RealType x_delta = 0; \
         RealType x;
 #define BENCH_ER_END(lib, draw_exp) \
         do { \
             do { x = (draw_exp) * x_scale; } while (_sigma * x > exp_max_times_sigma); \
-        } while ((draw_exp) * y_scale <= (x+x_delta)*(x+x_delta)); \
+        } while (2 * (draw_exp) <= (x+x_delta)*(x+x_delta)); \
         return not_true ? _upper_limit - x*_sigma : _lower_limit + x*_sigma; \
     }); \
     cost[lib]["ER"] = last_benchmark_ns * 0.9;
@@ -650,11 +650,11 @@ void benchmarkCalculations() {
         const RealType _ur_inv_2_sigma_squared = 50; \
         const RealType _ur_shift = _lower_limit*_lower_limit; \
         const RealType _mean = 0;
-#define BENCH_UR_END(lib, draw_x, draw_rho) \
+#define BENCH_UR_END(lib, draw_x, test_rho) \
         do { \
             x = (draw_x); \
             rho = std::exp(_ur_inv_2_sigma_squared * (_ur_shift - (x - _mean)*(x - _mean))); \
-        } while ((draw_rho) > rho); \
+        } while (test_rho); \
         return x; \
     }); \
     cost[lib]["UR"] = last_benchmark_ns * 0.9;
@@ -687,6 +687,7 @@ void benchmarkBoost(const std::string &key = "boost") {
     cost[key]["N"] = last_benchmark_ns;
     mean += benchmark(key + " U[0,1] (incl. construction)", []() -> double { return Uniform(0,1)(rng_boost); });
     cost[key]["U"] = last_benchmark_ns;
+    mean += benchmark(key + " U01 (incl. construction)", []() -> double { return Unif01()(rng_boost); });
     mean += benchmark(key + " Exp(1) (incl. construction)", []() -> double { return Exponential(1)(rng_boost); });
     cost[key]["Exp"] = last_benchmark_ns;
     Normal rnorm(0, 1);
@@ -696,10 +697,14 @@ void benchmarkBoost(const std::string &key = "boost") {
     mean += benchmark(key + " U[0,1] (pre-constructed)", [&runif]() -> double { return runif(rng_boost); });
     mean += benchmark(key + " Exp(1) (pre-constructed)", [&rexp]() -> double { return rexp(rng_boost); });
 
-
     BENCH_NR(key + " NR", key, Normal(_mean, _sigma)(rng_boost));
 
-    BENCH_HR(key + " HR", key, Normal()(rng_boost));
+    if (std::is_same<Normal, eris::random::normal_distribution<double>>::value) {
+        BENCH_HR(key + " HR", key, eris::random::halfnormal_distribution<double>()(rng_boost));
+    }
+    else {
+        BENCH_HR(key + " HR", key, std::fabs(Normal()(rng_boost)));
+    }
 
     BENCH_ER_START(key + " ER");
     Exponential exponential;
@@ -707,7 +712,7 @@ void benchmarkBoost(const std::string &key = "boost") {
 
     BENCH_UR(key + " UR", key,
             Uniform(_lower_limit, _upper_limit)(rng_boost),
-            Unif01()(rng_boost));
+            Unif01()(rng_boost) > rho);
 
     if (mean == -123.456) std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 }
@@ -756,7 +761,7 @@ void benchmarkStl() {
 
     BENCH_UR("stl UR", "stl",
             std::uniform_real_distribution<RealType>(_lower_limit, _upper_limit)(rng_stl),
-            std::uniform_real_distribution<RealType>()(rng_stl));
+            std::uniform_real_distribution<RealType>()(rng_stl) > rho);
 
     if (mean == -123.456) std::cout << "sum of these means: " << PRECISE(mean) << "\n";
 }
@@ -792,17 +797,17 @@ void benchmarkGsl() {
     cost["gsl-BoxM"]["Exp"] = cost["gsl-ratio"]["Exp"] = cost["gsl-zigg"]["Exp"] = last_benchmark_ns;
 
     BENCH_NR("gsl NR (ziggurat)", "gsl-zigg", _mean + gsl_ran_gaussian_ziggurat(rng_gsl, _sigma));
-    BENCH_HR("stl HR (ziggurat)", "gsl-zigg", gsl_ran_gaussian_ziggurat(rng_gsl, 1));
+    BENCH_HR("gsl HR (ziggurat)", "gsl-zigg", gsl_ran_gaussian_ziggurat(rng_gsl, 1));
 
     BENCH_NR("gsl NR (ratio)", "gsl-ratio", _mean + gsl_ran_gaussian_ratio_method(rng_gsl, _sigma));
-    BENCH_HR("stl HR (ratio)", "gsl-ratio", gsl_ran_gaussian_ratio_method(rng_gsl, 1));
+    BENCH_HR("gsl HR (ratio)", "gsl-ratio", gsl_ran_gaussian_ratio_method(rng_gsl, 1));
 
     BENCH_NR("gsl NR (Box-Muller)", "gsl-BoxM", _mean + gsl_ran_gaussian(rng_gsl, _sigma));
-    BENCH_HR("stl HR (Box-Muller)", "gsl-BoxM", gsl_ran_gaussian(rng_gsl, 1));
+    BENCH_HR("gsl HR (Box-Muller)", "gsl-BoxM", gsl_ran_gaussian(rng_gsl, 1));
 
     BENCH_ER("gsl ER", "gsl-zigg", gsl_ran_exponential(rng_gsl, 1));
 
-    BENCH_UR("gsl UR", "gsl-zigg", gsl_ran_flat(rng_gsl, _lower_limit, _upper_limit), gsl_ran_flat(rng_gsl, 0, 1));
+    BENCH_UR("gsl UR", "gsl-zigg", gsl_ran_flat(rng_gsl, _lower_limit, _upper_limit), gsl_ran_flat(rng_gsl, 0, 1) > rho);
 
     for (const auto &r : {"ER", "UR"}) for (const auto &g : {"gsl-BoxM", "gsl-ratio"})
         cost[g][r] = cost["gsl-zigg"][r];
