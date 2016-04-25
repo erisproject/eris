@@ -5,6 +5,7 @@
 #include <boost/math/distributions/normal.hpp>
 #include <boost/lexical_cast.hpp>
 #include <eris/random/normal_distribution.hpp>
+#include <eris/random/halfnormal_distribution.hpp>
 #include <eris/random/exponential_distribution.hpp>
 #include <random>
 #include <iomanip>
@@ -609,18 +610,18 @@ void benchmarkCalculations() {
 // Macro for doing the above when no pre-loop initialization is needed
 #define BENCH_NR(name, lib, draw_call) BENCH_NR_START(name) BENCH_NR_END(lib, draw_call)
 
-// Same as above, but for half-normal; draw_call should return a standard normal
+// Same as above, but for half-normal; draw_std_halfnormal should return a half-normal draw
 #define BENCH_HR_START(name) \
     mean += benchmark(name, [&]() -> double { \
         const RealType _mean = 0.2, _sigma = 0.1, _upper_limit = 0.3879895, _lower_limit = .205; \
         const RealType signed_sigma(not_true ? -_sigma : _sigma); \
         RealType x;
-#define BENCH_HR_END(lib, draw_std_normal) \
-        do { x = _mean + signed_sigma*fabs(draw_std_normal); } while (x < _lower_limit or x > _upper_limit); \
+#define BENCH_HR_END(lib, draw_std_halfnormal) \
+        do { x = _mean + signed_sigma*(draw_std_halfnormal); } while (x < _lower_limit or x > _upper_limit); \
         return x; \
     }); \
     cost[lib]["HR"] = last_benchmark_ns * 0.9;
-#define BENCH_HR(name, lib, draw_std_normal) BENCH_HR_START(name) BENCH_HR_END(lib, draw_std_normal)
+#define BENCH_HR(name, lib, draw_std_halfnormal) BENCH_HR_START(name) BENCH_HR_END(lib, draw_std_halfnormal)
 
 // Same as above, but for half-normal; draw_exp should return an exponential(1) draw.
 #define BENCH_ER_START(name) \
@@ -696,10 +697,14 @@ void benchmarkBoost(const std::string &key = "boost") {
     mean += benchmark(key + " U[0,1] (pre-constructed)", [&runif]() -> double { return runif(rng_boost); });
     mean += benchmark(key + " Exp(1) (pre-constructed)", [&rexp]() -> double { return rexp(rng_boost); });
 
-
     BENCH_NR(key + " NR", key, Normal(_mean, _sigma)(rng_boost));
 
-    BENCH_HR(key + " HR", key, Normal()(rng_boost));
+    if (std::is_same<Normal, eris::random::normal_distribution<double>>::value) {
+        BENCH_HR(key + " HR", key, eris::random::halfnormal_distribution<double>()(rng_boost));
+    }
+    else {
+        BENCH_HR(key + " HR", key, std::fabs(Normal()(rng_boost)));
+    }
 
     BENCH_ER_START(key + " ER");
     Exponential exponential;

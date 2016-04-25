@@ -117,7 +117,7 @@ const RealType normal_table<RealType>::table_y[129] = {
     1
 };
 
-template<class RealType = double>
+template<class RealType = double, bool HalfNormal = false>
 struct unit_normal_distribution
 {
     template<class Engine>
@@ -125,13 +125,13 @@ struct unit_normal_distribution
         const double * const table_x = normal_table<double>::table_x;
         const double * const table_y = normal_table<double>::table_y;
         for(;;) {
-            std::pair<RealType, int> vals = generate_int_float_pair<RealType, 8>(eng);
+            std::pair<RealType, int> vals = generate_int_float_pair<RealType, HalfNormal ? 7 : 8>(eng);
             int i = vals.second;
-            int sign = (i & 1) * 2 - 1;
-            i = i >> 1;
+            int sign = (HalfNormal or i & 1) ? 1 : -1;
+            if (not HalfNormal) i >>= 1;
             RealType x = vals.first * RealType(table_x[i]);
-            if(x < table_x[i + 1]) return x * sign;
-            if(i == 0) return generate_tail(eng) * sign;
+            if(x < table_x[i + 1]) return x * (HalfNormal ? 1 : sign);
+            if(i == 0) return generate_tail(eng) * (HalfNormal ? 1 : sign);
 
             RealType y01 = boost::random::uniform_01<RealType>()(eng);
             RealType y = RealType(table_y[i]) + y01 * RealType(table_y[i + 1] - table_y[i]);
@@ -171,7 +171,7 @@ struct unit_normal_distribution
                      y < f(x) // Otherwise it's between the bounds and we need a full check
                     )
                ) {
-                return x * sign;
+                return x * (HalfNormal ? 1 : sign);
             }
         }
     }
@@ -356,6 +356,7 @@ private:
     RealType _mean, _sigma;
 
 };
+
 
 } // namespace random
 
