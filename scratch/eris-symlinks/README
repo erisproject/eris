@@ -1,0 +1,14 @@
+This is a miniscule debian package that builds a package containing symlinks
+from the usual system locations to the eris build directory "build" in the
+root of the current eris project root (i.e. ../../build).
+
+It requires a successfully built eris in ../../build.
+
+This can be most easily generated via cmake, which will include a
+eris-symlinks_0_(arch).deb target when building on a debian-like system with
+the dpkg-dev package installed.
+
+Note that new top-level eris includes (e.g. any new items in directory
+containing Simulation.hpp) will require a rebuild of this package to create
+the new symlinks.  Likewise for new include items that end up in
+../../build/eris.
