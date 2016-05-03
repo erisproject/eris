@@ -150,11 +150,15 @@ MatrixXd BayesianLinear::predictGeneric(const Ref<const MatrixXd> &X, const std:
     if (draws == 0) draws = prediction_draws_.cols() > 0 ? prediction_draws_.cols() : 1000;
 
     if (draws > prediction_draws_.cols()) {
-        unsigned i = prediction_draws_.cols();
-        prediction_draws_.conservativeResize(K_+1, draws);
-        for (; i < draws; i++) {
-            prediction_draws_.col(i) = draw();
+        unsigned need_draws = draws - prediction_draws_.cols();
+        MatrixXd new_draws(K_+1, need_draws);
+        for (unsigned i = 0; i < need_draws; i++) {
+            new_draws.col(i) = draw();
         }
+        // Resize and copy the new draws; do it this way rather than putting the draws directly into
+        // prediction_draws_ in case the above draw() call throws an exception.
+        prediction_draws_.conservativeResize(K_+1, draws);
+        prediction_draws_.rightCols(need_draws) = new_draws;
     }
 
     // Draw new error terms, if needed.
