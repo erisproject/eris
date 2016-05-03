@@ -18,8 +18,6 @@ foreach(prog ${scratch_progs})
     endif()
 endforeach()
 
-add_custom_target(scratch DEPENDS ${scratch_progs})
-
 execute_process(COMMAND dpkg-architecture -qDEB_TARGET_ARCH
     RESULT_VARIABLE dpkg_arch_result
     OUTPUT_VARIABLE dpkg_arch
