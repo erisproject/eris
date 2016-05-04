@@ -3,6 +3,8 @@
 #include <eris/random/truncated_normal_distribution.hpp>
 #include <boost/math/distributions/normal.hpp>
 #include <boost/random/uniform_real_distribution.hpp>
+#include <boost/random/gamma_distribution.hpp>
+#include <boost/random/chi_squared_distribution.hpp>
 #include <eris/random/normal_distribution.hpp>
 #include <eris/random/halfnormal_distribution.hpp>
 #include <eris/random/exponential_distribution.hpp>
@@ -106,6 +108,14 @@ int main(int argc, char *argv[]) {
             th_mean = "1"; th_var = "1"; th_skew = "2"; th_kurt = "9";
             std::cout << "Drawing from Exp(1)\n";
         }
+        else if (which == "Chi2") {
+            gen = [&rng]() { return boost::random::chi_squared_distribution<double>(approx_one)(rng); };
+            th_mean = "1"; th_var = "2"; th_skew = std::to_string(std::sqrt(8.0)); th_kurt = "15";
+        }
+        else if (which == "G") {
+            gen = [&rng]() { return boost::random::gamma_distribution<double>(approx_one, approx_one)(rng); };
+            th_mean = "1"; th_var = "1"; th_skew = "2"; th_kurt = "9";
+        }
         else {
             std::cerr << "Unknown distribution `" << which << "'\n";
         }
@@ -130,7 +140,9 @@ int main(int argc, char *argv[]) {
             "\tN - Normal(0,1)\n" <<
             "\tU - Uniform[0,1)\n" <<
             "\tTN - Normal(0,1) truncated to the given [A,B]\n" <<
-            "\tTNG - same as TN, but uses a generic, inverse-cdf truncated distribution generator\n";
+            "\tTNG - same as TN, but uses a generic, inverse-cdf truncated distribution generator\n" <<
+            "\tChi2 - Chi^2(1)\n" <<
+            "\tG - Gamma(1)\n";
 
         exit(1);
     }
