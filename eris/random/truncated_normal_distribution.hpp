@@ -333,7 +333,8 @@ public:
                 {
                     exponential_distribution<RealType> exponential;
                     const RealType exp_max_times_sigma = _upper_limit - _lower_limit;
-                    const RealType x_scale = _sigma / _er_lambda_times_sigma;
+                    const RealType twice_sigma_squared = RealType(2) * _sigma * _sigma;
+                    const RealType x_scale = _sigma * _sigma / _er_lambda_times_sigma;
                     const RealType x_delta = _er_a - _er_lambda_times_sigma;
                     RealType x;
                     do {
@@ -344,11 +345,11 @@ public:
                         // Requiring that this be less than the outer limit is equivalent to
                         // requiring x < alpha*((up-low) / sigma).  The left tail yields exactly the
                         // same condition.
-                        do { x = exponential(eng) * x_scale; } while (_sigma * x > exp_max_times_sigma);
-                        // x -> x + a - lambda
-                    } while (2 * exponential(eng) <= (x+x_delta)*(x+x_delta));
+                        do { x = exponential(eng) * x_scale; } while (x > exp_max_times_sigma);
+                        // x+x_delta  -->  x - lambda + a
+                    } while (twice_sigma_squared * exponential(eng) <= (x+x_delta)*(x+x_delta));
 
-                    return _left_tail ? _upper_limit - x*_sigma : _lower_limit + x*_sigma;
+                    return _left_tail ? _upper_limit - x : _lower_limit + x;
                 }
 
             // Should be impossible (but silences the unhandled-switch-case warning):
