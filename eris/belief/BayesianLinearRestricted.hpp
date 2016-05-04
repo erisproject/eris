@@ -168,6 +168,9 @@ class BayesianLinearRestricted : public BayesianLinear {
          */
         void addRestrictionsGE(const Eigen::Ref<const Eigen::MatrixXd> &R, const Eigen::Ref<const Eigen::VectorXd> &r);
 
+        /// Returns the number of restrictions.  This is simply an alias for calling `R().rows()`.
+        size_t numRestrictions() const { return R().rows(); }
+
         /** Clears all current model restrictions. */
         void clearRestrictions();
 
@@ -445,10 +448,10 @@ class BayesianLinearRestricted : public BayesianLinear {
         double draw_auto_min_success_rate = 0.2; ///< The minimum draw success rate below which we switch to Gibbs sampling
 
         /// Accesses the restriction coefficient selection matrix (the \f$R\f$ in \f$R\beta <= r\f$).
-        Eigen::Block<const Eigen::MatrixXd> R() const;
+        const Eigen::MatrixXd& R() const { return restrict_select_; }
 
         /// Accesses the restriction value vector (the \f$r\f$ in \f$R\beta <= r\f$).
-        Eigen::VectorBlock<const Eigen::VectorXd> r() const;
+        const Eigen::VectorXd& r() const { return restrict_values_; }
 
         /** Overloaded to append the restrictions after the regular BayesianLinear details.
          */
@@ -581,27 +584,13 @@ class BayesianLinearRestricted : public BayesianLinear {
         double getRestriction(size_t k, bool upper) const;
 
         /** Stores the coefficient selection matrix for arbitrary linear restrictions passed to
-         * addRestriction() or addRestrictions(). Note that the only the first
-         * `restrict_linear_size_` rows of the matrix will be set, but other rows might exist with
-         * uninitialized values.
-         *
-         * This matrix is stored in row-major order, because it is primarily accessed and assigned
-         * to row-by-row.
+         * addRestriction() or addRestrictions().
          */
         Eigen::MatrixXd restrict_select_;
         /** Stores the value restrictions for arbitrary linear restrictions passed to
-         * addRestriction() or addRestrictions().  Note that the only the first
-         * `restrict_linear_size_` values of the vector will be set, but other values might exist
-         * with uninitialized values. */
-        Eigen::VectorXd restrict_values_;
-        /** Stores the number of arbitrary linear restrictions currently stored in
-         * restrict_linear_select_ and restrict_linear_values_.
+         * addRestriction() or addRestrictions().
          */
-        size_t restrict_size_ = 0;
-
-        /** Called to ensure the above are set and have (at least) the required number of rows free
-         * (beginning at row `restrict_linear_size_`). */
-        void allocateRestrictions(size_t more);
+        Eigen::VectorXd restrict_values_;
 
     private:
         // Values used for Gibbs sampling.  These aren't set until first needed.
