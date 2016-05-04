@@ -560,7 +560,7 @@ private:
                     // Precalculate this, because it shows up twice in the messy calculation below:
                     const RealType sqrtaap4ss = sqrt(a*a + RealType(4)*(_sigma * _sigma));
 
-                    // Our threshold condition is this thing:
+                    // Our threshold condition (for preferring uniform to exponential) is this thing:
                     //
                     // beta - alpha < c * 2/(alpha+sqrt(alpha^2+4)) * exp((alpha^2 - alpha*sqrt(alpha^2+4)) / 4 + 1/2)
                     //
@@ -573,7 +573,7 @@ private:
                     //
                     if (std::isinf(b) or
                             _ur_inv_2_sigma_squared * (a + sqrtaap4ss) * (b - a)
-                            <
+                            >=
                             detail::truncnorm_threshold<RealType>::cost_er_rel_ur * std::exp(
                                 RealType(0.5) * _ur_inv_2_sigma_squared * a * (a - sqrtaap4ss) + RealType(0.5)
                                 )
