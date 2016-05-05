@@ -593,24 +593,58 @@ class BayesianLinearRestricted : public BayesianLinear {
         Eigen::VectorXd restrict_values_;
 
     private:
-        // Values used for Gibbs sampling.  These aren't set until first needed.
-        std::shared_ptr<decltype(restrict_select_)> gibbs_D_; // D = R A^{-1}
-        // z ~ restricted N(0, I); sigma = sqrt of last sigma^2 draw; r_Rbeta_ = r-R*beta_
-        std::shared_ptr<Eigen::VectorXd> gibbs_last_z_, gibbs_2nd_last_z_, gibbs_r_Rbeta_;
-        double gibbs_last_sigma_ = std::numeric_limits<double>::signaling_NaN();
-        long gibbs_draws_ = 0;
-        double chisq_n_median_ = std::numeric_limits<double>::signaling_NaN();
 
-        /* Returns the bounds on a sigma draw for the given z draw. Lower bound is .first, upper
-         * bound is .second.  gibbs_D_ and gibbs_r_Rbeta_ must be set.
+        // Takes a z-space vector, returns the associated beta-space vector.  Note that the
+        // associated beta value is this vector *plus* `beta()`.  Note also that the value returned
+        // here incorporates s2_; a further sigma multiplier can provided when necessary (e.g.
+        // when drawing a t distribution), which scales the result by the given value.
+        Eigen::VectorXd toBetaVector(const Eigen::Ref<const Eigen::VectorXd> &z, double sigma_multiplier = 1.0) const;
+
+        // Takes an initial beta value, returns the same converted into z-space.  Note that the
+        // input value should be the actual beta value, *not* the vector from beta() to beta.
+        // This should only be used to convert an initial value into an initial z value; after that,
+        // the z value itself should be used for subsequent gibbs draws.
+        Eigen::VectorXd toInitialZ(const Eigen::Ref<const Eigen::VectorXd> &initial_beta) const;
+
+        // Takes a z vector, returns the associated restriction slackness vector (i.e.  r - R*beta),
+        // where negative values indicate violated restrictions.
+        // sigma_multiplier is an extra value to multiply the rootSigma matrix by (note that
+        // rootSigma already incorporates s2_).
+        Eigen::VectorXd restrictionViolations(const Eigen::Ref<const Eigen::VectorXd> &z, double sigma_multiplier = 1.0) const;
+
+
+        mutable std::shared_ptr<Eigen::VectorXd> r_minus_R_beta_center_;
+        // Calculates (if not already cached) the value of `r - R()*beta()`, i.e. the restriction
+        // slackness at the beta() posterior parameter.
+        const Eigen::VectorXd& rMinusRBeta() const;
+
+        // The cache for the following method (the method still has to multiply by sigma_multiplier,
+        // but doesn't have to repeat the matrix multiplication).
+        mutable std::shared_ptr<Eigen::MatrixXd> to_net_restr_unscaled_;
+        // Calculates the matrix that premultiplies `z` into net restriction values.  That is, this
+        // matrix times z is equivalent to R() * toBetaVector(z), and so
+        // `rMinusRBeta() - netRestrictionMatrix() * z` will equal will equal `r - R()*beta`, where
+        // beta equals beta() plus the beta vector associated with z.  Note that this matrix is
+        // *not* scaled by a sigma_multiplier: when a non-unitary sigma_multiplier is needed,
+        // multiply the returned value by the multiplier.
+        const Eigen::MatrixXd& netRestrictionMatrix() const;
+
+        /* Returns the bounds on a sigma multiplier for the given z draw that doesn't violate any
+         * restrictions. Lower bound is .first, upper bound is .second.
          *
-         * The returned ranges values *are* divided by sqrt(s2), expecting that the final "sigma"
-         * value will be s times a chi squared drawn with the bounds returned from here.
-         *
-         * Note that this doesn't check whether the range is actually feasible: it could return a
-         * range with only negative values, for example.
+         * range.first will be non-negative--a value of 0 will occur whenever beta() does not
+         * violate any restrictions.
+         * range.second can be negative, or less than range.first: both indicate that there are no
+         * admissable positive multipliers that can avoid violating at least one restriction, and in
+         * general means that the current z already violates restrictions.
          */
-        std::pair<double, double> sigmaRange(const Eigen::VectorXd &z);
+        std::pair<double, double> sigmaMultiplierRange(const Eigen::VectorXd &z) const;
+
+        // z ~ restricted N(0, I)
+        std::shared_ptr<Eigen::VectorXd> gibbs_last_z_;
+
+        long gibbs_draws_ = 0;
+        double chisq_n_median_ = std::numeric_limits<double>::quiet_NaN();
 
 };
 

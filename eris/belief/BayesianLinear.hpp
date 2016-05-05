@@ -6,8 +6,12 @@
 #include <vector>
 #include <stdexcept>
 #include <string>
+#include <eris/random/util.hpp>
+#include <boost/random/chi_squared_distribution.hpp>
 
 #ifndef EIGEN_HAVE_RVALUE_REFERENCES
+// Before v3.2.7, some Eigen classes, when compiled under C++11, would get implicit move constructors
+// that didn't work properly; don't even try to compile with those versions.
 static_assert(false, "Eigen rvalue reference support is required (Eigen v3.2.7 or above required).")
 #endif
 
@@ -219,19 +223,38 @@ class BayesianLinear {
          * decomposition is stored and reused if called again. */
         const Eigen::LDLT<Eigen::MatrixXd>& VinvLDLT() const;
 
-        /** Accesses (calculating if not previous calculated) the LLT Cholesky decomposition of
-         * `Vinv()`.  This is essentially the same as calling `Vinv().llt()`, except that the
-         * decomposition is stored and reused if called again. */
-        const Eigen::LLT<Eigen::MatrixXd>& VinvLLT() const;
-
-        /** Computes and returns an inverse of Vinv(), that is, the V matrix.  This shouldn't
-         * typically be used for any calculations: it is simply provided as a debugging tool (and
-         * hence the more explicit `Vinvinv` name rather than just `V`).
+        /** Computes and returns an inverse of Vinv(), that is, the V matrix.  Since calculating
+         * this matrix requires a numerical inverse of V, using Vinv() is preferred wherever
+         * possible for both performance and precision (hence this method has the explicit name
+         * `Vinvinv` rather than `V`).
          *
          * The current implementation uses VinvLDLT().solve(I), where I is an identity matrix of the
          * proper size.
+         *
+         * The returned value is cached once calculated to avoid calculation for subsequent calls.
          */
-        Eigen::MatrixXd Vinvinv() const;
+        const Eigen::MatrixXd& Vinvinv() const;
+
+        /** Accesses (calculating if not previously calculated) the `L` matrix of the Cholesky
+         * decomposition of the covariance matrix of beta, that is, the decomposition \f$LL^\top =
+         * s^2 V\f$.  This requires both an inversion of Vinv() and then a Cholesky decomposition of
+         * that inverse.
+         *
+         * Unfortunately, Cholesky(A^-1) != Cholesky(A)^-1, and so we have to use an actual inverse
+         * here.
+         *
+         * Notes:
+         * - Ideally I'd like something that can translate a Cholesky decomposition of a matrix to
+         *   the Cholesky decomposition of the inverse; as far as I know, however, there is no such
+         *   simple conversion, and so this inverse+decomposition approach has to be used.)
+         * - Since we need beta(), we've already calculated VinvLDLT(), and so the inverse here
+         *   (which uses the LDLT decomposition of Vinv) is quite fast compared to a "cold" inverse.
+         * - Using the LLT decomposition of Vinv() would actually work for an untruncated
+         *   distribution, but it fails if there are truncated regions; so we do this approach for
+         *   both so that BayesianLinearRestricted and BayesianLinear and drawing using an identical
+         *   covariance matrix.
+         */
+        Eigen::TriangularView<const Eigen::MatrixXd, Eigen::Lower> rootSigma() const;
 
         /** Returns the X data that has been added into this model but hasn't yet been used due to
          * it not being sufficiently large and different enough to achieve full column rank.  The
@@ -363,26 +386,40 @@ class BayesianLinear {
          * a constant and a Cholesky decomposition).
          *
          * \param mu the vector means
-         * \param L the Cholesky decomposition matrix
-         * \param s a standard deviation multiplier for the Cholesky decomposition matrix.  Typically
-         * a \f$\sigma\f$ (NOT \f$\sigma^2\f$) value.  If omitted, defaults to 1 (so that you can
-         * just pass the Cholesky decomposition of the full covariance matrix).
+         * \param L the Cholesky decomposition matrix or matrix-like object (e.g. rootSigma())
+         * \param sigma_multiplier a multiplier for the Cholesky decomposition matrix.  For example,
+         * to draw from a multivariate t you could provide sqrt(n/x), where x is a chi^2(n) draw
+         * (this is exactly what multivariateT() does).  Alternatively, if the desired covariance
+         * equals \f$s^2 LL'\f$, this could be s (to avoid needing to multiply L).  If omitted,
+         * defaults to 1 (so that you can just pass the Cholesky decomposition of the full
+         * covariance matrix).
          *
          * \returns the random multivariate normal vector.
          *
          * \throws std::logic_error if mu and L have non-conforming sizes
          */
+        template <typename Derived>
         static Eigen::VectorXd multivariateNormal(
                 const Eigen::Ref<const Eigen::VectorXd> &mu,
-                const Eigen::Ref<const Eigen::MatrixXd> &L,
-                double s = 1.0);
+                const Eigen::EigenBase<Derived> &L,
+                double s = 1.0) {
+            if (mu.rows() != L.rows() or L.rows() != L.cols())
+                throw std::logic_error("multivariateNormal() called with non-conforming mu and L");
 
-        /** Draws a multivariate t with mean \f$mu\f$, variance \f$s^2LL^\top\f$ (i.e. variance
-         * is taken as a constant and a Cholesky decomposition, which, when multiplied together, yield \f$\Sigma\f$),
-         * and degrees of freedom nu.
+            // First draw a vector `z` of K N(0,s) random values:
+            Eigen::VectorXd z(mu.size());
+            for (int i = 0; i < z.size(); i++) z[i] = random::rnormal(0.0, s);
+
+            // our desired multivariate normal is then just:
+            return mu + L.derived() * z;
+        }
+
+        /** Draws a multivariate t with mean \f$mu\f$, variance \f$s^2LL^\top\f$ (i.e. variance is
+         * taken as a constant and a Cholesky decomposition, which, when multiplied together, yield
+         * \f$\Sigma\f$), and degrees of freedom nu.
          *
-         * This simply draws \f$y\f$ via multivariateNormal(Zero, L, s) and u from a
-         * \f$\chi^2_\nu\f$, then returns \f$\mu + y\sqrt{\frac{\nu}{u}}\f$.
+         * This method simply draws \f$u \sim chi^2_\nu\f$, then calls `multivariateNormal(mu, L,
+         * s*sqrt(nu/u))` to return the desired multivariate T.
          *
          * \param mu the vector means
          * \param nu the degrees of freedom
@@ -391,11 +428,15 @@ class BayesianLinear {
          * a \f$\sigma\f$ (NOT \f$\sigma^2\f$) value.  If omitted, defaults to 1 (so that you can
          * just pass the Cholesky decomposition of the full covariance matrix).
          */
+        template <typename Derived>
         static Eigen::VectorXd multivariateT(
                 const Eigen::Ref<const Eigen::VectorXd> &mu,
                 double nu,
-                const Eigen::Ref<const Eigen::MatrixXd> &L,
-                double s = 1.0);
+                const Eigen::EigenBase<Derived> &L,
+                double s = 1.0) {
+            double u = boost::random::chi_squared_distribution<double>(nu)(random::rng());
+            return multivariateNormal(mu, L, s * std::sqrt(nu/u));
+        }
 
         /** Exception class thrown when draw() is unable to produce an admissable draw.  Not thrown
          * by this class (draws never fail) but available for subclass use.
@@ -519,11 +560,15 @@ class BayesianLinear {
          */
         Eigen::VectorXd V_inv_beta_ = Eigen::VectorXd::Zero(K_);
 
-        /// The cached LLT decomposition of V^{-1}, where LL' = V^{-1}.  \sa VinvLLT()
-        mutable std::shared_ptr<Eigen::LLT<Eigen::MatrixXd>> V_inv_llt_;
-
-        /// The cached LDLT decomposition of V^{-1}, where LL' = V^{-1}.  \sa VinvLDLT()
+        /// The cached LDLT decomposition of V^{-1}, where LL' = V^{-1}.  \sa VinvLDLT().  Used to
+        /// compute beta (from V_inv_beta_), and V_inv_inv_ (from V_inv_store_).
         mutable std::shared_ptr<Eigen::LDLT<Eigen::MatrixXd>> V_inv_ldlt_;
+
+        /// The cached inverse of V^{-1}, i.e. V
+        mutable std::shared_ptr<Eigen::MatrixXd> V_inv_inv_;
+
+        /// The cached LLT decomposition of s2*V, where LL' = s2*V.  \sa Vinvinv()
+        mutable std::shared_ptr<Eigen::LLT<Eigen::MatrixXd>> V_inv_inv_llt_;
 
         /// The number of data points supporting this model, which need not be an integer.
         double n_;

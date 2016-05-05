@@ -2,7 +2,6 @@
 #include <eris/random/rng.hpp>
 #include <eris/random/util.hpp>
 #include <eris/random/normal_distribution.hpp>
-#include <boost/random/chi_squared_distribution.hpp>
 #include <Eigen/QR>
 #include <Eigen/SVD>
 #include <Eigen/Cholesky>
@@ -79,19 +78,20 @@ void BayesianLinear::updateBeta() const {
 const double& BayesianLinear::s2() const { NO_EMPTY_MODEL; return s2_; }
 const double& BayesianLinear::n() const { NO_EMPTY_MODEL; return n_; }
 SelfAdjointView<const MatrixXd, Lower> BayesianLinear::Vinv() const { NO_EMPTY_MODEL; return V_inv_store_.selfadjointView<Lower>(); }
-const LLT<MatrixXd>& BayesianLinear::VinvLLT() const {
-    NO_EMPTY_MODEL;
-    if (not V_inv_llt_) V_inv_llt_ = std::make_shared<LLT<MatrixXd>>(V_inv_store_);
-    return *V_inv_llt_;
-}
 const LDLT<MatrixXd>& BayesianLinear::VinvLDLT() const {
     NO_EMPTY_MODEL;
     if (not V_inv_ldlt_) V_inv_ldlt_ = std::make_shared<LDLT<MatrixXd>>(V_inv_store_);
     return *V_inv_ldlt_;
 }
 
-MatrixXd BayesianLinear::Vinvinv() const {
-    return VinvLDLT().solve(MatrixXd::Identity(K_, K_));
+const MatrixXd& BayesianLinear::Vinvinv() const {
+    if (not V_inv_inv_) V_inv_inv_ = std::make_shared<MatrixXd>(VinvLDLT().solve(MatrixXd::Identity(K_, K_)));
+    return *V_inv_inv_;
+}
+
+TriangularView<const MatrixXd, Lower> BayesianLinear::rootSigma() const {
+    if (not V_inv_inv_llt_) V_inv_inv_llt_ = std::make_shared<LLT<MatrixXd>>(s2_ * Vinvinv());
+    return V_inv_inv_llt_->matrixL();
 }
 
 const bool& BayesianLinear::noninformative() const { NO_EMPTY_MODEL; return noninformative_; }
@@ -248,34 +248,14 @@ const VectorXd& BayesianLinear::draw() {
     // \]
 
     // To draw this, first draw a gamma-distributed "h" value (store its inverse)
-    last_draw_[K_] = n_ * s2_ / boost::random::chi_squared_distribution<double>(n_)(rng);
+    double sigma2_multiplier = n_ / boost::random::chi_squared_distribution<double>(n_)(rng);
+    last_draw_[K_] = sigma2_multiplier * s2_;
 
     // Now use that to draw a multivariate normal conditional on h, with mean beta and variance
     // h^{-1} V; this is the beta portion of the draw:
-    last_draw_.head(K_) = multivariateNormal(beta(), VinvLLT().matrixU().solve(MatrixXd::Identity(K_, K_)), std::sqrt(last_draw_[K_]));
+    last_draw_.head(K_) = multivariateNormal(beta(), rootSigma(), std::sqrt(sigma2_multiplier));
 
     return last_draw_;
-}
-
-VectorXd BayesianLinear::multivariateNormal(const Ref<const VectorXd> &mu, const Ref<const MatrixXd> &L, double s) {
-    if (mu.rows() != L.rows() or L.rows() != L.cols())
-        throw std::logic_error("multivariateNormal() called with non-conforming mu and L");
-
-    // To draw such a normal, we need the lower-triangle Cholesky decomposition L of V, and a vector
-    // of K random \f$N(\mu=0, \sigma^2=h^{-1})\f$ values.  Then \f$beta + Lz\f$ yields a \f$beta\f$
-    // draw of the desired distribution.
-    VectorXd z(mu.size());
-    for (unsigned int i = 0; i < z.size(); i++) z[i] = random::rnormal();
-
-    return mu + L * (s * z);
-}
-
-VectorXd BayesianLinear::multivariateT(const Ref<const VectorXd> &mu, double nu, const Ref<const MatrixXd> &L, double s) {
-    VectorXd y(multivariateNormal(VectorXd::Zero(mu.size()), L, s));
-
-    double u = boost::random::chi_squared_distribution<double>(nu)(random::rng());
-
-    return mu + std::sqrt(nu / u) * y;
 }
 
 const VectorXd& BayesianLinear::lastDraw() const {
@@ -420,8 +400,9 @@ void BayesianLinear::updateInPlace(const Ref<const VectorXd> &y, const Ref<const
                 s2_ = (*noninf_y_unweakened_ - *noninf_X_unweakened_ * beta()).squaredNorm() / n_;
 
                 // These are unlikely to be set since this model was noninformative, but just in case:
-                if (V_inv_llt_) V_inv_llt_.reset();
                 if (V_inv_ldlt_) V_inv_ldlt_.reset();
+                if (V_inv_inv_) V_inv_inv_.reset();
+                if (V_inv_inv_llt_) V_inv_inv_llt_.reset();
                 noninf_X_.reset();
                 noninf_y_.reset();
                 noninf_X_unweakened_.reset();
@@ -469,8 +450,9 @@ void BayesianLinear::updateInPlaceInformative(const Ref<const VectorXd> &y, cons
     s2_ = (residualspost.squaredNorm() + n_prior * s2_ +  s2_prior_beta_delta) / n_;
 
     // The decompositions will have to be recalculated, if set:
-    if (V_inv_llt_) V_inv_llt_.reset();
     if (V_inv_ldlt_) V_inv_ldlt_.reset();
+    if (V_inv_inv_) V_inv_inv_.reset();
+    if (V_inv_inv_llt_) V_inv_inv_llt_.reset();
 }
 
 void BayesianLinear::weakenInPlace(const double stdev_scale) {
@@ -496,6 +478,8 @@ void BayesianLinear::weakenInPlace(const double stdev_scale) {
     // scale V^{-1} and V^{-1}\beta appropriately
     V_inv_store_.triangularView<Lower>() /= var_scale;
     V_inv_beta_ /= var_scale;
+    // The V value doesn't need to be reset (if previously calculated), we can simply scale it:
+    if (V_inv_inv_) *V_inv_inv_ *= var_scale;
 
     // This tracks how to undo the Vinv weakening when calculating an updated s2 value
     pending_weakening_ *= var_scale;
@@ -504,8 +488,8 @@ void BayesianLinear::weakenInPlace(const double stdev_scale) {
     // scaling D by 1/var_scale for the LDLT and scaling L by 1/stdev_scale for the LLT, but
     // Eigen::L(D)LT doesn't expose mutator access to the internals we'd need to change, so just
     // clear and recalculate them whenever we need them again).
-    if (V_inv_llt_) V_inv_llt_.reset();
     if (V_inv_ldlt_) V_inv_ldlt_.reset();
+    if (V_inv_inv_llt_) V_inv_inv_llt_.reset();
 
     return;
 }

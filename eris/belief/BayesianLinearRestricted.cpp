@@ -12,7 +12,7 @@
 #include <stdexcept>
 #include <vector>
 #include <set>
-#include <ostream>
+#include <sstream>
 
 using namespace Eigen;
 
@@ -94,12 +94,11 @@ void BayesianLinearRestricted::reset() {
     draw_rejection_discards_last = 0;
     draw_rejection_discards = 0;
     draw_rejection_success = 0;
-    gibbs_D_.reset();
+    r_minus_R_beta_center_.reset();
     gibbs_last_z_.reset();
-    gibbs_r_Rbeta_.reset();
-    gibbs_last_sigma_ = std::numeric_limits<double>::signaling_NaN();
+    to_net_restr_unscaled_.reset();
     gibbs_draws_ = 0;
-    chisq_n_median_ = std::numeric_limits<double>::signaling_NaN();
+    chisq_n_median_ = std::numeric_limits<double>::quiet_NaN();
 }
 
 const VectorXd& BayesianLinearRestricted::draw() {
@@ -141,6 +140,37 @@ const VectorXd& BayesianLinearRestricted::draw(DrawMode m) {
     return drawGibbs();
 }
 
+VectorXd BayesianLinearRestricted::toBetaVector(const Ref<const VectorXd> &z, double sigma_multiplier) const {
+    VectorXd beta_vec = rootSigma() * z;
+    if (sigma_multiplier != 1) beta_vec *= sigma_multiplier;
+    return beta_vec;
+}
+
+VectorXd BayesianLinearRestricted::toInitialZ(const Ref<const VectorXd> &initial_beta) const {
+    return rootSigma().solve(initial_beta - beta());
+}
+
+const VectorXd& BayesianLinearRestricted::rMinusRBeta() const {
+    if (not r_minus_R_beta_center_) r_minus_R_beta_center_.reset(
+            numRestrictions() == 0
+            ? new VectorXd()
+            : new VectorXd(r() - R() * beta()));
+    return *r_minus_R_beta_center_;
+}
+
+const MatrixXd& BayesianLinearRestricted::netRestrictionMatrix() const {
+    if (not to_net_restr_unscaled_) to_net_restr_unscaled_.reset(
+            numRestrictions() == 0
+            ? new MatrixXd(0, K_) // It's rather pointless to use drawGibbs() with no restrictions, but allow it for debugging purposes
+            : new MatrixXd(R() * rootSigma()));
+    return *to_net_restr_unscaled_;
+}
+
+VectorXd BayesianLinearRestricted::restrictionViolations(const Ref<const VectorXd> &z, double sigma_multiplier) const {
+    // This rearranges to be r - Rbeta, and so has positive values for violated restrictions
+    return rMinusRBeta() - netRestrictionMatrix() * z * sigma_multiplier;
+}
+
 void BayesianLinearRestricted::gibbsInitialize(const Ref<const VectorXd> &initial, unsigned long max_tries) {
     constexpr double overshoot = 1.5;
 
@@ -148,23 +178,10 @@ void BayesianLinearRestricted::gibbsInitialize(const Ref<const VectorXd> &initia
 
     gibbs_draws_ = 0;
 
-    const auto &A = VinvLLT().matrixL();
-
-    if (not gibbs_D_) gibbs_D_.reset(
-            numRestrictions() == 0
-            ? new MatrixXd(0, K_) // It's rather pointless to use drawGibbs() with no restrictions, but allow it for debugging purposes
-            : new MatrixXd(R() * A.solve(MatrixXd::Identity(K_, K_))));
-    const auto &D = *gibbs_D_;
-
-    if (not gibbs_r_Rbeta_) gibbs_r_Rbeta_.reset(
-            numRestrictions() == 0
-            ? new VectorXd()
-            : new VectorXd(r() - R() * beta()));
-    const auto &r_minus_Rbeta_ = *gibbs_r_Rbeta_;
-
     auto &rng = random::rng();
 
-    VectorXd z = A * (initial.head(K_) - beta());
+    VectorXd z = toInitialZ(initial.head(K_));
+
     if (numRestrictions() == 0) {
         // No restrictions, nothing special to do!
         if (not gibbs_last_z_ or gibbs_last_z_->size() != K_) gibbs_last_z_.reset(new VectorXd(z));
@@ -177,9 +194,9 @@ void BayesianLinearRestricted::gibbsInitialize(const Ref<const VectorXd> &initia
 
         for (unsigned long trial = 1; ; trial++) {
             violations.clear();
-            VectorXd v = D * z - r_minus_Rbeta_;
+            VectorXd v = restrictionViolations(z);
             for (size_t i = 0; i < numRestrictions(); i++) {
-                if (v[i] > 0) violations.push_back(i);
+                if (v[i] < 0) violations.push_back(i);
             }
             if (violations.size() == 0) break; // Restrictions satisfied!
             else if (trial >= max_tries) { // Too many tries: give up
@@ -192,35 +209,16 @@ void BayesianLinearRestricted::gibbsInitialize(const Ref<const VectorXd> &initia
             size_t fix = violations[boost::random::uniform_int_distribution<size_t>(0, violations.size()-1)(rng)];
 
             // Aim at the nearest point on the boundary and overshoot (by 50%):
-            z += -overshoot * v[fix] / D.row(fix).squaredNorm() * D.row(fix).transpose();
+            z += overshoot * v[fix] / netRestrictionMatrix().row(fix).squaredNorm() * netRestrictionMatrix().row(fix).transpose();
         }
 
         if (not gibbs_last_z_ or gibbs_last_z_->size() != K_) gibbs_last_z_.reset(new VectorXd(K_));
         *gibbs_last_z_ = z;
     }
-
-    // Don't set the last sigma draw; drawGibbs will do that.
-    gibbs_last_sigma_ = std::numeric_limits<double>::quiet_NaN();
 }
 
 const VectorXd& BayesianLinearRestricted::drawGibbs() {
     last_draw_mode = DrawMode::Gibbs;
-
-    const auto &A = VinvLLT().matrixL();
-    double s = std::sqrt(s2_);
-
-    if (not gibbs_D_) gibbs_D_.reset(
-            numRestrictions() == 0
-            ? new MatrixXd(0, K_) // It's rather pointless to use drawGibbs() with no restrictions, but allow it for debugging purposes
-            : new MatrixXd(R() * A.solve(MatrixXd::Identity(K_, K_))));
-
-    const auto &D = *gibbs_D_;
-
-    if (not gibbs_r_Rbeta_) gibbs_r_Rbeta_.reset(
-            numRestrictions() == 0
-            ? new VectorXd()
-            : new VectorXd(r() - R() * beta()));
-    const auto &r_minus_Rbeta_ = *gibbs_r_Rbeta_;
 
     if (not gibbs_last_z_) {
         // If we don't have an initial value, draw an *untruncated* value and give it to
@@ -235,11 +233,13 @@ const VectorXd& BayesianLinearRestricted::drawGibbs() {
 
         // gibbs_last_*_ will be set up now (or else we threw an exception)
     }
-    // Start with z from the last z draw
+    // Start with z from the last z draw (or the initial value drawn (and possibly fixed up) above)
     VectorXd z(*gibbs_last_z_);
-    double sigma = 0;
-    double s_sigma = 0;
-    auto &rng = random::rng();
+
+    // The draw will eventually equal beta() + sigma_multiplier * toBetaVector(z).  sigma_multiplier
+    // would be exactly 1 if drawing from a Normal; it's a value involving a chi^2 draw for our
+    // desired t distribution (see below).
+    double sigma_multiplier = 0;
 
     int num_draws = 1;
     if (gibbs_draws_ < draw_gibbs_burnin)
@@ -247,69 +247,57 @@ const VectorXd& BayesianLinearRestricted::drawGibbs() {
     else if (draw_gibbs_thinning > 1)
         num_draws = draw_gibbs_thinning;
 
+    auto &rng = random::rng();
     boost::random::chi_squared_distribution<double> chisq(n_);
     boost::math::chi_squared_distribution<double> chisq_dist(chisq.n());
-    // Calculate the median just once, as the median call is slightly expensive for a chi-squared dist,
-    // but having the median avoids potential extra cdf calls below.
+
+    // Pre-calculate and cache the median, as median call is relatively expensive for a chi-squared
+    // dist, but having it available lets truncDist avoid an extra cdf call (which is also
+    // expensive).
     if (std::isnan(chisq_n_median_) and numRestrictions() > 0) chisq_n_median_ = median(chisq_dist);
 
     int draw_failures = 0;
 
     for (int t = 0; t < num_draws; t++) { // num_draws > 1 if thinning or burning in
-
         // First take a sigma^2 draw that agrees with the previous z draw
         if (numRestrictions() == 0) {
             // If no restrictions, simple: just draw it from the unconditional distribution
             // NB: gamma(n/2,2) === chisq(v)
-            // (Note: s2_ gets incorporated into this later)
-            sigma = std::sqrt(n_ / chisq(rng));
+            sigma_multiplier = std::sqrt(n_ / chisq(rng));
         }
         else {
             // Otherwise we need to look at the z values we drew in the previous round (or in
             // gibbsInitialize()) and draw an admissable sigma^2 value from the range of values that
             // wouldn't have caused a constraint violation had we used it (instead of the current
-            // value) to draw z to form beta = beta() + Ainv*z.  (See the method documentation for
+            // value) to draw z to form beta = beta() + sigma*Ainv*z.  (See the method documentation for
             // thorough details)
 
+            auto range = sigmaMultiplierRange(z);
+            // range now has the minimum and maximum values of sigma (possibly infinite) such that
+            // beta() + sigma*Ainv*z doesn't violate the constraints.  What we actually need to
+            // generate, however, is beta() + sqrt(u/n)*s*Ainv*z, where u is a chi^2(n) draw (and so
+            // the sigma value equals s/sqrt(u/n)).  Since everything else is constant, this in turn
+            // puts constraints on u:
+            //
+            // min <= 1/sqrt(u/n) <= max
+            // min^2 <= n / u <= max^2          (squaring)
+            // n / max^2 <= u <= n / min^2      (inverting, flipping inequalities, and mult by n)
+            double lower_bound = n_ / (range.second * range.second),
+                   upper_bound = n_ / (range.first  * range.first);
 
-            auto range = sigmaRange(z);
             // If we get a draw failure here, redrawing won't help (because the draw failure is
             // caused by the betas), but we can try to restart at the previous beta draw, which
             // might help.
+
+            if (range.first > range.second or range.second < 0)
+                throw draw_failure("sigma draw failure: no admissable sigma values");
             try {
-                if (range.first > range.second or range.second < 0)
-                    throw draw_failure("sigma draw failure: all admissable sigma values are negative");
-                sigma = std::sqrt(n_ / random::truncDist(chisq_dist, chisq, n_ / (range.second*range.second), n_ / (range.first*range.first), chisq_n_median_, 0.05, 10));
+                sigma_multiplier = std::sqrt(n_ / random::truncDist(chisq_dist, chisq, lower_bound, upper_bound, chisq_n_median_, 0.05, 10));
             }
             catch (const std::runtime_error &df) {
-                if (gibbs_2nd_last_z_) {
-                    auto range = sigmaRange(*gibbs_2nd_last_z_);
-
-                    // If it fails again, there's nothing we can do, so just wrap it up in a
-                    // draw_failure and rethrow it.
-                    try {
-                        if (range.first > range.second or range.second < 0)
-                            throw draw_failure("sigma draw failure: only admissable sigma values are negative");
-                        sigma = std::sqrt(n_ / random::truncDist(chisq_dist, chisq, n_ / (range.second*range.second), n_ / (range.first*range.first), chisq_n_median_, 0.05, 10));
-                    }
-                    catch (const std::runtime_error &df) {
-                        throw draw_failure(std::string("sigma draw failure: ") + df.what());
-                    }
-                }
-                else {
-                    // Don't have a previous beta to save us, so just throw with the underlying exception message
-                    throw draw_failure("sigma draw failure (no 2nd last): range is: [" + std::to_string(range.first) + "," + std::to_string(range.second) + "]: " + df.what());
-                }
+                throw draw_failure(std::string("sigma draw failure: ") + df.what());
             }
-
-            // We want sigma s.t. beta() + sigma * (s * A) * z has the right distribution for a
-            // multivariate t, which is sigma ~ sqrt(n_ / chisq(n_)), *but* truncated to [sigma_l,
-            // sigma_u].  To accomplish that truncation for sigma, we need to truncate the chisq(n_)
-            // to [n_/sigma_u^2, n/sigma_l^2].
-
         }
-
-        s_sigma = sigma*s;
 
         try {
             VectorXd newz(z);
@@ -318,23 +306,27 @@ const VectorXd& BayesianLinearRestricted::drawGibbs() {
                 // include it and we can figure out (from the result) the admissable value limits.
                 newz[j] = 0.0;
 
-                // Figure out lj and uj, the most binding constraints on z_j
+                // Figure out lj and uj, the most binding constraints on z_j: start from infinity
+                // (unbounded)
                 double lj = -INFINITY, uj = INFINITY;
+
+                // Calculate all the (translated, z-space) restriction coefficients affecting
+                // element newz[j].  Note that we do this inside the loop for just one column,
+                // because the value we draw here will affect the next value, so we can't
+                // pre-calculating the entire matrix (it changes in each iteration).
+                VectorXd Dj = sigma_multiplier * netRestrictionMatrix().col(j);
+                // These are the constraint slackness values with newz[j] == 0; we divide by the
+                // associated Dj value to translate back from beta-space constraints into z-space constraints.
+                VectorXd constraints = (rMinusRBeta() - sigma_multiplier * (netRestrictionMatrix() * newz)).cwiseQuotient(Dj);
+
                 for (size_t r = 0; r < numRestrictions(); r++) {
-                    // NB: not calculating the whole LHS vector and RHS vector at once, because there's
-                    // a good chance of 0's in the LHS vector, in which case we don't need to bother
-                    // calculting the RHS at all
-                    auto &dj = D(r, j);
-                    if (dj != 0) {
-                        // Take the other z's as given, find the range for this one
-                        double constraint = (r_minus_Rbeta_[r] - (D.row(r) * newz)) / dj;
-                        if (dj > 0) { // <= constraint (we didn't flip the sign by dividing by dj)
-                            if (constraint < uj) uj = constraint;
-                        }
-                        else { // >= constraint
-                            if (constraint > lj) lj = constraint;
-                        }
+                    if (Dj[r] > 0) { // <= constraint (we didn't flip the direction by dividing because Djr is positive)
+                        if (constraints[r] < uj) uj = constraints[r];
                     }
+                    else if (Dj[r] < 0) { // >= constraint (we flipped the constraint direction because Djr is negative)
+                        if (constraints[r] > lj) lj = constraints[r];
+                    }
+                    // else Dj is 0, which means no constraint applies to j
                 }
 
                 // Now lj is the most-binding bottom constraint, uj is the most-binding upper
@@ -342,7 +334,7 @@ const VectorXd& BayesianLinearRestricted::drawGibbs() {
                 if (lj >= uj) throw draw_failure("drawGibbs(): found impossible-to-satisfy linear constraints", *this);
 
                 // Our new Z is a truncated standard normal (truncated by the bounds we just found)
-                newz[j] = random::truncated_normal_distribution<double>(0, s_sigma, lj, uj)(rng);
+                newz[j] = random::truncated_normal_distribution<double>(0, 1, lj, uj)(rng);
             }
             // newz contains all new draws, replace z with it:
             z = newz;
@@ -357,25 +349,23 @@ const VectorXd& BayesianLinearRestricted::drawGibbs() {
         }
 
         // If we get here, we succeeded in the draw, hurray!
-        gibbs_2nd_last_z_ = gibbs_last_z_;
         gibbs_last_z_.reset(new VectorXd(z));
-        gibbs_last_sigma_ = sigma;
         gibbs_draws_++;
         draw_failures = 0;
     }
 
     if (last_draw_.size() != K_ + 1) last_draw_.resize(K_ + 1);
 
-    last_draw_.head(K_) = beta() + A.solve(z);
-    last_draw_[K_] = s_sigma * s_sigma;
+    last_draw_.head(K_) = beta() + toBetaVector(z, sigma_multiplier);
+    last_draw_[K_] = sigma_multiplier*sigma_multiplier * s2_;
 
     return last_draw_;
 }
 
-std::pair<double, double> BayesianLinearRestricted::sigmaRange(const Eigen::VectorXd &z) {
+std::pair<double, double> BayesianLinearRestricted::sigmaMultiplierRange(const Eigen::VectorXd &z) const {
     std::pair<double, double> range(0, INFINITY);
     // The current beta = beta() + A^{-1}z, and so is modifying beta() by A^{-1}z:
-    VectorXd denom = (R() * VinvLLT().matrixL().solve(z));
+    VectorXd denom = R() * toBetaVector(z);
     for (size_t i = 0; i < numRestrictions(); i++) {
         if (denom[i] == 0) {
             // This means our z draw was exactly parallel to the restriction line--in which
@@ -384,14 +374,11 @@ std::pair<double, double> BayesianLinearRestricted::sigmaRange(const Eigen::Vect
             // (This seems extremely unlikely, but just in case).
             continue;
         }
-        double limit = (*gibbs_r_Rbeta_)[i] / denom[i];
+        double limit = rMinusRBeta()[i] / denom[i];
 
         if (denom[i] > 0) { if (limit < range.second) range.second = limit; }
         else { if (limit > range.first) range.first = limit; }
     }
-    const double s = std::sqrt(s2_);
-    range.first /= s;
-    range.second /= s;
 
     return range;
 }
