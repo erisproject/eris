@@ -8,7 +8,6 @@
 #include <eris/random/exponential_distribution.hpp>
 #include <boost/math/constants/constants.hpp>
 #include <boost/core/scoped_enum.hpp>
-#include <iostream>
 
 namespace eris { namespace random {
 
