@@ -15,9 +15,6 @@
 #include <sstream>
 #include <type_traits>
 
-// Use to mutate the (public) const status variables; use DECONST(var) as you would use var
-#define DECONST(v) const_cast<std::remove_const<decltype(v)>::type&>(v)
-
 using namespace Eigen;
 
 namespace eris { namespace belief {
@@ -95,11 +92,11 @@ void BayesianLinearRestricted::removeRestriction(size_t r) {
 
 void BayesianLinearRestricted::reset() {
     BayesianLinear::reset();
-    DECONST(draw_rejection_discards_last) = 0;
-    DECONST(draw_rejection_discards) = 0;
-    DECONST(draw_rejection_success) = 0;
-    DECONST(draw_gibbs_success) = 0;
-    DECONST(draw_gibbs_discards) = 0;
+    draw_rejection_discards_last = 0;
+    draw_rejection_discards = 0;
+    draw_rejection_success = 0;
+    draw_gibbs_success = 0;
+    draw_gibbs_discards = 0;
     r_minus_R_beta_center_.reset();
     gibbs_last_z_.reset();
     to_net_restr_unscaled_.reset();
@@ -218,7 +215,7 @@ void BayesianLinearRestricted::gibbsInitialize(const Ref<const VectorXd> &initia
 }
 
 const VectorXd& BayesianLinearRestricted::drawGibbs() {
-    DECONST(last_draw_mode) = DrawMode::Gibbs;
+    last_draw_mode = DrawMode::Gibbs;
 
     if (not gibbs_last_z_) {
         // If we don't have an initial value, draw an *untruncated* value and give it to
@@ -259,7 +256,7 @@ const VectorXd& BayesianLinearRestricted::drawGibbs() {
 
     for (int t = 0; t < num_draws; t++) { // num_draws > 1 if thinning or burning in
         // If we discarded the previous value, count it:
-        if (t > 0) DECONST(draw_gibbs_discards)++;
+        if (t > 0) draw_gibbs_discards++;
 
         // First take a sigma^2 draw that agrees with the previous z draw
         if (numRestrictions() == 0) {
@@ -343,7 +340,7 @@ const VectorXd& BayesianLinearRestricted::drawGibbs() {
         // If we get here, we succeeded in the draw, hurray!
         gibbs_last_z_.reset(new VectorXd(z));
     }
-    DECONST(draw_gibbs_success)++;
+    draw_gibbs_success++;
 
     if (last_draw_.size() != K_ + 1) last_draw_.resize(K_ + 1);
 
@@ -375,9 +372,9 @@ std::pair<double, double> BayesianLinearRestricted::sigmaMultiplierRange(const E
 }
 
 const VectorXd& BayesianLinearRestricted::drawRejection(long max_discards) {
-    DECONST(last_draw_mode) = DrawMode::Rejection;
+    last_draw_mode = DrawMode::Rejection;
     if (max_discards < 0) max_discards = draw_rejection_max_discards;
-    DECONST(draw_rejection_discards_last) = 0;
+    draw_rejection_discards_last = 0;
     for (bool redraw = true; redraw; ) {
         redraw = false;
         auto &theta = BayesianLinear::draw();
@@ -386,8 +383,8 @@ const VectorXd& BayesianLinearRestricted::drawRejection(long max_discards) {
             if ((Rbeta.array() > restrict_values_.array()).any()) {
                 // Restrictions violated
                 redraw = true;
-                ++DECONST(draw_rejection_discards_last);
-                ++DECONST(draw_rejection_discards);
+                ++draw_rejection_discards_last;
+                ++draw_rejection_discards;
                 if (draw_rejection_discards_last > max_discards) {
                     throw draw_failure("draw() failed: maximum number of inadmissible draws reached.");
                 }
@@ -395,7 +392,7 @@ const VectorXd& BayesianLinearRestricted::drawRejection(long max_discards) {
         }
     }
 
-    ++DECONST(draw_rejection_success);
+    ++draw_rejection_success;
 
     return last_draw_;
 }

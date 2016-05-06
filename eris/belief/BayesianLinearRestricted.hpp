@@ -190,7 +190,7 @@ class BayesianLinearRestricted : public BayesianLinear {
          * for the last draw, this value can be used to detect which type of draw actually took
          * place.
          */
-        const DrawMode last_draw_mode{DrawMode::Auto};
+        DrawMode last_draw_mode{DrawMode::Auto};
 
         /** Performs a draw according to the current value of `draw_mode`; valid values are:
          *
@@ -442,13 +442,12 @@ class BayesianLinearRestricted : public BayesianLinear {
 
         // These are const from the public point of view; privately we adjust them (via a
         // const_cast)
-        const int
+        int
             draw_rejection_discards_last{0}, ///< Tracks the number of inadmissable draws by the most recent call to drawRejection()
             draw_rejection_success{0}, ///< The cumulative number of successful rejection draws
             draw_rejection_discards{0}, ///< The cumulative number of inadmissable rejection draws
             draw_gibbs_success{0}, ///< The cumulative number of gibbs draws obtained, not including burn-in and thinning draws
-            draw_gibbs_discards{0}; ///< The cumulative number of discarded (for burn-in or thinning) gibbs draws
-        int
+            draw_gibbs_discards{0}, ///< The cumulative number of discarded (for burn-in or thinning) gibbs draws
             draw_rejection_max_discards{50}, ///< The maximum number of inadmissable draws for a single rejection draw before aborting
             draw_auto_min_rejection{50}, ///< The minimum number of Auto-mode rejection attempts before consider the success rate
             draw_gibbs_burnin{100}, ///< The number of burn-in draws for the first Gibbs sampler draw
