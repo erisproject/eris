@@ -13,6 +13,10 @@
 #include <vector>
 #include <set>
 #include <sstream>
+#include <type_traits>
+
+// Use to mutate the (public) const status variables; use DECONST(var) as you would use var
+#define DECONST(v) const_cast<std::remove_const<decltype(v)>::type&>(v)
 
 using namespace Eigen;
 
@@ -91,42 +95,40 @@ void BayesianLinearRestricted::removeRestriction(size_t r) {
 
 void BayesianLinearRestricted::reset() {
     BayesianLinear::reset();
-    draw_rejection_discards_last = 0;
-    draw_rejection_discards = 0;
-    draw_rejection_success = 0;
+    DECONST(draw_rejection_discards_last) = 0;
+    DECONST(draw_rejection_discards) = 0;
+    DECONST(draw_rejection_success) = 0;
+    DECONST(draw_gibbs_success) = 0;
+    DECONST(draw_gibbs_discards) = 0;
     r_minus_R_beta_center_.reset();
     gibbs_last_z_.reset();
     to_net_restr_unscaled_.reset();
-    gibbs_draws_ = 0;
     chisq_n_median_ = std::numeric_limits<double>::quiet_NaN();
 }
 
 const VectorXd& BayesianLinearRestricted::draw() {
-    return draw(draw_mode);
-}
-
-const VectorXd& BayesianLinearRestricted::draw(DrawMode m) {
     // If they explicitly want rejection draw, do it:
-    if (m == DrawMode::Rejection)
+    if (draw_mode == DrawMode::Rejection)
         return drawRejection();
 
+    DrawMode m = draw_mode;
     // In auto mode we might try rejection sampling first
-    if (m == DrawMode::Auto) { // Need success rate < 0.1 to switch, with at least 20 samples.
+    if (m == DrawMode::Auto) { // Need success rate < 0.2 to switch, with at least 50 samples.
         long draw_rej_samples = draw_rejection_success + draw_rejection_discards;
         double success_rate = draw_rejection_success / (double)draw_rej_samples;
-        if (success_rate < draw_auto_min_success_rate and draw_rej_samples >= draw_rejection_max_discards) {
-            // Too many failures, switch to Gibbs sampling
+        if (success_rate < draw_auto_min_success_rate and draw_rej_samples >= draw_auto_min_rejection) {
+            // We saw too few successes before, so use Gibbs sampling
             m = DrawMode::Gibbs;
         }
         else {
             // Figure out how many sequential failed draws we'd need to hit the failure threshold,
             // then try up to that many times.
-            long draw_tries = std::max<long>(
+            long max_failures = std::max<long>(
                     std::ceil(draw_rejection_success / draw_auto_min_success_rate),
-                    draw_rejection_max_discards)
+                    draw_auto_min_rejection)
                 - draw_rej_samples;
             try {
-                return drawRejection(draw_tries);
+                return drawRejection(max_failures);
             }
             catch (draw_failure&) {
                 // Draw failure; switch to Gibbs
@@ -176,8 +178,6 @@ void BayesianLinearRestricted::gibbsInitialize(const Ref<const VectorXd> &initia
 
     if (initial.size() < K_ or initial.size() > K_+1) throw std::logic_error("BayesianLinearRestricted::gibbsInitialize() called with invalid initial vector (initial.size() != K())");
 
-    gibbs_draws_ = 0;
-
     auto &rng = random::rng();
 
     VectorXd z = toInitialZ(initial.head(K_));
@@ -218,7 +218,7 @@ void BayesianLinearRestricted::gibbsInitialize(const Ref<const VectorXd> &initia
 }
 
 const VectorXd& BayesianLinearRestricted::drawGibbs() {
-    last_draw_mode = DrawMode::Gibbs;
+    DECONST(last_draw_mode) = DrawMode::Gibbs;
 
     if (not gibbs_last_z_) {
         // If we don't have an initial value, draw an *untruncated* value and give it to
@@ -242,8 +242,9 @@ const VectorXd& BayesianLinearRestricted::drawGibbs() {
     double sigma_multiplier = 0;
 
     int num_draws = 1;
-    if (gibbs_draws_ < draw_gibbs_burnin)
-        num_draws += draw_gibbs_burnin - gibbs_draws_;
+    long gibbs_previous = draw_gibbs_success + draw_gibbs_discards;
+    if (gibbs_previous < draw_gibbs_burnin)
+        num_draws += draw_gibbs_burnin - gibbs_previous;
     else if (draw_gibbs_thinning > 1)
         num_draws = draw_gibbs_thinning;
 
@@ -256,9 +257,10 @@ const VectorXd& BayesianLinearRestricted::drawGibbs() {
     // expensive).
     if (std::isnan(chisq_n_median_) and numRestrictions() > 0) chisq_n_median_ = median(chisq_dist);
 
-    int draw_failures = 0;
-
     for (int t = 0; t < num_draws; t++) { // num_draws > 1 if thinning or burning in
+        // If we discarded the previous value, count it:
+        if (t > 0) DECONST(draw_gibbs_discards)++;
+
         // First take a sigma^2 draw that agrees with the previous z draw
         if (numRestrictions() == 0) {
             // If no restrictions, simple: just draw it from the unconditional distribution
@@ -299,60 +301,49 @@ const VectorXd& BayesianLinearRestricted::drawGibbs() {
             }
         }
 
-        try {
-            VectorXd newz(z);
-            for (unsigned int j = 0; j < K_; j++) {
-                // Temporarily set the coefficient to 0, so that the calculation below doesn't
-                // include it and we can figure out (from the result) the admissable value limits.
-                newz[j] = 0.0;
+        VectorXd newz(z);
+        for (unsigned int j = 0; j < K_; j++) {
+            // Temporarily set the coefficient to 0, so that the calculation below doesn't
+            // include it and we can figure out (from the result) the admissable value limits.
+            newz[j] = 0.0;
 
-                // Figure out lj and uj, the most binding constraints on z_j: start from infinity
-                // (unbounded)
-                double lj = -INFINITY, uj = INFINITY;
+            // Figure out lj and uj, the most binding constraints on z_j: start from infinity
+            // (unbounded)
+            double lj = -INFINITY, uj = INFINITY;
 
-                // Calculate all the (translated, z-space) restriction coefficients affecting
-                // element newz[j].  Note that we do this inside the loop for just one column,
-                // because the value we draw here will affect the next value, so we can't
-                // pre-calculating the entire matrix (it changes in each iteration).
-                VectorXd Dj = sigma_multiplier * netRestrictionMatrix().col(j);
-                // These are the constraint slackness values with newz[j] == 0; we divide by the
-                // associated Dj value to translate back from beta-space constraints into z-space constraints.
-                VectorXd constraints = (rMinusRBeta() - sigma_multiplier * (netRestrictionMatrix() * newz)).cwiseQuotient(Dj);
+            // Calculate all the (translated, z-space) restriction coefficients affecting
+            // element newz[j].  Note that we do this inside the loop for just one column,
+            // because the value we draw here will affect the next value, so we can't
+            // pre-calculating the entire matrix (it changes in each iteration).
+            VectorXd Dj = sigma_multiplier * netRestrictionMatrix().col(j);
+            // These are the constraint slackness values with newz[j] == 0; we divide by the
+            // associated Dj value to translate back from beta-space constraints into z-space constraints.
+            VectorXd constraints = (rMinusRBeta() - sigma_multiplier * (netRestrictionMatrix() * newz)).cwiseQuotient(Dj);
 
-                for (size_t r = 0; r < numRestrictions(); r++) {
-                    if (Dj[r] > 0) { // <= constraint (we didn't flip the direction by dividing because Djr is positive)
-                        if (constraints[r] < uj) uj = constraints[r];
-                    }
-                    else if (Dj[r] < 0) { // >= constraint (we flipped the constraint direction because Djr is negative)
-                        if (constraints[r] > lj) lj = constraints[r];
-                    }
-                    // else Dj is 0, which means no constraint applies to j
+            for (size_t r = 0; r < numRestrictions(); r++) {
+                if (Dj[r] > 0) { // <= constraint (we didn't flip the direction by dividing because Djr is positive)
+                    if (constraints[r] < uj) uj = constraints[r];
                 }
-
-                // Now lj is the most-binding bottom constraint, uj is the most-binding upper
-                // constraint.  Make sure they aren't conflicting:
-                if (lj >= uj) throw draw_failure("drawGibbs(): found impossible-to-satisfy linear constraints", *this);
-
-                // Our new Z is a truncated standard normal (truncated by the bounds we just found)
-                newz[j] = random::truncated_normal_distribution<double>(0, 1, lj, uj)(rng);
+                else if (Dj[r] < 0) { // >= constraint (we flipped the constraint direction because Djr is negative)
+                    if (constraints[r] > lj) lj = constraints[r];
+                }
+                // else Dj is 0, which means no constraint applies to j
             }
-            // newz contains all new draws, replace z with it:
-            z = newz;
+
+            // Now lj is the most-binding bottom constraint, uj is the most-binding upper
+            // constraint.  Make sure they aren't conflicting:
+            if (lj >= uj) throw draw_failure("drawGibbs(): found impossible-to-satisfy linear constraints", *this);
+
+            // Our new Z is a truncated standard normal (truncated by the bounds we just found)
+            newz[j] = random::truncated_normal_distribution<double>(0, 1, lj, uj)(rng);
         }
-        catch (const draw_failure &df) {
-            draw_failures++;
-            // Allow up to `draw_gibbs_retry` consecutive failures
-            if (draw_failures > draw_gibbs_retry) throw;
-            // Retry:
-            t--;
-            continue;
-        }
+        // newz contains all new draws, replace z with it:
+        z = newz;
 
         // If we get here, we succeeded in the draw, hurray!
         gibbs_last_z_.reset(new VectorXd(z));
-        gibbs_draws_++;
-        draw_failures = 0;
     }
+    DECONST(draw_gibbs_success)++;
 
     if (last_draw_.size() != K_ + 1) last_draw_.resize(K_ + 1);
 
@@ -384,9 +375,9 @@ std::pair<double, double> BayesianLinearRestricted::sigmaMultiplierRange(const E
 }
 
 const VectorXd& BayesianLinearRestricted::drawRejection(long max_discards) {
-    last_draw_mode = DrawMode::Rejection;
+    DECONST(last_draw_mode) = DrawMode::Rejection;
     if (max_discards < 0) max_discards = draw_rejection_max_discards;
-    draw_rejection_discards_last = 0;
+    DECONST(draw_rejection_discards_last) = 0;
     for (bool redraw = true; redraw; ) {
         redraw = false;
         auto &theta = BayesianLinear::draw();
@@ -395,8 +386,8 @@ const VectorXd& BayesianLinearRestricted::drawRejection(long max_discards) {
             if ((Rbeta.array() > restrict_values_.array()).any()) {
                 // Restrictions violated
                 redraw = true;
-                ++draw_rejection_discards_last;
-                ++draw_rejection_discards;
+                ++DECONST(draw_rejection_discards_last);
+                ++DECONST(draw_rejection_discards);
                 if (draw_rejection_discards_last > max_discards) {
                     throw draw_failure("draw() failed: maximum number of inadmissible draws reached.");
                 }
@@ -404,7 +395,7 @@ const VectorXd& BayesianLinearRestricted::drawRejection(long max_discards) {
         }
     }
 
-    ++draw_rejection_success;
+    ++DECONST(draw_rejection_success);
 
     return last_draw_;
 }

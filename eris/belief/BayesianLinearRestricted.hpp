@@ -186,32 +186,42 @@ class BayesianLinearRestricted : public BayesianLinear {
         DrawMode draw_mode = DrawMode::Auto;
 
         /** The last actual draw mode used, either DrawMode::Gibbs or DrawMode::Rejection.
-         * DrawMode::Auto is only set before any draw has been performed.  If DrawMode::Auto was
-         * used for the last draw, this value can be used to detect which type of draw actually took
+         * DrawMode::Auto is only set if no draws have been performed.  If DrawMode::Auto was used
+         * for the last draw, this value can be used to detect which type of draw actually took
          * place.
          */
-        DrawMode last_draw_mode = DrawMode::Auto;
+        const DrawMode last_draw_mode{DrawMode::Auto};
 
-        /** Performs a draw by calling `draw(draw_mode)`.
-         *
-         * \sa draw(mode)
-         * \sa draw_mode
-         */
-        const Eigen::VectorXd& draw() override;
-
-        /** Perfoms a draw using the requested draw mode, which must be one of:
+        /** Performs a draw according to the current value of `draw_mode`; valid values are:
          *
          *     - DrawMode::Gibbs - for gibbs sampling.
          *     - DrawMode::Rejection - for rejection sampling.
          *     - DrawMode::Auto - try rejection sampling first, switch to Gibbs sampling if required
          *
-         * When using DrawMode::Auto, rejection sampling is tried first; if the rejection sampling
-         * acceptance rate falls below `draw_auto_min_success_rate` (0.2 by default), rejection
-         * sampling is aborted and the current and all subsequent calls to draw() will use Gibbs
-         * sampling.  (Note that switching also requires a minimum of `draw_rejection_max_discards`
-         * (default: 100) draw attempts before switching).
+         * When using DrawMode::Auto, rejection sampling is tried first by calling drawRejection()
+         * with an appropriate maximum number of attempts (see below).  If the rejection sampling
+         * algorithm cannot find an admissable value, gibbs sampling is used instead.  Subsequent
+         * calls to draw() will continue to use gibbs sampling.
+         *
+         * The maximum number of rejection attempts is the number required to reach the larger of a
+         * cumulative total (including past attempt) of at least `draw_auto_min_rejection` (50 by
+         * default) total rejection draws (whether successful or failed); or the number of failed
+         * draws required for the success rate to drop below `draw_auto_min_success_rate` (0.2 by
+         * default).
+         *
+         * For example, with the default values, if there have been 40 successful and 100 failed
+         * past draw attempts, up to 61 rejection draw attempts will be made (because after 61
+         * sequential failures, the success rate will have dropped to 40/201 < 0.2).  If there is 1
+         * successful and 10 failed past draws, 39 rejection draw attempts will be made (to hit the
+         * draw_auto_min_rejection minimum attempts).
+         *
+         * Once the conditions are met, they will also be met for future calls (unless the threshold
+         * variables are changed), and so once auto-mode starts using gibbs, it will continue using
+         * gibbs for subsequent draws without attempt further rejection sampling.
+         *
+         * \sa draw_mode
          */
-        const Eigen::VectorXd& draw(DrawMode mode);
+        const Eigen::VectorXd& draw() override;
 
         /** Draws a set of parameter values, incorporating the restrictions using Gibbs sampling
          * rather than rejection sampling (as done by drawRejection()).  Returns a const reference
@@ -224,21 +234,13 @@ class BayesianLinearRestricted : public BayesianLinear {
          * modifications as described below to draw from a truncated multivariate t instead.
          *
          * The behaviour of drawGibbs() is affected by three parameters:
-         * - `draw_gibbs_burnin` controls the number of burn-in draws to perform for the first
-         *   drawGibbs() call
-         * - `draw_gibbs_thinning` controls how many (internal) draws to skip between subsequent
-         *   drawGibbs() draws.
-         * - `draw_gibbs_retry` controls how many consecutive beta draw failures are permitted.
-         *   Draw failures typically occur when a particularly extreme previous beta parameter or
-         *   sigma draw implies truncation ranges too far in one tail to handle; if such an error
-         *   occurs, this is the number of attempts to redraw (by discarding the current gibbs
-         *   iteration and resuming from the previous one) that will be done before giving up and
-         *   passing through the draw_failure exception.  Note that this is separate from sigma draw
-         *   failures: if sigma cannot be drawn using the current gibbs iteration beta values, we
-         *   try to draw using the previous iteration's beta values, and if that fails, give up (and
-         *   rethrow the draw_failure exception).
-         *
-         * \throws draw_failure if called on a model with no restrictions
+         * - `draw_gibbs_burnin` controls the number of draws to discard before returning the first
+         *   drawGibbs() call.  Any previous burn-in, thinning, and successful draws (as determined
+         *   by `draw_gibbs_success + draw_gibbs_discards`) are considered to satisfy the burn-in
+         *   requirement.
+         * - `draw_gibbs_thinning` controls how many (internal) draws to discard before returning a
+         *   drawGibbs() draws--every `draw_gibbs_thinning`th draw is used (i.e. thinning=1 uses no
+         *   thinning).  The thinning does not apply to burn-in draws.
          *
          * \par Implementation details: initial value
          *
@@ -428,8 +430,8 @@ class BayesianLinearRestricted : public BayesianLinear {
          * `draw_rejection_success_cumulative` will have been updated to reflect the draw
          * statistics.
          *
-         * \param max_discards if specified and positive, the maximum number of failed draws before
-         * aborting (by throwing an exception).  The default value, -1, uses
+         * \param max_discards if specified and non-negative, the maximum number of failed draws
+         * before aborting (by throwing an exception).  The default value, -1, uses
          * `draw_rejection_max_discards`.
          *
          * \throws BayesianLinear::draw_failure exception if, due to the imposed restrictions, at least
@@ -438,14 +440,20 @@ class BayesianLinearRestricted : public BayesianLinear {
          */
         virtual const Eigen::VectorXd& drawRejection(long max_discards = -1);
 
-        int draw_rejection_discards_last = 0, ///< Tracks the number of inadmissable draws by the most recent call to drawRejection()
-            draw_rejection_success = 0, ///< The cumulative number of successful rejection draws
-            draw_rejection_discards = 0, ///< The cumulative number of inadmissable rejection draws
-            draw_rejection_max_discards = 100, ///< The maximum number of inadmissable draws for a single rejection draw before aborting
-            draw_gibbs_burnin = 100, ///< The number of burn-in draws for the first Gibbs sampler draw
-            draw_gibbs_thinning = 2, ///< drawGibbs() uses every `draw_gibbs_thinning`th sample (1 = use every draw)
-            draw_gibbs_retry = 3; ///< how many times drawGibbs() will retry in the event of a draw failure
-        double draw_auto_min_success_rate = 0.2; ///< The minimum draw success rate below which we switch to Gibbs sampling
+        // These are const from the public point of view; privately we adjust them (via a
+        // const_cast)
+        const int
+            draw_rejection_discards_last{0}, ///< Tracks the number of inadmissable draws by the most recent call to drawRejection()
+            draw_rejection_success{0}, ///< The cumulative number of successful rejection draws
+            draw_rejection_discards{0}, ///< The cumulative number of inadmissable rejection draws
+            draw_gibbs_success{0}, ///< The cumulative number of gibbs draws obtained, not including burn-in and thinning draws
+            draw_gibbs_discards{0}; ///< The cumulative number of discarded (for burn-in or thinning) gibbs draws
+        int
+            draw_rejection_max_discards{50}, ///< The maximum number of inadmissable draws for a single rejection draw before aborting
+            draw_auto_min_rejection{50}, ///< The minimum number of Auto-mode rejection attempts before consider the success rate
+            draw_gibbs_burnin{100}, ///< The number of burn-in draws for the first Gibbs sampler draw
+            draw_gibbs_thinning{2}; ///< drawGibbs() uses every `draw_gibbs_thinning`th sample (1 = use every draw)
+        double draw_auto_min_success_rate{0.2}; ///< The minimum draw success rate below which we switch to Gibbs sampling
 
         /// Accesses the restriction coefficient selection matrix (the \f$R\f$ in \f$R\beta <= r\f$).
         const Eigen::MatrixXd& R() const { return restrict_select_; }
@@ -643,7 +651,6 @@ class BayesianLinearRestricted : public BayesianLinear {
         // z ~ restricted N(0, I)
         std::shared_ptr<Eigen::VectorXd> gibbs_last_z_;
 
-        long gibbs_draws_ = 0;
         double chisq_n_median_ = std::numeric_limits<double>::quiet_NaN();
 
 };
