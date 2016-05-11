@@ -48,6 +48,11 @@ package.
 These packages are built from the "debian", "debian-jessie", "ubuntu-trusty",
 and "ubuntu-wily" branches of the eris package repository.
 
+## Documentation
+
+The API documentation can be built from the source code, as described in the
+Compiling section below, and is also available at http://imaginary.ca/eris/api/
+
 ## Compiling
 
 ### Requirements
