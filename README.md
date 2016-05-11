@@ -60,7 +60,7 @@ and "ubuntu-wily" branches of the eris package repository.
 If you wish to build the HTML API documentation, additional requirements are:
 - [doxygen](http://www.stack.nl/~dimitri/doxygen/)
 - [graphviz](http://www.graphviz.org)
-= [mathjax](https://www.mathjax.org)
+- [mathjax](https://www.mathjax.org)
 
 ### Building
 
