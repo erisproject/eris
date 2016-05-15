@@ -1,24 +1,24 @@
-eris (1.0.0~pre20160424-1) UNRELEASED; urgency=medium
+eris (0.4.0-1) unstable; urgency=low
 
-  * 1.0.0 snapshot
+  * New release: 0.4.0
   * Require Eigen 3.2.7+ for proper move support
   * Fix eigen version detection
-  * Added probit test script
   * BayesianLinear update/weaken redesign
   * BayesianLinear API updates
-  * Added proper truncated_normal_distribution, use it in
-    BayesianLinearRestricted.
   * Use boost for randomness (rng and distributions) instead of stl.  Boost's
     implementations are faster, especially for Normal (since 1.56.0); I've
     submitted patches to make normal a bit faster and exponential much faster,
     forthcoming (hopefully) in 1.62.0.  Until then, these implementations are
     included in eris/random/{normal,exponential}_distribution.hpp.
-  * Initial bayesian probit class shell (WIP)
   * Documentation fixes/updates
   * BayesianLinear: matrix improvements; other fixes
   * Made Random a namespace with functions instead of a static class; relax
     thread seeding
-  * Added BayesianLinear.Vinvinv() to get V matrix
+  * Added new truncated_normal_distribution class, which
+    BayesianLinearRestricted now uses.
+  * Fixed Gibbs sampler for BayesianLinearRestricted; the previous one was bad
+    at dealing with large-probability truncations, to the point that it was
+    failing in cases where even rejection would succeed.
 
  -- Jason Rhinelander <jason@imaginary.ca>  Sat, 09 Apr 2016 19:10:16 -0400
 
