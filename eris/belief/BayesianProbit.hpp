@@ -14,10 +14,11 @@ namespace eris { namespace belief {
  *      \end{array}
  *      \right.
  * \f]
- * where \f$y\f$ anre \f$X\f$ are observed, but $y^*$ is an unobserved, latent variable.
+ * where \f$y\f$ anre \f$X\f$ are observed, but $y^*$ is an unobserved, latent variable.  As in a
+ * maximum likelihood probit, the actual threshold value (0 above) is irrelevant (as long as \f$X\f$
+ * contains a constant).
  *
- * This class extends BayesianLinear, but imposes that `s2 = 1.0` always (as a necessary
- * identification condition), and updates in a very different way.
+ * This class imposes the usual probit \f$s^2 = 1.0\f$ necessary identification condition.
  */
 class BayesianProbit : public BayesianLinear {
     public:
@@ -35,8 +36,16 @@ class BayesianProbit : public BayesianLinear {
          * BayesianLinear() for details.
          */
         explicit BayesianProbit(unsigned int K);
-        /** Constructs a BayesianProbit model with the given parameters.  See the equivalent
-         * BayesianLinear() for details, but note that its s2 value is always specified as 1.0.
+        /** Constructs a BayesianProbit model with the given parameters.
+         *
+         * \param beta the coefficient mean parameters.
+         * \param V_inverse the inverse of the model's V matrix (where \f$V\f$ is the variance
+         * matrix of \f$\beta\f$).  Note: only the lower triangle of the matrix will be used.
+         * \param n the number of data points supporting the other values (which can be a
+         * non-integer value).
+         *
+         * \throws std::logic_error if any of (`K >= 1`, `V.rows() == V.cols()`, `K == V.rows()`)
+         * are not satisfied (where `K` is determined by the number of rows of `beta`).
          */
         BayesianProbit(
                 const Eigen::Ref<const Eigen::VectorXd> &beta,
@@ -46,10 +55,11 @@ class BayesianProbit : public BayesianLinear {
         /** Constructs a new BayesianProbit from a prior and new data.
          *
          * \param prior the prior
-         * \param y the 0/1 y values.  This should only contain values equal to 0 or 1, though this
-         * is not (currently) checked.
+         * \param y the 0/1 y values.  This should only contain values equal to 0 or 1.
          * \param X the X values.
          * \param weaken if greater than 1.0, the amount to weaken before updating.
+         *
+         * \throws std::logic_error 
          */
         BayesianProbit(
                 const BayesianProbit &prior,
@@ -84,6 +94,7 @@ class BayesianProbit : public BayesianLinear {
          * \param weaken if greater than 1.0, the amount to weaken before updating.
          */
         BayesianProbit(BayesianProbit &&prior, double weaken);
+
 
 };
 
