@@ -27,17 +27,24 @@ int main() {
 
     V /= s2;
 
+    BayesianLinear unrestricted(beta, s2, V.fullPivHouseholderQr().inverse(), n);
+    BayesianLinearRestricted unrestricted2(beta, s2, V.fullPivHouseholderQr().inverse(), n);
+
     BayesianLinearRestricted model(beta, s2, V.fullPivHouseholderQr().inverse(), n);
     model.restrict(1) <= -0.05;
     model.restrict(2) >= 0.0;
     model.restrict(4) <= -1.0;
-    model.draw_mode = BayesianLinearRestricted::DrawMode::Gibbs;
+    model.draw_gibbs_burnin = 100;
+    model.draw_gibbs_thinning = 2;
+
+    std::cout << model;
 
     std::cout << "s2=" << model.s2() << ", s2*V:\n" << s2*model.Vinvinv() << "\n";
 
-    constexpr size_t draws = 1000;
-    MatrixXd beta_rej(5+1, draws), beta_gibbs(5+1, draws);
+    constexpr size_t draws = 10000;
+    MatrixXd beta_rej(5+1, draws), beta_gibbs(5+1, draws), beta_unrest(5+1, draws), beta_unrest2(5+1,draws);
 
+    model.draw_mode = BayesianLinearRestricted::DrawMode::Rejection;
     for (unsigned i = 0; i < draws; i++) {
         beta_rej.col(i) = model.drawRejection(draws);
     }
@@ -45,10 +52,31 @@ int main() {
     std::cerr << draws << " draws: rejection discards: " << model.draw_rejection_discards << "\n"
         << "rejection successes: " << model.draw_rejection_success << "\n";
 
+    model.draw_mode = BayesianLinearRestricted::DrawMode::Gibbs;
     for (unsigned i = 0; i < draws; i++) {
-        beta_gibbs.col(i) = model.drawGibbs();
+        beta_gibbs.col(i) = model.draw();
+        beta_unrest.col(i) = unrestricted.draw();
+        beta_unrest2.col(i) = unrestricted2.drawGibbs();
     }
 
+    std::cerr << draws << " draws: rejection discards: " << model.draw_rejection_discards << "\n"
+        << "rejection successes: " << model.draw_rejection_success << "\n";
+
     std::cerr << "means:\nrejection: " << beta_rej.rowwise().mean().transpose() <<
-                       "\ngibbs:     " << beta_gibbs.rowwise().mean().transpose() << "\n";
+                       "\ngibbs:     " << beta_gibbs.rowwise().mean().transpose() <<
+                       "\nunrest:    " << beta_unrest.rowwise().mean().transpose() <<
+                       "\nunrest(g): " << beta_unrest2.rowwise().mean().transpose() <<
+                       "\n\n";
+
+    std::cerr << "min:\nrejection: " << beta_rej.rowwise().minCoeff().transpose() <<
+                     "\ngibbs:     " << beta_gibbs.rowwise().minCoeff().transpose() <<
+                     "\nunrest:    " << beta_unrest.rowwise().minCoeff().transpose() <<
+                     "\nunrest(g): " << beta_unrest2.rowwise().minCoeff().transpose() <<
+                     "\n\n";
+
+    std::cerr << "max:\nrejection: " << beta_rej.rowwise().maxCoeff().transpose() <<
+                     "\ngibbs:     " << beta_gibbs.rowwise().maxCoeff().transpose() <<
+                     "\nunrest:    " << beta_unrest.rowwise().maxCoeff().transpose() <<
+                     "\nunrest(g): " << beta_unrest2.rowwise().maxCoeff().transpose() <<
+                     "\n\n";
 }
