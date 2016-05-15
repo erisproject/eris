@@ -10,8 +10,8 @@ set(eris_url "https://git.imaginary.ca/eris/eris")
 set(eris_description "Agent-based economic modelling library")
 
 # Eris package version
-set(ERIS_VERSION_MAJOR "1")
-set(ERIS_VERSION_MINOR "0")
+set(ERIS_VERSION_MAJOR "0")
+set(ERIS_VERSION_MINOR "4")
 set(ERIS_VERSION_PATCH "0")
 set(ERIS_VERSION "${ERIS_VERSION_MAJOR}.${ERIS_VERSION_MINOR}.${ERIS_VERSION_PATCH}")
 

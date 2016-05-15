@@ -8,7 +8,6 @@
 #include <eris/random/exponential_distribution.hpp>
 #include <boost/math/constants/constants.hpp>
 #include <boost/core/scoped_enum.hpp>
-#include <iostream>
 
 namespace eris { namespace random {
 
@@ -333,7 +332,8 @@ public:
                 {
                     exponential_distribution<RealType> exponential;
                     const RealType exp_max_times_sigma = _upper_limit - _lower_limit;
-                    const RealType x_scale = _sigma / _er_lambda_times_sigma;
+                    const RealType twice_sigma_squared = RealType(2) * _sigma * _sigma;
+                    const RealType x_scale = _sigma * _sigma / _er_lambda_times_sigma;
                     const RealType x_delta = _er_a - _er_lambda_times_sigma;
                     RealType x;
                     do {
@@ -344,11 +344,11 @@ public:
                         // Requiring that this be less than the outer limit is equivalent to
                         // requiring x < alpha*((up-low) / sigma).  The left tail yields exactly the
                         // same condition.
-                        do { x = exponential(eng) * x_scale; } while (_sigma * x > exp_max_times_sigma);
-                        // x -> x + a - lambda
-                    } while (2 * exponential(eng) <= (x+x_delta)*(x+x_delta));
+                        do { x = exponential(eng) * x_scale; } while (x > exp_max_times_sigma);
+                        // x+x_delta  -->  x - lambda + a
+                    } while (twice_sigma_squared * exponential(eng) <= (x+x_delta)*(x+x_delta));
 
-                    return _left_tail ? _upper_limit - x*_sigma : _lower_limit + x*_sigma;
+                    return _left_tail ? _upper_limit - x : _lower_limit + x;
                 }
 
             // Should be impossible (but silences the unhandled-switch-case warning):
@@ -559,7 +559,7 @@ private:
                     // Precalculate this, because it shows up twice in the messy calculation below:
                     const RealType sqrtaap4ss = sqrt(a*a + RealType(4)*(_sigma * _sigma));
 
-                    // Our threshold condition is this thing:
+                    // Our threshold condition (for preferring uniform to exponential) is this thing:
                     //
                     // beta - alpha < c * 2/(alpha+sqrt(alpha^2+4)) * exp((alpha^2 - alpha*sqrt(alpha^2+4)) / 4 + 1/2)
                     //
@@ -572,7 +572,7 @@ private:
                     //
                     if (std::isinf(b) or
                             _ur_inv_2_sigma_squared * (a + sqrtaap4ss) * (b - a)
-                            <
+                            >=
                             detail::truncnorm_threshold<RealType>::cost_er_rel_ur * std::exp(
                                 RealType(0.5) * _ur_inv_2_sigma_squared * a * (a - sqrtaap4ss) + RealType(0.5)
                                 )

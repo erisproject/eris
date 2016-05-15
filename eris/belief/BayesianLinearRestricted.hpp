@@ -168,6 +168,9 @@ class BayesianLinearRestricted : public BayesianLinear {
          */
         void addRestrictionsGE(const Eigen::Ref<const Eigen::MatrixXd> &R, const Eigen::Ref<const Eigen::VectorXd> &r);
 
+        /// Returns the number of restrictions.  This is simply an alias for calling `R().rows()`.
+        size_t numRestrictions() const { return R().rows(); }
+
         /** Clears all current model restrictions. */
         void clearRestrictions();
 
@@ -183,32 +186,42 @@ class BayesianLinearRestricted : public BayesianLinear {
         DrawMode draw_mode = DrawMode::Auto;
 
         /** The last actual draw mode used, either DrawMode::Gibbs or DrawMode::Rejection.
-         * DrawMode::Auto is only set before any draw has been performed.  If DrawMode::Auto was
-         * used for the last draw, this value can be used to detect which type of draw actually took
+         * DrawMode::Auto is only set if no draws have been performed.  If DrawMode::Auto was used
+         * for the last draw, this value can be used to detect which type of draw actually took
          * place.
          */
-        DrawMode last_draw_mode = DrawMode::Auto;
+        DrawMode last_draw_mode{DrawMode::Auto};
 
-        /** Performs a draw by calling `draw(draw_mode)`.
-         *
-         * \sa draw(mode)
-         * \sa draw_mode
-         */
-        const Eigen::VectorXd& draw() override;
-
-        /** Perfoms a draw using the requested draw mode, which must be one of:
+        /** Performs a draw according to the current value of `draw_mode`; valid values are:
          *
          *     - DrawMode::Gibbs - for gibbs sampling.
          *     - DrawMode::Rejection - for rejection sampling.
          *     - DrawMode::Auto - try rejection sampling first, switch to Gibbs sampling if required
          *
-         * When using DrawMode::Auto, rejection sampling is tried first; if the rejection sampling
-         * acceptance rate falls below `draw_auto_min_success_rate` (0.2 by default), rejection
-         * sampling is aborted and the current and all subsequent calls to draw() will use Gibbs
-         * sampling.  (Note that switching also requires a minimum of `draw_rejection_max_discards`
-         * (default: 100) draw attempts before switching).
+         * When using DrawMode::Auto, rejection sampling is tried first by calling drawRejection()
+         * with an appropriate maximum number of attempts (see below).  If the rejection sampling
+         * algorithm cannot find an admissable value, gibbs sampling is used instead.  Subsequent
+         * calls to draw() will continue to use gibbs sampling.
+         *
+         * The maximum number of rejection attempts is the number required to reach the larger of a
+         * cumulative total (including past attempt) of at least `draw_auto_min_rejection` (50 by
+         * default) total rejection draws (whether successful or failed); or the number of failed
+         * draws required for the success rate to drop below `draw_auto_min_success_rate` (0.2 by
+         * default).
+         *
+         * For example, with the default values, if there have been 40 successful and 100 failed
+         * past draw attempts, up to 61 rejection draw attempts will be made (because after 61
+         * sequential failures, the success rate will have dropped to 40/201 < 0.2).  If there is 1
+         * successful and 10 failed past draws, 39 rejection draw attempts will be made (to hit the
+         * draw_auto_min_rejection minimum attempts).
+         *
+         * Once the conditions are met, they will also be met for future calls (unless the threshold
+         * variables are changed), and so once auto-mode starts using gibbs, it will continue using
+         * gibbs for subsequent draws without attempt further rejection sampling.
+         *
+         * \sa draw_mode
          */
-        const Eigen::VectorXd& draw(DrawMode mode);
+        const Eigen::VectorXd& draw() override;
 
         /** Draws a set of parameter values, incorporating the restrictions using Gibbs sampling
          * rather than rejection sampling (as done by drawRejection()).  Returns a const reference
@@ -221,21 +234,13 @@ class BayesianLinearRestricted : public BayesianLinear {
          * modifications as described below to draw from a truncated multivariate t instead.
          *
          * The behaviour of drawGibbs() is affected by three parameters:
-         * - `draw_gibbs_burnin` controls the number of burn-in draws to perform for the first
-         *   drawGibbs() call
-         * - `draw_gibbs_thinning` controls how many (internal) draws to skip between subsequent
-         *   drawGibbs() draws.
-         * - `draw_gibbs_retry` controls how many consecutive beta draw failures are permitted.
-         *   Draw failures typically occur when a particularly extreme previous beta parameter or
-         *   sigma draw implies truncation ranges too far in one tail to handle; if such an error
-         *   occurs, this is the number of attempts to redraw (by discarding the current gibbs
-         *   iteration and resuming from the previous one) that will be done before giving up and
-         *   passing through the draw_failure exception.  Note that this is separate from sigma draw
-         *   failures: if sigma cannot be drawn using the current gibbs iteration beta values, we
-         *   try to draw using the previous iteration's beta values, and if that fails, give up (and
-         *   rethrow the draw_failure exception).
-         *
-         * \throws draw_failure if called on a model with no restrictions
+         * - `draw_gibbs_burnin` controls the number of draws to discard before returning the first
+         *   drawGibbs() call.  Any previous burn-in, thinning, and successful draws (as determined
+         *   by `draw_gibbs_success + draw_gibbs_discards`) are considered to satisfy the burn-in
+         *   requirement.
+         * - `draw_gibbs_thinning` controls how many (internal) draws to discard before returning a
+         *   drawGibbs() draws--every `draw_gibbs_thinning`th draw is used (i.e. thinning=1 uses no
+         *   thinning).  The thinning does not apply to burn-in draws.
          *
          * \par Implementation details: initial value
          *
@@ -425,8 +430,8 @@ class BayesianLinearRestricted : public BayesianLinear {
          * `draw_rejection_success_cumulative` will have been updated to reflect the draw
          * statistics.
          *
-         * \param max_discards if specified and positive, the maximum number of failed draws before
-         * aborting (by throwing an exception).  The default value, -1, uses
+         * \param max_discards if specified and non-negative, the maximum number of failed draws
+         * before aborting (by throwing an exception).  The default value, -1, uses
          * `draw_rejection_max_discards`.
          *
          * \throws BayesianLinear::draw_failure exception if, due to the imposed restrictions, at least
@@ -435,20 +440,25 @@ class BayesianLinearRestricted : public BayesianLinear {
          */
         virtual const Eigen::VectorXd& drawRejection(long max_discards = -1);
 
-        int draw_rejection_discards_last = 0, ///< Tracks the number of inadmissable draws by the most recent call to drawRejection()
-            draw_rejection_success = 0, ///< The cumulative number of successful rejection draws
-            draw_rejection_discards = 0, ///< The cumulative number of inadmissable rejection draws
-            draw_rejection_max_discards = 100, ///< The maximum number of inadmissable draws for a single rejection draw before aborting
-            draw_gibbs_burnin = 100, ///< The number of burn-in draws for the first Gibbs sampler draw
-            draw_gibbs_thinning = 2, ///< drawGibbs() uses every `draw_gibbs_thinning`th sample (1 = use every draw)
-            draw_gibbs_retry = 3; ///< how many times drawGibbs() will retry in the event of a draw failure
-        double draw_auto_min_success_rate = 0.2; ///< The minimum draw success rate below which we switch to Gibbs sampling
+        // These are const from the public point of view; privately we adjust them (via a
+        // const_cast)
+        int
+            draw_rejection_discards_last{0}, ///< Tracks the number of inadmissable draws by the most recent call to drawRejection()
+            draw_rejection_success{0}, ///< The cumulative number of successful rejection draws
+            draw_rejection_discards{0}, ///< The cumulative number of inadmissable rejection draws
+            draw_gibbs_success{0}, ///< The cumulative number of gibbs draws obtained, not including burn-in and thinning draws
+            draw_gibbs_discards{0}, ///< The cumulative number of discarded (for burn-in or thinning) gibbs draws
+            draw_rejection_max_discards{50}, ///< The maximum number of inadmissable draws for a single rejection draw before aborting
+            draw_auto_min_rejection{50}, ///< The minimum number of Auto-mode rejection attempts before consider the success rate
+            draw_gibbs_burnin{100}, ///< The number of burn-in draws for the first Gibbs sampler draw
+            draw_gibbs_thinning{2}; ///< drawGibbs() uses every `draw_gibbs_thinning`th sample (1 = use every draw)
+        double draw_auto_min_success_rate{0.2}; ///< The minimum draw success rate below which we switch to Gibbs sampling
 
         /// Accesses the restriction coefficient selection matrix (the \f$R\f$ in \f$R\beta <= r\f$).
-        Eigen::Block<const Eigen::MatrixXd> R() const;
+        const Eigen::MatrixXd& R() const { return restrict_select_; }
 
         /// Accesses the restriction value vector (the \f$r\f$ in \f$R\beta <= r\f$).
-        Eigen::VectorBlock<const Eigen::VectorXd> r() const;
+        const Eigen::VectorXd& r() const { return restrict_values_; }
 
         /** Overloaded to append the restrictions after the regular BayesianLinear details.
          */
@@ -581,47 +591,66 @@ class BayesianLinearRestricted : public BayesianLinear {
         double getRestriction(size_t k, bool upper) const;
 
         /** Stores the coefficient selection matrix for arbitrary linear restrictions passed to
-         * addRestriction() or addRestrictions(). Note that the only the first
-         * `restrict_linear_size_` rows of the matrix will be set, but other rows might exist with
-         * uninitialized values.
-         *
-         * This matrix is stored in row-major order, because it is primarily accessed and assigned
-         * to row-by-row.
+         * addRestriction() or addRestrictions().
          */
         Eigen::MatrixXd restrict_select_;
         /** Stores the value restrictions for arbitrary linear restrictions passed to
-         * addRestriction() or addRestrictions().  Note that the only the first
-         * `restrict_linear_size_` values of the vector will be set, but other values might exist
-         * with uninitialized values. */
-        Eigen::VectorXd restrict_values_;
-        /** Stores the number of arbitrary linear restrictions currently stored in
-         * restrict_linear_select_ and restrict_linear_values_.
+         * addRestriction() or addRestrictions().
          */
-        size_t restrict_size_ = 0;
-
-        /** Called to ensure the above are set and have (at least) the required number of rows free
-         * (beginning at row `restrict_linear_size_`). */
-        void allocateRestrictions(size_t more);
+        Eigen::VectorXd restrict_values_;
 
     private:
-        // Values used for Gibbs sampling.  These aren't set until first needed.
-        std::shared_ptr<decltype(restrict_select_)> gibbs_D_; // D = R A^{-1}
-        // z ~ restricted N(0, I); sigma = sqrt of last sigma^2 draw; r_Rbeta_ = r-R*beta_
-        std::shared_ptr<Eigen::VectorXd> gibbs_last_z_, gibbs_2nd_last_z_, gibbs_r_Rbeta_;
-        double gibbs_last_sigma_ = std::numeric_limits<double>::signaling_NaN();
-        long gibbs_draws_ = 0;
-        double chisq_n_median_ = std::numeric_limits<double>::signaling_NaN();
 
-        /* Returns the bounds on a sigma draw for the given z draw. Lower bound is .first, upper
-         * bound is .second.  gibbs_D_ and gibbs_r_Rbeta_ must be set.
+        // Takes a z-space vector, returns the associated beta-space vector.  Note that the
+        // associated beta value is this vector *plus* `beta()`.  Note also that the value returned
+        // here incorporates s2_; a further sigma multiplier can provided when necessary (e.g.
+        // when drawing a t distribution), which scales the result by the given value.
+        Eigen::VectorXd toBetaVector(const Eigen::Ref<const Eigen::VectorXd> &z, double sigma_multiplier = 1.0) const;
+
+        // Takes an initial beta value, returns the same converted into z-space.  Note that the
+        // input value should be the actual beta value, *not* the vector from beta() to beta.
+        // This should only be used to convert an initial value into an initial z value; after that,
+        // the z value itself should be used for subsequent gibbs draws.
+        Eigen::VectorXd toInitialZ(const Eigen::Ref<const Eigen::VectorXd> &initial_beta) const;
+
+        // Takes a z vector, returns the associated restriction slackness vector (i.e.  r - R*beta),
+        // where negative values indicate violated restrictions.
+        // sigma_multiplier is an extra value to multiply the rootSigma matrix by (note that
+        // rootSigma already incorporates s2_).
+        Eigen::VectorXd restrictionViolations(const Eigen::Ref<const Eigen::VectorXd> &z, double sigma_multiplier = 1.0) const;
+
+
+        mutable std::shared_ptr<Eigen::VectorXd> r_minus_R_beta_center_;
+        // Calculates (if not already cached) the value of `r - R()*beta()`, i.e. the restriction
+        // slackness at the beta() posterior parameter.
+        const Eigen::VectorXd& rMinusRBeta() const;
+
+        // The cache for the following method (the method still has to multiply by sigma_multiplier,
+        // but doesn't have to repeat the matrix multiplication).
+        mutable std::shared_ptr<Eigen::MatrixXd> to_net_restr_unscaled_;
+        // Calculates the matrix that premultiplies `z` into net restriction values.  That is, this
+        // matrix times z is equivalent to R() * toBetaVector(z), and so
+        // `rMinusRBeta() - netRestrictionMatrix() * z` will equal will equal `r - R()*beta`, where
+        // beta equals beta() plus the beta vector associated with z.  Note that this matrix is
+        // *not* scaled by a sigma_multiplier: when a non-unitary sigma_multiplier is needed,
+        // multiply the returned value by the multiplier.
+        const Eigen::MatrixXd& netRestrictionMatrix() const;
+
+        /* Returns the bounds on a sigma multiplier for the given z draw that doesn't violate any
+         * restrictions. Lower bound is .first, upper bound is .second.
          *
-         * The returned ranges values *are* divided by sqrt(s2), expecting that the final "sigma"
-         * value will be s times a chi squared drawn with the bounds returned from here.
-         *
-         * Note that this doesn't check whether the range is actually feasible: it could return a
-         * range with only negative values, for example.
+         * range.first will be non-negative--a value of 0 will occur whenever beta() does not
+         * violate any restrictions.
+         * range.second can be negative, or less than range.first: both indicate that there are no
+         * admissable positive multipliers that can avoid violating at least one restriction, and in
+         * general means that the current z already violates restrictions.
          */
-        std::pair<double, double> sigmaRange(const Eigen::VectorXd &z);
+        std::pair<double, double> sigmaMultiplierRange(const Eigen::VectorXd &z) const;
+
+        // z ~ restricted N(0, I)
+        std::shared_ptr<Eigen::VectorXd> gibbs_last_z_;
+
+        double chisq_n_median_ = std::numeric_limits<double>::quiet_NaN();
 
 };
 

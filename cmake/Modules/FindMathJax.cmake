@@ -23,9 +23,9 @@ find_path(MATHJAX_PATH MathJax.js
 # Extract the version number from MathJax.js, which may or may not be minified.
 if (NOT MATHJAX_PATH STREQUAL MATHJAX_PATH-NOTFOUND)
     file(READ "${MATHJAX_PATH}/MathJax.js" _mathjax_js_source)
-    string(REGEX MATCH "MathJax\\.version *= *\"[0-9]+\\.[0-9]+\";" _mathjax_js_vers "${_mathjax_js_source}")
+    string(REGEX MATCH "MathJax\\.version *= *\"[0-9]+(\\.[0-9]+)*\";" _mathjax_js_vers "${_mathjax_js_source}")
     unset(_mathjax_js_source)
-    string(REGEX REPLACE ".*([0-9]+\\.[0-9]+).*" "\\1" MATHJAX_VERSION "${_mathjax_js_vers}")
+    string(REGEX REPLACE ".*\"([0-9]+(\\.[0-9]+)*)\".*" "\\1" MATHJAX_VERSION "${_mathjax_js_vers}")
     unset(_mathjax_js_vers)
 endif()
 
