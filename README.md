@@ -29,7 +29,8 @@ The library name, Eris, is the name of the Greek goddess of chaos.
 
 ### Library overview
 
-See [OVERVIEW.md] for an overview of how the library works.
+See the [Eris overview](OVERVIEW.md) documentation for an introductory overview
+to how the library works.
 
 ### API documentation
 
