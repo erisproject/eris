@@ -25,6 +25,28 @@ with alternative implementations.
 
 The library name, Eris, is the name of the Greek goddess of chaos.
 
+## Documentation
+
+### Library overview
+
+See [OVERVIEW.md] for an overview of how the library works.
+
+### API documentation
+
+The API documentation can be built from the source code, as described in the
+Compiling section below, and is also available at
+https://imaginary.ca/eris/api/.  A good place to start is the
+[eris::Simulation](https://imaginary.ca/eris/api/classeris_1_1Simulation.html)
+class, and the classes in the
+[eris::interopt](https://imaginary.ca/eris/api/namespaceeris_1_1interopt.html)
+and
+[eris::intraopt](https://imaginary.ca/eris/api/namespaceeris_1_1intraopt.html)
+namespaces.
+
+See also the various [classes of the creativity
+ABM](https://imaginary.ca/eris/creativity/annotated.html) for a working example
+of a moderately complex agent-based model.
+
 ## Installing (Debian-based systems)
 
 Regularly updated library, header, and documentation packages are available for
@@ -47,11 +69,6 @@ package.
 
 These packages are built from the "debian", "debian-jessie", "ubuntu-trusty",
 and "ubuntu-wily" branches of the eris package repository.
-
-## Documentation
-
-The API documentation can be built from the source code, as described in the
-Compiling section below, and is also available at http://imaginary.ca/eris/api/
 
 ## Compiling
 
