@@ -189,7 +189,7 @@ auto truncDist(
             // Check for underflow (essentially: is 1-alpha equal to or closer to 0 than a ResultType
             // (typically a double) can represent without reduced precision)
             if (alpha == 0 or std::fpclassify(alpha) == FP_SUBNORMAL)
-                throw std::underflow_error("truncDist(): Unable to draw from truncated distribution: truncation range is too far in the upper tail");
+                throw std::underflow_error("truncDist(): Unable to draw from truncated distribution: truncation range [" + std::to_string(min) + "," + std::to_string(max) + "] is too far in the upper tail");
 
             // Both alpha and omega are complements, so take a draw from [omega,alpha], then pass it
             // through the quantile_complement
