@@ -442,8 +442,6 @@ void BayesianLinear::updateInPlaceInformative(const Ref<const VectorXd> &y, cons
     VectorXd beta_diff = beta() - beta_pr;
 
     double s2_prior_beta_delta = beta_diff.transpose() * V_inv_pr * beta_diff;
-    s2_prior_beta_delta *= pending_weakening_;
-    pending_weakening_ = 1.0;
 
     // Calculate new s2 from SSR of new data plus n times previous s2 (==SSR before) plus the change
     // to the old SSR that would are a result of beta changing:
@@ -480,9 +478,6 @@ void BayesianLinear::weakenInPlace(const double stdev_scale) {
     V_inv_beta_ /= var_scale;
     // The V value doesn't need to be reset (if previously calculated), we can simply scale it:
     if (V_inv_inv_) *V_inv_inv_ *= var_scale;
-
-    // This tracks how to undo the Vinv weakening when calculating an updated s2 value
-    pending_weakening_ *= var_scale;
 
     // The decompositions will have to be recalculated, if set (in theory these could be updated by
     // scaling D by 1/var_scale for the LDLT and scaling L by 1/stdev_scale for the LLT, but

@@ -630,9 +630,6 @@ class BayesianLinear {
         /// The y data for a non-informative model.  \sa noninf_X_.
         std::shared_ptr<Eigen::VectorXd> noninf_y_, noninf_y_unweakened_;
 
-        /// The amount of weakening that has taken place since the last update (needed to updating)
-        double pending_weakening_ = 1.0;
-
 };
 
 }}
