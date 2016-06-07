@@ -6,7 +6,6 @@
 #include <boost/random/gamma_distribution.hpp>
 #include <boost/random/chi_squared_distribution.hpp>
 #include <eris/random/normal_distribution.hpp>
-#include <eris/random/halfnormal_distribution.hpp>
 #include <eris/random/exponential_distribution.hpp>
 #include <boost/multiprecision/cpp_dec_float.hpp>
 #include <random>
@@ -42,16 +41,9 @@ int main(int argc, char *argv[]) {
                 using std::pow;
                 double da = std::stod(argv[nextarg++]), db = std::stod(argv[nextarg++]);
                 if (which == "TN") {
-                    if (da == 0 and std::isinf(db)) {
-                        gen = [&rng]() {
-                            return eris::random::halfnormal_distribution<double>(approx_zero, approx_one)(rng);
-                        };
-                    }
-                    else {
-                        gen = [&rng,da,db]() {
-                            return eris::random::truncated_normal_distribution<double>(approx_zero, approx_one, da, db)(rng);
-                        };
-                    }
+                    gen = [&rng,da,db]() {
+                        return eris::random::truncated_normal_distribution<double>(approx_zero, approx_one, da, db)(rng);
+                    };
                 }
                 else { // TNG: i.e. the generic version
                     ;
