@@ -2,7 +2,6 @@
 #include <limits>
 #include <boost/random/detail/operators.hpp>
 #include <eris/random/normal_distribution.hpp>
-#include <eris/random/halfnormal_distribution.hpp>
 #include <boost/random/uniform_real_distribution.hpp>
 #include <boost/random/uniform_01.hpp>
 #include <eris/random/exponential_distribution.hpp>
@@ -310,7 +309,7 @@ public:
                     const RealType signed_sigma(_left_tail ? -_sigma : _sigma);
                     RealType x;
                     do {
-                        x = _mean + signed_sigma*halfnormal_distribution<RealType>()(eng);
+                        x = _mean + signed_sigma*std::fabs(normal_distribution<RealType>()(eng));
                     } while (x < _lower_limit or x > _upper_limit);
                     return x;
                 }
