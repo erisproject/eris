@@ -17,7 +17,7 @@ namespace detail {
 // reasonably well.
 template<class RealType>
 struct truncnorm_threshold {
-    /* The value of the closer-to-mean limit, expressed as a standardized normal value (i.e.
+    /** The value of the closer-to-mean limit, expressed as a standardized normal value (i.e.
      * \f$\alpha = \frac{\ell - \mu} / \sigma\f$) above which it is more efficient to use exponential
      * rejection sampling instead of half normal rejection sampling.  This value applies when the
      * truncation range is contained entirely within one side of the distribution.  (Note, however,
@@ -26,7 +26,7 @@ struct truncnorm_threshold {
      */
     static constexpr RealType hr_below_er_above = RealType(0.55);
 
-    /* The value of the closer-to-mean limit, expressed as a standardized normal value (i.e.
+    /** The value of the closer-to-mean limit, expressed as a standardized normal value (i.e.
      * \f$\alpha = \frac{\ell - \mu} / \sigma\f$) above which it is more efficient to use a numerical
      * approximation of a complex term in the ER/UR decision threshold.
      *
@@ -42,7 +42,7 @@ struct truncnorm_threshold {
      */
     static constexpr RealType simplify_er_ur_above = RealType(2.3);
 
-    /* This is the threshold b-a value for deciding between NR and UR: when b-a is above this,
+    /** This is the threshold b-a value for deciding between NR and UR: when b-a is above this,
      * rejection sampling from a normal distribution is preferred; below this, uniform rejection
      * sampling is preferred.  This value is only used when the truncation range includes values on
      * both sides of the mean.
@@ -53,7 +53,7 @@ struct truncnorm_threshold {
      */
     static constexpr RealType ur_below_nr_above = RealType(1);
 
-    /* This is the average cost of a *single iteration* of the drawing and accept/reject calculation
+    /** This is the average cost of a *single iteration* of the drawing and accept/reject calculation
      * for exponential rejection sampling, relative to the equivalent cost of uniform rejection
      * sampling.  (Obtaining an accepted draw may require more than one iteration, but that
      * probability is handled externally to this value.)
@@ -66,7 +66,7 @@ struct truncnorm_threshold {
     static constexpr RealType cost_hr_rel_ur = RealType(0.275);
 };
 
-/* The Taylor expansion order to use when approximating e^x when deciding between UR and HR.  The
+/** The Taylor expansion order to use when approximating e^x when deciding between UR and HR.  The
  * minimum required approximation order depends on the specific value of `hr_below_er_above`
  * and the speed of performing the approximation calculations; it is typically 1 or 2, but 2 or 3
  * are often a better choice.
@@ -105,8 +105,10 @@ struct truncnorm_threshold {
  */
 #define ERIS_RANDOM_DETAIL_TRUNCATED_NORMAL_DISTRIBUTION_TAYLOR_ORDER 3
 
-// The Taylor expansion calculation itself
-template<class RealType = double>
+/** The Taylor series expansion (actually, the Maclaurin series expansion, which is a Taylor
+ * expansion around 0) of e^x.
+ */
+template<class RealType>
 inline RealType exp_maclaurin(const RealType &x) {
     return RealType(1)
 #if ERIS_RANDOM_DETAIL_TRUNCATED_NORMAL_DISTRIBUTION_TAYLOR_ORDER >= 1
@@ -124,7 +126,7 @@ inline RealType exp_maclaurin(const RealType &x) {
 // If ever implementing this, note that above 5, it seems (at least with basic SSE optimizations) to
 // be faster to compute the expansion as:
 //     1 + x + x*x*(1/2 + 1/6*x + x*x*(1/24 + ...
-// instead of the alternative, used here, which is faster below 5:
+// instead of the alternative, used above, which is faster below 5:
 //     1 + x*(1 + x*(1/2 + ...
 //
 #endif
@@ -139,6 +141,137 @@ inline RealType exp_maclaurin(const RealType &x) {
         )
 #endif
         ;
+}
+
+/** Perform rejection-sampling from a normal distribution, rejecting any draws outside the range
+ * `[lower, upper]`.  This is naive rejection sampling: we simply keep drawing from the untruncated
+ * distribution until we get one in the desired range.
+ */
+template <class Engine, class RealType, class Normal = eris::random::normal_distribution<RealType>>
+RealType truncnorm_rejection_normal(Engine &eng, const RealType &mu, const RealType &sigma, const RealType &lower, const RealType &upper) {
+    RealType x;
+    Normal normal(mu, sigma);
+    do { x = normal(eng); } while (x < lower or x > upper);
+    return x;
+}
+
+/** Perform rejection sampling from a half-normal distribution, rejecting any draws outside the
+ * range `[lower, upper]`.  This obviously only makes sense when `lower` and `upper` are on the same
+ * side of `mu`.
+ *
+ * \param eng the random engine to use to obtain random values
+ * \param mu the distribution parameter of the halfnormal distribution.  For an untruncated, normal
+ * (not halfnormal) distribution, this would be the distribution mean; for a halfnormal
+ * distribution, this is also one of the support boundaries of the (untruncated) halfnormal
+ * distribution.
+ * \param sigma the distribution parameter of the halfnormal distribution (for an untruncated, full
+ * normal distribution, this is the standard deviation).
+ * \param lower the lower truncation point
+ * \param upper the upper truncation point
+ * \param positive if true, draw (before considering lower/upper rejection) from a positive
+ * halfnormal distribution (i.e. with support [mu, infinity); if false, draw from a negative
+ * halfnormal distribution (i.e. with support (-infinity, mu]).
+ */
+template <class Engine, class RealType, class Normal = eris::random::normal_distribution<RealType>>
+RealType truncnorm_rejection_halfnormal(Engine &eng, const RealType &mu, const RealType &sigma, const RealType &lower, const RealType &upper, bool right_tail) {
+    const RealType signed_sigma(right_tail ? sigma : -sigma);
+    RealType x;
+    Normal normal;
+    using std::fabs;
+    do {
+        x = mu + signed_sigma * fabs(normal(eng));
+    } while (x < lower or x > upper);
+    return x;
+}
+
+/** Perform rejection sampling using a uniform distribution.
+ *
+ * This procedure operates by drawing a uniform value in `[lower, upper)` and rejecting it
+ * probabilistically with probability of the ratio of the normal density to the uniform density at
+ * the drawn value, thus resulting in the appropriate (truncated) normal distribution.  This is
+ * guaranteed to perform poorly when the range is large; it is mainly designed to be used when the
+ * truncation range is very small, so that the probabilistic rejection is relatively low.
+ *
+ * \param eng the random engine to use to obtain random values
+ * \param mu the mean parameter of the pre-truncation normal distribution.
+ * \param lower the lower bound of the truncated range (should be finite)
+ * \param upper the upper bound of the truncated range (should be finite)
+ * \param inv2s2 the pre-computed value of 0.5 / sigma^2.  Since this is often precomputed when
+ * deciding which method to use, it is more efficient to preserve the pre-computed value.
+ * \param shift2 the pre-computed `shift^2` parameter: if `[lower,upper]` includes 0, this should be
+ * 0; otherwise it should be the squared value of the difference between the closer-to-mu boundary
+ * and mu.  As with `inv2s2`, the pre-computed value is used for efficiency.
+ */
+template <class Engine, class RealType,
+         class Uniform = boost::random::uniform_real_distribution<RealType>,
+         class Unif01 = boost::random::uniform_01<RealType>>
+RealType truncnorm_rejection_uniform(Engine &eng, const RealType &mu, const RealType &lower, const RealType &upper,
+        const RealType &inv2s2, const RealType &shift2) {
+    RealType x, rho;
+    Uniform unif_ab(lower, upper);
+    do {
+        x = unif_ab(eng);
+        rho = std::exp(inv2s2 * (shift2 - (x - mu)*(x - mu)));
+    } while (Unif01()(eng) > rho);
+    return x;
+}
+
+/** Perform rejection sampling using an exponential distribution.  This can only be used for
+ * single-tail truncation regions, and performs increasingly well the further out the truncation
+ * range lies in the tail of the normal distribution.
+ *
+ * For a two-sided truncation (that is, with a finite value of the further-from-`mu` limit), the
+ * algorithm first uses simple rejection sampling to draw a proposal value inside `[lower,upper]`,
+ * then uses acceptance sampling calculation to decide whether to use that value.
+ *
+ * \param eng the random engine to use to obtain random values
+ * \param sigma the standard deviation parameter of the pre-truncation normal distribution.
+ * \param lower the lower bound of the truncated range (should be finite)
+ * \param upper the upper bound of the truncated range (should be finite)
+ * \param right_tail if true, draws are from the right tail (and so `mu <= lower <= upper`);
+ * otherwise, draws are from the left tail (and so `lower <= upper <= mu`).
+ * \param bound_dist the distance from `mu` to the closer boundary.  This is an unsigned (i.e.
+ * always positive) value.
+ * \param proposal_param a pre-computed value that determines the parameter of the proposal
+ * exponential distribution.  We draw proposal values from an Exponential(proposal/sigma^2).  The
+ * optimal value, in terms of requiring the fewest random draws, equals `(a + sqrt(a^2 + 4
+ * sigma^2))/2`, where `a` is the value of `bound_dist`.  That value, however, is expensive to
+ * compute, and so it is often more efficient to use an approximation such as just `a`, that is,
+ * `bound_dist`.  An inexact approximation here has an efficiency effect (the better the
+ * approximation, the more likely a drawn value is admissable), but not a distributional effect:
+ * drawn values will still follow the desired truncated normal distribution.
+ */
+template <class Engine, class RealType, class Exponential = eris::random::exponential_distribution<RealType>>
+RealType truncnorm_rejection_exponential(Engine &eng, const RealType &sigma, const RealType &lower, const RealType &upper,
+        bool right_tail, const RealType &bound_dist, const RealType &proposal_param) {
+
+    Exponential exponential;
+    const RealType exp_max_times_sigma = upper - lower;
+    const RealType twice_sigma_squared = RealType(2) * sigma * sigma;
+    const RealType x_scale = sigma * sigma / proposal_param;
+    const RealType x_delta = bound_dist - proposal_param;
+    RealType x;
+    do {
+        // For 2-sided truncation, redraw z until we get one that won't exceed the
+        // outer limit
+        do { x = exponential(eng) * x_scale; } while (x > exp_max_times_sigma);
+
+        // If we accept, we're accepting lower+x.  Our acceptance probability is
+        //
+        // rho(x) = exp(-(x - proposal_param)^2 / (2 sigma^2))
+        //
+        // Or, logically: accept if U01 < exp(-(x - proposal_param)^2 / (2 sigma^2))
+        // Some more algebra yields:
+        // log(U01) < -(x - proposal_param)^2 / (2 sigma^2)
+        // (2 sigma^2) (-log(U01)) > (x - proposal_param)^2
+        //
+        // Now a neat trick: note that -log(U01) is actually just inverse CDF sampling of a Exp(1),
+        // and since inverse CDF sampling is just one way to draw from a distribution, we can
+        // replace it with a draw from Exp(1).  And so, in the end, we get the condition below (but
+        // note that the inequality is reversed, because this is don't-accept condition).
+    } while (twice_sigma_squared * exponential(eng) <= (x+x_delta)*(x+x_delta));
+
+    return right_tail ? lower + x : upper - x;
 }
 
 } // namespace detail
@@ -285,74 +418,15 @@ public:
     template<class Engine>
     result_type operator()(Engine& eng)
     {
-        typedef boost::random::uniform_01<RealType> Unif01;
-
         if (_method == Method::UNKNOWN) _determine_method();
         switch (_method) {
-            // lower == upper, so distribution is a trivial constant
-            case Method::TRIVIAL:
-                return _lower_limit;
-
-            // Normal rejection sampling: just sample from normal until we get an admissable value
-            case Method::NORMAL:
-                {
-                    RealType x;
-                    normal_distribution<RealType> normal(_mean, _sigma);
-                    do { x = normal(eng); } while (x < _lower_limit or x > _upper_limit);
-                    return x;
-                }
-
-            // Half-normal rejection sampling: sample normal values, but convert any wrong-tail
-            // draws to the opposite tail; repeat until we get an admissable value.
-            case Method::HALFNORMAL:
-                {
-                    const RealType signed_sigma(_left_tail ? -_sigma : _sigma);
-                    RealType x;
-                    do {
-                        x = _mean + signed_sigma*std::fabs(normal_distribution<RealType>()(eng));
-                    } while (x < _lower_limit or x > _upper_limit);
-                    return x;
-                }
-
-            // Uniform: rejection sampling using a uniform and proportional acceptance rate
-            case Method::UNIFORM:
-                {
-                    RealType x, rho;
-                    boost::random::uniform_real_distribution<RealType> unif_ab(_lower_limit, _upper_limit);
-                    do {
-                        x = unif_ab(eng);
-                        rho = std::exp(_ur_inv_2_sigma_squared * (_ur_shift - (x - _mean)*(x - _mean)));
-                    } while (Unif01()(eng) > rho);
-                    return x;
-                }
-
-            // Exponential: used out in the tails; accept with appropriate acceptance rate
-            case Method::EXPONENTIAL:
-                {
-                    exponential_distribution<RealType> exponential;
-                    const RealType exp_max_times_sigma = _upper_limit - _lower_limit;
-                    const RealType twice_sigma_squared = RealType(2) * _sigma * _sigma;
-                    const RealType x_scale = _sigma * _sigma / _er_lambda_times_sigma;
-                    const RealType x_delta = _er_a - _er_lambda_times_sigma;
-                    RealType x;
-                    do {
-                        // For 2-sided truncation, redraw z until we get one that won't exceed the
-                        // outer limit; note that, if x is accepted, our final value will be
-                        // (alpha + x/alpha)*sigma + mean, where alpha == a/sigma, the
-                        // closer-to-mean limit (and positive; we handle the left tail at the end).
-                        // Requiring that this be less than the outer limit is equivalent to
-                        // requiring x < alpha*((up-low) / sigma).  The left tail yields exactly the
-                        // same condition.
-                        do { x = exponential(eng) * x_scale; } while (x > exp_max_times_sigma);
-                        // x+x_delta  -->  x - lambda + a
-                    } while (twice_sigma_squared * exponential(eng) <= (x+x_delta)*(x+x_delta));
-
-                    return _left_tail ? _upper_limit - x : _lower_limit + x;
-                }
-
+            case Method::TRIVIAL:     return _lower_limit; // == __upper_limit
+            case Method::NORMAL:      return detail::truncnorm_rejection_normal(eng, _mean, _sigma, _lower_limit, _upper_limit);
+            case Method::HALFNORMAL:  return detail::truncnorm_rejection_halfnormal(eng, _mean, _sigma, _lower_limit, _upper_limit, _right_tail);
+            case Method::UNIFORM:     return detail::truncnorm_rejection_uniform(eng, _mean, _lower_limit, _upper_limit, _ur_inv_2_sigma_squared, _ur_shift2);
+            case Method::EXPONENTIAL: return detail::truncnorm_rejection_exponential(eng, _sigma, _lower_limit, _upper_limit, _right_tail, _er_a, _er_lambda_times_sigma);
             // Should be impossible (but silences the unhandled-switch-case warning):
-            case Method::UNKNOWN:
-                ;
+            case Method::UNKNOWN: ;
         }
 
         // Shouldn't reach here
@@ -429,8 +503,8 @@ private:
         // 1 - truncation bounds are on either side of the mean
         // 2&3 - truncation range is entirely on one side of the mean
         //
-        // Case 0 (not really one of the cases): a == b, TRIVIAL ("distribution" is a constant)
-        // Case 1: a < mean < b
+        // Case 0 (not really one of the cases): a == b, TRIVIAL (the "distribution" is a constant)
+        // Case 1: a < mu < b
         //   (a) if b-a < sigma*ur_below_nr_above then UNIFORM
         //   (b) else NORMAL
         // Case 2: mean <= a < b
@@ -443,12 +517,13 @@ private:
         // Case 3: a < b <= mean: this is exactly case 2, but reflected across the mean.
         //
         // We have 7+4 cases/subcases to handle (7 proper cases, plus 4 more that are just symmetric
-        // versions of the proper cases).
+        // versions of proper cases).
         //
-        // 1 uses normal rejection sampling
-        // 1+1 use half normal rejection sampling
-        // 1+1 use exponential rejection sampling
-        // 3+2 use uniform rejection sampling
+        // (0) is trivial
+        // (1b) uses normal rejection sampling
+        // (2aii,3aii) use half normal rejection sampling
+        // (2bii,3bii) use exponential rejection sampling
+        // (1a,2ai,2bi,3ai,3bi) use uniform rejection sampling
 
         // Case 0:
         if (_lower_limit == _upper_limit) {
@@ -460,7 +535,7 @@ private:
                 // The truncation region is small enough that uniform rejection sampling beats
                 // normal rejection sampling
                 _method = Method::UNIFORM;
-                _ur_shift = RealType(0);
+                _ur_shift2 = RealType(0);
             }
             else {
                 // The truncation region is big enough to just do simple normal rejection sampling
@@ -473,13 +548,13 @@ private:
             RealType a, b;
             if (_lower_limit >= _mean) {
                 // Truncation range is already in the right tail, so don't need to mean flip; just demean:
-                _left_tail = false;
+                _right_tail = true;
                 a = _lower_limit - _mean;
                 b = _upper_limit - _mean;
             }
             else {
                 // Truncation range is in the left tail, so do a mean flip (to cut the number of cases in half)
-                _left_tail = true;
+                _right_tail = false;
                 // Mean flipping a demeaned value is just negating it (but negating/mean flipping
                 // also reverses the roles of the upper/lower limits):
                 a = _mean - _upper_limit;
@@ -512,7 +587,7 @@ private:
                         // Otherwise b is small; using uniform rejection sampling (which requires an exp
                         // call) is more efficient than the low acceptance rate of half-normal rejection
                         _method = Method::UNIFORM;
-                        _ur_shift = a*a;
+                        _ur_shift2 = a*a;
                     }
                 }
             }
@@ -543,7 +618,7 @@ private:
                     }
                     else {
                         _method = Method::UNIFORM;
-                        _ur_shift = a*a;
+                        _ur_shift2 = a*a;
                         _ur_inv_2_sigma_squared = RealType(0.5) / (_sigma * _sigma);
                     }
                 }
@@ -584,7 +659,7 @@ private:
                     }
                     else {
                         _method = Method::UNIFORM;
-                        _ur_shift = a*a;
+                        _ur_shift2 = a*a;
                     }
                 }
             }
@@ -595,9 +670,9 @@ private:
         }
     }
 
-    // True if the truncation range is in the left tail; we handle this by pretending it's in the
-    // right tail, then flipping the final result.  Used by HALFNORMAL and EXPONENTIAL.
-    bool _left_tail;
+    // True if the truncation range is in the right tail; if not, we handle this by pretending it's
+    // in the right tail, then flipping the final result.  Used by HALFNORMAL and EXPONENTIAL.
+    bool _right_tail;
 
     // Use a union because we won't need both of these at once, but being able to use descriptive
     // variable names is nice.
@@ -605,7 +680,7 @@ private:
         // For _method == UNIFORM, this is the constant term in the exp (before division by 2 sigma^2).
         // For a truncation range including the mean, this is 0; otherwise this is (a - mu)^2, where a
         // is the truncation point closer to the mean.
-        RealType _ur_shift;
+        RealType _ur_shift2;
 
         // For EXPONENTIAL, this stores the non-divided-by-sigma lambda value of the exponential
         // (i.e. we want to draw exponential(thisvalue/sigma).  The best acceptance rate is when
