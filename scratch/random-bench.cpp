@@ -146,4 +146,6 @@ int main(int argc, char *argv[]) {
         std::cout << csv.str() << std::flush;
     }
 
+    if (garbage == 1.75) std::cout << "# Garbage = 1.75 -- this is almost impossible\n";
+
 }
