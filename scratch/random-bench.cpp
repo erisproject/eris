@@ -14,16 +14,14 @@ using dur = std::chrono::duration<double>;
 // trivial operations involving 1 or 0.
 constexpr double approx_zero = -1e-300, approx_one = 1 + 1e-12;
 
-constexpr unsigned int BENCH_NORMAL = 1, BENCH_HALFNORMAL = 1 << 1, BENCH_UNIFORM  = 1 << 2, BENCH_EXPONENTIAL = 1 << 3;
-
 struct benchmark {
     const double left, right;
-    bool normal, halfnormal, uniform, exponential;
+    bool normal{false}, halfnormal{false}, uniform{false}, exponential{false}, expo_approx{false};
     struct {
-        std::pair<long, double> normal, halfnormal, uniform, exponential;
+        std::pair<long, double> normal, halfnormal, uniform, exponential, expo_approx;
     } timing;
-    benchmark(double l, double r, bool n = false, bool h = false, bool u = false, bool e = false)
-        : left{l}, right{r}, normal{n}, halfnormal{h}, uniform{u}, exponential{e}
+    benchmark(double l, double r)
+        : left{l}, right{r}
     {}
 };
 
@@ -56,7 +54,7 @@ std::pair<long, double> bench(std::function<double()> f, double at_least = 0.25,
     return results;
 }
 
-int main(int argc, char *argv[]) {
+int main() {
 
     // Draw values randomly.  We do this by drawing infinity with probability 0.2, and otherwise
     // take a draw from exp(.5).  This is then multiplied by a random -1/+1 modifier.  For pair of
@@ -75,7 +73,7 @@ int main(int argc, char *argv[]) {
 
     auto &rng = eris::random::rng();
 
-    std::cout << "left,right,normal,halfnormal,uniform,exponential\n";
+    std::cout << "left,right,normal,halfnormal,uniform,exponential,expo_approx\n";
     while (true) {
         double l = draw_random_parameter(), r = draw_random_parameter();
         // If we drew identical parameters (probably both - or both + infinity, which has about a
@@ -98,9 +96,9 @@ int main(int argc, char *argv[]) {
         // Uniform: left tail:
         else { if (pdf(N01, l) >= 0.05 * pdf(N01, r)) b.uniform = true; }
         // Exponential, right-tail:
-        if (l >= mu) { if (pdf(N01, r) < 0.75 * pdf(N01, l)) b.exponential = true; }
+        if (l > mu) { if (pdf(N01, r) < 0.75 * pdf(N01, l)) b.exponential = true; b.expo_approx = true; }
         // Exponential, left-tail:
-        else if (r <= mu) { if (pdf(N01, l) < 0.75 * pdf(N01, r)) b.exponential = true; }
+        else if (r < mu) { if (pdf(N01, l) < 0.75 * pdf(N01, r)) b.exponential = true; b.expo_approx = true; }
 
         std::ostringstream csv;
         csv.precision(17);
@@ -138,6 +136,15 @@ int main(int argc, char *argv[]) {
                     return eris::random::detail::truncnorm_rejection_exponential(rng, sigma, b.left, b.right, b.left >= mu, bound_dist, proposal_param);
                     });
             csv << "," << b.timing.exponential.first / b.timing.exponential.second;
+        }
+        else csv << ",nan";
+
+        if (b.expo_approx) {
+            const double bound_dist = b.left >= mu ? (b.left - mu) : (mu - b.right);
+            b.timing.expo_approx = bench([&]() -> double {
+                    return eris::random::detail::truncnorm_rejection_exponential(rng, sigma, b.left, b.right, b.left >= mu, bound_dist, bound_dist);
+                    });
+            csv << "," << b.timing.expo_approx.first / b.timing.expo_approx.second;
         }
         else csv << ",nan";
 
