@@ -16,9 +16,9 @@ constexpr double approx_zero = -1e-300, approx_one = 1 + 1e-12;
 
 struct benchmark {
     const double left, right;
-    bool normal{false}, halfnormal{false}, uniform{false}, exponential{false}, expo_approx{false};
+    bool normal{false}, halfnormal{false}, uniform{false}, exponential{false};
     struct {
-        std::pair<long, double> normal, halfnormal, uniform, exponential, expo_approx;
+        std::pair<long, double> normal, halfnormal, uniform, exponential, expo_approx, expo_cost;
     } timing;
     benchmark(double l, double r)
         : left{l}, right{r}
@@ -116,7 +116,10 @@ int main(int argc, char *argv[]) {
     bench([&]() -> double { return eris::random::detail::truncnorm_rejection_normal(rng, mu, sigma, -1.0, 1.0); },
             2.0);
 
-    std::cout << "left,right,normal,halfnormal,uniform,exponential,expo_approx\n";
+    // The first two values are the left/right values; then the speeds (in draws/second) for the
+    // various methods.  expo_approx uses the lambda = a approximation; exponential uses the
+    // pre-calculated optimal lambda value; and expo_cost calculates the optimal value (without caching it).
+    std::cout << "left,right,normal,halfnormal,uniform,exponential,expo_approx,expo_cost\n";
     while (true) {
         double l = (runmode == "RANDOM" or runmode == "LEFT")  ? draw_random_parameter() : -std::numeric_limits<double>::infinity();
         double r = (runmode == "RANDOM" or runmode == "RIGHT") ? draw_random_parameter() :  std::numeric_limits<double>::infinity();
@@ -141,9 +144,9 @@ int main(int argc, char *argv[]) {
         // Uniform: left tail:
         else { if (pdf(N01, l) >= MIN_UNIFORM_PDF_RATIO * pdf(N01, r)) b.uniform = true; }
         // Exponential, right-tail:
-        if (l > mu) { if (pdf(N01, r) < MAX_EXPONENTIAL_PDF_RATIO * pdf(N01, l)) b.exponential = true; b.expo_approx = true; }
+        if (l > mu) { if (pdf(N01, r) < MAX_EXPONENTIAL_PDF_RATIO * pdf(N01, l)) b.exponential = true; }
         // Exponential, left-tail:
-        else if (r < mu) { if (pdf(N01, l) < MAX_EXPONENTIAL_PDF_RATIO * pdf(N01, r)) b.exponential = true; b.expo_approx = true; }
+        else if (r < mu) { if (pdf(N01, l) < MAX_EXPONENTIAL_PDF_RATIO * pdf(N01, r)) b.exponential = true; }
 
         std::ostringstream csv;
         csv.precision(17);
@@ -181,17 +184,20 @@ int main(int argc, char *argv[]) {
                     return eris::random::detail::truncnorm_rejection_exponential(rng, sigma, b.left, b.right, b.left >= mu, bound_dist, proposal_param);
                     });
             csv << "," << b.timing.exponential.first / b.timing.exponential.second;
-        }
-        else csv << ",nan";
 
-        if (b.expo_approx) {
-            const double bound_dist = b.left >= mu ? (b.left - mu) : (mu - b.right);
             b.timing.expo_approx = bench([&]() -> double {
                     return eris::random::detail::truncnorm_rejection_exponential(rng, sigma, b.left, b.right, b.left >= mu, bound_dist, bound_dist);
                     });
             csv << "," << b.timing.expo_approx.first / b.timing.expo_approx.second;
+
+            b.timing.expo_cost = bench([&,bound_dist]() -> double {
+                    double proposal_param = 0.5 * (bound_dist + sqrt(bound_dist*bound_dist + 4*sigma*sigma));
+                    return eris::random::detail::truncnorm_rejection_exponential(rng, sigma, b.left, b.right, b.left >= mu, bound_dist, proposal_param);
+                    });
+            csv << "," << b.timing.expo_cost.first / b.timing.expo_cost.second;
+
         }
-        else csv << ",nan";
+        else csv << ",nan,nan,nan";
 
         csv << "\n";
 
