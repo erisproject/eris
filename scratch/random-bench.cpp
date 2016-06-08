@@ -18,7 +18,7 @@ struct benchmark {
     const double left, right;
     bool normal{false}, halfnormal{false}, uniform{false}, exponential{false};
     struct {
-        std::pair<long, double> normal, halfnormal, uniform, exponential, expo_approx, expo_cost;
+        std::pair<long, double> selected, normal, halfnormal, uniform, exponential, expo_approx, expo_cost;
     } timing;
     benchmark(double l, double r)
         : left{l}, right{r}
@@ -119,7 +119,7 @@ int main(int argc, char *argv[]) {
     // The first two values are the left/right values; then the speeds (in draws/second) for the
     // various methods.  expo_approx uses the lambda = a approximation; exponential uses the
     // pre-calculated optimal lambda value; and expo_cost calculates the optimal value (without caching it).
-    std::cout << "left,right,normal,halfnormal,uniform,exponential,expo_approx,expo_cost\n";
+    std::cout << "left,right,selected,normal,halfnormal,uniform,exponential,expo_approx,expo_cost\n";
     while (true) {
         double l = (runmode == "RANDOM" or runmode == "LEFT")  ? draw_random_parameter() : -std::numeric_limits<double>::infinity();
         double r = (runmode == "RANDOM" or runmode == "RIGHT") ? draw_random_parameter() :  std::numeric_limits<double>::infinity();
@@ -151,6 +151,12 @@ int main(int argc, char *argv[]) {
         std::ostringstream csv;
         csv.precision(17);
         csv << b.left << "," << b.right;
+
+        b.timing.selected = bench([&]() -> double {
+               return eris::random::truncated_normal_distribution<double>(mu, sigma, b.left, b.right)(rng);
+               });
+        csv << "," << b.timing.selected.first / b.timing.selected.second;
+
         if (b.normal) {
             b.timing.normal = bench([&]() -> double {
                     return eris::random::detail::truncnorm_rejection_normal(rng, mu, sigma, b.left, b.right);
