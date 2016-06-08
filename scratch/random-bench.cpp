@@ -49,7 +49,7 @@ std::pair<long, double> bench(std::function<double()> f, double at_least = 0.25,
         for (int i = 0; i < increment; i++) {
             garbage += f();
         }
-        results.second += dur(clk::now() - start).count();
+        results.second = dur(clk::now() - start).count();
         results.first += increment;
     } while (results.second < at_least);
 
