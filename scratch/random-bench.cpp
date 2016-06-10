@@ -44,8 +44,8 @@ double draw_random_2s_left() {
     return left_2s_values[random_i(eris::random::rng())];
 }
 
-double draw_random_2s_right(double left) {
-    return std::uniform_real_distribution<double>(left, left + 20.)(eris::random::rng());
+double draw_random_2s_right(double left, double range) {
+    return left + std::uniform_real_distribution<double>(0, range)(eris::random::rng());
 }
 
 std::string double_str(double d, unsigned precision = std::numeric_limits<double>::max_digits10) {
@@ -88,15 +88,44 @@ int main(int argc, char *argv[]) {
 
     bool bad_args = true;
     std::string runmode;
+    double custom_left = std::numeric_limits<double>::quiet_NaN();
+    double two_range = 20.0;
+    // Match floats, but don't allow things like nan or inf:
+    std::regex numre(R"([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)");
     if (argc == 2) {
         runmode = argv[1];
         if (runmode == "RANDOM" or runmode == "LEFT" or runmode == "RIGHT" or runmode == "TWO") {
             bad_args = false;
         }
+        else if (std::regex_match(runmode, numre)) {
+            bad_args = false;
+            custom_left = std::stod(runmode);
+            runmode = "CUSTOML";
+        }
+        else {
+            std::cerr << "Invalid/unknown argument `" << runmode << "'\n\n";
+        }
+    }
+    else if (argc == 3) {
+        if (std::regex_match(argv[1], numre) and std::regex_match(argv[2], numre)) {
+            custom_left = std::stod(argv[1]);
+            two_range = std::stod(argv[2]) - custom_left;
+            if (two_range <= 0) {
+                std::cerr << "Invalid v1 v2 values: v2 > v1 required\n\n";
+            }
+            else {
+                runmode = "CUSTOML";
+                bad_args = false;
+            }
+        }
+        else std::cerr << "Invalid/unknown arguments `" << argv[1] << "' `" << argv[2] << "'\n\n";
+    }
+    else {
+        std::cerr << "Invalid/unknown arguments\n\n";
     }
 
     if (bad_args) {
-        std::cerr << "Usage: " << argv[0] << " {RANDOM|LEFT|RIGHT|TWO}\n\n";
+        std::cerr << "Usage: " << argv[0] << " {RANDOM|LEFT|RIGHT|TWO|value|value value}\n\n";
         std::cerr << "Run modes:\n\n";
         std::cerr << "RANDOM - randomly draw left/right truncation points from:\n" <<
                      "         ⎧ +∞ with prob. 0.1\n" <<
@@ -111,6 +140,8 @@ int main(int argc, char *argv[]) {
                      "RIGHT  - right truncation point drawn as above, left = -∞\n\n" <<
                      "TWO    - draw left from ±{10,-5,-3,-2,-1,-0.5,-0.4,...,-0.1,0,0.1,...,0.4,0.5,1,2,3,5,10},\n"
                      "         draw right from Unif[left, left+20]\n\n" <<
+                     "value  - like TWO, but use <value> for the left limit.\n\n" <<
+                     "v1 v2  - like value, but draw right from Unif[v1,v2] instead of Unif[v,v+20]\n\n" <<
                      std::flush;
         return 1;
     }
@@ -158,9 +189,10 @@ int main(int argc, char *argv[]) {
         double l =
             (runmode == "RANDOM" or runmode == "LEFT")  ? draw_random_parameter() :
             (runmode == "TWO") ? draw_random_2s_left() :
+            (runmode == "CUSTOML") ? custom_left :
             -std::numeric_limits<double>::infinity();
         double r = (runmode == "RANDOM" or runmode == "RIGHT") ? draw_random_parameter() :
-            (runmode == "TWO") ? draw_random_2s_right(l) :
+            (runmode == "TWO" || runmode == "CUSTOML") ? draw_random_2s_right(l, two_range) :
             std::numeric_limits<double>::infinity();
 
         // If we drew identical parameters (probably both - or both + infinity, which has about a
