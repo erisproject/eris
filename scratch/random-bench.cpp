@@ -37,7 +37,35 @@ double draw_random_parameter() {
     return d;
 }
 
-// We store results here, so that they can't be compiled away.
+const std::vector<double> left_2s_values{{-10.,-5.,-3.,-2.,-1.,-.5,-.4,-.3,-.2,-.1,0.,.1,.2,.3,.4,.5,1.,2.,3.,5.,10.}};
+
+double draw_random_2s_left() {
+    std::uniform_int_distribution<int> random_i(0, left_2s_values.size()-1);
+    return left_2s_values[random_i(eris::random::rng())];
+}
+
+double draw_random_2s_right(double left) {
+    return std::uniform_real_distribution<double>(left, left + 20.)(eris::random::rng());
+}
+
+std::string double_str(double d, unsigned precision = std::numeric_limits<double>::max_digits10) {
+    double round_trip;
+    for (unsigned prec : {precision-2, precision-1}) {
+        std::stringstream ss;
+        ss.precision(prec);
+        ss << d;
+        ss >> round_trip;
+        if (round_trip == d) { ss << d; return ss.str(); }
+    }
+    std::stringstream ss;
+    ss.precision(precision);
+    ss << d;
+    return ss.str();
+}
+
+
+
+// Accumulate results here, so that they can't be compiled away:
 double garbage = 0.0;
 // Runs code for at least the given time; returns the number of times run, and the total runtime.
 std::pair<long, double> bench(std::function<double()> f, double at_least = 0.25) {
@@ -62,13 +90,13 @@ int main(int argc, char *argv[]) {
     std::string runmode;
     if (argc == 2) {
         runmode = argv[1];
-        if (runmode == "RANDOM" or runmode == "LEFT" or runmode == "RIGHT") {
+        if (runmode == "RANDOM" or runmode == "LEFT" or runmode == "RIGHT" or runmode == "TWO") {
             bad_args = false;
         }
     }
 
     if (bad_args) {
-        std::cerr << "Usage: " << argv[0] << " {RANDOM|LEFT|RIGHT}\n\n";
+        std::cerr << "Usage: " << argv[0] << " {RANDOM|LEFT|RIGHT|TWO}\n\n";
         std::cerr << "Run modes:\n\n";
         std::cerr << "RANDOM - randomly draw left/right truncation points from:\n" <<
                      "         ⎧ +∞ with prob. 0.1\n" <<
@@ -81,6 +109,8 @@ int main(int argc, char *argv[]) {
                      "\n\n" <<
                      "LEFT   - left truncation point drawn as above, right = +∞\n\n" <<
                      "RIGHT  - right truncation point drawn as above, left = -∞\n\n" <<
+                     "TWO    - draw left from ±{10,-5,-3,-2,-1,-0.5,-0.4,...,-0.1,0,0.1,...,0.4,0.5,1,2,3,5,10},\n"
+                     "         draw right from Unif[left, left+20]\n\n" <<
                      std::flush;
         return 1;
     }
@@ -101,9 +131,13 @@ int main(int argc, char *argv[]) {
     // Normal: require Ncdf(r) - Ncdf(l) >=
     constexpr double MIN_NORMAL_PROB = .01;
     // Halfnormal: Obviously required half-sidedness; also require Ncdf(r) - Ncdf(l) >= half of above
-    // Uniform: if (l < 0 < r) require Npdf(l) / Npdf(0) >=
-    constexpr double MIN_UNIFORM_PDF_RATIO = 0.01; // and likewise for r
-    //          otherwise (one-sided) require Npdf(outer) / Npdf(inner) >= same value
+    // Uniform, straddling 0: enable if r-l less than this:
+    constexpr double MAX_UNIFORM_RANGE_INCL_ZERO = 20.;
+    // Uniform, one-tail: if |inner| < 2, then enable if |outer| - |inner| less than this:
+    constexpr double MAX_UNIFORM_RANGE_INNER_TAIL = 10.;
+    // Uniform, one-tail: if |inner| >= 2, then enable if |outer| - |inner| < this / |inner|:
+    // (so at left=2, enable for right < 12; at left=100, enable for right < 100.2).
+    constexpr double MAX_UNIFORM_RANGE_OUTER_TAIL_RATIO = 20.;
     // Exponential: Obviously required half-sidedness; also require Npdf(outer) < Npdf(inner) times:
     constexpr double MAX_EXPONENTIAL_PDF_RATIO = 0.9;
 
@@ -121,8 +155,13 @@ int main(int argc, char *argv[]) {
     // pre-calculated optimal lambda value; and expo_cost calculates the optimal value (without caching it).
     std::cout << "left,right,selected,normal,halfnormal,uniform,exponential,expo_approx,expo_cost\n";
     while (true) {
-        double l = (runmode == "RANDOM" or runmode == "LEFT")  ? draw_random_parameter() : -std::numeric_limits<double>::infinity();
-        double r = (runmode == "RANDOM" or runmode == "RIGHT") ? draw_random_parameter() :  std::numeric_limits<double>::infinity();
+        double l =
+            (runmode == "RANDOM" or runmode == "LEFT")  ? draw_random_parameter() :
+            (runmode == "TWO") ? draw_random_2s_left() :
+            -std::numeric_limits<double>::infinity();
+        double r = (runmode == "RANDOM" or runmode == "RIGHT") ? draw_random_parameter() :
+            (runmode == "TWO") ? draw_random_2s_right(l) :
+            std::numeric_limits<double>::infinity();
 
         // If we drew identical parameters (probably both - or both + infinity, which has about a
         // 1/50 chance of occuring (under RANDOM); it could also, technically, be the drawn values,
@@ -136,32 +175,35 @@ int main(int argc, char *argv[]) {
         // Halfnormal:
         if ((r <= mu or mu <= l) and cdf(N01, r) - cdf(N01, l) > 0.5*MIN_NORMAL_PROB) b.halfnormal = true;
         // Uniform: straddling 0:
-        if (l < mu and mu < r) {
-            if (std::min(pdf(N01, l), pdf(N01, r)) >= MIN_UNIFORM_PDF_RATIO * boost::math::constants::one_div_root_two_pi<double>()) b.uniform = true;
+        if (l <= mu and mu <= r) {
+            b.uniform = (r - l < MAX_UNIFORM_RANGE_INCL_ZERO);
         }
-        // Uniform: right tail:
-        else if (l >= mu) { if (pdf(N01, r) >= MIN_UNIFORM_PDF_RATIO * pdf(N01, l)) b.uniform = true; }
-        // Uniform: left tail:
-        else { if (pdf(N01, l) >= MIN_UNIFORM_PDF_RATIO * pdf(N01, r)) b.uniform = true; }
+        // Uniform, in one tail but starting not too far out:
+        else if (l > mu ? l < mu + 2.0 : r > mu - 2.0) {
+            b.uniform = (r - l < MAX_UNIFORM_RANGE_INNER_TAIL);
+        }
+        // Uniform, in one tail, starting far out in the tail:
+        else {
+            b.uniform = (r - l < MAX_UNIFORM_RANGE_OUTER_TAIL_RATIO / std::fabs(r < mu ? r : l));
+        }
         // Exponential, right-tail:
-        if (l > mu) { if (pdf(N01, r) < MAX_EXPONENTIAL_PDF_RATIO * pdf(N01, l)) b.exponential = true; }
+        if (l > mu and l > 0) { if (pdf(N01, r) < MAX_EXPONENTIAL_PDF_RATIO * pdf(N01, l)) b.exponential = true; }
         // Exponential, left-tail:
-        else if (r < mu) { if (pdf(N01, l) < MAX_EXPONENTIAL_PDF_RATIO * pdf(N01, r)) b.exponential = true; }
+        else if (r < mu and r < 0) { if (pdf(N01, l) < MAX_EXPONENTIAL_PDF_RATIO * pdf(N01, r)) b.exponential = true; }
 
         std::ostringstream csv;
-        csv.precision(17);
-        csv << b.left << "," << b.right;
+        csv << double_str(b.left) << "," << double_str(b.right);
 
         b.timing.selected = bench([&]() -> double {
                return eris::random::truncated_normal_distribution<double>(mu, sigma, b.left, b.right)(rng);
                });
-        csv << "," << b.timing.selected.first / b.timing.selected.second;
+        csv << "," << double_str(b.timing.selected.first / b.timing.selected.second);
 
         if (b.normal) {
             b.timing.normal = bench([&]() -> double {
                     return eris::random::detail::truncnorm_rejection_normal(rng, mu, sigma, b.left, b.right);
                     });
-            csv << "," << b.timing.normal.first / b.timing.normal.second;
+            csv << "," << double_str(b.timing.normal.first / b.timing.normal.second);
         }
         else csv << ",nan";
 
@@ -169,7 +211,7 @@ int main(int argc, char *argv[]) {
             b.timing.halfnormal = bench([&]() -> double {
                     return eris::random::detail::truncnorm_rejection_halfnormal(rng, mu, sigma, b.left, b.right, b.left >= mu);
                     });
-            csv << "," << b.timing.halfnormal.first / b.timing.halfnormal.second;
+            csv << "," << double_str(b.timing.halfnormal.first / b.timing.halfnormal.second);
         }
         else csv << ",nan";
 
@@ -179,7 +221,7 @@ int main(int argc, char *argv[]) {
             b.timing.uniform = bench([&]() -> double {
                     return eris::random::detail::truncnorm_rejection_uniform(rng, mu, b.left, b.right, inv2s2, shift2);
                     });
-            csv << "," << b.timing.uniform.first / b.timing.uniform.second;
+            csv << "," << double_str(b.timing.uniform.first / b.timing.uniform.second);
         }
         else csv << ",nan";
 
@@ -189,18 +231,18 @@ int main(int argc, char *argv[]) {
             b.timing.exponential = bench([&]() -> double {
                     return eris::random::detail::truncnorm_rejection_exponential(rng, sigma, b.left, b.right, b.left >= mu, bound_dist, proposal_param);
                     });
-            csv << "," << b.timing.exponential.first / b.timing.exponential.second;
+            csv << "," << double_str(b.timing.exponential.first / b.timing.exponential.second);
 
             b.timing.expo_approx = bench([&]() -> double {
                     return eris::random::detail::truncnorm_rejection_exponential(rng, sigma, b.left, b.right, b.left >= mu, bound_dist, bound_dist);
                     });
-            csv << "," << b.timing.expo_approx.first / b.timing.expo_approx.second;
+            csv << "," << double_str(b.timing.expo_approx.first / b.timing.expo_approx.second);
 
             b.timing.expo_cost = bench([&,bound_dist]() -> double {
                     double proposal_param = 0.5 * (bound_dist + sqrt(bound_dist*bound_dist + 4*sigma*sigma));
                     return eris::random::detail::truncnorm_rejection_exponential(rng, sigma, b.left, b.right, b.left >= mu, bound_dist, proposal_param);
                     });
-            csv << "," << b.timing.expo_cost.first / b.timing.expo_cost.second;
+            csv << "," << double_str(b.timing.expo_cost.first / b.timing.expo_cost.second);
 
         }
         else csv << ",nan,nan,nan";
