@@ -5,7 +5,6 @@
 #include <boost/math/distributions/normal.hpp>
 #include <boost/lexical_cast.hpp>
 #include <eris/random/normal_distribution.hpp>
-#include <eris/random/halfnormal_distribution.hpp>
 #include <eris/random/exponential_distribution.hpp>
 #include <random>
 #include <iomanip>
@@ -610,7 +609,7 @@ void benchmarkCalculations() {
 // Macro for doing the above when no pre-loop initialization is needed
 #define BENCH_NR(name, lib, draw_call) BENCH_NR_START(name) BENCH_NR_END(lib, draw_call)
 
-// Same as above, but for half-normal; draw_std_halfnormal should return a half-normal draw
+// Same as above, but for half-normal; draw_std_halfnormal should return a (positive) half-normal draw
 #define BENCH_HR_START(name) \
     mean += benchmark(name, [&]() -> double { \
         const RealType _mean = 0.2, _sigma = 0.1, _upper_limit = 0.3879895, _lower_limit = .205; \
@@ -699,12 +698,7 @@ void benchmarkBoost(const std::string &key = "boost") {
 
     BENCH_NR(key + " NR", key, Normal(_mean, _sigma)(rng_boost));
 
-    if (std::is_same<Normal, eris::random::normal_distribution<double>>::value) {
-        BENCH_HR(key + " HR", key, eris::random::halfnormal_distribution<double>()(rng_boost));
-    }
-    else {
-        BENCH_HR(key + " HR", key, std::fabs(Normal()(rng_boost)));
-    }
+    BENCH_HR(key + " HR", key, std::fabs(Normal()(rng_boost)));
 
     BENCH_ER_START(key + " ER");
     Exponential exponential;
@@ -753,7 +747,7 @@ void benchmarkStl() {
 
     BENCH_NR("stl NR", "stl", _mean + _sigma*rnorm(rng_stl));
 
-    BENCH_HR("stl HR", "stl", rnorm(rng_stl));
+    BENCH_HR("stl HR", "stl", std::fabs(rnorm(rng_stl)));
 
     BENCH_ER_START("stl ER");
     std::exponential_distribution<RealType> exponential;
@@ -797,13 +791,13 @@ void benchmarkGsl() {
     cost["gsl-BoxM"]["Exp"] = cost["gsl-ratio"]["Exp"] = cost["gsl-zigg"]["Exp"] = last_benchmark_ns;
 
     BENCH_NR("gsl NR (ziggurat)", "gsl-zigg", _mean + gsl_ran_gaussian_ziggurat(rng_gsl, _sigma));
-    BENCH_HR("gsl HR (ziggurat)", "gsl-zigg", gsl_ran_gaussian_ziggurat(rng_gsl, 1));
+    BENCH_HR("gsl HR (ziggurat)", "gsl-zigg", std::fabs(gsl_ran_gaussian_ziggurat(rng_gsl, 1)));
 
     BENCH_NR("gsl NR (ratio)", "gsl-ratio", _mean + gsl_ran_gaussian_ratio_method(rng_gsl, _sigma));
-    BENCH_HR("gsl HR (ratio)", "gsl-ratio", gsl_ran_gaussian_ratio_method(rng_gsl, 1));
+    BENCH_HR("gsl HR (ratio)", "gsl-ratio", std::fabs(gsl_ran_gaussian_ratio_method(rng_gsl, 1)));
 
     BENCH_NR("gsl NR (Box-Muller)", "gsl-BoxM", _mean + gsl_ran_gaussian(rng_gsl, _sigma));
-    BENCH_HR("gsl HR (Box-Muller)", "gsl-BoxM", gsl_ran_gaussian(rng_gsl, 1));
+    BENCH_HR("gsl HR (Box-Muller)", "gsl-BoxM", std::fabs(gsl_ran_gaussian(rng_gsl, 1)));
 
     BENCH_ER("gsl ER", "gsl-zigg", gsl_ran_exponential(rng_gsl, 1));
 
