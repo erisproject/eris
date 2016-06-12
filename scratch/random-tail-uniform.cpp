@@ -52,31 +52,44 @@ std::pair<long, double> bench(std::function<double()> f, double at_least = 0.25)
 int main() {
     auto &rng = eris::random::rng();
     // In millionths:
-    const int micro_left = 5000000, start = 5050000, end = 5070000;
-    double left = micro_left / 1000000.0;
-    double at_least = 0.25;
-    constexpr int incr = 100;
-    for (int i = start; i <= end; i += incr) {
-        double r = i / 1000000.0;
-        auto bunif = bench([&]() -> double {
-            double x, rho;
-            long debug_count = 0;
-            do {
-                debug_count++;
-                x = boost::random::uniform_real_distribution<double>(left, r)(rng);
-                rho = exp(-left * (x - left));
-            } while (rho < boost::random::uniform_01<double>()(rng));
-            return x;
-        }, at_least);
-        auto bexp = bench([&]() -> double {
-            double x;
-            do {
-                x = left + eris::random::exponential_distribution<double>(left)(rng);
-            } while (x >= r);
-            return x;
-        }, at_least);
-        std::cout << "["<<left<<","<<r<<"]: UR: " << bunif.first / bunif.second / 1000000 << " Mdraws/s; ER: " <<
-            bexp.first / bexp.second / 1000000 << " Mdraws/s" << std::endl;
+    for (const long &micro_left : {550000, 750000, 1000000, 2000000, 3000000, 4000000, 5000000, 20000000, 100000000}) {
+        const long start = micro_left + 210000000000l/micro_left;
+        const long end   = micro_left + 400000000000l/micro_left;
+        const long incr = 5000000000l/micro_left;
+        double left = micro_left / 1000000.0;
+        double at_least = 0.25;
+        for (long i = start; i <= end; i += incr) {
+            double r = i / 1000000.0;
+            double shift2 = left*left;
+            double mu = 1e-300;
+            double sd = 1+1e-15;
+            double inv2s2 = 0.5 / (sd*sd);
+            auto bunif = bench([&]() -> double {
+                double x, rho;
+                long debug_count = 0;
+                do {
+                    debug_count++;
+                    x = boost::random::uniform_real_distribution<double>(left, r)(rng);
+                    rho = exp(inv2s2 * (shift2 - (x-mu)*(x-mu)));
+                } while (rho < boost::random::uniform_01<double>()(rng));
+                return x;
+            }, at_least);
+            double twice_sigma_squared = 2*sd*sd;
+            double x_scale = sd*sd / left;
+            double x_delta = 0;
+            double x_range = r - left;
+            auto bexp = bench([&]() -> double {
+                double x;
+                do {
+                    do {
+                        x = x_scale * eris::random::exponential_distribution<double>()(rng);
+                    } while (x >= x_range);
+                } while (twice_sigma_squared * eris::random::exponential_distribution<double>()(rng) <= (x+x_delta)*(x+x_delta));
+                return left + x;
+            }, at_least);
+            std::cout << "["<<left<<",+"<<r-left<<"]: UR: " << bunif.first / bunif.second / 1000000 << " Mdraws/s; ER: " <<
+                bexp.first / bexp.second / 1000000 << " Mdraws/s" << std::endl;
+        }
     }
 
     if (garbage == 1.75) std::cout << "# Garbage = 1.75 -- this is almost impossible\n";
