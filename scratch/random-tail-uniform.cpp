@@ -52,10 +52,10 @@ std::pair<long, double> bench(std::function<double()> f, double at_least = 0.25)
 int main() {
     auto &rng = eris::random::rng();
     // In millionths:
-    const int micro_left = 5000000, start = 5050000, end = 5100000;
+    const int micro_left = 5000000, start = 5050000, end = 5070000;
     double left = micro_left / 1000000.0;
     double at_least = 0.25;
-    constexpr int incr = 1000;
+    constexpr int incr = 100;
     for (int i = start; i <= end; i += incr) {
         double r = i / 1000000.0;
         auto bunif = bench([&]() -> double {
