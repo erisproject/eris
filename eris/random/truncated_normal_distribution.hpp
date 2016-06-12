@@ -26,21 +26,22 @@ struct truncnorm_threshold {
      */
     static constexpr RealType hr_below_er_above = RealType(0.55);
 
-    /** The value of the closer-to-mean limit, expressed as a standardized normal value (i.e.
-     * \f$\alpha = \frac{\ell - \mu} / \sigma\f$) above which it is more efficient to use a numerical
-     * approximation of a complex term in the ER/UR decision threshold.
+    /** The value of `a*(b-a)` below which to prefer UR to ER when considering 2-sided truncation
+     * draws in the tails of the distribution.
      *
-     * In particular, this uses the simplifications:
+     * In the tails of the distribution the truncated normal is very similar to the exponential: the
+     * rescaled conditional distribution looks essentially identical.  This in turn means that we
+     * can use a very simple rule for deciding between ER and UR for tail rejection sampling: if
+     * `b-a < c/a` we want to prefer UR, otherwise ER.  Essentially what this means is that the
+     * threshold value of the truncation range is inversely proportional to the left edge of the
+     * truncation.
      *
-     *     1/a =~ 2/(a+sqrt(a^2+4))*exp((a^2-a*sqrt(a^2+4))/4 + 1/2)
-     *
-     * and
-     *
-     *     lambda = (1/2) (a + sqrt(a^2 + 4)) =~ a
-     *
-     * both of which hold increasingly well as a increases.
+     * We actually use this all the time when deciding between ER and UR, i.e. all the way down to
+     * hr_below_er_above: the value is a little bit off for lower values (it should be around 0.34
+     * at a=0.55, and around 0.325 at a=0.75, and 0.32 at a=1, but this are all pretty close
+     * performance-wise (less than 3% off for 0.55).
      */
-    static constexpr RealType simplify_er_ur_above = RealType(2.3);
+    static constexpr RealType prefer_ur_multiplier = 0.31;
 
     /** This is the threshold b-a value for deciding between NR and UR: when b-a is above this,
      * rejection sampling from a normal distribution is preferred; below this, uniform rejection
@@ -52,13 +53,6 @@ struct truncnorm_threshold {
      * evaluating one exponential, while normal rejection simply involves drawing a normal).
      */
     static constexpr RealType ur_below_nr_above = RealType(1);
-
-    /** This is the average cost of a *single iteration* of the drawing and accept/reject calculation
-     * for exponential rejection sampling, relative to the equivalent cost of uniform rejection
-     * sampling.  (Obtaining an accepted draw may require more than one iteration, but that
-     * probability is handled externally to this value.)
-     */
-    static constexpr RealType cost_er_rel_ur = RealType(0.3);
 
     /** This is the average cost of a single halfnormal draw, relative to the cost of a single
      * uniform accept/reject iteration.
@@ -536,6 +530,7 @@ private:
                 // normal rejection sampling
                 _method = Method::UNIFORM;
                 _ur_shift2 = RealType(0);
+                _ur_inv_2_sigma_squared = RealType(0.5) / (_sigma * _sigma);
             }
             else {
                 // The truncation region is big enough to just do simple normal rejection sampling
@@ -561,7 +556,7 @@ private:
                 b = _mean - _lower_limit;
             }
 
-            // Now 0 <= a < b
+            // Now 0 <= a < b (we'll swap back at the end if we need a left-tail draw)
 
             if (a <= _sigma * detail::truncnorm_threshold<RealType>::hr_below_er_above) {
                 // a is not too large: we resort to either halfnormal rejection sampling or, if its
@@ -572,11 +567,12 @@ private:
                 }
                 else {
                     _ur_inv_2_sigma_squared = RealType(0.5) / (_sigma * _sigma);
+                    _ur_shift2 = a*a;
                     if (b - a >= (
                                 _sigma *
                                 detail::truncnorm_threshold<RealType>::cost_hr_rel_ur *
                                 boost::math::constants::root_half_pi<RealType>() *
-                                detail::exp_maclaurin(a*a*_ur_inv_2_sigma_squared)
+                                detail::exp_maclaurin(_ur_shift2 * _ur_inv_2_sigma_squared)
                                 )
                        ) {
                         // b is big (so [a,b] is likely enough to occur that halfnormal rej is
@@ -587,86 +583,23 @@ private:
                         // Otherwise b is small; using uniform rejection sampling (which requires an exp
                         // call) is more efficient than the low acceptance rate of half-normal rejection
                         _method = Method::UNIFORM;
-                        _ur_shift2 = a*a;
                     }
                 }
             }
             else {
-                // Otherwise a is large enough that, even if b is infinite, halfnormal sampling
-                // isn't worthwhile--i.e. we're too far out in the tail.  If the tail region is
-                // large enough (where the "large enough" value of (b-a) decreases with a), exponential
-                // rejection sampling is a good choice.  But if really small, it also has too low an
-                // acceptance rate, and so we again resort to uniform rejection sampling.
-                //
-                // As for "large enough", the exactly condition depends on the expected costs
-                // (taking into account the draw time required and acceptance rates) of ER vs UR, but it is
-                // approximately equal to (b-a > 1/a), with this approximation getting better for
-                // large a.
-                //
-                // The first thing to check is whether the 1/a approximation is good enough
-                //
-                // This first condition is comparing constexprs, so should be eliminated by any
-                // decent compiler at compile time, either avoiding the 'a >=' check and eliminating
-                // the else (when true), or just eliminated (when false).
-                if (a >= _sigma*detail::truncnorm_threshold<RealType>::simplify_er_ur_above) {
-                    // beta - alpha < c * (1/alpha), with beta=b/sigma, alpha=a/sigma becomes:
-                    if (std::isinf(b) or b*a >= a*a + _sigma*_sigma*detail::truncnorm_threshold<RealType>::cost_er_rel_ur) {
-                        _method = Method::EXPONENTIAL;
-                        _er_a = a;
-                        // Simplifying: lambda =~ alpha, so lambda*sigma =~ a
-                        _er_lambda_times_sigma = a;
-                    }
-                    else {
-                        _method = Method::UNIFORM;
-                        _ur_shift2 = a*a;
-                        _ur_inv_2_sigma_squared = RealType(0.5) / (_sigma * _sigma);
-                    }
+                // Otherwise we're sufficiently far out in the tail that ER is preferred to HR; the
+                // only thing we still have to decide is whether UR is a better choice than ER.
+                if (std::isinf(b) or a * (b-a) >= (_sigma * _sigma) * detail::truncnorm_threshold<RealType>::prefer_ur_multiplier) {
+                    _method = Method::EXPONENTIAL;
+                    _er_a = a;
+                    _er_lambda_times_sigma = a;
                 }
                 else {
-                    // a is small enough that this expensive calculation is worthwhile (note: when
-                    // the first condition in the above if is true, this entire branch is eliminated
-                    // in favour of the above).
-
-                    // We can't avoid a division by sigma, but we're going to need this factor
-                    // anyway if we end up using uniform rejection sampling:
+                    _method = Method::UNIFORM;
+                    _ur_shift2 = a*a;
                     _ur_inv_2_sigma_squared = RealType(0.5) / (_sigma * _sigma);
-                    // Precalculate this, because it shows up twice in the messy calculation below:
-                    const RealType sqrtaap4ss = sqrt(a*a + RealType(4)*(_sigma * _sigma));
-
-                    // Our threshold condition (for preferring uniform to exponential) is this thing:
-                    //
-                    // beta - alpha < c * 2/(alpha+sqrt(alpha^2+4)) * exp((alpha^2 - alpha*sqrt(alpha^2+4)) / 4 + 1/2)
-                    //
-                    // where alpha = a/sigma, beta = b/sigma.
-                    //
-                    // Letting N = 1/2sigma^2 and G = sqrt(a^2 + 4 sigma^2), that can be
-                    // rearranged to eliminate all the remaining divisions:
-                    //
-                    // N * (a+G) * (b-a) < c * exp(0.5*N*a*(a-G) + 0.5)
-                    //
-                    if (std::isinf(b) or
-                            _ur_inv_2_sigma_squared * (a + sqrtaap4ss) * (b - a)
-                            >=
-                            detail::truncnorm_threshold<RealType>::cost_er_rel_ur * std::exp(
-                                RealType(0.5) * _ur_inv_2_sigma_squared * a * (a - sqrtaap4ss) + RealType(0.5)
-                                )
-                       ) {
-                        _method = Method::EXPONENTIAL;
-                        _er_a = a;
-                        // Since we already calculated the square root, we can (cheaply) use the
-                        // optimal lambda instead of the approximation
-                        _er_lambda_times_sigma = 0.5 * (a + sqrtaap4ss);
-                    }
-                    else {
-                        _method = Method::UNIFORM;
-                        _ur_shift2 = a*a;
-                    }
                 }
             }
-        }
-
-        if (_method == Method::UNIFORM) {
-            _ur_inv_2_sigma_squared = RealType(0.5) / (_sigma * _sigma);
         }
     }
 
