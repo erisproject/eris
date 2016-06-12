@@ -185,7 +185,7 @@ int main(int argc, char *argv[]) {
     // various methods.  expo_approx uses the lambda = a approximation; exponential uses the
     // pre-calculated optimal lambda value; and expo_cost calculates the optimal value (without caching it).
     std::cout << "left,right,selected,normal,halfnormal,uniform,exponential,expo_approx,expo_cost\n";
-    while (true) {
+    for (int i = 0; i < 10000; i++) {
         double l =
             (runmode == "RANDOM" or runmode == "LEFT")  ? draw_random_parameter() :
             (runmode == "TWO") ? draw_random_2s_left() :
@@ -198,7 +198,7 @@ int main(int argc, char *argv[]) {
         // If we drew identical parameters (probably both - or both + infinity, which has about a
         // 1/50 chance of occuring (under RANDOM); it could also, technically, be the drawn values,
         // though the probability of that is negligible).
-        if (l == r) continue;
+        if (l == r) { i--; continue; }
         if (l > r) std::swap(l, r);
 
         benchmark b(l, r);
