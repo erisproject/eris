@@ -45,8 +45,10 @@ double draw_random_2s_left() {
 }
 
 double draw_random_2s_right(double left, double range) {
-    if (std::isnan(range)) range = std::max(left+5.0, 2.0);
-    return left + std::uniform_real_distribution<double>(0, range)(eris::random::rng());
+    double right = std::isnan(range)
+       ? std::max(left + 5.0, 2.0)
+       : left + range;
+    return std::uniform_real_distribution<double>(left, right)(eris::random::rng());
 }
 
 std::string double_str(double d, unsigned precision = std::numeric_limits<double>::max_digits10) {
