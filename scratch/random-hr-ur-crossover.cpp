@@ -40,6 +40,7 @@ std::pair<long, double> bench(std::function<double()> f, double at_least = 0.25)
 
 int main() {
     double mu = approx_zero, sigma = approx_one;
+    volatile double mu_v = approx_zero, sigma_v = approx_one;
 
     auto &rng = eris::random::rng();
 
@@ -73,8 +74,8 @@ int main() {
 
             const bool upper_tail = true;
             auto urtime = bench([&]() -> double {
-                double inv2s2 = 0.5 / (sigma*sigma);
-                double shift2 = (left - mu)*(left - mu);
+                double inv2s2 = 0.5 / (sigma_v*sigma_v);
+                double shift2 = (left - mu_v)*(left - mu_v);
                 return eris::random::detail::truncnorm_rejection_uniform(rng, mu, left, right, inv2s2, shift2);
             }, bench_time);
 
