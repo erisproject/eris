@@ -134,5 +134,5 @@ int main() {
     std::cout << "))\n";
     std::cout << "plot(left, thresh)\n";
     std::cout << "abline(a=" << final_beta_linear[0] << ", b=" << final_beta_linear[1] << ", col=\"blue\")\n";
-    std::cout << "curve(" << final_beta_quadratic[0] << " + " << final_beta_quadratic[1] << "*x + " << final_beta_quadratic[2] << "*x^2, col=\"green\")\n";
+    std::cout << "curve(" << final_beta_quadratic[0] << " + " << final_beta_quadratic[1] << "*x + " << final_beta_quadratic[2] << "*x^2, col=\"red\", add=T)\n";
 }
