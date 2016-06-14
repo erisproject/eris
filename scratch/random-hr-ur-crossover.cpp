@@ -49,7 +49,7 @@ int main() {
 
     // This number can be pretty small without problem: 0.02 seconds is still somewhere around half
     // a million draws
-    constexpr double bench_time = 0.02;
+    constexpr double bench_time = 0.05;
 
     constexpr int num_left = 22; // The number of left divisions: total evalulations is one larger
     std::vector<double> left_values;
