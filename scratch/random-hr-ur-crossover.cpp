@@ -108,7 +108,7 @@ int main() {
             double dist = std::fabs(predicted_dright - right_delta[i]);
             if (dist < best_dist) { best_dist = dist; best_predicted = predicted_dright; best_i = i; }
         }
-        std::cout << "left=" << left << ": threshold = " << best_predicted << "\n";
+        std::cout << "left=" << left << ": threshold = " << best_predicted << std::endl;
         threshold_delta_r[row] = best_predicted;
         outer_X_linear(row, 1) = left;
     }
