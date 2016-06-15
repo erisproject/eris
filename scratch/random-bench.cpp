@@ -276,7 +276,7 @@ int main(int argc, char *argv[]) {
             csv << "," << double_str(b.timing.expo_approx.first / b.timing.expo_approx.second);
 
         }
-        else csv << ",nan,nan,nan";
+        else csv << ",nan,nan";
 
         csv << "\n";
 
