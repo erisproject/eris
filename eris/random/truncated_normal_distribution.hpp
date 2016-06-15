@@ -54,88 +54,13 @@ struct truncnorm_threshold {
      */
     static constexpr RealType ur_below_nr_above = RealType(1);
 
-    /** This is the average cost of a single halfnormal draw, relative to the cost of a single
-     * uniform accept/reject iteration.
+    /** This is the linear approximation of the threshold value of (right-left) above which we
+     * prefer halfnormal rejection sampling and below which we prefer uniform rejection sampling.
      */
-    static constexpr RealType cost_hr_rel_ur = RealType(0.275);
+    static RealType ur_hr_threshold(const RealType &left, const RealType &sigma) {
+        return RealType(0.39) * sigma + RealType(0.42) * left;
+    }
 };
-
-/** The Taylor expansion order to use when approximating e^x when deciding between UR and HR.  The
- * minimum required approximation order depends on the specific value of `hr_below_er_above`
- * and the speed of performing the approximation calculations; it is typically 1 or 2, but 2 or 3
- * are often a better choice.
- *
- * This is currently a 3rd-order Taylor expansion of e^x, evaluated at 0 (and so, technically, a
- * 3rd-order Maclaurin series expansion of e^x), because in practice a 3rd order expansion is almost
- * always sufficient, and seems to have neglible computation cost over a 3nd order expansion.
- *
- * draw-perf reports a few things in this regards: first, it reports whether a T1, T2, or higher
- * order approximation is required for using the approximation to be at least as good as calculating
- * the precise optimal value; the order of this implementation should be no smaller than that.  For
- * example, in my testing, for boost and gsl-zigg I get a value of 2, for the others a value of 1.
- *
- * Secondly, draw-pref reports the values of a at which a Tn approximation is preferred to a
- * lower-order approximation--usually T{n-1}, but sometimes T{n-2}, depending on CPU/compiler
- * optimizations.  For example (note that these values change slightly from run-to-run, and change
- * more noticeably across compilers and CPUs), one run of draw-perf resulted in T2 being preferred
- * above a=0.4987, but T3 being preferred above a=0.4791--in other words, T3 is always better than
- * T2, and better than T1 for a > 0.4791.  T4 is preferred for a > 1.1656, but this is close enough
- * to the reported a0 (1.3619) that it probably isn't worth doing, since it will be less efficient
- * for values below the 1.1656 threshold.  So, since we need at least T2 to cover the [0,a0]
- * potential range, and since T3 is apparently always better than T2, we use T3.
- *
- * It is, in theory, possible to use multiple approximations depending on the value of \f$\alpha\f$
- * (continuing the above example, using T1 for [0,0.4791], T3 for (0.4791,1.1656], T4 for
- * (1.1656,1.3619]), but in practice the overhead of checking and branching isn't worthwhile
- * (especially when the highest we should use, according to draw-perf, is T4).
- *
- * Another possibility is to consider a Taylor expansion around another point--say, a0^2/4 (because
- * we evaluate this approximation at a^2/2 for a between 0 and a0)--but this ends up trading away
- * some accurancy near 0 for some accuracy near a0, and is only slightly more accurate than T3
- * around a0, and much worse around 0; better, then, to use use T3.  (The story between T3@a and
- * T4@0 is similar).  So again, not worth the effort.
- *
- * Currently supported values are from 0 to 5.
- */
-#define ERIS_RANDOM_DETAIL_TRUNCATED_NORMAL_DISTRIBUTION_TAYLOR_ORDER 3
-
-/** The Taylor series expansion (actually, the Maclaurin series expansion, which is a Taylor
- * expansion around 0) of e^x.
- */
-template<class RealType>
-inline RealType exp_maclaurin(const RealType &x) {
-    return RealType(1)
-#if ERIS_RANDOM_DETAIL_TRUNCATED_NORMAL_DISTRIBUTION_TAYLOR_ORDER >= 1
-        + x * (RealType(1)
-#if ERIS_RANDOM_DETAIL_TRUNCATED_NORMAL_DISTRIBUTION_TAYLOR_ORDER >= 2
-        + x * (RealType(1)/2
-#if ERIS_RANDOM_DETAIL_TRUNCATED_NORMAL_DISTRIBUTION_TAYLOR_ORDER >= 3
-        + x * (RealType(1)/6
-#if ERIS_RANDOM_DETAIL_TRUNCATED_NORMAL_DISTRIBUTION_TAYLOR_ORDER >= 4
-        + x * (RealType(1)/24
-#if ERIS_RANDOM_DETAIL_TRUNCATED_NORMAL_DISTRIBUTION_TAYLOR_ORDER >= 5
-        + x * (RealType(1)/120
-#if ERIS_RANDOM_DETAIL_TRUNCATED_NORMAL_DISTRIBUTION_TAYLOR_ORDER >= 6
-#error Taylor orders above 5 are not implemented
-// If ever implementing this, note that above 5, it seems (at least with basic SSE optimizations) to
-// be faster to compute the expansion as:
-//     1 + x + x*x*(1/2 + 1/6*x + x*x*(1/24 + ...
-// instead of the alternative, used above, which is faster below 5:
-//     1 + x*(1 + x*(1/2 + ...
-//
-#endif
-        )
-#endif
-        )
-#endif
-        )
-#endif
-        )
-#endif
-        )
-#endif
-        ;
-}
 
 /** Perform rejection-sampling from a normal distribution, rejecting any draws outside the range
  * `[lower, upper]`.  This is naive rejection sampling: we simply keep drawing from the untruncated
@@ -287,7 +212,7 @@ RealType truncnorm_rejection_exponential(Engine &eng, const RealType &sigma, con
 template<class RealType = double>
 class truncated_normal_distribution {
 // Some comments about the implementation: the code is made a little more complicated by not
-// dividing by sigma (for various conditions) except when absolutely necessary, which is often isn't
+// dividing by sigma (for various conditions) except when absolutely necessary, which it often isn't
 // (we can multiply the other side of the condition by sigma instead).  Having tried it both ways,
 // not doing the extra division improves performance in all the cases that don't actually need it.
 // Hence we have constants like `_er_lambda_times_sigma` instead of just `_er_lambda`.
@@ -492,6 +417,11 @@ private:
 
     // Called at the beginning of a draw to check whether _method is UNKNOWN; if so, it (and
     // possibly the cache variables below) are updated as needed for generating a value.
+    //
+    // TODO: it might be worthwhile exposing this as a public method, and adapting it to accept a
+    // `quick` argument: if true, it would do as it does now, using approximations; if false, it
+    // could compute a more exact threshold with better long-run performance (at the expense of
+    // up-front cost).
     void _determine_method() {
         // We have two main cases (plus a mirror of one of them):
         // 1 - truncation bounds are on either side of the mean
@@ -562,28 +492,15 @@ private:
                 // a is not too large: we resort to either halfnormal rejection sampling or, if its
                 // acceptance rate would be too low (because b is too low), uniform rejection
                 // sampling
-                if (std::isinf(b)) {
+                if (std::isinf(b) or b - a >= detail::truncnorm_threshold<RealType>::ur_hr_threshold(a, _sigma)) {
                     _method = Method::HALFNORMAL;
                 }
                 else {
+                    // Otherwise b is small; using uniform rejection sampling (which requires an exp
+                    // call) is more efficient than the low acceptance rate of half-normal rejection
                     _ur_inv_2_sigma_squared = RealType(0.5) / (_sigma * _sigma);
                     _ur_shift2 = a*a;
-                    if (b - a >= (
-                                _sigma *
-                                detail::truncnorm_threshold<RealType>::cost_hr_rel_ur *
-                                boost::math::constants::root_half_pi<RealType>() *
-                                detail::exp_maclaurin(_ur_shift2 * _ur_inv_2_sigma_squared)
-                                )
-                       ) {
-                        // b is big (so [a,b] is likely enough to occur that halfnormal rej is
-                        // worthwhile)
-                        _method = Method::HALFNORMAL;
-                    }
-                    else {
-                        // Otherwise b is small; using uniform rejection sampling (which requires an exp
-                        // call) is more efficient than the low acceptance rate of half-normal rejection
-                        _method = Method::UNIFORM;
-                    }
+                    _method = Method::UNIFORM;
                 }
             }
             else {
@@ -617,9 +534,10 @@ private:
 
         // For EXPONENTIAL, this stores the non-divided-by-sigma lambda value of the exponential
         // (i.e. we want to draw exponential(thisvalue/sigma).  The best acceptance rate is when
-        // this value divided by sigma equals (alpha+sqrt(alpha^2+4))/2, but for large alpha, that
-        // is approximately equal to alpha, and so in that case we just use a (=alpha*sigma) to
-        // avoid the sqrt.
+        // this value divided by sigma equals (alpha+sqrt(alpha^2+4))/2, but calculating that is
+        // expensive: currently, we just set this to a (=alpha*sigma), which is a decent
+        // approximation as long as we aren't too far into the central region, and saves the
+        // calculations above.
         RealType _er_lambda_times_sigma;
     };
 
