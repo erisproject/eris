@@ -18,7 +18,7 @@ struct benchmark {
     const double left, right;
     bool normal{false}, halfnormal{false}, uniform{false}, exponential{false};
     struct {
-        std::pair<long, double> selected, normal, halfnormal, uniform, exponential, expo_approx, expo_cost;
+        std::pair<long, double> selected, normal, halfnormal, uniform, exponential, expo_approx;
     } timing;
     benchmark(double l, double r)
         : left{l}, right{r}
@@ -150,6 +150,7 @@ int main(int argc, char *argv[]) {
     }
 
     constexpr double mu = approx_zero, sigma = approx_one;
+    volatile double sigma_v = sigma;
 
 
     // RANDOM: draw both truncation points randomly.  We do this by drawing infinity with
@@ -186,8 +187,8 @@ int main(int argc, char *argv[]) {
 
     // The first two values are the left/right values; then the speeds (in draws/second) for the
     // various methods.  expo_approx uses the lambda = a approximation; exponential uses the
-    // pre-calculated optimal lambda value; and expo_cost calculates the optimal value (without caching it).
-    std::cout << "left,right,selected,normal,halfnormal,uniform,exponential,expo_approx,expo_cost\n";
+    // optimal lambda value (including the calculation in the benchmarked code).
+    std::cout << "left,right,selected,normal,halfnormal,uniform,exponential,expo_approx\n";
     for (int i = 0; i < 10000; i++) {
         double l =
             (runmode == "RANDOM" or runmode == "LEFT")  ? draw_random_parameter() :
@@ -262,8 +263,9 @@ int main(int argc, char *argv[]) {
 
         if (b.exponential) {
             const double bound_dist = b.left >= mu ? (b.left - mu) : (mu - b.right);
-            const double proposal_param = 0.5 * (bound_dist + sqrt(bound_dist*bound_dist + 4*sigma*sigma));
+            volatile double bound_dist_v = bound_dist;
             b.timing.exponential = bench([&]() -> double {
+                    double proposal_param = 0.5 * (bound_dist_v + sqrt(bound_dist_v*bound_dist_v + 4*sigma_v*sigma_v));
                     return eris::random::detail::truncnorm_rejection_exponential(rng, sigma, b.left, b.right, b.left >= mu, bound_dist, proposal_param);
                     });
             csv << "," << double_str(b.timing.exponential.first / b.timing.exponential.second);
@@ -272,12 +274,6 @@ int main(int argc, char *argv[]) {
                     return eris::random::detail::truncnorm_rejection_exponential(rng, sigma, b.left, b.right, b.left >= mu, bound_dist, bound_dist);
                     });
             csv << "," << double_str(b.timing.expo_approx.first / b.timing.expo_approx.second);
-
-            b.timing.expo_cost = bench([&,bound_dist]() -> double {
-                    double proposal_param = 0.5 * (bound_dist + sqrt(bound_dist*bound_dist + 4*sigma*sigma));
-                    return eris::random::detail::truncnorm_rejection_exponential(rng, sigma, b.left, b.right, b.left >= mu, bound_dist, proposal_param);
-                    });
-            csv << "," << double_str(b.timing.expo_cost.first / b.timing.expo_cost.second);
 
         }
         else csv << ",nan,nan,nan";
