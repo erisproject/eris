@@ -39,6 +39,9 @@ std::pair<long, double> bench(std::function<double()> f, double at_least = 0.25)
     return results;
 }
 
+// Various code can dump extra info into here, which will be displayed before the main result:
+std::ostringstream extra_info;
+
 // Takes a vector of (value,time) pairs and uses local linear approximation to find the value point
 // where time is 0.  Obviously value should start positive and end negative (or vice versa).  Throws
 // an error if the best result is at the beginning or end.
@@ -201,8 +204,6 @@ struct hr_ur {
 static_assert(hr_ur::local_points % 2 == 1, "hr_ur::local_points must be odd");
 static_assert(hr_ur::min_negs > hr_ur::local_points / 2, "hr_ur::min_negs must be > hr_ur::local_points/2");
 
-std::ostringstream line_R_code;
-
 // Calculates a linear approximation to the threshold value for HR-vs-UR decisions.  This isn't
 // actually a perfectly linear function, but as long as the ER-vs-HR threshold isn't too high, the
 // linear approximation is a pretty decent fit.
@@ -273,26 +274,85 @@ std::pair<Vector2d, Vector3d> hr_ur_threshold(double er_begins) {
     Vector2d final_beta_linear = outer_X_linear.jacobiSvd(ComputeThinU | ComputeThinV).solve(threshold_delta_r);
     Vector3d final_beta_quadratic = outer_X_quadratic.jacobiSvd(ComputeThinU | ComputeThinV).solve(threshold_delta_r);
 
-    line_R_code << "left <- cbind(c(" << left_values[0];
+    extra_info << "\n\nR code to plot HR/UR threshold line/errors:\n\nleft <- cbind(c(" << left_values[0];
     for (size_t i = 1; i < left_values.size(); i++) {
-        line_R_code << "," << left_values[i];
+        extra_info << "," << left_values[i];
     }
-    line_R_code << "))\nthresh <- cbind(c(" << threshold_delta_r[0];
+    extra_info << "))\nthresh <- cbind(c(" << threshold_delta_r[0];
     for (int i = 1; i < threshold_delta_r.size(); i++) {
-        line_R_code << "," << threshold_delta_r[i];
+        extra_info << "," << threshold_delta_r[i];
     }
-    line_R_code << "))\n";
-    line_R_code << "plot(left, thresh)\n";
-    line_R_code << "abline(a=" << final_beta_linear[0] << ", b=" << final_beta_linear[1] << ", col=\"blue\")\n";
-    line_R_code << "curve(" << final_beta_quadratic[0] << " + " << final_beta_quadratic[1] << "*x + " << final_beta_quadratic[2] << "*x^2, col=\"red\", add=T)\n";
+    extra_info << "))\n";
+    extra_info << "plot(left, thresh)\n";
+    extra_info << "abline(a=" << final_beta_linear[0] << ", b=" << final_beta_linear[1] << ", col=\"blue\")\n";
+    extra_info << "curve(" << final_beta_quadratic[0] << " + " << final_beta_quadratic[1] << "*x + " << final_beta_quadratic[2] << "*x^2, col=\"red\", add=T)\n";
 
     return std::pair<Vector2d, Vector3d>(std::move(final_beta_linear), std::move(final_beta_quadratic));
 }
 
+struct er_ur_tail {
+    constexpr static double bench_time = 0.05; // Minimum number of seconds for each benchmark
+    constexpr static int local_points = 7; // The number of points to include around the current point.  Must be odd!
+    constexpr static double left = 50; // Where we start looking.  Should be far, far out in the right tail.
+    constexpr static double start = 0.15; // Start searching at left + (this)/left.
+    constexpr static double incr = 0.0005; // Increment by (this)/left
+    constexpr static int min_negs = 7; // Keep incrementing until we have found this many negative differences (must be at least local_points/2+1)
+};
+
+// For deciding when to prefer UR to ER, there is a value c such that the optimal decision threshold
+// is (a-b) < c/a when using uniform rejection to draw an exponential.  We aren't actually doing
+// that: we're drawing a normal, but in the tails, the truncated normal looks so much like the
+// exponential that this relationship holds very closely.  "In the tails" here needn't actually be
+// that far: it holds pretty well (about 3-4% off optimal efficiency) even with a left truncation
+// point at 0.5 standard deviations.
+//
+// We calculate the value for a left of 50 standard deviations, where a rescaled normal pdf is
+// virtually indistinguishable from an exponential pdf.
+double er_ur_tail_threshold(double er_begins, double er_lambda_below) {
+    auto &rng = eris::random::rng();
+    std::vector<std::pair<double, double>> time_diff; // (delta,time) pairs
+    int num_neg = 0;
+    constexpr double left = er_ur_tail::left;
+    for (double delta = er_ur_tail::start / left;
+            num_neg < er_ur_tail::min_negs or time_diff.size() < er_ur_tail::local_points + 2;
+            delta += er_ur_tail::incr / left) {
+
+        constexpr bool upper_tail = true;
+        const double right = left + delta;
+
+        auto urtime = bench([&]() -> double {
+            double inv2s2 = 0.5 / std::pow(sigma_v, 2);
+            double shift2 = std::pow(left - mu_v, 2);
+            return eris::random::detail::truncnorm_rejection_uniform(rng, mu, left, right, inv2s2, shift2);
+        }, er_ur_tail::bench_time);
+
+        std::pair<long,double> ertime;
+        if (left < er_lambda_below) {
+            ertime = bench([&]() -> double {
+                volatile double bd_v = left - mu_v;
+                volatile double s = sigma_v;
+                double proposal_param = 0.5 * (bd_v + sqrt(bd_v*bd_v + 4*s*s));
+                return eris::random::detail::truncnorm_rejection_exponential(rng, sigma, left, right, upper_tail, double(bd_v), proposal_param);
+                }, er_ur_tail::bench_time);
+        }
+        else {
+            ertime = bench([&]() -> double {
+                return eris::random::detail::truncnorm_rejection_exponential(rng, sigma, left, right, upper_tail, left - mu, left - mu);
+                }, er_ur_tail::bench_time);
+        }
+
+        // Calculate the average speed advantage of using UR over ER:
+        double ns_diff = (ertime.second / ertime.first - urtime.second / urtime.first) * 1e9;
+        time_diff.emplace_back(delta, ns_diff);
+        if (ns_diff < 0) num_neg++;
+        else num_neg = 0;
+    }
+
+    // What we want is the "c" in (b-a) = c/a, so c = a*(b-a) = a*delta
+    return left * zero_local_linear(time_diff, er_ur_tail::local_points);
+}
+
 int main() {
-
-//    auto &rng = eris::random::rng();
-
     // Busy loop to get CPU speed up
     double j = 3;
     for (int i = 0; i < 500000000; i++) { j += 0.1; } if (j == 47) { std::cout << "j is wrong\n"; }
@@ -305,14 +365,14 @@ int main() {
     auto erhr = er_hr_threshold(erer);
     std::cout << " " << erhr << std::endl;
 
+    std::cout << "Determining ER/UR tail threshold constant..." << std::flush;
+    auto erur_tail = er_ur_tail_threshold(erhr, erer);
+    std::cout << " " << erur_tail << std::endl;
+
     std::cout << "Determining HR/UR threshold line..." << std::flush;
     auto hrur = hr_ur_threshold(erhr);
     std::cout << " (l-r)/sigma = " << hrur.first[0] << " + " << hrur.first[1] << " l/sigma" << std::endl;
 
-    std::cout << "\n\n\n";
-    std::cout << "R code to plot HR/UR approximation:\n\n" << line_R_code.str() << "\n\n";
-
-//    auto &final_beta_linear = hrur.first;
-//    auto &final_beta_quadratic = hrur.second;
-
+    if (not extra_info.str().empty())
+        std::cout << "\n\n\nExtra information:\n" << extra_info.str() << "\n";
 }
