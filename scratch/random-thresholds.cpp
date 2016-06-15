@@ -92,6 +92,101 @@ double zero_local_linear(const std::vector<std::pair<double,double>> &values, co
 double mu = approx_zero, sigma = approx_one;
 volatile double mu_v = approx_zero, sigma_v = approx_one;
 
+
+struct er_hr {
+    constexpr static double bench_time = 0.02; // Min seconds for each benchmark
+    constexpr static double start = 0.5; // Start looking here
+    constexpr static double incr = 0.001; // Increment by this amount each time
+    constexpr static int local_points = 7; // Use linear approximation of this many points
+    constexpr static int min_negs = 7; // Don't stop until we've found at least this many negative differences
+};
+
+static_assert(er_hr::local_points % 2 == 1, "hr_ur::local_points must be odd");
+static_assert(er_hr::min_negs > er_hr::local_points / 2, "hr_ur::min_negs must be > hr_ur::local_points/2");
+
+// Calculates the point where ER starts performing better than HR
+// For values below er_lambda_below, we use full-lambda ER; above it, we use the approximation
+double er_hr_threshold(double er_lambda_below) {
+    auto &rng = eris::random::rng();
+    std::vector<std::pair<double, double>> time_diff; // (left,time) pairs
+    int num_neg = 0;
+    for (double left = er_hr::start; num_neg < er_hr::min_negs or time_diff.size() < er_hr::local_points + 2;
+            left += er_hr::incr) {
+
+        constexpr bool upper_tail = true;
+        const double right = std::numeric_limits<double>::infinity();
+
+        auto hrtime = bench([&]() -> double {
+                return eris::random::detail::truncnorm_rejection_halfnormal(rng, mu, sigma, left, right, upper_tail);
+                }, er_hr::bench_time);
+
+        std::pair<long,double> ertime;
+        if (left < er_lambda_below) {
+            ertime = bench([&]() -> double {
+                volatile double bd_v = left - mu_v;
+                volatile double s = sigma_v;
+                double proposal_param = 0.5 * (bd_v + sqrt(bd_v*bd_v + 4*s*s));
+                return eris::random::detail::truncnorm_rejection_exponential(rng, sigma, left, right, upper_tail, double(bd_v), proposal_param);
+                }, er_hr::bench_time);
+        }
+        else {
+            ertime = bench([&]() -> double {
+                return eris::random::detail::truncnorm_rejection_exponential(rng, sigma, left, right, upper_tail, left - mu, left - mu);
+                }, er_hr::bench_time);
+        }
+
+        // Calculate the average speed advantage of hr:
+        double ns_diff = (ertime.second / ertime.first - hrtime.second / hrtime.first) * 1e9;
+        time_diff.emplace_back(left, ns_diff);
+        if (ns_diff < 0) num_neg++;
+        else num_neg = 0;
+    }
+
+    return zero_local_linear(time_diff, er_hr::local_points);
+}
+
+struct er_er {
+    constexpr static double bench_time = 0.05; // Min seconds for each benchmark
+    constexpr static double start = 1.0; // Start looking here
+    constexpr static double incr = 0.005; // Increment by this amount each time
+    constexpr static int local_points = 7; // Use linear approximation of this many points
+    constexpr static int min_negs = 12; // Don't stop until we've found at least this many negative differences
+};
+
+// Calculates the point where (approximated) ER(a) starts performing better than ER(lambda),
+// where lambda is the exact (but expensive) calculation.
+double er_er_threshold() {
+    auto &rng = eris::random::rng();
+    std::vector<std::pair<double, double>> time_diff; // (left,time) pairs
+    int num_neg = 0;
+    for (double left = er_er::start; num_neg < er_er::min_negs or time_diff.size() < er_er::local_points + 2;
+            left += er_er::incr) {
+
+        constexpr bool upper_tail = true;
+        const double right = std::numeric_limits<double>::infinity();
+
+        auto erltime = bench([&]() -> double {
+                volatile double bd_v = left - mu_v;
+                volatile double s = sigma_v;
+                double proposal_param = 0.5 * (bd_v + sqrt(bd_v*bd_v + 4*s*s));
+                return eris::random::detail::truncnorm_rejection_exponential(rng, sigma, left, right, upper_tail, double(bd_v), proposal_param);
+                }, er_er::bench_time);
+
+        auto eratime = bench([&]() -> double {
+                double bd = left - mu_v;
+                return eris::random::detail::truncnorm_rejection_exponential(rng, sigma, left, right, upper_tail, bd, bd);
+                }, er_er::bench_time);
+
+        // Calculate the average speed advantage of using lambda instead of the approximation:
+        double ns_diff = (eratime.second / eratime.first - erltime.second / erltime.first) * 1e9;
+        time_diff.emplace_back(left, ns_diff);
+        if (ns_diff < 0) num_neg++;
+        else num_neg = 0;
+    }
+
+    return zero_local_linear(time_diff, er_er::local_points);
+}
+
 struct hr_ur {
     constexpr static double bench_time = 0.01; // Minimum number of seconds for each benchmark
     constexpr static int num_left = 15; // The number of left values: num_left-1 equal divisions of [0,max]
@@ -192,100 +287,6 @@ std::pair<Vector2d, Vector3d> hr_ur_threshold(double er_begins) {
     line_R_code << "curve(" << final_beta_quadratic[0] << " + " << final_beta_quadratic[1] << "*x + " << final_beta_quadratic[2] << "*x^2, col=\"red\", add=T)\n";
 
     return std::pair<Vector2d, Vector3d>(std::move(final_beta_linear), std::move(final_beta_quadratic));
-}
-
-struct er_hr {
-    constexpr static double bench_time = 0.02; // Min seconds for each benchmark
-    constexpr static double start = 0.5; // Start looking here
-    constexpr static double incr = 0.002; // Increment by this amount each time
-    constexpr static int local_points = 7; // Use linear approximation of this many points
-    constexpr static int min_negs = 7; // Don't stop until we've found at least this many negative differences
-};
-
-static_assert(er_hr::local_points % 2 == 1, "hr_ur::local_points must be odd");
-static_assert(er_hr::min_negs > er_hr::local_points / 2, "hr_ur::min_negs must be > hr_ur::local_points/2");
-
-// Calculates the point where ER starts performing better than HR
-// For values below er_lambda_below, we use full-lambda ER; above it, we use the approximation
-double er_hr_threshold(double er_lambda_below) {
-    auto &rng = eris::random::rng();
-    std::vector<std::pair<double, double>> time_diff; // (left,time) pairs
-    int num_neg = 0;
-    for (double left = er_hr::start; num_neg < er_hr::min_negs or time_diff.size() < er_hr::local_points + 2;
-            left += er_hr::incr) {
-
-        constexpr bool upper_tail = true;
-        const double right = std::numeric_limits<double>::infinity();
-
-        auto hrtime = bench([&]() -> double {
-                return eris::random::detail::truncnorm_rejection_halfnormal(rng, mu, sigma, left, right, upper_tail);
-                }, er_hr::bench_time);
-
-        std::pair<long,double> ertime;
-        if (left < er_lambda_below) {
-            ertime = bench([&]() -> double {
-                volatile double bd_v = left - mu_v;
-                volatile double s = sigma_v;
-                double proposal_param = 0.5 * (bd_v + sqrt(bd_v*bd_v + 4*s*s));
-                return eris::random::detail::truncnorm_rejection_exponential(rng, sigma, left, right, upper_tail, double(bd_v), proposal_param);
-                }, er_hr::bench_time);
-        }
-        else {
-            ertime = bench([&]() -> double {
-                return eris::random::detail::truncnorm_rejection_exponential(rng, sigma, left, right, upper_tail, left - mu, left - mu);
-                }, er_hr::bench_time);
-        }
-
-        // Calculate the average speed advantage of hr:
-        double ns_diff = (ertime.second / ertime.first - hrtime.second / hrtime.first) * 1e9;
-        time_diff.emplace_back(left, ns_diff);
-        if (ns_diff < 0) num_neg++;
-        else num_neg = 0;
-    }
-
-    return zero_local_linear(time_diff, er_hr::local_points);
-}
-
-struct er_er {
-    constexpr static double bench_time = 0.05; // Min seconds for each benchmark
-    constexpr static double start = 1.0; // Start looking here
-    constexpr static double incr = 0.005; // Increment by this amount each time
-    constexpr static int local_points = 7; // Use linear approximation of this many points
-    constexpr static int min_negs = 12; // Don't stop until we've found at least this many negative differences
-};
-
-// Calculates the point where (approximated) ER(a) starts performing better than ER(lambda),
-// where lambda is the exact (but expensive) calculation.
-double er_er_threshold() {
-    auto &rng = eris::random::rng();
-    std::vector<std::pair<double, double>> time_diff; // (left,time) pairs
-    int num_neg = 0;
-    for (double left = er_er::start; num_neg < er_er::min_negs or time_diff.size() < er_er::local_points + 2;
-            left += er_er::incr) {
-
-        constexpr bool upper_tail = true;
-        const double right = std::numeric_limits<double>::infinity();
-
-        auto erltime = bench([&]() -> double {
-                volatile double bd_v = left - mu_v;
-                volatile double s = sigma_v;
-                double proposal_param = 0.5 * (bd_v + sqrt(bd_v*bd_v + 4*s*s));
-                return eris::random::detail::truncnorm_rejection_exponential(rng, sigma, left, right, upper_tail, double(bd_v), proposal_param);
-                }, er_er::bench_time);
-
-        auto eratime = bench([&]() -> double {
-                double bd = left - mu_v;
-                return eris::random::detail::truncnorm_rejection_exponential(rng, sigma, left, right, upper_tail, bd, bd);
-                }, er_er::bench_time);
-
-        // Calculate the average speed advantage of using lambda instead of the approximation:
-        double ns_diff = (eratime.second / eratime.first - erltime.second / erltime.first) * 1e9;
-        time_diff.emplace_back(left, ns_diff);
-        if (ns_diff < 0) num_neg++;
-        else num_neg = 0;
-    }
-
-    return zero_local_linear(time_diff, er_er::local_points);
 }
 
 int main() {
