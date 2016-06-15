@@ -7,60 +7,11 @@
 #include <eris/random/exponential_distribution.hpp>
 #include <boost/math/constants/constants.hpp>
 #include <boost/core/scoped_enum.hpp>
+#include <eris/random/detail/truncated_normal_thresholds.hpp>
 
 namespace eris { namespace random {
 
 namespace detail {
-
-// Constants for the truncated normal algorithm.  All of these values depend on the specific CPU,
-// architecture, compiler, etc., so we only try to provide ballpark figures here that should work
-// reasonably well.
-template<class RealType>
-struct truncnorm_threshold {
-    /** The value of the closer-to-mean limit, expressed as a standardized normal value (i.e.
-     * \f$\alpha = \frac{\ell - \mu} / \sigma\f$) above which it is more efficient to use exponential
-     * rejection sampling instead of half normal rejection sampling.  This value applies when the
-     * truncation range is contained entirely within one side of the distribution.  (Note, however,
-     * that on either side of this condition, we may still resort to uniform rejection sampling if b
-     * is too close to a).
-     */
-    static constexpr RealType hr_below_er_above = RealType(0.55);
-
-    /** The value of `a*(b-a)` below which to prefer UR to ER when considering 2-sided truncation
-     * draws in the tails of the distribution.
-     *
-     * In the tails of the distribution the truncated normal is very similar to the exponential: the
-     * rescaled conditional distribution looks essentially identical.  This in turn means that we
-     * can use a very simple rule for deciding between ER and UR for tail rejection sampling: if
-     * `b-a < c/a` we want to prefer UR, otherwise ER.  Essentially what this means is that the
-     * threshold value of the truncation range is inversely proportional to the left edge of the
-     * truncation.
-     *
-     * We actually use this all the time when deciding between ER and UR, i.e. all the way down to
-     * hr_below_er_above: the value is a little bit off for lower values (it should be around 0.34
-     * at a=0.55, and around 0.325 at a=0.75, and 0.32 at a=1, but this are all pretty close
-     * performance-wise (less than 3% off for 0.55).
-     */
-    static constexpr RealType prefer_ur_multiplier = 0.31;
-
-    /** This is the threshold b-a value for deciding between NR and UR: when b-a is above this,
-     * rejection sampling from a normal distribution is preferred; below this, uniform rejection
-     * sampling is preferred.  This value is only used when the truncation range includes values on
-     * both sides of the mean.
-     *
-     * This value equals sqrt(2*pi) times the ratio of normal draw cost to uniform sampling iteration
-     * cost (remember that a uniform sample iteration typically requires drawing 2 uniforms and
-     * evaluating one exponential, while normal rejection simply involves drawing a normal).
-     */
-    static constexpr RealType ur_below_nr_above = RealType(1);
-
-    /** This is the linear approximation of the threshold value of (right-left) above which we
-     * prefer halfnormal rejection sampling and below which we prefer uniform rejection sampling.
-     */
-    static RealType ur_hr_threshold(const RealType &left, const RealType &sigma) {
-        return RealType(0.39) * sigma + RealType(0.42) * left;
-    }
-};
 
 /** Perform rejection-sampling from a normal distribution, rejecting any draws outside the range
  * `[lower, upper]`.  This is naive rejection sampling: we simply keep drawing from the untruncated
@@ -504,12 +455,17 @@ private:
                 }
             }
             else {
-                // Otherwise we're sufficiently far out in the tail that ER is preferred to HR; the
-                // only thing we still have to decide is whether UR is a better choice than ER.
+                // Otherwise we're sufficiently far out in the tail that ER is preferred to HR; we
+                // now have to decide whether UR is preferred to ER, and if not, whether the
+                // simplified-parameter ER is preferred to the acceptance-optimal parameter.
                 if (std::isinf(b) or a * (b-a) >= (_sigma * _sigma) * detail::truncnorm_threshold<RealType>::prefer_ur_multiplier) {
                     _method = Method::EXPONENTIAL;
+                    using std::sqrt;
                     _er_a = a;
-                    _er_lambda_times_sigma = a;
+                    _er_lambda_times_sigma = (a < _sigma * detail::truncnorm_threshold<RealType>::er_approximate_above)
+                        // Relatively small a: calculating this thing is worthwhile:
+                        ? 0.5 * (a + std::sqrt(a*a + 4*(_sigma * _sigma)))
+                        : a; // a is large, so better to use a, avoid the calculation, and incur the potential extra discards
                 }
                 else {
                     _method = Method::UNIFORM;
