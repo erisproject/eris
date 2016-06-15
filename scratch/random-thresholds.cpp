@@ -52,7 +52,7 @@ volatile double mu_v = approx_zero, sigma_v = approx_one;
 struct hr_ur {
     constexpr static int num_left = 26; // The number of left values: num_left-1 equal divisions of [0,max]
     constexpr static int local_points = 7; // The number of points to include around the current point.  Must be odd!
-    constexpr static double backtrack = -0.01; // Start at the previous left optimum minus this
+    constexpr static double backtrack = -0.015; // Start at the previous left optimum minus this
     constexpr static double increment = 0.001; // Take steps of this size, starting from prev+backtrack
     constexpr static double initial_start = 0.2; // Where we start looking (for left=0)
     constexpr static double initial_incr = 0.005; // Step size for left=0
