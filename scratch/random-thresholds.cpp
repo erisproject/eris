@@ -104,8 +104,8 @@ struct er_hr {
     constexpr static int min_negs = 7; // Don't stop until we've found at least this many negative differences
 };
 
-static_assert(er_hr::local_points % 2 == 1, "hr_ur::local_points must be odd");
-static_assert(er_hr::min_negs > er_hr::local_points / 2, "hr_ur::min_negs must be > hr_ur::local_points/2");
+static_assert(er_hr::local_points % 2 == 1, "er_hr::local_points must be odd");
+static_assert(er_hr::min_negs > er_hr::local_points / 2, "er_hr::min_negs must be > er_hr::local_points/2");
 
 // Calculates the point where ER starts performing better than HR
 // For values below er_lambda_below, we use full-lambda ER; above it, we use the approximation
@@ -155,6 +155,9 @@ struct er_er {
     constexpr static int local_points = 7; // Use linear approximation of this many points
     constexpr static int min_negs = 12; // Don't stop until we've found at least this many negative differences
 };
+
+static_assert(er_er::local_points % 2 == 1, "er_er::local_points must be odd");
+static_assert(er_er::min_negs > er_er::local_points / 2, "er_er::min_negs must be > er_er::local_points/2");
 
 // Calculates the point where (approximated) ER(a) starts performing better than ER(lambda),
 // where lambda is the exact (but expensive) calculation.
@@ -299,6 +302,9 @@ struct er_ur_tail {
     constexpr static int min_negs = 7; // Keep incrementing until we have found this many negative differences (must be at least local_points/2+1)
 };
 
+static_assert(er_ur_tail::local_points % 2 == 1, "er_ur_tail::local_points must be odd");
+static_assert(er_ur_tail::min_negs > er_ur_tail::local_points / 2, "er_ur_tail::min_negs must be > er_ur_tail::local_points/2");
+
 // For deciding when to prefer UR to ER, there is a value c such that the optimal decision threshold
 // is (a-b) < c/a when using uniform rejection to draw an exponential.  We aren't actually doing
 // that: we're drawing a normal, but in the tails, the truncated normal looks so much like the
@@ -308,7 +314,7 @@ struct er_ur_tail {
 //
 // We calculate the value for a left of 50 standard deviations, where a rescaled normal pdf is
 // virtually indistinguishable from an exponential pdf.
-double er_ur_tail_threshold(double er_begins, double er_lambda_below) {
+double er_ur_tail_threshold(double er_lambda_below) {
     auto &rng = eris::random::rng();
     std::vector<std::pair<double, double>> time_diff; // (delta,time) pairs
     int num_neg = 0;
@@ -366,7 +372,7 @@ int main() {
     std::cout << " " << erhr << std::endl;
 
     std::cout << "Determining ER/UR tail threshold constant..." << std::flush;
-    auto erur_tail = er_ur_tail_threshold(erhr, erer);
+    auto erur_tail = er_ur_tail_threshold(erer);
     std::cout << " " << erur_tail << std::endl;
 
     std::cout << "Determining HR/UR threshold line..." << std::flush;
