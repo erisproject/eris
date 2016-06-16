@@ -149,10 +149,10 @@ double er_hr_threshold(double er_lambda_below) {
 }
 
 struct er_er {
-    constexpr static double bench_time = 0.05; // Min seconds for each benchmark
+    constexpr static double bench_time = 0.1; // Min seconds for each benchmark
     constexpr static double start = 1.0; // Start looking here
     constexpr static double incr = 0.005; // Increment by this amount each time
-    constexpr static int local_points = 7; // Use linear approximation of this many points
+    constexpr static int local_points = 9; // Use linear approximation of this many points
     constexpr static int min_negs = 12; // Don't stop until we've found at least this many negative differences
 };
 
