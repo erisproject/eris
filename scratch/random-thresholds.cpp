@@ -358,10 +358,65 @@ double er_ur_tail_threshold(double er_lambda_below) {
     return left * zero_local_linear(time_diff, er_ur_tail::local_points);
 }
 
+struct nr_ur {
+    constexpr static double bench_time = 0.01; // Minimum number of seconds for each benchmark
+    constexpr static int local_points = 7; // The number of points to include around the current point.  Must be odd!
+    constexpr static double start = 0.75; // Start searching with bounds at +/- half this value (so the range equals this).
+    constexpr static double incr = 0.002; // Increment by (this)/left
+    constexpr static int min_negs = 7; // Keep incrementing until we have found this many negative differences (must be at least local_points/2+1)
+    constexpr static int weights = 11; // How many different weights we try, from [100%,0%] through to [0%,100%],
+    // where the percentage is the proportion of the range on either side of the mean.
+};
+
+static_assert(nr_ur::local_points % 2 == 1, "nr_ur::local_points must be odd");
+static_assert(nr_ur::min_negs > nr_ur::local_points / 2, "nr_ur::min_negs must be > nr_ur::local_points/2");
+
+double nr_ur_threshold() {
+    auto &rng = eris::random::rng();
+    double sum_answers = 0;
+    // In theory, the threshold should be constant; in practice it isn't, we so figure out the
+    // optimal range when the range is (x%,(100-x)%) in the (left,right) tail, for x from 100 to 0,
+    // then take the mean of the results.
+    for (int w = 0; w < nr_ur::weights; w++) {
+        double wr = w / double(nr_ur::weights - 1);
+
+        std::vector<std::pair<double, double>> time_diff; // (range,time) pairs
+        int num_neg = 0;
+        for (double range = nr_ur::start;
+                num_neg < nr_ur::min_negs or time_diff.size() < nr_ur::local_points + 2;
+                range += nr_ur::incr) {
+            double right = wr*range, left = right - range;
+
+            auto nrtime = bench([&]() -> double {
+                return eris::random::detail::truncnorm_rejection_normal(rng, mu, sigma, left, right);
+            }, nr_ur::bench_time);
+            auto urtime = bench([&]() -> double {
+                double inv2s2 = 0.5 / std::pow(sigma_v, 2);
+                double shift2 = 0.0;
+                return eris::random::detail::truncnorm_rejection_uniform(rng, mu, left, right, inv2s2, shift2);
+            }, nr_ur::bench_time);
+
+            // Calculate the average speed advantage of using UR over NR:
+            double ns_diff = (nrtime.second / nrtime.first - urtime.second / urtime.first) * 1e9;
+            time_diff.emplace_back(range, ns_diff);
+            if (ns_diff < 0) num_neg++;
+            else num_neg = 0;
+        }
+
+        double answer = zero_local_linear(time_diff, nr_ur::local_points);
+        sum_answers += answer;
+    }
+    return sum_answers / nr_ur::weights;
+}
+
 int main() {
     // Busy loop to get CPU speed up
     double j = 3;
     for (int i = 0; i < 500000000; i++) { j += 0.1; } if (j == 47) { std::cout << "j is wrong\n"; }
+
+    std::cout << "Determining NR vs UR threshold..." << std::flush;
+    auto nrur = nr_ur_threshold();
+    std::cout << " " << nrur << std::endl;
 
     std::cout << "Determining ER(a) vs ER(lambda) threshold..." << std::flush;
     auto erer = er_er_threshold();
