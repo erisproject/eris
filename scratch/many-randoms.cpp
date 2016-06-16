@@ -79,29 +79,33 @@ int main(int argc, char *argv[]) {
                     : cdf(N01, b) - cdf(N01, a);
                 precise v = precise(sigma) * precise(sigma);
                 precise phia = pdf(N01, a), phib = pdf(N01, b);
+                precise aphia = phia == 0 ? precise(0) : a*phia, bphib = phib == 0 ? precise(0.0) : b*phib;
                 precise phidiff = phia - phib;
+                std::cerr << "phia=" << phia << ", phib=" << phib << "\n";
                 precise M = mu + sigma * phidiff / Phidiff;
-                precise h2a = a*a - 1, h2b = b*b - 1,
-                        h3a = a*(a*a - 3), h3b = b*(b*b - 3);
-                precise V_over_v = 1.0 + (a*phia - b*phib) / Phidiff - pow(phidiff/Phidiff, 2);
+                precise h2aphia = phia == 0 ? precise(0) : (a*a - 1) * phia,
+                        h2bphib = phib == 0 ? precise(0) : (b*b - 1) * phib,
+                        h3aphia = phia == 0 ? precise(0) : a*(a*a - 3) * phia,
+                        h3bphib = phib == 0 ? precise(0) : b*(b*b - 3) * phib;
+                precise V_over_v = 1.0 + (aphia - bphib) / Phidiff - pow(phidiff/Phidiff, 2);
                 precise V = V_over_v * v;
                 precise S = (
-                                (h2a*phia - h2b*phib) / Phidiff
-                                - 3*( (a*phia - b*phib) * phidiff ) / pow(Phidiff, 2)
+                                (h2aphia - h2bphib) / Phidiff
+                                - 3*( (aphia - bphib) * phidiff ) / pow(Phidiff, 2)
                                 + 2*( pow(phidiff/Phidiff, 3) )
                         ) / (
                                 pow(V_over_v, 1.5)
                             );
                 precise K = (
-                    12 * (a*phia - b*phib) * pow(phidiff,2) / pow(Phidiff,3)
+                    12 * (aphia - bphib) * pow(phidiff,2) / pow(Phidiff,3)
                     -
-                    4 * (h2a*phia - h2b*phib)*(phidiff) / pow(Phidiff, 2)
+                    4 * (h2aphia - h2bphib)*(phidiff) / pow(Phidiff, 2)
                     -
-                    3 * pow((a*phia - b*phib)/Phidiff, 2)
+                    3 * pow((aphia - bphib)/Phidiff, 2)
                     -
                     6 * pow(phidiff/Phidiff, 4)
                     +
-                    (h3a*phia - h3b*phib) / Phidiff
+                    (h3aphia - h3bphib) / Phidiff
                 ) / pow(V_over_v, 2);
 
                 THEORY_STATS(double(M), double(V), double(S), double(K));
