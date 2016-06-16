@@ -80,8 +80,9 @@ RealType truncnorm_rejection_uniform(Engine &eng, const RealType &mu, const Real
     RealType x, rho;
     Uniform unif_ab(lower, upper);
     do {
+        using std::exp;
         x = unif_ab(eng);
-        rho = std::exp(inv2s2 * (shift2 - (x - mu)*(x - mu)));
+        rho = exp(inv2s2 * (shift2 - (x - mu)*(x - mu)));
     } while (Unif01()(eng) > rho);
     return x;
 }
@@ -439,11 +440,12 @@ private:
 
             // Now 0 <= a < b (we'll swap back at the end if we need a left-tail draw)
 
+            using std::isinf;
             if (a <= _sigma * detail::truncnorm_threshold<RealType>::hr_below_er_above) {
                 // a is not too large: we resort to either halfnormal rejection sampling or, if its
                 // acceptance rate would be too low (because b is too low), uniform rejection
                 // sampling
-                if (std::isinf(b) or b - a >= detail::truncnorm_threshold<RealType>::ur_hr_threshold(a, _sigma)) {
+                if (isinf(b) or b - a >= detail::truncnorm_threshold<RealType>::ur_hr_threshold(a, _sigma)) {
                     _method = Method::HALFNORMAL;
                 }
                 else {
@@ -458,13 +460,13 @@ private:
                 // Otherwise we're sufficiently far out in the tail that ER is preferred to HR; we
                 // now have to decide whether UR is preferred to ER, and if not, whether the
                 // simplified-parameter ER is preferred to the acceptance-optimal parameter.
-                if (std::isinf(b) or a * (b-a) >= (_sigma * _sigma) * detail::truncnorm_threshold<RealType>::prefer_ur_multiplier) {
+                if (isinf(b) or a * (b-a) >= (_sigma * _sigma) * detail::truncnorm_threshold<RealType>::prefer_ur_multiplier) {
                     _method = Method::EXPONENTIAL;
                     using std::sqrt;
                     _er_a = a;
                     _er_lambda_times_sigma = (a < _sigma * detail::truncnorm_threshold<RealType>::er_approximate_above)
                         // Relatively small a: calculating this thing is worthwhile:
-                        ? 0.5 * (a + std::sqrt(a*a + 4*(_sigma * _sigma)))
+                        ? 0.5 * (a + sqrt(a*a + 4*(_sigma * _sigma)))
                         : a; // a is large, so better to use a, avoid the calculation, and incur the potential extra discards
                 }
                 else {
