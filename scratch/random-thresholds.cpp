@@ -15,10 +15,11 @@ using namespace Eigen;
 
 // Calculates various thresholds for deciding among truncated normal algorithms.
 
-// Shift the distribution parameters by this tiny amount so that internal calculations won't be
-// trivial operations involving 1 or 0, but the numbers are small enough as to not affect the
-// results.
-constexpr double approx_zero = -1e-300, approx_one = 1 + 1e-12;
+// The distribution values.  The volatile versions should be used when the calculation time is meant
+// to be included in the benchmark (because the compiler isn't allowed to optimize away the
+// calculation).
+double mu = -1e-300, sigma = 1 + 1e-12;
+volatile double mu_v = mu, sigma_v = sigma;
 
 // Accumulate results here, so that they can't be compiled away:
 double garbage = 0.0;
@@ -88,12 +89,6 @@ double zero_local_linear(const std::vector<std::pair<double,double>> &values, co
 
     return best_predicted;
 }
-
-// The distribution values.  The volatile versions should be used when the calculation time is meant
-// to be included in the benchmark (because the compiler isn't allowed to optimize away the
-// calculation).
-double mu = approx_zero, sigma = approx_one;
-volatile double mu_v = approx_zero, sigma_v = approx_one;
 
 
 struct er_hr {
