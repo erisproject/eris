@@ -23,21 +23,22 @@ volatile double mu_v = mu, sigma_v = sigma;
 
 // Accumulate results here, so that they can't be compiled away:
 double garbage = 0.0;
-// Runs code for at least the given time; returns the number of times run, and the total runtime.
-std::pair<long, double> bench(std::function<double()> f, double at_least = 0.25) {
+// Runs code for at least the given time; returns the average run time per repetition, in
+// nanoseconds.
+double bench(std::function<double()> f, double at_least = 0.25) {
     auto start = clk::now();
-    std::pair<long, double> results;
-    int increment = 500;
+    double seconds = 0;
+    long count = 0, increment = 500;
     do {
         increment *= 2;
         for (int i = 0; i < increment; i++) {
             garbage += f();
         }
-        results.second = dur(clk::now() - start).count();
-        results.first += increment;
-    } while (results.second < at_least);
+        seconds = dur(clk::now() - start).count();
+        count += increment;
+    } while (seconds < at_least);
 
-    return results;
+    return seconds / count * 1e9;
 }
 
 // Various code can dump extra info into here, which will be displayed before the main result:
@@ -114,11 +115,11 @@ double er_hr_threshold(double er_lambda_below) {
         constexpr bool upper_tail = true;
         const double right = std::numeric_limits<double>::infinity();
 
-        auto hrtime = bench([&]() -> double {
+        double hrtime = bench([&]() -> double {
                 return eris::random::detail::truncnorm_rejection_halfnormal(rng, mu, sigma, left, right, upper_tail);
                 }, er_hr::bench_time);
 
-        std::pair<long,double> ertime;
+        double ertime;
         if (left < er_lambda_below) {
             ertime = bench([&]() -> double {
                 volatile double bd_v = left - mu_v;
@@ -134,7 +135,7 @@ double er_hr_threshold(double er_lambda_below) {
         }
 
         // Calculate the average speed advantage of hr:
-        double ns_diff = (ertime.second / ertime.first - hrtime.second / hrtime.first) * 1e9;
+        double ns_diff = ertime - hrtime;
         time_diff.emplace_back(left, ns_diff);
         if (ns_diff < 0) num_neg++;
         else num_neg = 0;
@@ -166,20 +167,20 @@ double er_er_threshold() {
         constexpr bool upper_tail = true;
         const double right = std::numeric_limits<double>::infinity();
 
-        auto erltime = bench([&]() -> double {
+        double erltime = bench([&]() -> double {
                 volatile double bd_v = left - mu_v;
                 volatile double s = sigma_v;
                 double proposal_param = 0.5 * (bd_v + sqrt(bd_v*bd_v + 4*s*s));
                 return eris::random::detail::truncnorm_rejection_exponential(rng, sigma, left, right, upper_tail, double(bd_v), proposal_param);
                 }, er_er::bench_time);
 
-        auto eratime = bench([&]() -> double {
+        double eratime = bench([&]() -> double {
                 double bd = left - mu_v;
                 return eris::random::detail::truncnorm_rejection_exponential(rng, sigma, left, right, upper_tail, bd, bd);
                 }, er_er::bench_time);
 
         // Calculate the average speed advantage of using lambda instead of the approximation:
-        double ns_diff = (eratime.second / eratime.first - erltime.second / erltime.first) * 1e9;
+        double ns_diff = eratime - erltime;
         time_diff.emplace_back(left, ns_diff);
         if (ns_diff < 0) num_neg++;
         else num_neg = 0;
@@ -240,19 +241,19 @@ std::pair<Vector2d, Vector3d> hr_ur_threshold(double er_begins) {
             constexpr bool upper_tail = true;
             const double right = left + dright;
 
-            auto urtime = bench([&]() -> double {
+            double urtime = bench([&]() -> double {
                 double inv2s2 = 0.5 / std::pow(sigma_v, 2);
                 double shift2 = std::pow(left - mu_v, 2);
                 return eris::random::detail::truncnorm_rejection_uniform(rng, mu, left, right, inv2s2, shift2);
             }, hr_ur::bench_time);
 
-            auto hrtime = bench([&]() -> double {
+            double hrtime = bench([&]() -> double {
                 return eris::random::detail::truncnorm_rejection_halfnormal(rng, mu, sigma, left, right, upper_tail);
             }, hr_ur::bench_time);
 
             // Calculate the average speed advantage of ur:
-            double ns_diff = (hrtime.second / hrtime.first - urtime.second / urtime.first) * 1e9;
-            time_diff.emplace_back(dright, ns_diff);
+            double ns_diff = hrtime - urtime;
+            time_diff.emplace_back(dright/sigma, ns_diff);
             if (ns_diff < 0) num_neg++;
             else num_neg = 0;
         }
@@ -321,13 +322,13 @@ double er_ur_tail_threshold(double er_lambda_below) {
         constexpr bool upper_tail = true;
         const double right = left + delta;
 
-        auto urtime = bench([&]() -> double {
+        double urtime = bench([&]() -> double {
             double inv2s2 = 0.5 / std::pow(sigma_v, 2);
             double shift2 = std::pow(left - mu_v, 2);
             return eris::random::detail::truncnorm_rejection_uniform(rng, mu, left, right, inv2s2, shift2);
         }, er_ur_tail::bench_time);
 
-        std::pair<long,double> ertime;
+        double ertime;
         if (left < er_lambda_below) {
             ertime = bench([&]() -> double {
                 volatile double bd_v = left - mu_v;
@@ -343,7 +344,7 @@ double er_ur_tail_threshold(double er_lambda_below) {
         }
 
         // Calculate the average speed advantage of using UR over ER:
-        double ns_diff = (ertime.second / ertime.first - urtime.second / urtime.first) * 1e9;
+        double ns_diff = ertime - urtime;
         time_diff.emplace_back(delta, ns_diff);
         if (ns_diff < 0) num_neg++;
         else num_neg = 0;
@@ -384,17 +385,17 @@ double nr_ur_threshold() {
                 range += nr_ur::incr) {
             double right = wr*range, left = right - range;
 
-            auto nrtime = bench([&]() -> double {
+            double nrtime = bench([&]() -> double {
                 return eris::random::detail::truncnorm_rejection_normal(rng, mu, sigma, left, right);
             }, nr_ur::bench_time);
-            auto urtime = bench([&]() -> double {
+            double urtime = bench([&]() -> double {
                 double inv2s2 = 0.5 / std::pow(sigma_v, 2);
                 double shift2 = 0.0;
                 return eris::random::detail::truncnorm_rejection_uniform(rng, mu, left, right, inv2s2, shift2);
             }, nr_ur::bench_time);
 
             // Calculate the average speed advantage of using UR over NR:
-            double ns_diff = (nrtime.second / nrtime.first - urtime.second / urtime.first) * 1e9;
+            double ns_diff = nrtime - urtime;
             time_diff.emplace_back(range, ns_diff);
             if (ns_diff < 0) num_neg++;
             else num_neg = 0;
