@@ -416,7 +416,7 @@ double nr_ur_threshold() {
 int main() {
     // Busy loop to get CPU speed up
     double j = 3;
-    for (int i = 0; i < 500000000; i++) { j += 0.1; } if (j == 47) { std::cout << "j is wrong\n"; }
+    for (int i = 0; i < 1000000000; i++) { j += 0.1; } if (j == 47) { std::cout << "j is wrong\n"; }
 
     std::cout << "Determining NR vs UR threshold..." << std::flush;
     auto nrur = nr_ur_threshold();
