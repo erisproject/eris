@@ -19,94 +19,146 @@ using dur = std::chrono::duration<double>;
 
 using precise = boost::multiprecision::cpp_dec_float_100;
 
-// Shift the distribution parameters by this tiny amount so that internal calculations won't be
-// trivial operations involving 1 or 0.
-constexpr double approx_zero = 1e-12, approx_one = 1 + 1e-12;
+#define HAVE_ARGS(N) argc > nextarg + (N-1)
+#define NEXT_ARG_D std::stod(argv[nextarg++])
+#define THEORY_STATS(mean, var, skew, kurt) { th_mean = mean; th_var = var; th_skew = skew; th_kurt = kurt; }
 
 int main(int argc, char *argv[]) {
     auto &rng = eris::random::rng();
 
-    std::string th_mean, th_var, th_skew, th_kurt;
+    double th_mean, th_var, th_skew, th_kurt;
     std::function<double()> gen;
     int nextarg = 1;
     if (argc > 1) {
         std::string which(argv[nextarg++]);
         if (which == "N") {
-            gen = [&rng]() { return eris::random::normal_distribution<double>(approx_zero, approx_one)(rng); };
-            th_mean = "0"; th_var = "1"; th_skew = "0"; th_kurt = "3";
-            std::cout << "Drawing from N(0,1)\n";
+            if (HAVE_ARGS(2)) {
+                double mu = NEXT_ARG_D, sigma = NEXT_ARG_D;
+
+                gen = [=,&rng]() { return eris::random::normal_distribution<double>(mu, sigma)(rng); };
+                THEORY_STATS(mu, sigma*sigma, 0, 0);
+                std::cout << "Drawing from N(" << mu << "," << sigma*sigma << ")\n";
+            }
+            else {
+                std::cerr << "Error: TN requires MU and SIGMA parameters\n";
+            }
         }
         else if (which == "TN" or which == "TNG") {
-            if (argc > nextarg+1) {
+            if (HAVE_ARGS(4)) {
                 using std::pow;
-                double da = std::stod(argv[nextarg++]), db = std::stod(argv[nextarg++]);
+                double mu = NEXT_ARG_D, sigma = NEXT_ARG_D, left = NEXT_ARG_D, right = NEXT_ARG_D;
                 if (which == "TN") {
-                    gen = [&rng,da,db]() {
-                        return eris::random::truncated_normal_distribution<double>(approx_zero, approx_one, da, db)(rng);
+                    gen = [&rng,mu,sigma,left,right]() {
+                        return eris::random::truncated_normal_distribution<double>(mu, sigma, left, right)(rng);
                     };
                 }
                 else { // TNG: i.e. the generic version
                     ;
-                    boost::math::normal_distribution<double> dnorm(approx_zero, approx_one);
+                    boost::math::normal_distribution<double> dnorm(mu, sigma);
                     gen = [=]() {
-                        eris::random::normal_distribution<double> rnorm(approx_zero, approx_one);
-                        return eris::random::truncDist(dnorm, rnorm, da, db, approx_zero);
+                        eris::random::normal_distribution<double> rnorm(mu, sigma);
+                        return eris::random::truncDist(dnorm, rnorm, left, right, mu);
                     };
                 }
-                precise a = da, b = db;
+                precise a = precise(left - mu) / precise(sigma), b = precise(right - mu) / precise(sigma);
                 // Work around boost bug #12112
-                if (std::isinf(da) and da < 0 and a > 0) a = -a;
+                if (std::isinf(left) and left < 0 and a > 0) a = -a;
 
                 // Use extra precision here because we can generate values that are sufficient to
                 // underflow some of the below calculations when using doubles.
                 // (Note also that we aren't applying the shift here, because it's small enough that
                 // it shouldn't really affect the results relative the the sampling noise).
+                //
+                // These formulae come from:
+                // Pender, Jamol. "The truncated normal distribution: Applications to queues with
+                // impatient customers." Operations Research Letters 43, no. 1 (2015): 40-45.
+                //
                 boost::math::normal_distribution<precise> N01;
-                complement(N01, a);
-                complement(N01, b);
-                precise Z = a >= 0 ? cdf(complement(N01, a)) - cdf(complement(N01, b)) :
-                    cdf(N01, b) - cdf(N01, a);
-                precise za = pdf(N01, a) / Z, zb = pdf(N01, b) / Z;
-                precise mean = za - zb;
-                precise mean2 = mean*mean;
-                precise mean3=mean2*mean;
-                precise mean4=mean2*mean2;
-                precise aza = 0.0, a2za = 0.0, a3za = 0.0, bzb = 0.0, b2zb = 0.0, b3zb = 0.0;
-                if (za > 0.0) { aza = a*za; a2za = a*aza; a3za = a*a2za; }
-                if (zb > 0.0) { bzb = b*zb; b2zb = b*bzb; b3zb = b*b2zb; }
-                precise V = 1.0 + aza - bzb - mean2;
-                precise s = -pow(V, -1.5) * (-2.0 * mean3 + -(3*bzb - 3*aza - 1.0)*mean + (b2zb - a2za));
-                precise k = 1.0/(V*V) * (-3.0*mean4 - 6.0*(bzb - aza)*mean2 - 2.0*mean2
-                        + 4.0*(b2zb - a2za)*mean - 3.0*(bzb - aza) - (b3zb - a3za) + 3.0);
-                { std::ostringstream ss; ss.precision(10); ss << mean; th_mean = ss.str(); }
-                { std::ostringstream ss; ss.precision(10); ss << V; th_var = ss.str(); }
-                { std::ostringstream ss; ss.precision(10); ss << s; th_skew = ss.str(); }
-                { std::ostringstream ss; ss.precision(10); ss << k; th_kurt = ss.str(); }
-                std::cout << "Drawing from TN(0,1,["<< a << "," << b << "])";
-                if (which == "TNG") std::cout << " using generic (instead of specialized) algorithm";
+                precise Phidiff = a >= 0
+                    ? cdf(complement(N01, a)) - cdf(complement(N01, b))
+                    : cdf(N01, b) - cdf(N01, a);
+                precise v = precise(sigma) * precise(sigma);
+                precise phia = pdf(N01, a), phib = pdf(N01, b);
+                precise phidiff = phia - phib;
+                precise M = mu + sigma * phidiff / Phidiff;
+                precise h2a = a*a - 1, h2b = b*b - 1,
+                        h3a = a*(a*a - 3), h3b = b*(b*b - 3);
+                precise V_over_v = 1.0 + (a*phia - b*phib) / Phidiff - pow(phidiff/Phidiff, 2);
+                precise V = V_over_v * v;
+                precise S = (
+                                (h2a*phia - h2b*phib) / Phidiff
+                                - 3*( (a*phia - b*phib) * phidiff ) / pow(Phidiff, 2)
+                                + 2*( pow(phidiff/Phidiff, 3) )
+                        ) / (
+                                pow(V_over_v, 1.5)
+                            );
+                precise K = (
+                    12 * (a*phia - b*phib) * pow(phidiff,2) / pow(Phidiff,3)
+                    -
+                    4 * (h2a*phia - h2b*phib)*(phidiff) / pow(Phidiff, 2)
+                    -
+                    3 * pow((a*phia - b*phib)/Phidiff, 2)
+                    -
+                    6 * pow(phidiff/Phidiff, 4)
+                    +
+                    (h3a*phia - h3b*phib) / Phidiff
+                ) / pow(V_over_v, 2);
+
+                THEORY_STATS(double(M), double(V), double(S), double(K));
+                std::cout << "Drawing from TN(" << mu << "," << sigma*sigma << ",["<< a << "," << b << "])";
+                if (which == "TNG") std::cout << " using generic inverse-cdf (instead of specialized) algorithm";
                 std::cout << std::endl;
             }
             else {
-                std::cerr << "Error: TN requires A (min) and B (max) parameters\n";
+                std::cerr << "Error: " << which << " requires MU, SIGMA, A (min) and B (max) parameters\n";
             }
         }
         else if (which == "U") {
-            gen = [&rng]() { return boost::random::uniform_real_distribution<double>(approx_zero, approx_one)(rng); };
-            th_mean = "0.5"; th_var = "0.08333..."; th_skew = "0"; th_kurt = "1.8";
-            std::cout << "Drawing from U[0,1)\n";
+            if (HAVE_ARGS(2)) {
+                double a = NEXT_ARG_D, b = NEXT_ARG_D;
+
+                gen = [=,&rng]() { return boost::random::uniform_real_distribution<double>(a, b)(rng); };
+                THEORY_STATS(0.5*(b-a), pow(b-a, 2)/12.0, 0, -1.2);
+                std::cout << "Drawing from U[" << a << "," << b << ")\n";
+            }
+            else {
+                std::cerr << "Error: U requires A and B parameters\n";
+            }
         }
         else if (which == "E") {
-            gen = [&rng]() { return eris::random::exponential_distribution<double>(approx_one)(rng); };
-            th_mean = "1"; th_var = "1"; th_skew = "2"; th_kurt = "9";
-            std::cout << "Drawing from Exp(1)\n";
+            if (HAVE_ARGS(1)) {
+                double lambda = NEXT_ARG_D;
+
+                gen = [=,&rng]() { return eris::random::exponential_distribution<double>(lambda)(rng); };
+                THEORY_STATS(1.0/lambda, 1.0/pow(lambda,2), 2, 6);
+                std::cout << "Drawing from Exp(" << lambda << ")\n";
+            }
+            else {
+                std::cerr << "Error: E requires LAMBDA parameter\n";
+            }
         }
         else if (which == "Chi2") {
-            gen = [&rng]() { return boost::random::chi_squared_distribution<double>(approx_one)(rng); };
-            th_mean = "1"; th_var = "2"; th_skew = std::to_string(std::sqrt(8.0)); th_kurt = "15";
+            if (HAVE_ARGS(1)) {
+                double k = NEXT_ARG_D;
+
+                gen = [=,&rng]() { return boost::random::chi_squared_distribution<double>(k)(rng); };
+                THEORY_STATS(k, 2*k, sqrt(8/k), 12/k);
+                std::cout << "Drawing from Chi^2(" << k << ")\n";
+            }
+            else {
+                std::cerr << "Error: Chi2 requires K parameter\n";
+            }
         }
         else if (which == "G") {
-            gen = [&rng]() { return boost::random::gamma_distribution<double>(approx_one, approx_one)(rng); };
-            th_mean = "1"; th_var = "1"; th_skew = "2"; th_kurt = "9";
+            if (HAVE_ARGS(2)) {
+                double k = NEXT_ARG_D, theta = NEXT_ARG_D;
+                gen = [=,&rng]() { return boost::random::gamma_distribution<double>(k, theta)(rng); };
+                THEORY_STATS(k*theta, k*theta*theta, 2/sqrt(k), 6/k);
+                std::cout << "Drawing from Gamma(" << k << "," << theta << ")\n";
+            }
+            else {
+                std::cerr << "Error: G requires K and THETA parameters\n";
+            }
         }
         else {
             std::cerr << "Unknown distribution `" << which << "'\n";
@@ -116,7 +168,7 @@ int main(int argc, char *argv[]) {
     bool bad_args = not gen;
 
     uint64_t count = 10000000;
-    if (nextarg < argc and std::regex_match(argv[nextarg], std::regex("\\d+"))) {
+    if (HAVE_ARGS(1) and std::regex_match(argv[nextarg], std::regex("\\d+"))) {
         count = std::stoull(argv[nextarg++]);
     }
 
@@ -126,21 +178,21 @@ int main(int argc, char *argv[]) {
     }
 
     if (bad_args) {
-        std::cerr << "Usage: " << argv[0] << " {E|N|U|TN[G] A B} [COUNT] -- draw and report summary stats (mean/variance/skewness/kurtosis) of COUNT (default 10 million) draws from a distribution\n";
-        std::cerr << "\nDistributions:\n" <<
-            "\tE - Exponential(1)\n" <<
-            "\tN - Normal(0,1)\n" <<
-            "\tU - Uniform[0,1)\n" <<
-            "\tTN - Normal(0,1) truncated to the given [A,B]\n" <<
-            "\tTNG - same as TN, but uses a generic, inverse-cdf truncated distribution generator\n" <<
-            "\tChi2 - Chi^2(1)\n" <<
-            "\tG - Gamma(1)\n";
+        std::cerr << "Usage: " << argv[0] << " DIST PARAMS... [COUNT] -- draw and report summary stats (mean/variance/skewness/kurtosis) of COUNT (default 10 million) draws from a distribution\n";
+        std::cerr << "\nDistributions and parameters (parameters are double values, and mandatory):\n" <<
+            "    E LAMBDA         - Exponential(LAMBDA)\n" <<
+            "    N MU SIGMA       - Normal(MU,SIGMA^2)\n" <<
+            "    U A B            - Uniform[A,B)\n" <<
+            "    TN  MU SIGMA A B - Normal(MU,SIGMA^2) truncated to the given [A,B]\n" <<
+            "    TNG MU SIGMA A B - same as TN, but uses inverse cdf sampling instead of rejection sampling\n" <<
+            "    Chi2 K           - Chi^2(K)\n" <<
+            "    G K THETA        - Gamma(K, THETA)\n";
 
         exit(1);
     }
 
     std::cout << "Using seed: " << eris::random::seed() << " (set environment variable ERIS_RNG_SEED to override)\n";
-    std::cout.precision(std::numeric_limits<double>::max_digits10);
+    std::cout.precision(10);
 
     double mean = 0;
     double elapsed;
@@ -154,7 +206,8 @@ int main(int argc, char *argv[]) {
     std::cout << count << " draws finished in " << elapsed << " seconds (" << count/elapsed/1000000 << " Mdraws/s)" << std::endl;
 
     mean = std::accumulate(draws.begin(), draws.end(), 0.0) / count;
-    std::cout << "Mean: " << mean << " (theory: " << th_mean << ")" << std::endl;
+    std::cout <<
+        "Mean:         " << mean << " (theory: " << th_mean << ")" << std::endl;
 
     double e2 = 0, e3 = 0, e4 = 0;
     for (uint64_t i = 0; i < count; i++) {
@@ -170,10 +223,10 @@ int main(int argc, char *argv[]) {
 
     double var = e2;
     double skew = e3 / std::pow(e2, 1.5);
-    double kurt = e4 / (e2*e2);
+    double kurt = e4 / (e2*e2) - 3;
     std::cout <<
-        "Variance: " << var << " (theory: " << th_var << ")\n" <<
-        "Skewness: " << skew << " (theory: " << th_skew << ")\n" <<
-        "Kurtosis: " << kurt << " (theory: " << th_kurt << ")\n";
+        "Variance:     " << var << " (theory: " << th_var << ")\n" <<
+        "Skewness:     " << skew << " (theory: " << th_skew << ")\n" <<
+        "Ex. Kurtosis: " << kurt << " (theory: " << th_kurt << ")\n";
 
 }
