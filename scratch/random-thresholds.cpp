@@ -374,6 +374,8 @@ static_assert(nr_ur::min_negs > nr_ur::local_points / 2, "nr_ur::min_negs must b
 double nr_ur_threshold() {
     auto &rng = eris::random::rng();
     double sum_answers = 0;
+
+    extra_info << "NR/UR optimal values at different weights:\n";
     // In theory, the threshold should be constant; in practice it isn't, we so figure out the
     // optimal range when the range is (x%,(100-x)%) in the (left,right) tail, for x from 100 to 0,
     // then take the mean of the results.
@@ -405,6 +407,8 @@ double nr_ur_threshold() {
 
         double answer = zero_local_linear(time_diff, nr_ur::local_points);
         sum_answers += answer;
+
+        extra_info << "    " << answer << " @ (" << (1-wr)*100 << "%," << wr*100 << "%)\n";
     }
     return sum_answers / nr_ur::weights;
 }
