@@ -81,7 +81,6 @@ int main(int argc, char *argv[]) {
                 precise phia = pdf(N01, a), phib = pdf(N01, b);
                 precise aphia = phia == 0 ? precise(0) : a*phia, bphib = phib == 0 ? precise(0.0) : b*phib;
                 precise phidiff = phia - phib;
-                std::cerr << "phia=" << phia << ", phib=" << phib << "\n";
                 precise M = mu + sigma * phidiff / Phidiff;
                 precise h2aphia = phia == 0 ? precise(0) : (a*a - 1) * phia,
                         h2bphib = phib == 0 ? precise(0) : (b*b - 1) * phib,
