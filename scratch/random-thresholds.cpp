@@ -25,7 +25,7 @@ volatile double mu_v = mu, sigma_v = sigma;
 
 // Useful for debugging purposes: this multiplies the requested "at_least" value, so can be made
 // less than 1 to do a quick run or larger than 1 to do a more accurate run.
-double bench_factor = 10.0;
+double bench_factor = 1.0;
 
 // Accumulate results here, so that they can't be compiled away:
 double garbage = 0.0;
