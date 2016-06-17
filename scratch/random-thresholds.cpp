@@ -133,10 +133,10 @@ double er_hr_threshold(double er_lambda_below) {
         double ertime;
         if (left_sd < er_lambda_below) {
             ertime = bench([&]() -> double {
-                volatile double bd_v = left - mu_v;
-                volatile double s = sigma_v;
-                double proposal_param = 0.5 * (bd_v + sqrt(bd_v*bd_v + 4*s*s));
-                return eris::random::detail::truncnorm_rejection_exponential(rng, sigma, left, right, upper_tail, double(bd_v), proposal_param);
+                double bd = left - mu_v;
+                double s = sigma_v;
+                double proposal_param = 0.5 * (bd + sqrt(bd*bd + 4*s*s));
+                return eris::random::detail::truncnorm_rejection_exponential(rng, sigma, left, right, upper_tail, bd, proposal_param);
                 }, er_hr::bench_time);
         }
         else {
@@ -183,10 +183,10 @@ double er_er_threshold() {
         double left = mu + sigma*left_sd;
 
         double erltime = bench([&]() -> double {
-                volatile double bd_v = left - mu_v;
-                volatile double s = sigma_v;
-                double proposal_param = 0.5 * (bd_v + sqrt(bd_v*bd_v + 4*s*s));
-                return eris::random::detail::truncnorm_rejection_exponential(rng, sigma, left, right, upper_tail, double(bd_v), proposal_param);
+                double bd = left - mu_v;
+                double s = sigma_v;
+                double proposal_param = 0.5 * (bd + sqrt(bd*bd + 4*(s*s)));
+                return eris::random::detail::truncnorm_rejection_exponential(rng, sigma, left, right, upper_tail, bd, proposal_param);
                 }, er_er::bench_time);
 
         double eratime = bench([&]() -> double {
@@ -352,10 +352,10 @@ double er_ur_tail_threshold(double er_lambda_below) {
         double ertime;
         if (er_ur_tail::left < er_lambda_below) {
             ertime = bench([&]() -> double {
-                volatile double bd_v = left - mu_v;
-                volatile double s = sigma_v;
-                double proposal_param = 0.5 * (bd_v + sqrt(bd_v*bd_v + 4*s*s));
-                return eris::random::detail::truncnorm_rejection_exponential(rng, sigma, left, right, upper_tail, double(bd_v), proposal_param);
+                double bd = left - mu_v;
+                double s = sigma_v;
+                double proposal_param = 0.5 * (bd + sqrt(bd*bd + 4*s*s));
+                return eris::random::detail::truncnorm_rejection_exponential(rng, sigma, left, right, upper_tail, bd, proposal_param);
                 }, er_ur_tail::bench_time);
         }
         else {
