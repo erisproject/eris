@@ -29,7 +29,7 @@ double draw_random_parameter() {
     double d =
         boost::random::uniform_01<double>()(eris::random::rng()) < 0.2
         ? std::numeric_limits<double>::infinity()
-        : std::exponential_distribution<double>(0.5)(eris::random::rng());
+        : eris::random::exponential_distribution<double>(0.5)(eris::random::rng());
 
     if (boost::random::uniform_01<double>()(eris::random::rng()) < 0.5)
         d = -d;
@@ -44,11 +44,16 @@ double draw_random_2s_left() {
     return left_2s_values[random_i(eris::random::rng())];
 }
 
+// Draws a right value for the given left value.  If range is nan, draws Exp(0.5) and adds it to
+// left; otherwise, draws U[0, range] and adds it to left.
 double draw_random_2s_right(double left, double range) {
-    double right = std::isnan(range)
-       ? std::max(left + 5.0, 2.0)
-       : left + range;
-    return std::uniform_real_distribution<double>(left, right)(eris::random::rng());
+    auto &rng = eris::random::rng();
+    if (std::isnan(range)) {
+        return left + eris::random::exponential_distribution<double>(0.5)(rng);
+    }
+    else {
+        return boost::random::uniform_real_distribution<double>(left, left + range)(rng);
+    }
 }
 
 std::string double_str(double d, unsigned precision = std::numeric_limits<double>::max_digits10) {
@@ -142,7 +147,7 @@ int main(int argc, char *argv[]) {
                      "LEFT   - left truncation point drawn as above, right = +∞\n\n" <<
                      "RIGHT  - right truncation point drawn as above, left = -∞\n\n" <<
                      "TWO    - draw left from ±{10,-5,-3,-2,-1,-0.5,-0.4,...,-0.1,0,0.1,...,0.4,0.5,1,2,3,5,10},\n"
-                     "         draw right from Unif[left, max{left+5,2}]\n\n" <<
+                     "         draw right from left + Exp(0.5)\n\n" <<
                      "value  - like TWO, but use <value> for the left limit.\n\n" <<
                      "v1 v2  - like TWO, but use <v1> for the left limit and draw right from Unif[v1,v2]\n\n" <<
                      std::flush;
