@@ -23,11 +23,16 @@ using namespace Eigen;
 double mu = 11.51, sigma = 3.76;
 volatile double mu_v = mu, sigma_v = sigma;
 
+// Useful for debugging purposes: this multiplies the requested "at_least" value, so can be made
+// less than 1 to do a quick run or larger than 1 to do a more accurate run.
+double bench_factor = 10.0;
+
 // Accumulate results here, so that they can't be compiled away:
 double garbage = 0.0;
 // Runs code for at least the given time; returns the average run time per repetition, in
 // nanoseconds.
 double bench(std::function<double()> f, double at_least = 0.25) {
+    at_least *= bench_factor;
     auto start = clk::now();
     double seconds = 0;
     long count = 0, increment = 500;
