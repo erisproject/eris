@@ -18,7 +18,9 @@ using namespace Eigen;
 // The distribution values.  The volatile versions should be used when the calculation time is meant
 // to be included in the benchmark (because the compiler isn't allowed to optimize away the
 // calculation).
-double mu = -1e-300, sigma = 1 + 1e-12;
+// The specific values here shouldn't matter: they can be changed considerably to verify that there
+// isn't some sort of value-specific optimization or error.
+double mu = 11.51, sigma = 3.76;
 volatile double mu_v = mu, sigma_v = sigma;
 
 // Accumulate results here, so that they can't be compiled away:
@@ -94,8 +96,8 @@ double zero_local_linear(const std::vector<std::pair<double,double>> &values, co
 
 struct er_hr {
     constexpr static double bench_time = 0.02; // Min seconds for each benchmark
-    constexpr static double start = 0.5; // Start looking here
-    constexpr static double incr = 0.001; // Increment by this amount each time
+    constexpr static double start = 0.5; // Start looking at mu + this*sigma
+    constexpr static double incr = 0.001; // Increment by this amount times sigma each time
     constexpr static int local_points = 7; // Use linear approximation of this many points
     constexpr static int min_negs = 7; // Don't stop until we've found at least this many negative differences
 };
@@ -108,19 +110,23 @@ static_assert(er_hr::min_negs > er_hr::local_points / 2, "er_hr::min_negs must b
 double er_hr_threshold(double er_lambda_below) {
     auto &rng = eris::random::rng();
     std::vector<std::pair<double, double>> time_diff; // (left,time) pairs
-    int num_neg = 0;
-    for (double left = er_hr::start; num_neg < er_hr::min_negs or time_diff.size() < er_hr::local_points + 2;
-            left += er_hr::incr) {
 
-        constexpr bool upper_tail = true;
-        const double right = std::numeric_limits<double>::infinity();
+    constexpr bool upper_tail = true;
+    const double right = std::numeric_limits<double>::infinity();
+
+    int num_neg = 0;
+    for (double left_sd = er_hr::start;
+            num_neg < er_hr::min_negs or time_diff.size() < er_hr::local_points + 2;
+            left_sd += er_hr::incr) {
+
+        double left = mu + sigma*left_sd;
 
         double hrtime = bench([&]() -> double {
                 return eris::random::detail::truncnorm_rejection_halfnormal(rng, mu, sigma, left, right, upper_tail);
                 }, er_hr::bench_time);
 
         double ertime;
-        if (left < er_lambda_below) {
+        if (left_sd < er_lambda_below) {
             ertime = bench([&]() -> double {
                 volatile double bd_v = left - mu_v;
                 volatile double s = sigma_v;
@@ -136,7 +142,7 @@ double er_hr_threshold(double er_lambda_below) {
 
         // Calculate the average speed advantage of hr:
         double ns_diff = ertime - hrtime;
-        time_diff.emplace_back(left, ns_diff);
+        time_diff.emplace_back(left_sd, ns_diff);
         if (ns_diff < 0) num_neg++;
         else num_neg = 0;
     }
@@ -146,8 +152,8 @@ double er_hr_threshold(double er_lambda_below) {
 
 struct er_er {
     constexpr static double bench_time = 0.1; // Min seconds for each benchmark
-    constexpr static double start = 1.0; // Start looking here
-    constexpr static double incr = 0.005; // Increment by this amount each time
+    constexpr static double start = 1.0; // Start looking here (times sigma plus mu)
+    constexpr static double incr = 0.005; // Increment by this amount (times sigma) each time
     constexpr static int local_points = 9; // Use linear approximation of this many points
     constexpr static int min_negs = 12; // Don't stop until we've found at least this many negative differences
 };
@@ -160,12 +166,16 @@ static_assert(er_er::min_negs > er_er::local_points / 2, "er_er::min_negs must b
 double er_er_threshold() {
     auto &rng = eris::random::rng();
     std::vector<std::pair<double, double>> time_diff; // (left,time) pairs
-    int num_neg = 0;
-    for (double left = er_er::start; num_neg < er_er::min_negs or time_diff.size() < er_er::local_points + 2;
-            left += er_er::incr) {
 
-        constexpr bool upper_tail = true;
-        const double right = std::numeric_limits<double>::infinity();
+    constexpr bool upper_tail = true;
+    const double right = std::numeric_limits<double>::infinity();
+
+    int num_neg = 0;
+    for (double left_sd = er_er::start;
+            num_neg < er_er::min_negs or time_diff.size() < er_er::local_points + 2;
+            left_sd += er_er::incr) {
+
+        double left = mu + sigma*left_sd;
 
         double erltime = bench([&]() -> double {
                 volatile double bd_v = left - mu_v;
@@ -181,7 +191,7 @@ double er_er_threshold() {
 
         // Calculate the average speed advantage of using lambda instead of the approximation:
         double ns_diff = eratime - erltime;
-        time_diff.emplace_back(left, ns_diff);
+        time_diff.emplace_back(left_sd, ns_diff);
         if (ns_diff < 0) num_neg++;
         else num_neg = 0;
     }
@@ -193,10 +203,10 @@ struct hr_ur {
     constexpr static double bench_time = 0.01; // Minimum number of seconds for each benchmark
     constexpr static int num_left = 15; // The number of left values: num_left-1 equal divisions of [0,max]
     constexpr static int local_points = 7; // The number of points to include around the current point.  Must be odd!
-    constexpr static double backtrack = -0.02; // Start at the previous left optimum minus this
+    constexpr static double backtrack = -0.02; // Start at the previous left optimum minus this (times sigma)
     constexpr static double increment = 0.001; // Take steps of this size, starting from prev+backtrack
-    constexpr static double initial_start = 0.2; // Where we start looking (for left=0)
-    constexpr static double initial_incr = 0.005; // Step size for left=0
+    constexpr static double initial_start = 0.2; // Where we start looking (for left=mu), times sigma plus mu
+    constexpr static double initial_incr = 0.005; // Step size for left=mu (times sigma)
     constexpr static int min_negs = 7; // Keep incrementing until we have found this many negative differences (must be at least local_points/2+1)
 };
 
@@ -222,24 +232,30 @@ std::pair<Vector2d, Vector3d> hr_ur_threshold(double er_begins) {
     std::vector<double> left_values;
     for (int i = 0; i < hr_ur::num_left; i++) left_values.emplace_back(i / double(hr_ur::num_left-1) * er_begins);
 
-    VectorXd threshold_delta_r(hr_ur::num_left);
+    VectorXd threshold_delta_sd(hr_ur::num_left);
     MatrixXd outer_X_linear(hr_ur::num_left, 2);
     outer_X_linear.col(0).setOnes();
+
+    constexpr bool upper_tail = true;
 
     // First case (left=0): we start at initial_start, then increment by initial_incr, and repeat
     // this until we have at least local_points excess values (we need local_points/2 just to do the
     // linearization, but the extra points should ensure that we are definitely in the right
     // section).
     for (size_t row = 0; row < left_values.size(); row++) {
-        double left = left_values[row];
-        const double start = row == 0 ? hr_ur::initial_start : threshold_delta_r[row-1] + hr_ur::backtrack;
-        const double incr = row == 0 ? hr_ur::initial_incr : hr_ur::increment;
+        double left_sd = left_values[row];
+        const double start_sd = row == 0 ? hr_ur::initial_start : threshold_delta_sd[row-1] + hr_ur::backtrack;
+        const double incr_sd = row == 0 ? hr_ur::initial_incr : hr_ur::increment;
+
+        double left = mu + sigma*left_sd;
 
         int num_neg = 0;
         std::vector<std::pair<double, double>> time_diff; // (dright,time) pairs
-        for (double dright = start; num_neg < hr_ur::min_negs or time_diff.size() < hr_ur::local_points + 2; dright += incr) {
-            constexpr bool upper_tail = true;
-            const double right = left + dright;
+        for (double delta_sd = start_sd;
+                num_neg < hr_ur::min_negs or time_diff.size() < hr_ur::local_points + 2;
+                delta_sd += incr_sd) {
+
+            double right = left + sigma*delta_sd;
 
             double urtime = bench([&]() -> double {
                 double inv2s2 = 0.5 / std::pow(sigma_v, 2);
@@ -253,7 +269,7 @@ std::pair<Vector2d, Vector3d> hr_ur_threshold(double er_begins) {
 
             // Calculate the average speed advantage of ur:
             double ns_diff = hrtime - urtime;
-            time_diff.emplace_back(dright/sigma, ns_diff);
+            time_diff.emplace_back(delta_sd, ns_diff);
             if (ns_diff < 0) num_neg++;
             else num_neg = 0;
         }
@@ -262,24 +278,24 @@ std::pair<Vector2d, Vector3d> hr_ur_threshold(double er_begins) {
         // the first and last values) to find the optimal threshold for this left value.
         double best_predicted = zero_local_linear(time_diff, hr_ur::local_points);
 
-        threshold_delta_r[row] = best_predicted;
-        outer_X_linear(row, 1) = left;
+        threshold_delta_sd[row] = best_predicted;
+        outer_X_linear(row, 1) = left_sd;
     }
 
     MatrixXd outer_X_quadratic(left_values.size(), 3);
     outer_X_quadratic.leftCols(2) = outer_X_linear;
     outer_X_quadratic.col(2) = outer_X_linear.col(1).cwiseAbs2();
 
-    Vector2d final_beta_linear = outer_X_linear.jacobiSvd(ComputeThinU | ComputeThinV).solve(threshold_delta_r);
-    Vector3d final_beta_quadratic = outer_X_quadratic.jacobiSvd(ComputeThinU | ComputeThinV).solve(threshold_delta_r);
+    Vector2d final_beta_linear = outer_X_linear.jacobiSvd(ComputeThinU | ComputeThinV).solve(threshold_delta_sd);
+    Vector3d final_beta_quadratic = outer_X_quadratic.jacobiSvd(ComputeThinU | ComputeThinV).solve(threshold_delta_sd);
 
     extra_info << "\n\nR code to plot HR/UR threshold line/errors:\n\nleft <- cbind(c(" << left_values[0];
     for (size_t i = 1; i < left_values.size(); i++) {
         extra_info << "," << left_values[i];
     }
-    extra_info << "))\nthresh <- cbind(c(" << threshold_delta_r[0];
-    for (int i = 1; i < threshold_delta_r.size(); i++) {
-        extra_info << "," << threshold_delta_r[i];
+    extra_info << "))\nthresh <- cbind(c(" << threshold_delta_sd[0];
+    for (int i = 1; i < threshold_delta_sd.size(); i++) {
+        extra_info << "," << threshold_delta_sd[i];
     }
     extra_info << "))\n";
     extra_info << "plot(left, thresh)\n";
@@ -292,8 +308,8 @@ std::pair<Vector2d, Vector3d> hr_ur_threshold(double er_begins) {
 struct er_ur_tail {
     constexpr static double bench_time = 0.05; // Minimum number of seconds for each benchmark
     constexpr static int local_points = 7; // The number of points to include around the current point.  Must be odd!
-    constexpr static double left = 50; // Where we start looking.  Should be far, far out in the right tail.
-    constexpr static double start = 0.15; // Start searching at left + (this)/left.
+    constexpr static double left = 50; // Where we start looking, in standard deviations from the mean.
+    constexpr static double start = 0.15; // Start searching at left + (this)/left`.
     constexpr static double incr = 0.0005; // Increment by (this)/left
     constexpr static int min_negs = 7; // Keep incrementing until we have found this many negative differences (must be at least local_points/2+1)
 };
@@ -314,13 +330,13 @@ double er_ur_tail_threshold(double er_lambda_below) {
     auto &rng = eris::random::rng();
     std::vector<std::pair<double, double>> time_diff; // (delta,time) pairs
     int num_neg = 0;
-    constexpr double left = er_ur_tail::left;
-    for (double delta = er_ur_tail::start / left;
+    for (double delta = er_ur_tail::start / er_ur_tail::left;
             num_neg < er_ur_tail::min_negs or time_diff.size() < er_ur_tail::local_points + 2;
-            delta += er_ur_tail::incr / left) {
+            delta += er_ur_tail::incr / er_ur_tail::left) {
 
+        const double left = mu + sigma*er_ur_tail::left;
         constexpr bool upper_tail = true;
-        const double right = left + delta;
+        const double right = left + delta*sigma;
 
         double urtime = bench([&]() -> double {
             double inv2s2 = 0.5 / std::pow(sigma_v, 2);
@@ -329,7 +345,7 @@ double er_ur_tail_threshold(double er_lambda_below) {
         }, er_ur_tail::bench_time);
 
         double ertime;
-        if (left < er_lambda_below) {
+        if (er_ur_tail::left < er_lambda_below) {
             ertime = bench([&]() -> double {
                 volatile double bd_v = left - mu_v;
                 volatile double s = sigma_v;
@@ -351,7 +367,7 @@ double er_ur_tail_threshold(double er_lambda_below) {
     }
 
     // What we want is the "c" in (b-a) = c/a, so c = a*(b-a) = a*delta
-    return left * zero_local_linear(time_diff, er_ur_tail::local_points);
+    return er_ur_tail::left * zero_local_linear(time_diff, er_ur_tail::local_points);
 }
 
 struct nr_ur {
@@ -383,7 +399,7 @@ double nr_ur_threshold() {
         for (double range = nr_ur::start;
                 num_neg < nr_ur::min_negs or time_diff.size() < nr_ur::local_points + 2;
                 range += nr_ur::incr) {
-            double right = wr*range, left = right - range;
+            double right = mu + wr*sigma*range, left = right - sigma*range;
 
             double nrtime = bench([&]() -> double {
                 return eris::random::detail::truncnorm_rejection_normal(rng, mu, sigma, left, right);
