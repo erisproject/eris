@@ -250,7 +250,7 @@ int main(int argc, char *argv[]) {
 
         if (b.halfnormal) {
             b.timing.halfnormal = bench([&]() -> double {
-                    return eris::random::detail::truncnorm_rejection_halfnormal(rng, mu, sigma, b.left, b.right, b.left >= mu);
+                    return eris::random::detail::truncnorm_rejection_halfnormal(rng, mu, b.left >= mu ? sigma : -sigma, b.left, b.right);
                     });
             csv << "," << double_str(b.timing.halfnormal.first / b.timing.halfnormal.second);
         }
@@ -271,12 +271,12 @@ int main(int argc, char *argv[]) {
             volatile double bound_dist_v = bound_dist;
             b.timing.exponential = bench([&]() -> double {
                     double proposal_param = 0.5 * (bound_dist_v + sqrt(bound_dist_v*bound_dist_v + 4*sigma_v*sigma_v));
-                    return eris::random::detail::truncnorm_rejection_exponential(rng, sigma, b.left, b.right, b.left >= mu, bound_dist, proposal_param);
+                    return eris::random::detail::truncnorm_rejection_exponential(rng, mu, sigma, b.left, b.right, bound_dist, proposal_param);
                     });
             csv << "," << double_str(b.timing.exponential.first / b.timing.exponential.second);
 
             b.timing.expo_approx = bench([&]() -> double {
-                    return eris::random::detail::truncnorm_rejection_exponential(rng, sigma, b.left, b.right, b.left >= mu, bound_dist, bound_dist);
+                    return eris::random::detail::truncnorm_rejection_exponential(rng, mu, sigma, b.left, b.right, bound_dist, bound_dist);
                     });
             csv << "," << double_str(b.timing.expo_approx.first / b.timing.expo_approx.second);
 

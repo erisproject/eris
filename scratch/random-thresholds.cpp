@@ -116,7 +116,6 @@ double er_hr_threshold(double er_lambda_below) {
     auto &rng = eris::random::rng();
     std::vector<std::pair<double, double>> time_diff; // (left,time) pairs
 
-    constexpr bool upper_tail = true;
     const double right = std::numeric_limits<double>::infinity();
 
     int num_neg = 0;
@@ -127,7 +126,7 @@ double er_hr_threshold(double er_lambda_below) {
         double left = mu + sigma*left_sd;
 
         double hrtime = bench([&]() -> double {
-                return eris::random::detail::truncnorm_rejection_halfnormal(rng, mu, sigma, left, right, upper_tail);
+                return eris::random::detail::truncnorm_rejection_halfnormal(rng, mu, left >= mu_v ? sigma : -sigma, left, right);
                 }, er_hr::bench_time);
 
         double ertime;
@@ -136,12 +135,12 @@ double er_hr_threshold(double er_lambda_below) {
                 double bd = left - mu_v;
                 double s = sigma_v;
                 double proposal_param = 0.5 * (bd + sqrt(bd*bd + 4*s*s));
-                return eris::random::detail::truncnorm_rejection_exponential(rng, sigma, left, right, upper_tail, bd, proposal_param);
+                return eris::random::detail::truncnorm_rejection_exponential(rng, mu, sigma, left, right, bd, proposal_param);
                 }, er_hr::bench_time);
         }
         else {
             ertime = bench([&]() -> double {
-                return eris::random::detail::truncnorm_rejection_exponential(rng, sigma, left, right, upper_tail, left - mu, left - mu);
+                return eris::random::detail::truncnorm_rejection_exponential(rng, mu, sigma, left, right, left - mu, left - mu);
                 }, er_hr::bench_time);
         }
 
@@ -172,7 +171,6 @@ double er_er_threshold() {
     auto &rng = eris::random::rng();
     std::vector<std::pair<double, double>> time_diff; // (left,time) pairs
 
-    constexpr bool upper_tail = true;
     const double right = std::numeric_limits<double>::infinity();
 
     int num_neg = 0;
@@ -186,12 +184,12 @@ double er_er_threshold() {
                 double bd = left - mu_v;
                 double s = sigma_v;
                 double proposal_param = 0.5 * (bd + sqrt(bd*bd + 4*(s*s)));
-                return eris::random::detail::truncnorm_rejection_exponential(rng, sigma, left, right, upper_tail, bd, proposal_param);
+                return eris::random::detail::truncnorm_rejection_exponential(rng, mu, sigma, left, right, bd, proposal_param);
                 }, er_er::bench_time);
 
         double eratime = bench([&]() -> double {
                 double bd = left - mu_v;
-                return eris::random::detail::truncnorm_rejection_exponential(rng, sigma, left, right, upper_tail, bd, bd);
+                return eris::random::detail::truncnorm_rejection_exponential(rng, mu, sigma, left, right, bd, bd);
                 }, er_er::bench_time);
 
         // Calculate the average speed advantage of using lambda instead of the approximation:
@@ -241,8 +239,6 @@ std::pair<Vector2d, Vector3d> hr_ur_threshold(double er_begins) {
     MatrixXd outer_X_linear(hr_ur::num_left, 2);
     outer_X_linear.col(0).setOnes();
 
-    constexpr bool upper_tail = true;
-
     // First case (left=0): we start at initial_start, then increment by initial_incr, and repeat
     // this until we have at least local_points excess values (we need local_points/2 just to do the
     // linearization, but the extra points should ensure that we are definitely in the right
@@ -269,7 +265,7 @@ std::pair<Vector2d, Vector3d> hr_ur_threshold(double er_begins) {
             }, hr_ur::bench_time);
 
             double hrtime = bench([&]() -> double {
-                return eris::random::detail::truncnorm_rejection_halfnormal(rng, mu, sigma, left, right, upper_tail);
+                return eris::random::detail::truncnorm_rejection_halfnormal(rng, mu, left >= mu_v ? sigma : -sigma, left, right);
             }, hr_ur::bench_time);
 
             // Calculate the average speed advantage of ur:
@@ -340,7 +336,6 @@ double er_ur_tail_threshold(double er_lambda_below) {
             delta += er_ur_tail::incr / er_ur_tail::left) {
 
         const double left = mu + sigma*er_ur_tail::left;
-        constexpr bool upper_tail = true;
         const double right = left + delta*sigma;
 
         double urtime = bench([&]() -> double {
@@ -355,12 +350,12 @@ double er_ur_tail_threshold(double er_lambda_below) {
                 double bd = left - mu_v;
                 double s = sigma_v;
                 double proposal_param = 0.5 * (bd + sqrt(bd*bd + 4*s*s));
-                return eris::random::detail::truncnorm_rejection_exponential(rng, sigma, left, right, upper_tail, bd, proposal_param);
+                return eris::random::detail::truncnorm_rejection_exponential(rng, mu, sigma, left, right, bd, proposal_param);
                 }, er_ur_tail::bench_time);
         }
         else {
             ertime = bench([&]() -> double {
-                return eris::random::detail::truncnorm_rejection_exponential(rng, sigma, left, right, upper_tail, left - mu, left - mu);
+                return eris::random::detail::truncnorm_rejection_exponential(rng, mu, sigma, left, right, left - mu, left - mu);
                 }, er_ur_tail::bench_time);
         }
 

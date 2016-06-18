@@ -18,7 +18,7 @@ struct truncnorm_threshold {
      * extra draws required is less than the computational cost of the above expression.  Below this
      * threshold, the calculation is worthwhile.
      */
-    static constexpr RealType er_approximate_above = RealType(1.473);
+    static constexpr RealType er_approximate_above = RealType(1.544);
 
     /** The value of the closer-to-mean limit, expressed as a standardized normal value (i.e.
      * \f$\alpha = \frac{\ell - \mu} / \sigma\f$) above which it is more efficient to use exponential
@@ -27,7 +27,7 @@ struct truncnorm_threshold {
      * that on either side of this condition, we may still resort to uniform rejection sampling if b
      * is too close to a).
      */
-    static constexpr RealType hr_below_er_above = RealType(0.538);
+    static constexpr RealType hr_below_er_above = RealType(0.529);
 
     /** The value of `a*(b-a)` below which to prefer UR to ER when considering 2-sided truncation
      * draws that are contained entirely within one tail of the distribution.
@@ -44,7 +44,7 @@ struct truncnorm_threshold {
      * at a=0.55, and around 0.325 at a=0.75, and 0.32 at a=1, but this are all pretty close
      * performance-wise (less than 3% off for 0.55).
      */
-    static constexpr RealType prefer_ur_multiplier = RealType(0.242);
+    static constexpr RealType prefer_ur_multiplier = RealType(0.241);
 
     /** This is the threshold b-a value for deciding between NR and UR: when b-a is above this,
      * rejection sampling from a normal distribution is preferred; below this, uniform rejection
@@ -55,13 +55,13 @@ struct truncnorm_threshold {
      * cost (remember that a uniform sample iteration typically requires drawing 2 uniforms and
      * evaluating one exponential, while normal rejection simply involves drawing a normal).
      */
-    static constexpr RealType ur_below_nr_above = RealType(0.969);
+    static constexpr RealType ur_below_nr_above = RealType(0.965);
 
     /** This is the linear approximation of the threshold value of (right-left) above which we
      * prefer halfnormal rejection sampling and below which we prefer uniform rejection sampling.
      */
     static constexpr RealType ur_hr_threshold(const RealType &left, const RealType &sigma) {
-        return RealType(0.377) * sigma + RealType(0.447) * left;
+        return RealType(0.389) * sigma + RealType(0.435) * left;
     }
 };
 
