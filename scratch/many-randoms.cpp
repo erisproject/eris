@@ -170,9 +170,16 @@ int main(int argc, char *argv[]) {
 
     bool bad_args = not gen;
 
-    uint64_t count = 10000000;
-    if (HAVE_ARGS(1) and std::regex_match(argv[nextarg], std::regex("\\d+"))) {
-        count = std::stoull(argv[nextarg++]);
+    bool time_mode = true;
+    double at_least = 1.0;
+    uint64_t remaining = 0;
+    if (HAVE_ARGS(1) and std::regex_match(argv[nextarg], std::regex("[1-9]\\d*"))) {
+        remaining = std::stoull(argv[nextarg++]);
+        time_mode = false;
+    }
+    else if (HAVE_ARGS(1) and std::regex_match(argv[nextarg], std::regex("(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?s"))) {
+        at_least = std::stod(argv[nextarg++]); // Will ignore the trailing s
+        time_mode = true;
     }
 
     for (int i = nextarg; i < argc; i++) {
@@ -181,15 +188,28 @@ int main(int argc, char *argv[]) {
     }
 
     if (bad_args) {
-        std::cerr << "Usage: " << argv[0] << " DIST PARAMS... [COUNT] -- draw and report summary stats (mean/variance/skewness/kurtosis) of COUNT (default 10 million) draws from a distribution\n";
-        std::cerr << "\nDistributions and parameters (parameters are double values, and mandatory):\n" <<
-            "    E LAMBDA         - Exponential(LAMBDA)\n" <<
-            "    N MU SIGMA       - Normal(MU,SIGMA^2)\n" <<
-            "    U A B            - Uniform[A,B)\n" <<
-            "    TN  MU SIGMA A B - Normal(MU,SIGMA^2) truncated to the given [A,B]\n" <<
-            "    TNG MU SIGMA A B - same as TN, but uses inverse cdf sampling instead of rejection sampling\n" <<
-            "    Chi2 K           - Chi^2(K)\n" <<
-            "    G K THETA        - Gamma(K, THETA)\n";
+        std::cerr << "Usage: " << argv[0] << R"( DIST PARAMS... [COUNT | NUMs] -- draw and report summary stats (mean/variance/skewness/kurtosis) of draws from a distribution
+
+Distributions and parameters (parameters are double values, and mandatory):
+    E LAMBDA         - Exponential(LAMBDA)
+    N MU SIGMA       - Normal(MU,SIGMA^2)
+    U A B            - Uniform[A,B)
+    TN  MU SIGMA A B - Normal(MU,SIGMA^2) truncated to the given [A,B]
+    TNG MU SIGMA A B - same as TN, but uses inverse cdf sampling instead of rejection sampling
+    Chi2 K           - Chi^2(K)
+    G K THETA        - Gamma(K, THETA)
+
+The number of draws can be specified either as a fixed number of draws or as a number of seconds
+(followed by 's') to perform draws for at least the given number of seconds (which may be
+fractional).  If omitted, defaults to "1s".
+
+Examples:
+
+    many-randoms N 5 2.5         # draw from a N(5, 2.5²)
+    many-randoms TN 0 1 1 3 2.5s # draw from a standard normal, truncated to [1, 3], for at least 2.5 seconds
+    many-randoms E 3 1e9         # draw from an Exp(3) distribution one billion times
+
+)";
 
         exit(1);
     }
@@ -197,37 +217,47 @@ int main(int argc, char *argv[]) {
     std::cout << "Using seed: " << eris::random::seed() << " (set environment variable ERIS_RNG_SEED to override)\n";
     std::cout.precision(10);
 
-    double mean = 0;
-    double elapsed;
-    std::vector<double> draws(count);
+    // The size of the draw buffer; ideally it should be small to fit in the cache, but large enough
+    // that the overhead of querying the clock (somewhere around 100ns on my linux system) is
+    // insignificant; the fastest draw seems to be around 8ns (on the same system)
+    constexpr size_t DRAW_BUFFER = 16384;
+    std::vector<double> draws(DRAW_BUFFER);
 
-    auto start = clk::now();
-    for (uint64_t i = 0; i < count; i++) {
-        draws[i] = gen();
+    double elapsed = 0;
+    uint64_t total_draws = 0;
+    double m1{0}, m2{0}, m3{0}, m4{0}; // Variables for online mean/var/skew/kurt calculation
+    uint64_t mn{0};
+    while (time_mode ? elapsed < at_least : remaining > 0) {
+        unsigned num = time_mode ? DRAW_BUFFER : std::min(remaining, DRAW_BUFFER);
+        auto start = clk::now();
+        for (unsigned i = 0; i < num; i++) {
+            draws[i] = gen();
+        }
+        elapsed += dur(clk::now() - start).count();
+        total_draws += num;
+        remaining -= num;
+
+        // Online update of various quantities needed for mean/var/skew/kurt calculations:
+        for (unsigned i = 0; i < num; i++) {
+            uint64_t n_old = mn++;
+            const auto &x = draws[i];
+            double delta = x - m1, delta_n = delta / mn, delta_n2 = delta_n * delta_n;
+            double t1 = delta * delta_n * n_old;
+            m1 += delta_n;
+            m4 += t1 * delta_n2 * (mn*mn - 3*mn + 3) + 6 * delta_n2 * m2 - 4 * delta_n * m3;
+            m3 += t1 * delta_n * (mn-2) - 3 * delta_n * m2;
+            m2 += t1;
+        }
     }
-    elapsed = dur(clk::now() - start).count();
-    std::cout << count << " draws finished in " << elapsed << " seconds (" << count/elapsed/1000000 << " Mdraws/s)" << std::endl;
 
-    mean = std::accumulate(draws.begin(), draws.end(), 0.0) / count;
+    std::cout << total_draws << " draws finished in " << elapsed << " seconds (" << total_draws/elapsed/1000000 << " Mdraws/s; " << elapsed/total_draws*1e9 << " ns/draw)" << std::endl;
+
+    double mean = m1;
+    double var = m2 / total_draws;
+    double skew = m3 / (total_draws * std::pow(var, 1.5));
+    double kurt = total_draws * m4 / (m2*m2) - 3;
     std::cout <<
-        "Mean:         " << mean << " (theory: " << th_mean << ")" << std::endl;
-
-    double e2 = 0, e3 = 0, e4 = 0;
-    for (uint64_t i = 0; i < count; i++) {
-        double demean = draws[i] - mean;
-        double demean2 = demean*demean;
-        e2 += demean2;
-        e3 += demean2*demean;
-        e4 += demean2*demean2;
-    }
-    e2 /= count;
-    e3 /= count;
-    e4 /= count;
-
-    double var = e2;
-    double skew = e3 / std::pow(e2, 1.5);
-    double kurt = e4 / (e2*e2) - 3;
-    std::cout <<
+        "Mean:         " << mean << " (theory: " << th_mean << ")\n" <<
         "Variance:     " << var << " (theory: " << th_var << ")\n" <<
         "Skewness:     " << skew << " (theory: " << th_skew << ")\n" <<
         "Ex. Kurtosis: " << kurt << " (theory: " << th_kurt << ")\n";
