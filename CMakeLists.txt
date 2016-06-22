@@ -93,8 +93,15 @@ else()
 endif()
 include_directories(${EIGEN3_INCLUDE_DIR})
 
-find_package(Boost REQUIRED)
+find_package(Boost REQUIRED COMPONENTS filesystem)
 include_directories(${Boost_INCLUDE_DIRS})
+link_directories(${Boost_LIBRARY_DIRS})
+
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(LZMA REQUIRED liblzma)
+include_directories(${LZMA_INCLUDE_DIRS})
+link_directories(${LZMA_LIBRARY_DIRS})
+add_definitions(${LZMA_CFLAGS_OTHER})
 
 add_library(eris SHARED ${eris_src})
 
@@ -122,7 +129,7 @@ if (IWYU)
     set_property(TARGET iwyu-helper-target PROPERTY CXX_INCLUDE_WHAT_YOU_USE ${IWYU_ARGS} ${IWYU_ARGS_HPP_ONLY})
 endif()
 
-target_link_libraries(eris ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(eris ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES} ${LZMA_LIBRARIES})
 
 option(SCRATCH "Enable build support for programs in scratch" ON)
 if (SCRATCH)
