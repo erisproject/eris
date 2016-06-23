@@ -176,24 +176,24 @@ public:
         typedef truncated_normal_distribution distribution_type;
 
         /**
-         * Constructs a @c param_type with a given mean, standard deviation, and truncation points.
+         * Constructs a @c param_type with a given (pre-truncation) mean, standard deviation, and truncation points.
          *
          * Requires: sigma >= 0 and a <= b.
          */
-        explicit param_type(RealType mean_arg = RealType(0.0),
+        explicit param_type(RealType mu_arg = RealType(0.0),
                             RealType sigma_arg = RealType(1.0),
                             RealType lower_limit_arg = -std::numeric_limits<RealType>::infinity(),
                             RealType upper_limit_arg = +std::numeric_limits<RealType>::infinity())
-          : _mean(mean_arg),
+          : _mu(mu_arg),
             _sigma(sigma_arg),
             _lower_limit(lower_limit_arg),
             _upper_limit(upper_limit_arg)
         {}
 
-        /** Returns the mean of the distribution. */
-        RealType mean() const { return _mean; }
+        /** Returns the mean parameter of the distribution. */
+        RealType mu() const { return _mu; }
 
-        /** Returns the standand deviation of the distribution. */
+        /** Returns the standand deviation parameter of the distribution. */
         RealType sigma() const { return _sigma; }
 
         /** Returns the lower truncation point of the distribution (or negative infinity if there is
@@ -208,15 +208,15 @@ public:
 
         /** Writes a @c param_type to a @c std::ostream. */
         BOOST_RANDOM_DETAIL_OSTREAM_OPERATOR(os, param_type, parm)
-        { os << parm._mean << " " << parm._sigma << " " << parm._lower_limit << " " << parm._upper_limit; return os; }
+        { os << parm._mu << " " << parm._sigma << " " << parm._lower_limit << " " << parm._upper_limit; return os; }
 
         /** Reads a @c param_type from a @c std::istream. */
         BOOST_RANDOM_DETAIL_ISTREAM_OPERATOR(is, param_type, parm)
-        { is >> parm._mean >> std::ws >> parm._sigma >> std::ws >> parm._lower_limit >> std::ws >> parm._upper_limit; return is; }
+        { is >> parm._mu >> std::ws >> parm._sigma >> std::ws >> parm._lower_limit >> std::ws >> parm._upper_limit; return is; }
 
         /** Returns true if the two sets of parameters are the same. */
         BOOST_RANDOM_DETAIL_EQUALITY_OPERATOR(param_type, lhs, rhs) {
-            return lhs._mean == rhs._mean and lhs._sigma == rhs._sigma
+            return lhs._mu == rhs._mu and lhs._sigma == rhs._sigma
                 and lhs._lower_limit == rhs._lower_limit and lhs._upper_limit == rhs._upper_limit;
         }
 
@@ -224,22 +224,22 @@ public:
         BOOST_RANDOM_DETAIL_INEQUALITY_OPERATOR(param_type)
 
     private:
-        RealType _mean, _sigma, _lower_limit, _upper_limit;
+        RealType _mu, _sigma, _lower_limit, _upper_limit;
     };
 
     /**
-     * Constructs a @c normal_distribution object. @c mean and @c sigma are the parameters of the
+     * Constructs a @c normal_distribution object. @c mu and @c sigma are the parameters of the
      * untruncated normal distribution, @c lower_limit and @c upper_limit are the truncation
      * boundaries for the truncated distribution.
      *
      * Requires: sigma >= 0
      */
     explicit truncated_normal_distribution(
-            const RealType& mean = RealType(0.0),
+            const RealType& mu = RealType(0.0),
             const RealType& sigma = RealType(1.0),
             const RealType& lower_limit = -std::numeric_limits<RealType>::infinity(),
             const RealType& upper_limit = +std::numeric_limits<RealType>::infinity())
-      : _mean(mean), _sigma(sigma), _lower_limit(lower_limit), _upper_limit(upper_limit)
+      : _mu(mu), _sigma(sigma), _lower_limit(lower_limit), _upper_limit(upper_limit)
     {
         BOOST_ASSERT(_sigma >= RealType(0) and _lower_limit <= _upper_limit);
     }
@@ -248,12 +248,17 @@ public:
      * Constructs a @c normal_distribution object from its parameters.
      */
     explicit truncated_normal_distribution(const param_type& parm)
-      : _mean(parm.mean()), _sigma(parm.sigma()), _lower_limit(parm.lower_limit()), _upper_limit(parm.upper_limit())
+      : _mu(parm.mu()), _sigma(parm.sigma()), _lower_limit(parm.lower_limit()), _upper_limit(parm.upper_limit())
     {}
 
-    /**  Returns the mean of the distribution. */
-    RealType mean() const { return _mean; }
-    /** Returns the standard deviation of the distribution. */
+    /**  Returns the mean parameter of the distribution. Note that this is not necessarily the
+     * distribution mean, as the truncation boundaries can alter the mean.
+     */
+    RealType mu() const { return _mu; }
+    /** Returns the standard deviation parameter of the distribution. Note that this is not
+     * necessarily the standard deviation of the distribution itself: the truncation boundaries
+     * also affect that.
+     */
     RealType sigma() const { return _sigma; }
 
     /** Returns the smallest value that the distribution can produce. */
@@ -262,14 +267,14 @@ public:
     RealType max BOOST_PREVENT_MACRO_SUBSTITUTION () const { return _upper_limit; }
 
     /** Returns the parameters of the distribution. */
-    param_type param() const { return param_type(_mean, _sigma, _lower_limit, _upper_limit); }
+    param_type param() const { return param_type(_mu, _sigma, _lower_limit, _upper_limit); }
     /** Sets the parameters of the distribution. */
     void param(const param_type& parm)
     {
         // If we have already calculated _method, make sure that the given parameters are actually
         // different before we clear it (and thus require a recalculation)
         if (_method == Method::UNKNOWN or parm != param()) {
-            _mean = parm.mean();
+            _mu = parm.mu();
             _sigma = parm.sigma();
             _lower_limit = parm.lower_limit();
             _upper_limit = parm.upper_limit();
@@ -290,10 +295,10 @@ public:
         if (_method == Method::UNKNOWN) _determine_method();
         switch (_method) {
             case Method::TRIVIAL:     return _lower_limit; // == __upper_limit
-            case Method::NORMAL:      return detail::truncnorm_rejection_normal(eng, _mean, _sigma, _lower_limit, _upper_limit);
-            case Method::HALFNORMAL:  return detail::truncnorm_rejection_halfnormal(eng, _mean, _hr_signed_sigma, _lower_limit, _upper_limit);
-            case Method::UNIFORM:     return detail::truncnorm_rejection_uniform(eng, _mean, _lower_limit, _upper_limit, _ur_inv_2_sigma_squared, _ur_shift2);
-            case Method::EXPONENTIAL: return detail::truncnorm_rejection_exponential(eng, _mean, _sigma, _lower_limit, _upper_limit, _er_a, _er_lambda_times_sigma);
+            case Method::NORMAL:      return detail::truncnorm_rejection_normal(eng, _mu, _sigma, _lower_limit, _upper_limit);
+            case Method::HALFNORMAL:  return detail::truncnorm_rejection_halfnormal(eng, _mu, _hr_signed_sigma, _lower_limit, _upper_limit);
+            case Method::UNIFORM:     return detail::truncnorm_rejection_uniform(eng, _mu, _lower_limit, _upper_limit, _ur_inv_2_sigma_squared, _ur_shift2);
+            case Method::EXPONENTIAL: return detail::truncnorm_rejection_exponential(eng, _mu, _sigma, _lower_limit, _upper_limit, _er_a, _er_lambda_times_sigma);
             // Should be impossible (but silences the unhandled-switch-case warning):
             case Method::UNKNOWN: ;
         }
@@ -312,7 +317,7 @@ public:
     /** Writes a @c truncated_normal_distribution to a @c std::ostream. */
     BOOST_RANDOM_DETAIL_OSTREAM_OPERATOR(os, truncated_normal_distribution, d)
     {
-        os << d._mean << " " << d._sigma << " " << d._lower_limit << " " << d._upper_limit;
+        os << d._mu << " " << d._sigma << " " << d._lower_limit << " " << d._upper_limit;
         return os;
     }
 
@@ -333,7 +338,7 @@ public:
      */
     BOOST_RANDOM_DETAIL_EQUALITY_OPERATOR(truncated_normal_distribution, lhs, rhs)
     {
-        return lhs._mean == rhs._mean and lhs._sigma == rhs._sigma
+        return lhs._mu == rhs._mu and lhs._sigma == rhs._sigma
             and lhs._lower_limit == rhs._lower_limit
             and lhs._upper_limit == rhs._upper_limit;
     }
@@ -345,7 +350,7 @@ public:
     BOOST_RANDOM_DETAIL_INEQUALITY_OPERATOR(truncated_normal_distribution)
 
 private:
-    RealType _mean, _sigma, _lower_limit, _upper_limit;
+    RealType _mu, _sigma, _lower_limit, _upper_limit;
 
     // The methods that we use to draw the truncated normal.
     //
@@ -374,21 +379,21 @@ private:
     // up-front cost).
     void _determine_method() {
         // We have two main cases (plus a mirror of one of them):
-        // 1 - truncation bounds are on either side of the mean
-        // 2&3 - truncation range is entirely on one side of the mean
+        // 1 - truncation bounds are on either side of mu
+        // 2&3 - truncation range is entirely on one side of mu
         //
         // Case 0 (not really one of the cases): a == b, TRIVIAL (the "distribution" is a constant)
         // Case 1: a < mu < b
         //   (a) if b-a < sigma*ur_below_nr_above then UNIFORM
         //   (b) else NORMAL
-        // Case 2: mean <= a < b
-        //   (a) if a <= mean + sigma*hr_below_er_above:
-        //     (i) if (b-mean)/sigma < f_1((a-mean)/sigma) then UNIFORM
+        // Case 2: mu <= a < b
+        //   (a) if a <= mu + sigma*hr_below_er_above:
+        //     (i) if (b-mu)/sigma < f_1((a-mu)/sigma) then UNIFORM
         //     (ii) else HALFNORMAL
         //   (b) else (i.e. a > sigma*hr_below_er_above):
-        //     (i) if (b-mean)/sigma < f_2((a-mean)/sigma) then UNIFORM
+        //     (i) if (b-mu)/sigma < f_2((a-mu)/sigma) then UNIFORM
         //     (ii) else EXPONENTIAL
-        // Case 3: a < b <= mean: this is exactly case 2, but reflected across the mean.
+        // Case 3: a < b <= mu: this is exactly case 2, but reflected across mu.
         //
         // We have 7+4 cases/subcases to handle (7 proper cases, plus 4 more that are just symmetric
         // versions of proper cases).
@@ -406,9 +411,9 @@ private:
             _method = Method::TRIVIAL;
             return;
         }
-        else if (_lower_limit < _mean) {
-            // Case 1: lower < mean < upper:
-            if (_upper_limit > _mean) {
+        else if (_lower_limit < _mu) {
+            // Case 1: lower < mu < upper:
+            if (_upper_limit > _mu) {
                 if (_upper_limit - _lower_limit < _sigma * detail::truncnorm_threshold<RealType>::ur_below_nr_above) {
                     // The truncation region is small enough that uniform rejection sampling beats
                     // normal rejection sampling
@@ -423,21 +428,21 @@ private:
                 return;
             }
 
-            // Case 3: lower < upper <= mean
+            // Case 3: lower < upper <= mu
             else {
                 // Mean flipping a demeaned value is just negating it (but negating/mean flipping
                 // also reverses the roles of the upper/lower limits).  This guarantees we get:
                 // 0 <= a < b, i.e. we can use a and b as if they are in the right tail.
-                a = _mean - _upper_limit;
-                b = _mean - _lower_limit;
+                a = _mu - _upper_limit;
+                b = _mu - _lower_limit;
             }
         }
-        // Case 2: mean <= lower < upper
+        // Case 2: mu <= lower < upper
         else {
             // Truncation range is already in the right tail, so don't need to mean flip as
             // above, but just demean:
-            a = _lower_limit - _mean;
-            b = _upper_limit - _mean;
+            a = _lower_limit - _mu;
+            b = _upper_limit - _mu;
         }
 
         using std::isinf;
@@ -450,7 +455,7 @@ private:
             // sampling
             if (isinf(b) or b - a >= detail::truncnorm_threshold<RealType>::ur_hr_threshold(a, _sigma)) {
                 _method = Method::HALFNORMAL;
-                _hr_signed_sigma = _lower_limit >= _mean ? _sigma : -_sigma;
+                _hr_signed_sigma = _lower_limit >= _mu ? _sigma : -_sigma;
             }
             else {
                 // Otherwise b is small; using uniform rejection sampling (which requires an exp
