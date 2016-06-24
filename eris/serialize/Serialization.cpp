@@ -8,7 +8,7 @@ namespace eris { namespace serialize {
 
 namespace fs = boost::filesystem;
 
-constexpr unsigned int Serialization::POINTER_BLOCK_SIZE;
+constexpr uint64_t Serialization::HEADER_STARTS;
 
 char eris_magic[4] = {'e', 'r', 'i', 's'};
 char xz_magic[6] = {char(0xfd), '7', 'z', 'X', 'Z', char(0)};
@@ -33,9 +33,9 @@ void Serialization::memory() {
 void Serialization::open(
         const std::string &filename,
         Mode mode,
-        bool compress_new,
         bool memory,
-        const std::string &tmpdir
+        const std::string &tmpdir,
+        bool compress_new
         ) {
 
     close();
@@ -153,13 +153,15 @@ void Serialization::open(
     }
 }
 
+bool Serialization::closeNeedsToCopy() const {
+    return memory_only_ or read_only_ or not changed_;
+}
+
 void Serialization::close() {
-    std::cerr << "CLOSING\n";
     // We're going to catch and rethrow any exceptions, but are going to perform cleanup before
     // rethrowing.
     bool reached_cleanup = false;
     try {
-        std::cerr << "mem: " << memory_only_ << ", ro: " << read_only_ << ", ch: " << changed_ << "\n";
         // If this is an actual file which was not opened read-only and we actually wrote to it:
         if (not memory_only_ and not read_only_ and changed_) {
             if (final_f_) {
@@ -297,80 +299,183 @@ void Serialization::writeHeaderFields() {
 void Serialization::readExtraHeader() {}
 void Serialization::writeExtraHeader() {}
 
-std::iostream::pos_type Serialization::pointerChainCreate() {
-    writef().seekp(0, std::ios_base::end);
+void Serialization::updateHeaderFields() {
+    if (not header_fields_done_) return;
+
+    writef();
+    f_->seekp(HEADER_STARTS);
+
+    for (const auto &s : app_fields_) *f_ << *s;
+}
+
+
+uint64_t Serialization::blockListCreate(uint8_t element_size, uint16_t elements_per_block) {
+    if (elements_per_block == 0 or element_size == 0)
+        throw std::logic_error("Cannot create a block list with 0-length elements or 0 elements per block");
+    writef().seekp(0, f_->end);
     auto loc = f_->tellp();
-    *this << uint32_t(0);
-    char zero[8] = {0};
-    for (unsigned int i = 0; i <= POINTER_BLOCK_SIZE; i++) { // <= because the first one is the next block pointer
-        f_->write(zero, 8);
-    }
+    *this << uint32_t(0); // number of elements
+    *this << elements_per_block;
+    *this << element_size;
+    blockListWriteEmptyBlock(elements_per_block, element_size);
     return loc;
+}
+
+void Serialization::blockListWriteEmptyBlock(uint16_t elements_per_block, uint8_t element_size) {
+    unsigned block_size = 8 + unsigned(elements_per_block) * element_size; // "8+" to include the next block pointer
+    for (unsigned i = 0; i < block_size; i++) { // <= because the first one is the next block pointer
+        f_->put(0);
+    }
 }
 
 // We write a new block first, then update the previous block pointer, then update the size so that
 // if we get any IO failure, we end up with unreferenced garbage in the file, but don't have a
 // broken chain: since the chain size is updated last, if that update doesn't happen, we won't
 // actually ever see the added reference.
-void Serialization::pointerChainAppend(std::iostream::pos_type chain, std::iostream::pos_type pointer) {
-    writef().seekg(chain);
+void Serialization::blockListAppend(uint64_t location) {
+    writef().seekg(location);
     auto size = read<uint32_t>();
+    if (size == std::numeric_limits<uint32_t>::max()) throw std::out_of_range("Unable to append to block list: list is full (2^32-1 elements)");
+    auto elements_per_block = read<uint16_t>();
+    auto element_size = read<uint8_t>();
     auto last_block = f_->tellg();
-    // Read the chain to its last block:
-    while (size >= POINTER_BLOCK_SIZE) {
+    uint32_t remaining = size;
+    // Traverse the chain to its last block:
+    for (; remaining > elements_per_block; remaining -= elements_per_block) {
         last_block = read<uint64_t>();
-        if (last_block == 0) throw std::runtime_error("Unable to append to pointer chain: broken chain encountered");
+
+        // if size says we have more elements, but the next block pointer is null, something broke:
+        if (last_block == 0) throw std::runtime_error("Unable to append to block list: broken block chain encountered");
+
         f_->seekg(last_block);
-        size -= POINTER_BLOCK_SIZE;
     }
+    uint64_t element_location;
     // If the last block is full, we have to add a new block
-    if (size + 1 == POINTER_BLOCK_SIZE) {
-        f_->seekp(0, std::ios_base::end);
-        auto next_block = f_->tellp();
-        char zero[8] = {0};
-        f_->write(zero, 8); // Next block pointer
-        *this << uint64_t(pointer); // The one we were asked to add
-        for (unsigned int i = 1; i < POINTER_BLOCK_SIZE; i++) { // the remaining empty pointers
-            f_->write(zero, 8);
-        }
+    if (remaining == elements_per_block) {
+        f_->seekp(0, f_->end);
+        uint64_t new_block = f_->tellp();
+        blockListWriteEmptyBlock(elements_per_block, element_size);
+        element_location = new_block + 8; // Skip over the next-block pointer
 
-        // We added a new block, so back up and write its location in the previous block
+        // We added a new block, so back up to the previous block and write its location in its next-block pointer
         f_->seekp(last_block);
-        *this << uint64_t(next_block);
+        *this << new_block;
     }
+    // Otherwise the element location is an offset in the last block:
     else {
-        // Otherwise just jump to the right location and write the pointer
-        f_->seekp(uint64_t(last_block) + 8 * (1 + size)); // + 1 to skip the next block pointer
-        *this << uint64_t(pointer);
+        // Skip the next-block pointer and the used elements:
+        element_location = uint64_t(last_block) + 8 + remaining*element_size;
     }
 
-    // Now go back to the beginning of the chain and update the chain size
+    // Now go back to the beginning of the list and update the total list size
     size++;
-    f_->seekp(chain);
+    f_->seekp(location);
     *this << size;
+
+    // Now seek to the new element location
+    f_->seekp(element_location);
 }
 
-uint32_t Serialization::pointerChainSize(std::iostream::pos_type chain) {
-    f_->seekg(chain);
+uint32_t Serialization::blockListSize(uint64_t location) {
+    f_->seekg(location);
     return read<uint32_t>();
 }
 
-void Serialization::pointerChainSeek(std::iostream::pos_type chain, uint32_t i) {
-    f_->seekg(chain);
+void Serialization::blockListSeek(uint64_t location, uint32_t i) {
+    f_->seekg(location);
     auto size = read<uint32_t>();
-    if (i >= size) throw std::out_of_range("Requested pointer chain index " + std::to_string(i) + " does not exist");
-    while (i >= POINTER_BLOCK_SIZE) {
+    if (i >= size) throw std::out_of_range("Requested block element " + std::to_string(i) + " does not exist in block list");
+    auto elements_per_block = read<uint16_t>();
+    auto element_size = read<uint8_t>();
+    for (; i >= elements_per_block; i -= elements_per_block) {
         auto next_block = read<uint64_t>();
-        if (next_block == 0) throw std::runtime_error("Unable to seek to pointer: broken chain encountered");
-        f_->seekg(next_block);
-        i -= POINTER_BLOCK_SIZE;
-    }
-    f_->seekg(8 * (1 + uint64_t(i)), std::ios_base::cur);
-    auto pointer = read<uint64_t>();
-    if (pointer == 0) throw std::runtime_error("Unable to seek to pointer: null chain pointer value encountered");
 
-    // Now, finally, seek to wherever the pointer points:
+        // if size says we have more elements, but the next block pointer is null, something broke:
+        if (next_block == 0) throw std::runtime_error("Unable to append to block list: broken block chain encountered");
+
+        f_->seekg(next_block);
+    }
+    // We're at the beginning of the block right now, and i is an index into that block
+    uint64_t seek_to = 8 + i * element_size; // "8+" to skip the next block pointer
+
+    f_->seekg(seek_to, f_->cur);
+    // Update the put pointer to, in case the caller wants to overwrite the data.
+    f_->seekp(f_->tellg());
+}
+
+void Serialization::blockListSkip(uint64_t location) {
+    f_->seekg(location + 4); // + 4 to skip the uint32_t list size
+    auto elements_per_block = read<uint16_t>();
+    auto element_size = read<uint8_t>();
+    // Now skip over the first block:
+    f_->seekg(8 + elements_per_block * element_size, f_->cur);
+    // Also update the put pointer:
+    f_->seekp(f_->tellg());
+}
+
+void Serialization::blockListIterate(uint64_t location, const std::function<bool(uint32_t)> &call) {
+    f_->seekg(location);
+    auto size = read<uint32_t>();
+    auto elements_per_block = read<uint16_t>();
+    auto element_size = read<uint8_t>();
+    uint64_t next_block = 0, first_element = 0;
+    bool keep_iterating = true;
+    for (uint32_t i = 0; keep_iterating and i < size; i++) {
+        uint32_t block_i = i % elements_per_block;
+        if (block_i == 0) {
+            if (i > 0) {
+                // We just hit the end of the block, so seek to the block's next block pointer.
+
+                // if size says we have more elements, but the next block pointer is null, something broke:
+                if (next_block == 0) throw std::runtime_error("Unable to iterate through block list: broken block chain encountered");
+
+                f_->seekg(next_block);
+            }
+            // The first element in the block is the next block pointer
+            next_block = read<uint64_t>();
+            // We're now at the location of the first block element:
+            first_element = f_->tellg();
+        }
+        else {
+            f_->seekg(first_element + block_i*element_size);
+        }
+        f_->seekp(f_->tellg());
+
+        keep_iterating = call(i);
+    }
+}
+
+uint64_t Serialization::pointerListCreate(uint16_t pointers_per_block) {
+    return blockListCreate(sizeof(uint64_t), pointers_per_block);
+}
+
+void Serialization::pointerListAppend(uint64_t location, uint64_t pointer) {
+    blockListAppend(location);
+    if (pointer == 0) throw std::runtime_error("Unable to append null pointer to pointer list");
+    *this << pointer;
+}
+
+uint32_t Serialization::pointerListSize(uint64_t location) {
+    return blockListSize(location);
+}
+
+void Serialization::pointerListSeek(uint64_t location, uint32_t i) {
+    blockListSeek(location, i);
+    auto pointer = read<uint64_t>();
+    if (pointer == 0) throw std::runtime_error("Unable to seek to pointer: pointer value is null");
+    f_->seekp(pointer);
     f_->seekg(pointer);
+}
+
+void Serialization::pointerListIterate(uint64_t location, const std::function<bool(uint32_t)> &call) {
+    uint64_t fptr;
+    blockListIterate(location, [&](uint32_t i) -> bool {
+            *this >> fptr;
+            if (fptr == 0) throw std::runtime_error("Unable to seek to pointer: pointer value is null");
+            f_->seekp(fptr);
+            f_->seekg(fptr);
+            return call(i);
+    });
 }
 
 std::string Serialization::tempfile(const std::string &filename, const std::string &tmpdir) {

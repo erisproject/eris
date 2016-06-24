@@ -4,6 +4,7 @@
 #include <sstream>
 #include <list>
 #include <unordered_map>
+#include <limits>
 
 extern "C" {
 #include <lzma.h>
@@ -80,12 +81,6 @@ public:
      *
      * \param mode the mode to open the file with
      *
-     * \param compress_new if true, a new file should be XZ-compressed when saved.  This requires
-     * the use of either an intermediate temporary file or an in-memory buffer in which to write
-     * data until close() is called or the Serialization object is destroyed, at which point the
-     * intermediate temporary file or in-memory buffer will be compressed and written to `filename`.
-     * Has no effect when opening an existing file: it's compression status will be maintained.
-     *
      * \param memory governs the use of an in-memory buffer for compressed files and new files.  If
      * opening and reading an existing, XZ-compressed file, a true value here causes decompression
      * to happen into an in-memory buffer.  Otherwise, when opening a new file (or overwriting an
@@ -98,13 +93,19 @@ public:
      * written; this has effect when reading or writing an XZ-compressed file when the `memory`
      * parameter is false.  If an empty string, the temporary file, if needed, will be placed in the
      * same directory as `filename` with a randomized filename.
+     *
+     * \param compress_new if true, a new file should be XZ-compressed when saved.  This requires
+     * the use of either an intermediate temporary file or an in-memory buffer in which to write
+     * data until close() is called or the Serialization object is destroyed, at which point the
+     * intermediate temporary file or in-memory buffer will be compressed and written to `filename`.
+     * Has no effect when opening an existing file: it's compression status will be maintained.
      */
     void open(
             const std::string &filename,
             Mode mode,
-            bool compress_new = true,
             bool memory = false,
-            const std::string &tmpdir = "");
+            const std::string &tmpdir = "",
+            bool compress_new = true);
 
     /** Opens an in-memory buffer rather than a file-backed buffer.  This is considerably faster in
      * most cases, but also requires considerably more memory.
@@ -112,6 +113,12 @@ public:
      * If an existing file (or memory buffer) is open, it will be closed (or discarded).
      */
     void memory();
+
+    /** Returns true if close() may take time due to required copying and/or compression.  Returns
+     * false if results have been written directly to the final (uncompressed) file, or if no
+     * writing is needed (i.e. the file was opened read-only, or was never changed since loading).
+     */
+    bool closeNeedsToCopy() const;
 
     /** Closes an open file.  If necessary (i.e. a file was opened using open() and a temporary file
      * or memory buffer is being used) the temporary buffer is written to the target file, possibly
@@ -214,6 +221,7 @@ public:
     template <typename T>
     typename std::enable_if<not std::is_const<T>::value>::type
     addHeaderField(T &store) {
+        if (header_fields_done_) throw std::logic_error("Cannot add header fields after the header has been read or written");
         auto s = std::make_shared<serializer<T>>(store);
         app_fields_.emplace_back(s);
         app_locations_[&store].emplace_back(s, app_location_next_);
@@ -245,6 +253,15 @@ public:
             *f_ << *i.first;
         }
     }
+
+    /** Updates *all* the header fields added with addHeaderField.  Like updateHeaderField(), this
+     * does nothing if the header hasn't been written/read yet; otherwise all fields are rewritten.
+     *
+     * Note that this does *not* call writeExtraHeader(), as the data written there is not required
+     * to be fixed size.
+     */
+    void updateHeaderFields();
+
 
     /** Reads a serialized value from the current file position into the given variable.  The type
      * is inferred from the variable type.
@@ -279,61 +296,190 @@ public:
     template <typename T>
     inline void read(T &val) { *f_ >> serializer<T>(val); }
 
-    constexpr static unsigned int POINTER_BLOCK_SIZE = 255;
-
-    /** Creates a new pointer chain at the end of the file.  A pointer chain is a variable length
-     * list of pointers that refer to locations with relevant data in a file.  For example, a
-     * pointer chain is typically used to track the beginning location of state serializations; it
-     * can also track other data that does not vary over time.
+    /** Starts a new block list at the end of the file.  A block list is a variable-length list of
+     * fixed-size data elements that is allocated within the file as a linked list of data chunks
+     * with each chunk containing a pointer to the next fixed block of elements.
      *
-     * Such a chain consists of an initial uint32_t count value (so that the length is always
-     * known), followed by a block of pointers.  This block contains (POINTER_BLOCK_SIZE+1) uint64_t
-     * file locations: locations 1 through POINTER_BLOCK_SIZE contain the POINTER_BLOCK_SIZE
-     * pointers (0 if unused), while location 0 contains a pointer to the next block of pointers
-     * (used when chain contains more than POINTER_BLOCK_SIZE pointers).  New pointer blocks are
-     * added to the file as needed: the only thing the caller needs to track is the location of the
-     * very beginning of the pointer chain, i.e. the value returned by this method.
+     * Each chunk of a block list has a pointer to the next block (0 if there is no next block)
+     * followed by a fixed number of elements of a fixed size; the beginning of the block list is
+     * preceeded with structural data.  Thus you get something like the following, where P is a file
+     * position, V is a block of data, and S is the number of elements in the chain:
+     *
+     *     SP1[VVV...VVV]
+     *     P1 -> P2[VVV...VVV]
+     *     P2 -> P3[VVV...VVV]
+     *     ...
+     *     Pn -> 0[V...V000...]
+     *
+     * V is a fixed size element (or set of elements); it is up to the subclass to write the content
+     * (and to make sure that it writes no more than the correct size!).
+     *
+     * This supports an essentially unlimited number (technically, 2^32-1) of elements: when a block
+     * fills up, attempting to add another element appends a new (empty) block at the end of the
+     * file and updates the previous last block's pointer to refer to it.
+     *
+     * A file can contain an unlimited number of block lists: each is defined by a unique starting
+     * location in the file.
+     *
+     * When writing larger, non-fixed size records, it is often useful to store just a pointer to
+     * the location of a record: in such a case, use createPointerBlock() instead, which uses this
+     * method internally to store file locations in the "V" records.
+     *
+     * \param element_size the number of bytes used by each element.  Maximum 255: if you need
+     * larger blocks, write the data directly and use a pointer list (createPointerList()) to track
+     * its location.
+     * \param elements_per_block the number of elements per block (maximum 65535).  A larger value
+     * requires more storage space for each allocated block, but also requires less seeking to go
+     * through block elements.  Defaults to 511; this results in a block size (and thus maximum
+     * wasted space) of 4KiB when using an 8-byte element_size.
+     *
+     * \returns the starting location of the pointer block.  After this call, the file's put pointer
+     * is guaranteed to be at the end of the created block, i.e. at the (new) end of the file.
+     */
+    uint64_t blockListCreate(uint8_t element_size, uint16_t elements_per_block = 511);
+
+    /** Special version of blockListCreate that takes a type template; the element_size is
+     * determined via `serializer<T>::size`.
+     *
+     * \throws std::logic_error if the serialized size is greater than 255.
+     */
+    template <typename T>
+    uint64_t blockListCreate(uint16_t elements_per_block = 511) {
+        static_assert(serializer<T>::size <= std::numeric_limits<uint8_t>::max(), "Block element size must be <= 255");
+        return blockListCreate(serializer<T>::size, elements_per_block);
+    }
+
+    /** This adds a new element to the given block list and positions the "put" file pointer at the
+     * beginning of the element area.  This may extend the file if a new block needs to be added to
+     * the block list.
+     *
+     * The general use is as follows:
+     *
+     *     serialization.blockListAppend(block_list_start);
+     *     serialization << data1 << data2 << data3;
+     *
+     * \param location the initial location of the block list, as was returned by blockListCreate()
+     * to create the block list.
+     */
+    void blockListAppend(uint64_t location);
+
+    /** Returns the number of data elements in the given block list.
+     *
+     * \param location the initial location of the block list, as was returned by blockListCreate()
+     * to create the block list.
+     *
+     * \returns the number of elements in the block list.  No guarantee is made as to file pointer
+     * locations after this call.
+     */
+    uint32_t blockListSize(uint64_t location);
+
+    /** Seeks to an element of a block list.  Both get and put file pointers are updated to the
+     * beginning of the requested element.
+     *
+     * \param location the initial location of the block list, as was returned by blockListCreate()
+     * to create the block list.
+     * \param i the desired element index.
+     * \throws std::out_of_range exception if i equals or exceeds the number of elements in this
+     * block list (i.e. if `i >= blockListSize(location)` would be true).
+     */
+    void blockListSeek(uint64_t location, uint32_t i);
+
+    /** Seeks just beyond the initial block of the given block list.  This is designed to be useful
+     * when multiple (empty) block lists are created sequentially.
+     */
+    void blockListSkip(uint64_t location);
+
+    /** Iterates through a block list, calling the given callable value for each block list data
+     * location.  The callable argument can return true to continue iterating, or false to stop
+     * iteration.
+     *
+     * This method does not require any particular file pointer location at the end of the call;
+     * this allows nested iteration (i.e. for handling a list of lists), among other things.  Note,
+     * however, that this will only iterate through the number of elements of the list at the time
+     * the method was invoked: any block list elements appending during iteration will not be
+     * included.
+     *
+     * \param location the initial location of the block list, as was returned by blockListCreate()
+     * to create the block list.
+     * \param call the callable function-like object to call for each block list position.  The
+     * function will be called with the index of the item, and with f_ get and put pointers set to
+     * the beginning of the block item data.  Should return false to stop iterating, true to
+     * continue the iteration.
+     */
+    void blockListIterate(uint64_t location, const std::function<bool(uint32_t)> &call);
+
+    /** Creates a new pointer list at the end of the file.  A pointer list is a variable length
+     * list of pointers that refer to locations with relevant data in a file.  For example, a
+     * pointer list is typically used to track the beginning location of state serializations.  It
+     * is generally intended to be used with variable length records: the record is written to the
+     * file, then the beginning of that record is added to the pointer list.
+     *
+     * The structure of this list is handled transparently: internally it uses a block list (see
+     * blockListCreate()) of file offsets and handles reading and writing those offsets.
      *
      * One an initial pointer block has been created, its location can be given to
-     * pointerChainAppend() and pointerChainSeek() to add new pointers and seek to existing
-     * pointers.  Seeking through the multiple blocks in a chain is performed transparently by those
-     * methods: the caller can not worry about the fact that multiple blocks are used.
+     * pointerListAppend() and pointerListSeek() to add new pointers and seek to existing pointers.
+     * Seeking through the multiple blocks in a list is performed transparently by those methods:
+     * the caller need not worry or know about the fact that multiple blocks are used.
      *
-     * A file can contain multiple independent pointer chains: each one is definied by a unique
+     * A file can contain multiple independent pointer lists: each one is definied by a unique
      * initial position.
      *
-     * \returns the starting location of the pointer chain.  The output filehandle (i.e. its
+     * \param pointers_per_block the number of pointer space to allocate in each internal block.
+     * The default is 511, which results in each block being 4KiB bytes long (512 pointers in all,
+     * including the pointer to the next block).
+     * \returns the starting location of the pointer list.  The output filehandle (i.e. its
      * `tellp()` value) will be positioned at the end of the pointer block, i.e. at the (new) end of
-     * the file.
+     * the file after this call.
      */
-    std::iostream::pos_type pointerChainCreate();
+    uint64_t pointerListCreate(uint16_t pointers_per_block = 511);
 
-    /** Adds a pointer to the pointer chain beginning at `chain`.  If the last block of the chain is
-     * full, a new block is appended to the chain and the value is appended there.
+    /** Adds a pointer to the pointer list beginning at `location`.
      *
      * There is no guarantee made as to the file handle seek position at the end of this method;
      * calling code must use an appropriate seek before performing any additional IO operations.
      *
-     * \param chain the initial pointer chain location
-     * \param pointer the pointer value to append to the chain
-     */
-    void pointerChainAppend(std::iostream::pos_type chain, std::iostream::pos_type pointer);
-
-    /** Returns the number of points in the pointer chain beginning at `chain`.  No guarantee is
-     * made as to the filehandle position when this method returns.
-     */
-    uint32_t pointerChainSize(std::iostream::pos_type chain);
-
-    /** Reads the `i`th pointer from the pointer chain and seeks the file input pointer to the
-     * indicated position.
+     * The intended logic for this is something like the following:
      *
-     * Only the "get" position is set by this method, i.e. with a call to seekg().
+     *     f_->seekp(0, f_->end);
+     *     uint64_t data_starts = f_->tellp();
+     *     *this << some << serialized << record << data;
+     *     pointerListAppend(location, data_starts);
      *
-     * \param chain the initial pointer chain location
+     * The pointer is updated *after* the data is written to make the file more resilient to
+     * filesystem errors: if an error occurs in the above, there may be junk in the file, but it
+     * will be unreferenced junk and so won't cause a broken file.  ("junk" here could mean either a
+     * partial or full record, and/or a partial or full pointer block).
+     *
+     * \param location the initial pointer list location
+     * \param pointer the pointer value to append to the list
+     */
+    void pointerListAppend(uint64_t location, uint64_t pointer);
+
+    /** Returns the number of pointers in the pointer list beginning at `location`.  No guarantee is
+     * made as to the filehandle position after this method returns.
+     *
+     * This is exactly equivalent to calling blockListSize(location).
+     */
+    uint32_t pointerListSize(uint64_t location);
+
+    /** Reads the `i`th pointer from the pointer chain and seeks the file get and put pointers to
+     * the indicated position.
+     *
+     * \param location the initial pointer list location
      * \param i the index of the desired pointer
-     * \throws std::out_of_range if the pointer chain does not have at least `i+1` pointers.
+     * \throws std::out_of_range if the pointer list does not have at least `i+1` pointers.
      */
-    void pointerChainSeek(std::iostream::pos_type chain, uint32_t i);
+    void pointerListSeek(uint64_t location, uint32_t i);
+
+    /** Iterates through a list of pointers, seeking to the pointed location for each one and then
+     * calling the given callable function/object/lambda.  This works essentially just like
+     * blockListIterate, except that instead of seeking to the block list item (where the pointer is
+     * stored), this also reads that pointer and then seeks to *that* location.
+     *
+     * \sa blockListIterate
+     */
+    void pointerListIterate(uint64_t location, const std::function<bool(uint32_t)> &call);
 
 protected:
 
@@ -434,6 +580,9 @@ protected:
      *     *f_ << blah;
      * It only needs to be called for the first write; subsequent writes can be written directly to
      * `*f_`.
+     *
+     * This is called automatically by the << operator on *this, so that, as long as output occurs
+     * via `*this <<`, it doesn't need to be explicitly called.
      */
     std::iostream& writef() {
         if (read_only_) throw std::invalid_argument("unable to write: serialization file is opened read-only");
@@ -452,7 +601,14 @@ protected:
      */
     static constexpr std::ios_base::openmode open_readwrite = open_readonly | std::ios_base::out;
 
+    // The location of the first header field, 28: 4 for 'eris', 4 for filever, 16 for app name, 4
+    // for appver, then the header fields are written.
+    static constexpr uint64_t HEADER_STARTS = 28;
+
 private:
+
+    // Writes an empty block at the current file location
+    void blockListWriteEmptyBlock(uint16_t elements_per_block, uint8_t element_size);
 
     // Tracks whether header fields have been read/written; if not yet done, header field updates
     // are silently ignored (since this header is still to be written).
@@ -468,7 +624,7 @@ private:
 
     // The next app setting location; header settings start at 28 (4 for 'eris', 4 for filever, 16
     // for app name, 4 for appver).
-    std::iostream::pos_type app_location_next_{28};
+    std::iostream::pos_type app_location_next_{HEADER_STARTS};
 
     // If true, this file was opened read_only_ (and so attempts to write will throw exceptions)
     bool read_only_{false};
