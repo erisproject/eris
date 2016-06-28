@@ -11,7 +11,7 @@ set(eris_description "Agent-based economic modelling library")
 
 # Eris package version
 set(ERIS_VERSION_MAJOR "0")
-set(ERIS_VERSION_MINOR "4")
+set(ERIS_VERSION_MINOR "5")
 set(ERIS_VERSION_PATCH "0")
 set(ERIS_VERSION "${ERIS_VERSION_MAJOR}.${ERIS_VERSION_MINOR}.${ERIS_VERSION_PATCH}")
 
@@ -21,18 +21,31 @@ set(ERIS_VERSION "${ERIS_VERSION_MAJOR}.${ERIS_VERSION_MINOR}.${ERIS_VERSION_PAT
 # - If the new release has an API change:
 #   - CURRENT gets updated
 #   - REVISION gets set to 0
-#   - If the API change was purely an addition, increment AGE
+#   - If the API change was purely an addition (see below), increment AGE
 #   - Otherwise (i.e. an API change or removal), reset AGE to 0
-# - Otherwise, if the release has no API change but has code changes:
+# - Otherwise, if the release has no API change but has logic changes:
 #   - REVISION gets incremented
 #   - (CURRENT and AGE stay the same)
 # If there is no code change (e.g. the release is just a documentation update)
 # then none of these change.
 #
+# As to what constitutes an "addition": the conservative rule is that any
+# non-cosmetic change in a .hpp file (i.e. changing an existing class or inline
+# definition) makes the ABI not backwards compatible and thus requires
+# resetting AGE.  Adding new classes and new functions is safe, as is adding
+# new *non-virtual* methods to existing classes (adding virtual methods is
+# not).  Changing inlined code (including templated code) is also not safe.
+# Any change to the members of the class--addition, removal, type, cv, or order
+# changes--also changes the ABI and requires an AGE reset.
+#
+# Changing implementation--i.e. in .cpp files--is, however, generally safe.  A
+# release with only logic changes, but no .hpp changes, generally doesn't need
+# CURRENT to be updated at all, but rather just REVISION.
+#
 # (So something like 3.7.1 indicates the 8th revision of the liberis.so.3
 # interface, and that code that links against liberis.so.2 can safely link
 # against this version, but code that links against liberis.so.1 cannot.
-set(LIBERIS_CURRENT  "5")
+set(LIBERIS_CURRENT  "6")
 set(LIBERIS_REVISION "0")
 set(LIBERIS_AGE      "0")
 

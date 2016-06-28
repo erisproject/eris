@@ -13,10 +13,6 @@ std::shared_ptr<Simulation> Simulation::create() {
     return std::shared_ptr<Simulation>(new Simulation);
 }
 
-std::shared_ptr<Simulation> Simulation::spawn() {
-    return create();
-}
-
 void Simulation::registerDependency(eris_id_t member, eris_id_t depends_on) {
     std::lock_guard<std::recursive_mutex> lock(member_mutex_);
     depends_on_[depends_on].insert(member);
@@ -27,7 +23,21 @@ void Simulation::registerWeakDependency(eris_id_t member, eris_id_t depends_on) 
     weak_dep_[depends_on].insert(member);
 }
 
+SharedMember<Member> Simulation::add(const std::shared_ptr<Member> &new_member) {
+    SharedMember<Member> member(new_member);
+    if (auto lock = runLockTry()) {
+        insert(member);
+    }
+    else {
+        deferred_mutex_.lock();
+        deferred_insert_.push_back(member);
+        deferred_mutex_.unlock();
+    }
+    return member;
+}
+
 void Simulation::insert(const SharedMember<Member> &member) {
+    if (member->hasSimulation()) throw std::logic_error("Cannot insert member in a simulation multiple times");
     if (dynamic_cast<Agent*>(member.ptr_.get())) insertAgent(member);
     else if (dynamic_cast<Good*>(member.ptr_.get())) insertGood(member);
     else if (dynamic_cast<Market*>(member.ptr_.get())) insertMarket(member);

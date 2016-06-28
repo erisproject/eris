@@ -107,8 +107,9 @@ class Position final {
          * \throws std::out_of_range exception if any of the given dimension indices are invalid, or
          * if the dimension list is empty.
          */
-        template <class Container, typename = typename std::enable_if<std::is_integral<typename Container::value_type>::value>::type>
-        Position subdimensions(const Container &dimensions) const;
+        template <class Container>
+        typename std::enable_if<std::is_integral<typename Container::value_type>::value, Position>::type
+        subdimensions(const Container &dimensions) const;
 
         /** Accesses the Position's `d`th coordinate, where `d=0` is the first dimension, etc.
          *
@@ -243,8 +244,9 @@ inline void Position::requireSameDimensions(const Position &other, const std::st
 inline double& Position::operator[](size_t d) { if (d >= dimensions) throw std::out_of_range("Invalid Position index " + std::to_string(d) + " >= " + std::to_string(dimensions)); return pos_[d]; }
 inline const double& Position::operator[](size_t d) const { if (d >= dimensions) throw std::out_of_range("Invalid Position index " + std::to_string(d) + " >= " + std::to_string(dimensions)); return pos_[d]; }
 
-template <class Container, typename>
-Position Position::subdimensions(const Container &dims) const {
+template <class Container>
+typename std::enable_if<std::is_integral<typename Container::value_type>::value, Position>::type
+Position::subdimensions(const Container &dims) const {
     std::vector<double> p;
     p.reserve(dims.size());
     for (auto &d : dims) {

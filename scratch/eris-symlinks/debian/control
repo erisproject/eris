@@ -10,7 +10,7 @@ Section: libs
 Architecture: any
 Multi-Arch: same
 Depends: libeigen3-dev (>= 3.2.7), libboost-dev
-Conflicts: liberis5, liberis-dev, eris-doc
+Conflicts: liberis6, liberis-dev, eris-doc
 Description: Eris economics agent-based modelling library (build hack package)
  This package is for development use: it installs symlinks into the local build directory to
  the standard system include/lib/docs locations.

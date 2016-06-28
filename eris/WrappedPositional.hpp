@@ -96,8 +96,9 @@ class WrappedPositionalBase : public PositionalBase {
          *
          * \throws std::out_of_range if `dim` is any of the given dimensions is invalid.
          */
-        template <class Container, typename = typename std::enable_if<std::is_integral<typename Container::value_type>::value>::type>
-        void wrap(const Container &dimensions) {
+        template <class Container>
+        typename std::enable_if<std::is_integral<typename Container::value_type>::value>::type
+        wrap(const Container &dimensions) {
             for (auto &dim : dimensions) {
                 // The below ("<= and !=") is needed to avoid a warning for "dim < 0" when dim
                 // is an unsigned type
