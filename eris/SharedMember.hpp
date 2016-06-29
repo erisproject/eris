@@ -35,6 +35,11 @@ class SharedMember final {
         /** Constructs a SharedMember by moving the given shared_ptr rvalue. */
         SharedMember(std::shared_ptr<T> &&ptr) : ptr_{std::move(ptr)} {}
 
+        /** Constructs a SharedMember from a pointer.  The management of the pointer is taken over
+         * by the new SharedMember<T>'s internal shared_ptr.
+         */
+        explicit SharedMember(T *ptr) : ptr_{ptr} {}
+
         /** Using as a T gives you the underlying T object */
         operator T& () const { return *ptr_; }
         /** Using as an eris_id_t gives you the object's id.  This returns 0 if the pointer is
