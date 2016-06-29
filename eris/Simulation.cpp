@@ -101,6 +101,32 @@ void Simulation::removeNoDefer(eris_id_t id) {
     else throw std::out_of_range("eris_id_t to be removed does not exist");
 }
 
+void Simulation::processDeferredQueue() {
+    // We need to take care to ensure that the mutex isn't locked when doing the actual
+    // insertion because the insertion may itself trigger other insertions, which might need
+    // to be deferred--but if the mutex is locked here, that will deadlock.  So we pull off
+    // one insertion/removal at a time, release the lock, perform the insert/removal, then
+    // reestablish the lock.
+    deferred_mutex_.lock();
+    while (not deferred_insert_.empty() or not deferred_remove_.empty()) {
+        if (not deferred_insert_.empty()) {
+            SharedMember<Member> to_insert = deferred_insert_.front();
+            deferred_insert_.pop_front();
+            deferred_mutex_.unlock();
+            insert(to_insert);
+        }
+        else if (not deferred_remove_.empty()) {
+            eris_id_t to_remove = deferred_remove_.front();
+            deferred_remove_.pop_front();
+            deferred_mutex_.unlock();
+            removeNoDefer(to_remove);
+        }
+        deferred_mutex_.lock();
+    }
+    deferred_mutex_.unlock();
+}
+
+
 void Simulation::insertOptimizers(const SharedMember<Member> &member) {
     std::lock_guard<std::recursive_mutex> lock(member_mutex_);
     Member *mem = member.get();
@@ -336,17 +362,8 @@ void Simulation::thr_stage(const RunStage &stage) {
                     break;
             }
 
-            deferred_mutex_.lock();
             // Deferred insertion/removal: this could invalidate opt_iterator_
-            if (not deferred_insert_.empty()) {
-                for (auto &m : deferred_insert_) insert(m);
-                deferred_insert_.clear();
-            }
-            if (not deferred_remove_.empty()) {
-                for (auto id : deferred_remove_) removeNoDefer(id);
-                deferred_remove_.clear();
-            }
-            deferred_mutex_.unlock();
+            processDeferredQueue();
         }
     }
     else {
@@ -370,15 +387,7 @@ void Simulation::thr_stage(const RunStage &stage) {
 
             deferred_mutex_.lock();
             // The stage is done; handle deferred insertion/removal
-            if (not deferred_insert_.empty()) {
-                for (auto &m : deferred_insert_) insert(m);
-                deferred_insert_.clear();
-            }
-            if (not deferred_remove_.empty()) {
-                for (auto id : deferred_remove_) removeNoDefer(id);
-                deferred_remove_.clear();
-            }
-            deferred_mutex_.unlock();
+            processDeferredQueue();
         }
     }
 }
@@ -423,19 +432,16 @@ void Simulation::thr_thread_pool() {
     }
 }
 
-
-std::unique_lock<std::mutex> Simulation::runLock() {
-    return std::unique_lock<std::mutex>(run_mutex_);
+boost::shared_lock<boost::shared_mutex> Simulation::runLock() {
+    return boost::shared_lock<boost::shared_mutex>(run_mutex_);
 }
 
-std::unique_lock<std::mutex> Simulation::runLockTry() {
-    return std::unique_lock<std::mutex>(run_mutex_, std::try_to_lock);
+boost::shared_lock<boost::shared_mutex> Simulation::runLockTry() {
+    return boost::shared_lock<boost::shared_mutex>(run_mutex_, boost::try_to_lock);
 }
 
 void Simulation::run() {
-    auto lock = runLockTry();
-    if (not lock)
-        throw std::runtime_error("Simulation::run() failed: unable to obtain run lock (perhaps you tried to call run() recursively?)");
+    boost::unique_lock<boost::shared_mutex> lock(run_mutex_);
 
     stage_mutex_.lock();
     stage_ = RunStage::idle;
