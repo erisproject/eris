@@ -38,9 +38,9 @@ SharedMember<Member> Simulation::add(const std::shared_ptr<Member> &new_member) 
 
 void Simulation::insert(const SharedMember<Member> &member) {
     if (member->hasSimulation()) throw std::logic_error("Cannot insert member in a simulation multiple times");
-    if (dynamic_cast<Agent*>(member.ptr_.get())) insertAgent(member);
-    else if (dynamic_cast<Good*>(member.ptr_.get())) insertGood(member);
-    else if (dynamic_cast<Market*>(member.ptr_.get())) insertMarket(member);
+    if (dynamic_cast<Agent*>(member.get())) insertAgent(member);
+    else if (dynamic_cast<Good*>(member.get())) insertGood(member);
+    else if (dynamic_cast<Market*>(member.get())) insertMarket(member);
     else insertOther(member);
 }
 
@@ -103,7 +103,7 @@ void Simulation::removeNoDefer(eris_id_t id) {
 
 void Simulation::insertOptimizers(const SharedMember<Member> &member) {
     std::lock_guard<std::recursive_mutex> lock(member_mutex_);
-    Member *mem = member.ptr_.get();
+    Member *mem = member.get();
 #define ERIS_SIM_INSERT_OPTIMIZER(TYPE, STAGE)\
     if (TYPE##opt::STAGE *opt = dynamic_cast<TYPE##opt::STAGE*>(mem)) {\
         optimizers_[(int) RunStage::TYPE##_##STAGE][opt->TYPE##STAGE##Priority()].insert(member);\

@@ -595,7 +595,7 @@ const std::vector<SharedMember<Member>>* Simulation::genericFilterCache(
         // Cache miss: build the [B_h][T_h] cache
         std::vector<SharedMember<Member>> cache;
         for (auto &m : map) {
-            if (dynamic_cast<T*>(m.second.ptr_.get())) {
+            if (dynamic_cast<T*>(m.second.get())) {
                 // The cast succeeded, so this member is a T
                 cache.push_back(m.second);
             }
@@ -627,7 +627,7 @@ std::vector<SharedMember<T>> Simulation::genericFilter(
     }
     else { // Not class filtering, but possibly lambda filtering
         for (auto &m : map) {
-            if (T* mem = dynamic_cast<T*>(m.second.ptr_.get())) {
+            if (T* mem = dynamic_cast<T*>(m.second.get())) {
                 // The cast succeeded, so this Member is also a T
                 if (not filter or filter(*mem))
                     matched.push_back(SharedMember<T>{m.second});
@@ -655,12 +655,12 @@ size_t Simulation::genericFilterCount(
     }
     else if (cache) { // Class & lambda filtering
         for (auto &member : *cache) {
-            if (filter(*dynamic_cast<T*>(member.ptr_.get()))) count++;
+            if (filter(*dynamic_cast<T*>(member.get()))) count++;
         }
     }
     else {
         for (auto &m : map) {
-            if (T* mem = dynamic_cast<T*>(m.second.ptr_.get())) {
+            if (T* mem = dynamic_cast<T*>(m.second.get())) {
                 // The cast succeeded, so this Member is also a T
                 if (filter(*mem))
                     count++;
