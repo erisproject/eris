@@ -158,15 +158,16 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
          */
         void remove(eris_id_t id);
 
-#define ERIS_SIM_FILTER(T, Base, WHICH) \
-        template <class T = Base> \
-        typename enable_if_member<Base, T, std::vector<SharedMember<T>>>::type \
+#define ERIS_SIM_FILTER(T, BASE, WHICH) \
+        template <class T = BASE> \
+        typename enable_if_member<BASE, T, std::vector<SharedMember<T>>>::type \
         WHICH##s(const std::function<bool(const T &WHICH)> &filter = nullptr) const { \
             return genericFilter(WHICH##s_, filter); \
         }
-#define ERIS_SIM_FILTER_COUNT(T, Base, WHICH, METH_TYPE) \
-        template <class T = Base> \
-        typename enable_if_member<Base, T, size_t>::type \
+
+#define ERIS_SIM_FILTER_COUNT(T, BASE, WHICH, METH_TYPE) \
+        template <class T = BASE> \
+        typename enable_if_member<BASE, T, size_t>::type \
         count##METH_TYPE##s(const std::function<bool(const T &WHICH)> &filter = nullptr) const { \
             return genericFilterCount(WHICH##s_, filter); \
         }
