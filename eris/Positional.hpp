@@ -157,7 +157,7 @@ inline const Position& PositionalBase::position() const noexcept { return positi
  * type that inherits from PositionalBase (giving you its methods) and T, essentially adding
  * positional handling to a T object.
  *
- * For example, Positional<Agent> gives you an agent with a position; Positional<Good::Discrete>
+ * For example, Positional<Agent> gives you an agent with a position; Positional<Good>
  * gives you a good with a position.
  */
 template <class T>

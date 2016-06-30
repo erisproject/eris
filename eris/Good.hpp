@@ -4,45 +4,37 @@
 
 namespace eris {
 
-/** Base class for Eris Good objects.  Goods should generally be a subclass of Good, typically
- * either a Good::Continuous or Good::Discrete.
+/** Basic eris Good object.  A good is little more than a unique object with an optional name that
+ * is used to notionally represent a distinct good.
+ *
+ * \sa Bundle
  */
 class Good : public Member {
     public:
-        /// Deleted empty constructor; use Good::Discrete or Good::Continuous instead.
-        Good() = delete;
+        /// Constructor; takes an optional name.
+        explicit Good(std::string name = "") : name{std::move(name)} {}
 
         /** The name of the good. */
         std::string name;
 
-        class Continuous;
-        class Discrete;
+        /** Good::Continuous is a typedef for Good, provided for backwards compatibility.
+         *
+         * \deprecated in eris v0.5.0
+         */
+        [[deprecated("eris::Good::Continuous is deprecated; use eris::Good instead")]]
+        typedef Good Continuous;
+
+        /** Returns the smallest increment that this good should come in, if this good is discrete.
+         * For a continuous good (the default), this returns 0.
+         *
+         * Note that this increment is not actually enforced within eris: it is provided for
+         * convenience for callers that which to explicitly handle discrete goods; any such handling
+         * is up to the individual users.
+         */
+        virtual double atom() { return 0.0; }
 
     protected:
-        /// Superclass constructor that stores the good name
-        Good(std::string name);
-
-        SharedMember<Member> sharedSelf() const override;
+        SharedMember<Member> sharedSelf() const override { return simGood(*this); }
 };
-
-/** Continuous good.  This is a good that is (quasi-)infinitely divisible.
- */
-class Good::Continuous : public Good {
-    public:
-        /// Constructor; takes an optional name.
-        Continuous(std::string name = "");
-};
-
-/** Discrete good that may only take on integer quantities.
- *
- * Note that this class is currently not actually implemented in much of eris; be sure to only use
- * this with classes that explicitly support discrete goods.
- */
-class Good::Discrete : public Good {
-    public:
-        /// Constructor; takes an optional name.
-        Discrete(std::string name = "");
-};
-
 
 }

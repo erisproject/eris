@@ -55,9 +55,9 @@ TEST(Dependencies, Create) {
     auto sim = Simulation::create();
 
     // Create some goods and agents
-    auto m = sim->spawn<Good::Continuous>("Money");
-    auto x = sim->spawn<Good::Continuous>("x");
-    auto y = sim->spawn<Good::Continuous>("y");
+    auto m = sim->spawn<Good>("Money");
+    auto x = sim->spawn<Good>("x");
+    auto y = sim->spawn<Good>("y");
 
     auto con = sim->spawn<Polynomial>();
     con->coef(x, 1) = 1; // u(x) = x
@@ -102,9 +102,9 @@ TEST(Dependencies, Delete) {
     auto sim = Simulation::create();
 
     // Create some goods and agents
-    auto m = sim->spawn<Good::Continuous>("Money");
-    auto x = sim->spawn<Good::Continuous>("x");
-    auto y = sim->spawn<Good::Continuous>("y");
+    auto m = sim->spawn<Good>("Money");
+    auto x = sim->spawn<Good>("x");
+    auto y = sim->spawn<Good>("y");
 
     auto con = sim->spawn<Polynomial>();
     con->coef(x, 1) = 1; // u(x) = x
@@ -165,9 +165,9 @@ TEST(Dependencies, DeleteChain) {
     auto sim = Simulation::create();
 
     // Create some goods and agents
-    auto m = sim->spawn<Good::Continuous>("Money");
-    auto x = sim->spawn<Good::Continuous>("x");
-    auto y = sim->spawn<Good::Continuous>("y");
+    auto m = sim->spawn<Good>("Money");
+    auto x = sim->spawn<Good>("x");
+    auto y = sim->spawn<Good>("y");
 
     auto con = sim->spawn<Polynomial>();
     con->coef(x, 1) = 1; // u(x) = x
