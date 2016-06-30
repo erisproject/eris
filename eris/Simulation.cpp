@@ -23,8 +23,8 @@ void Simulation::registerWeakDependency(eris_id_t member, eris_id_t depends_on) 
     weak_dep_[depends_on].insert(member);
 }
 
-SharedMember<Member> Simulation::add(const std::shared_ptr<Member> &new_member) {
-    SharedMember<Member> member(new_member);
+SharedMember<Member> Simulation::add(std::shared_ptr<Member> new_member) {
+    SharedMember<Member> member(std::move(new_member));
     if (auto lock = runLockTry()) {
         insert(member);
     }

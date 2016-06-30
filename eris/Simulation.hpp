@@ -145,7 +145,7 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
          *
          * \throws std::logic_error if the member already belongs to a simulation
          */
-        SharedMember<Member> add(const std::shared_ptr<Member> &new_member);
+        SharedMember<Member> add(std::shared_ptr<Member> new_member);
 
         /** Removes the given member (and any dependencies) from this simulation.
          *
