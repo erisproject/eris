@@ -594,7 +594,7 @@ const std::vector<SharedMember<Member>>* Simulation::genericFilterCache(
     const auto &B_t = typeid(B), &T_t = typeid(T);
 
     // If T equals B we aren't class filtering at all, so there is no cache to build: eligible
-    // elements are the enter set.
+    // elements are the entire set.
     if (B_t == T_t) return nullptr;
 
     const std::type_index B_h{B_t}, T_h{T_t};
