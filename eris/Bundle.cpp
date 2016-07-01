@@ -30,21 +30,21 @@ Bundle::Bundle(const std::initializer_list<std::pair<eris_id_t, double>> &init) 
 }
 
 constexpr double BundleNegative::zero_;
-const double& BundleNegative::operator[] (const eris_id_t gid) const {
+const double& BundleNegative::operator[] (eris_id_t gid) const {
     // Don't want to invoke map's [] operator, because it auto-vivifies the element
     auto &f = q_stack_.front();
     auto it = f.find(gid);
     return it == f.end() ? zero_ : it->second;
 }
-BundleNegative::valueproxy BundleNegative::operator[] (const eris_id_t gid) {
+BundleNegative::valueproxy BundleNegative::operator[] (eris_id_t gid) {
     return valueproxy(*this, gid);
 }
 
-void BundleNegative::set(const eris_id_t gid, double quantity) {
+void BundleNegative::set(eris_id_t gid, double quantity) {
     q_stack_.front()[gid] = quantity;
 }
 
-void Bundle::set(const eris_id_t gid, const double quantity) {
+void Bundle::set(eris_id_t gid, double quantity) {
     if (quantity < 0) throw negativity_error(gid, quantity);
     BundleNegative::set(gid, quantity);
 }
@@ -55,7 +55,7 @@ bool BundleNegative::empty() const {
 std::unordered_map<eris_id_t, double>::size_type BundleNegative::size() const {
     return q_stack_.front().size();
 }
-int BundleNegative::count(const eris_id_t gid) const {
+int BundleNegative::count(eris_id_t gid) const {
     return q_stack_.front().count(gid);
 }
 std::unordered_map<eris_id_t, double>::const_iterator BundleNegative::begin() const {
@@ -79,11 +79,11 @@ void BundleNegative::clear() {
     q_stack_.front().clear();
 }
 
-int BundleNegative::erase(const eris_id_t gid) {
+int BundleNegative::erase(eris_id_t gid) {
     return q_stack_.front().erase(gid);
 }
 
-double BundleNegative::remove(const eris_id_t gid) {
+double BundleNegative::remove(eris_id_t gid) {
     double d = operator[](gid);
     erase(gid);
     return d;
@@ -184,15 +184,15 @@ Bundle BundleNegative::zeros() const noexcept {
     return b;
 }
 
-Bundle& Bundle::operator *= (const double m) {
+Bundle& Bundle::operator *= (double m) {
     if (m < 0) throw negativity_error("Attempt to scale Bundle by negative value " + std::to_string(m), 0, m);
     BundleNegative::operator*=(m);
     return *this;
 }
-BundleNegative& BundleNegative::operator /= (const double d) {
+BundleNegative& BundleNegative::operator /= (double d) {
     return *this *= (1.0 / d);
 }
-Bundle& Bundle::operator /= (const double d) {
+Bundle& Bundle::operator /= (double d) {
     if (d < 0) throw negativity_error("Attempt to scale Bundle by negative value 1/" + std::to_string(d), 0, d);
     BundleNegative::operator/=(d);
     return *this;
@@ -202,17 +202,17 @@ BundleNegative BundleNegative::operator - () const {
 }
 // Doxygen bug: doxygen erroneously warns about non-inlined friend methods
 /// \cond
-BundleNegative operator * (const double m, const BundleNegative &b) {
+BundleNegative operator * (double m, const BundleNegative &b) {
     return b * m;
 }
 /// \endcond
-Bundle operator * (const double m, const Bundle &b) {
+Bundle operator * (double m, const Bundle &b) {
     return b * m;
 }
-BundleNegative BundleNegative::operator / (const double d) const {
+BundleNegative BundleNegative::operator / (double d) const {
     return *this * (1.0/d);
 }
-Bundle Bundle::operator / (const double d) const {
+Bundle Bundle::operator / (double d) const {
     return *this * (1.0/d);
 }
 
@@ -229,12 +229,12 @@ bool BundleNegative::operator OP (const BundleNegative &b) const noexcept {\
         if (!(operator[](g) OP b[g])) return false;\
     return true;\
 }\
-bool BundleNegative::operator OP (const double q) const noexcept {\
+bool BundleNegative::operator OP (double q) const noexcept {\
     for (auto &g : *this)\
         if (!(g.second OP q)) return false;\
     return true;\
 }\
-bool operator OP (const double q, const BundleNegative &b) noexcept {\
+bool operator OP (double q, const BundleNegative &b) noexcept {\
     return b REVOP q;\
 }
 
@@ -250,10 +250,10 @@ _ERIS_BUNDLE_CPP_COMPARE(>=, <=)
 bool BundleNegative::operator != (const BundleNegative &b) const noexcept {
     return !(*this == b);
 }
-bool BundleNegative::operator != (const double q) const noexcept {
+bool BundleNegative::operator != (double q) const noexcept {
     return !(*this == q);
 }
-bool operator != (const double q, const BundleNegative &b) noexcept {
+bool operator != (double q, const BundleNegative &b) noexcept {
     return !(b == q);
 }
 
@@ -304,7 +304,7 @@ Bundle Bundle::operator - (const Bundle &b) const {
     return ret;
 }
 
-BundleNegative& BundleNegative::operator *= (const double m) {
+BundleNegative& BundleNegative::operator *= (double m) {
     beginTransaction();
     try { for (auto &g : *this) set(g.first, g.second * m); }
     catch (...) { abortTransaction(); throw; }
@@ -312,7 +312,7 @@ BundleNegative& BundleNegative::operator *= (const double m) {
     return *this;
 }
 
-BundleNegative BundleNegative::operator * (const double m) const {
+BundleNegative BundleNegative::operator * (double m) const {
     BundleNegative ret(*this);
     ret.beginEncompassing();
     ret *= m;
@@ -320,7 +320,7 @@ BundleNegative BundleNegative::operator * (const double m) const {
     return ret;
 }
 
-Bundle Bundle::operator * (const double m) const {
+Bundle Bundle::operator * (double m) const {
     Bundle ret(*this);
     ret.beginEncompassing();
     ret *= m;
