@@ -705,7 +705,7 @@ class Bundle final : public BundleNegative {
          * similar.
          *
          * If this method returns true, it is a guarantee that transferApprox() called with the same
-         * arguments will succeed (i.e. without resulting in a BundleNegativity exception).
+         * arguments will succeed (i.e. without resulting in a Bundle::negativity_error exception).
          */
         bool hasApprox(const BundleNegative &amount, const Bundle &to, double epsilon = default_transfer_epsilon) const;
 
@@ -722,7 +722,7 @@ class Bundle final : public BundleNegative {
          * except that it allows for numerical error for goods with very similar quantities.
          *
          * If this method returns true, it is a guarantee that transferApprox() called with the same
-         * arguments will succeed (i.e. without resulting in a BundleNegativity exception).
+         * arguments will succeed (i.e. without resulting in a Bundle::negativity_error exception).
          */
         bool hasApprox(const BundleNegative &amount, double epsilon = default_transfer_epsilon) const;
 
