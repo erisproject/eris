@@ -68,19 +68,30 @@ class Market : public Member {
              * numeric values set to 'nan'.
              */
             quantity_info() = default;
+
             /** Constructor for a set of quantities; initializes quantity, constrained, spent,
              * unspent to the given values.
              */
             quantity_info(double quantity, bool constrained, double spent, double unspent)
                 : quantity{quantity}, constrained{constrained}, spent{spent}, unspent{unspent} {}
+
+            /** Constructor for an unconstrained purchase; `quantity` and `spent` are set to the given values,
+             * `constrained` is set to false, and `unspent` is set to 0.
+             */
+            quantity_info(double quantity, double spent)
+                : quantity{quantity}, constrained{false}, spent{spent}, unspent{0} {}
+
             /// The quantity purchasable
             double quantity = std::numeric_limits<double>::quiet_NaN();
+
             /// True if the purchase would hit a market constraint
             bool constrained = false;
+
             /** The price amount that would be actually spent.  This is simply the provided spending
              * amount when .contrained is false, but will be less when a constraint would be hit.
              */
             double spent = std::numeric_limits<double>::quiet_NaN();
+
             /** The amount (in multiples of the market's price Bundle) of unspent income.  Exactly
              * equal to .price - input_price.  Will be 0 when .constrained is false.
              */
