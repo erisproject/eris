@@ -98,9 +98,6 @@ Market::Reservation Market::createReservation(SharedMember<AssetAgent> agent, do
     return Reservation(sharedSelf(), agent, q, p);
 }
 
-Market::price_info::price_info(double total, double marginal, double marginalFirst)
-    : feasible(true), total(total), marginal(marginal), marginalFirst(marginalFirst) {}
-
 const char* Market::Reservation::non_pending_exception::what() const noexcept {
     return "Attempt to buy/release a non-pending market Reservation";
 }

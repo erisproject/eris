@@ -45,7 +45,8 @@ class Market : public Member {
             /// Default constructor: yields a price_info with `.feasible` set to false.
             price_info() = default;
             /// Constructor for feasible quantities; sets `feasible` to true.
-            price_info(double total, double marginal, double marginalFirst);
+            price_info(double total, double marginal, double marginalFirst)
+                : feasible{true}, total{total}, marginal{marginal}, marginalFirst{marginalFirst} {}
             /// True if the requested quantity is available.
             bool feasible = false;
             /// Total price 
@@ -63,18 +64,27 @@ class Market : public Member {
          * \sa quantity(double)
          */
         struct quantity_info {
+            /** Default construct: yields a quantity_info with `.constrained` set to false, and
+             * numeric values set to 'nan'.
+             */
+            quantity_info() = default;
+            /** Constructor for a set of quantities; initializes quantity, constrained, spent,
+             * unspent to the given values.
+             */
+            quantity_info(double quantity, bool constrained, double spent, double unspent)
+                : quantity{quantity}, constrained{constrained}, spent{spent}, unspent{unspent} {}
             /// The quantity purchasable
-            double quantity;
+            double quantity = std::numeric_limits<double>::quiet_NaN();
             /// True if the purchase would hit a market constraint
-            bool constrained;
+            bool constrained = false;
             /** The price amount that would be actually spent.  This is simply the provided spending
              * amount when .contrained is false, but will be less when a constraint would be hit.
              */
-            double spent;
+            double spent = std::numeric_limits<double>::quiet_NaN();
             /** The amount (in multiples of the market's price Bundle) of unspent income.  Exactly
              * equal to .price - input_price.  Will be 0 when .constrained is false.
              */
-            double unspent;
+            double unspent = std::numeric_limits<double>::quiet_NaN();
         };
 
         /** Contains a reservation of market purchase.  The market will consider the reserved
