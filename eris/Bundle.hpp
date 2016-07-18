@@ -152,6 +152,8 @@ class BundleNegative {
 
         /** Removes the specified good from the bundle (if it exists), and returns either 0 or 1
          * indicating whether the good was present in the bundle, like std::unordered_map::erase.
+         *
+         * \sa remove
          */
         int erase(eris_id_t gid);
 
