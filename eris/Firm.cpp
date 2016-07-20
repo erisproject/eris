@@ -3,7 +3,7 @@
 
 namespace eris {
 
-bool Firm::canSupply(const Bundle &b) const noexcept {
+bool Firm::canSupply(const Bundle &b) const {
     return canSupplyAny(b) >= 1.0;
 }
 
@@ -26,19 +26,19 @@ Firm::production_unreserved::production_unreserved()
     : production_unreserved("Firm cannot produce requested bundle: production would exceed reserved production")
 {}
 
-bool Firm::canProduce(const Bundle &b) const noexcept {
+bool Firm::canProduce(const Bundle &b) const {
     return canProduceAny(b) >= 1.0;
 }
 
-double Firm::canProduceAny(const Bundle&) const noexcept {
+double Firm::canProduceAny(const Bundle&) const {
     return 0.0;
 }
 
-bool Firm::produces(const Bundle &b) const noexcept {
+bool Firm::produces(const Bundle &b) const {
     return canProduceAny(b) > 0;
 }
 
-double Firm::canSupplyAny(const Bundle &b) const noexcept {
+double Firm::canSupplyAny(const Bundle &b) const {
     // We can supply the entire thing from current assets:
     if (assets() >= b) return 1.0;
 
@@ -54,7 +54,7 @@ double Firm::canSupplyAny(const Bundle &b) const noexcept {
     return (need + onhand).multiples(b);
 }
 
-bool Firm::supplies(const Bundle &b) const noexcept {
+bool Firm::supplies(const Bundle &b) const {
     Bundle check_produce;
     const Bundle &a = assets();
     // Look through everything in the requested Bundle; if our current assets don't contain any of
@@ -239,11 +239,11 @@ Bundle FirmNoProd::produce(const Bundle&) {
     throw production_unavailable();
 }
 
-bool FirmNoProd::supplies(const Bundle &b) const noexcept {
+bool FirmNoProd::supplies(const Bundle &b) const {
     return assets().covers(b);
 }
 
-double FirmNoProd::canSupplyAny(const Bundle &b) const noexcept {
+double FirmNoProd::canSupplyAny(const Bundle &b) const {
     return assets().multiples(b);
 }
 

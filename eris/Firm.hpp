@@ -25,7 +25,7 @@ class Firm : public agent::AssetAgent {
          * simply calls canSupplyAny, and returns true or false depending on whether canSupplyAny
          * returned a value >= 1.
         */
-        virtual bool canSupply(const Bundle &b) const noexcept;
+        virtual bool canSupply(const Bundle &b) const;
 
         /** Returns a non-negative double indicating whether the firm is able to supply the given
          * Bundle.  Values of 1 (or greater) indicate that the firm can supply the entire Bundle
@@ -41,14 +41,14 @@ class Firm : public agent::AssetAgent {
          * value of exactly 1.0 DOES NOT indicate that no further amount can be supplied (though
          * specific subclasses may add that interpretation).
          */
-        virtual double canSupplyAny(const Bundle &b) const noexcept;
+        virtual double canSupplyAny(const Bundle &b) const;
 
         /** This is similar to canSupplyAny(), but only returns a true/false value indicating
          * whether the firm can supply any positive multiple of the given Bundle.  This is identical
          * in functionality to (canSupplyAny(b) > 0), but more efficient (as the calculations to
          * figure out the precise multiple that can be supplied are skipped).
          */
-        virtual bool supplies(const Bundle &b) const noexcept;
+        virtual bool supplies(const Bundle &b) const;
 
         /** Contains a reservation of a BundleNegative net transfer from a firm.  The firm will
          * consider the reserved quantity unavailable until a call of either transfer() (which
@@ -248,14 +248,14 @@ class Firm : public agent::AssetAgent {
          * simply calls canProduceAny() and returns true iff it returns >= 1.0, which should be
          * sufficient in most cases.
          */
-        virtual bool canProduce(const Bundle &b) const noexcept;
+        virtual bool canProduce(const Bundle &b) const;
 
         /** Analogous to (and called by) canSupplyAny(), this method should return a value between 0
          * and 1 indicating the proportion of the bundle the firm can instantly produce.  By default
          * it returns 0, which should be appropriate for firms that don't instantaneously produce,
          * but will certainly need to be overridden by classes with within-period production.
          */
-        virtual double canProduceAny(const Bundle &b) const noexcept;
+        virtual double canProduceAny(const Bundle &b) const;
 
         /** Analogous to (and called by) supplies(), this method returns true if the firm is able to
          * produce some positive quantity of each good of the given Bundle.  This is equivalent to
@@ -266,7 +266,7 @@ class Firm : public agent::AssetAgent {
          * default canProduceAny(b) simply returns 0.  If overriding canProduceAny(b) with more
          * complicated logic, you should also contemplate overriding produces().
          */
-        virtual bool produces(const Bundle &b) const noexcept;
+        virtual bool produces(const Bundle &b) const;
 
         /** This method is called by transfer() with the portion of the Bundle that cannot be
          * transferred from the firm's current assets, if any.  This method uses up reserved
@@ -403,13 +403,13 @@ class FirmNoProd : public Firm {
         virtual Bundle produce(const Bundle &b) override;
 
         /// Overridden to optimize by avoiding production checks.
-        virtual bool supplies(const Bundle &b) const noexcept override;
+        virtual bool supplies(const Bundle &b) const override;
 
         /** Overridden to optimized by skipping production method calculations and calls.  Note that
          * unlike the Firm version of this method, this will return values greater than 1 (when
          * appropriate).
          */
-        virtual double canSupplyAny(const Bundle &b) const noexcept override;
+        virtual double canSupplyAny(const Bundle &b) const override;
 
         /** Calls to ensure that there is at least the given Bundle available in assets for the next
          * period.  If current assets are sufficient, this does nothing; otherwise it calls
