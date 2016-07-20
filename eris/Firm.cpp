@@ -30,10 +30,6 @@ bool Firm::canProduce(const Bundle &b) const {
     return canProduceAny(b) >= 1.0;
 }
 
-double Firm::canProduceAny(const Bundle&) const {
-    return 0.0;
-}
-
 bool Firm::produces(const Bundle &b) const {
     return canProduceAny(b) > 0;
 }
