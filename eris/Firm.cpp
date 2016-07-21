@@ -68,7 +68,7 @@ bool Firm::supplies(const Bundle &b) const {
 
 Firm::Reservation Firm::supply(const BundleNegative &b, Bundle &assets) {
     auto res = reserve(b);
-    transfer(res, assets);
+    res->transfer(assets);
     return res;
 }
 
@@ -143,77 +143,79 @@ void Firm::produceReserved(const Bundle &b) {
     assets().commitTransaction();
 }
 
-void Firm::transfer(Reservation &res, Bundle &to) {
-    if (res.state != ReservationState::pending)
+void Firm::Reservation::transfer(Bundle &to) {
+    if (state != ReservationState::pending)
         throw Reservation::non_pending_exception();
 
-    res.state = ReservationState::complete;
-
+    Bundle &assets = firm->assets();
+    double &epsilon = firm->epsilon;
     to.beginTransaction();
-    assets().beginTransaction();
+    assets.beginTransaction();
 
     try {
         // Take payment:
-        Bundle in = res.bundle.negative();
-        to.transferApprox(res.bundle.negative(), assets(), epsilon);
+        Bundle in = bundle.negative();
+        to.transferApprox(bundle.negative(), assets, epsilon);
 
         // Now transfer and/or produce output
-        Bundle out = res.bundle.positive();
+        Bundle out = bundle.positive();
         out.beginEncompassing();
-        Bundle from_reserves = Bundle::common(reserves_, out);
+        Bundle from_reserves = Bundle::common(firm->reserves_, out);
 
-        Bundle done = reserves_.transferApprox(from_reserves, to, epsilon);
+        Bundle done = firm->reserves_.transferApprox(from_reserves, to, epsilon);
         out.transferApprox(done, epsilon);
 
         if (out > 0) {
             // Need to produce the rest
-            produceReserved(out);
-            assets().transferApprox(out, to, epsilon);
+            firm->produceReserved(out);
+            assets.transferApprox(out, to, epsilon);
         }
 
         // Call this in case any of the excess production and/or payment assets allow us to reduce
         // reserved production by transferring some assets to reserves.
-        reduceProduction();
+        firm->reduceProduction();
     }
     catch (...) {
         to.abortTransaction();
-        assets().abortTransaction();
+        assets.abortTransaction();
         throw;
     }
 
     to.commitTransaction();
-    assets().commitTransaction();
+    assets.commitTransaction();
+
+    state = ReservationState::complete;
 }
 
-void Firm::release(Reservation &res) {
-    if (res.state != ReservationState::pending)
+void Firm::Reservation::release() {
+    if (state != ReservationState::pending)
         throw Reservation::non_pending_exception();
 
-    res.state = ReservationState::aborted;
+    state = ReservationState::aborted;
 
-    Bundle res_pos = res.bundle.positive();
+    Bundle res_pos = bundle.positive();
     if (res_pos == 0) // Nothing to do
         return;
 
-    Bundle unreserved_prod = Bundle::reduce(reserved_production_, res_pos);
+    Bundle unreserved_prod = Bundle::reduce(firm->reserved_production_, res_pos);
 
     // If we removed some from reserved production, add it to excess production
     if (unreserved_prod != 0) {
-        excess_production_ += unreserved_prod;
+        firm->excess_production_ += unreserved_prod;
 
         if (res_pos == 0) {
             // That reduction is everything we had to unreserve, so we can just call
             // reduceExcessProduction instead of reduceProduction.
-            reduceExcessProduction();
+            firm->reduceExcessProduction();
             return;
         }
     }
 
     // Anything left should be transferrable from reserves to assets.  This could throw a negativity
     // exception if something got screwed up.
-    reserves_.transferApprox(res_pos, assets(), epsilon);
+    firm->reserves_.transferApprox(res_pos, firm->assets(), firm->epsilon);
 
-    reduceProduction();
+    firm->reduceProduction();
 }
 
 void Firm::reduceProduction() {
@@ -252,23 +254,14 @@ void FirmNoProd::reserveProduction(const Bundle&) {
     throw production_unavailable();
 }
 
-void FirmNoProd::reduceProduction() {}
-
 void FirmNoProd::reduceExcessProduction() {}
 
 Firm::Reservation::Reservation(SharedMember<Firm> firm, BundleNegative bundle)
     : bundle(bundle), firm(firm) {}
 
 Firm::Reservation::~Reservation() {
-    if (state == ReservationState::pending)
+    if (firm and state == ReservationState::pending)
         release();
 }
 
-void Firm::Reservation::transfer(Bundle &assets) {
-    firm->transfer(*this, assets);
-}
-
-void Firm::Reservation::release() {
-    firm->release(*this);
-}
 }

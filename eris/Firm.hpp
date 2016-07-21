@@ -58,7 +58,7 @@ class Firm : public agent::AssetAgent {
          * called automatically.
          *
          * This object is not intended to be used directly, but rather through the Reservation
-         * unique_ptr typedef.
+         * returned by reserve().
          */
         class Reservation final {
             private:
@@ -70,14 +70,14 @@ class Firm : public agent::AssetAgent {
                 Reservation(const Reservation &) = delete;
 
                 // Move/copy assignment not allowed
-                Reservation& operator=(Reservation &&move) = delete;
-                Reservation& operator=(const Reservation &copy) = delete;
+                Reservation& operator=(Reservation &&) = delete;
+                Reservation& operator=(const Reservation &) = delete;
 
             public:
                 /// Move constructor
-                Reservation(Reservation &&move) = default;
+                Reservation(Reservation &&) = default;
                 /** Destructor.  If this Reservation is destroyed without having been completed or aborted
-                 * (via transfer() or release()), it will be aborted (by calling release() on its Firm).
+                 * (via transfer() or release()), it will be aborted (by calling release()).
                  */
                 ~Reservation();
                 /// The state of this reservation.
@@ -88,12 +88,21 @@ class Firm : public agent::AssetAgent {
                 const BundleNegative bundle;
                 /// The firm for which this Reservation applies.
                 const SharedMember<Firm> firm;
-                /** Calls transfer() on the firm with the Reservation object.  Calling
-                 * obj->transfer(a) is equivalent to calling `obj->firm->transfer(obj, a)`.
+                /** Transfers the given Bundle reservation out of reserves and into the provided Bundle.
+                 * Reserved production is performed if required.  Any negative quantities in the reservation
+                 * are removed from the given Bundle and added to the firm's assets.  When the transfer is
+                 * completed, reduceProduction() is called to see if any currently planned production can
+                 * instead be supplied from the newly-gained assets.
                  */
                 void transfer(Bundle &to);
-                /** Calls release() on the firm.  This is equivalent to calling
-                 * `obj->firm->release(obj)`.
+                /** Cancels a reserved quantity previously reserved with reserve(), indicating that the
+                 * quantity will not be transferred via `res.transfer()`.
+                 *
+                 * This method attempts to transfer as much of the bundle to be released as possible
+                 * from reserved_production_ to excess_production.  If that was sufficient to cover
+                 * the whole request, it calls reduceExessProduction() and finishes.  Otherwise, any
+                 * remaining amount is transferred from reserves to assets, followed by a
+                 * reduceProduction() call (which itself also calls reduceExcessProduction).
                  */
                 void release();
 
@@ -109,12 +118,13 @@ class Firm : public agent::AssetAgent {
         /** Tells the firm to supply the given Bundle and transfer it to the given assets bundle.
          * This method is simply a wrapper around reserve() and transfer(); see those methods for
          * details.  That is, `firm->supply(b, assets)` is identical to
-         * `firm->reserve(b)->transfer(assets)`.
+         * `firm->reserve(b)->transfer(assets)`, except that it returns the (completed) reservation
+         * object.
          *
          * \returns the (completed) Reservation
          *
-         * \sa reserve()
-         * \sa transfer()
+         * \sa Firm::Reservation::reserve()
+         * \sa Firm::Reservation::transfer()
          */
         Reservation supply(const BundleNegative &b, Bundle &assets);
 
@@ -180,7 +190,7 @@ class Firm : public agent::AssetAgent {
 
 
         /** Reserves the given quantities to be later transferred from the firm by a
-         * transfer() call, or aborted via a release() call.
+         * reservation transfer() call, or aborted via a release() call.
          *
          * This works with 4 internal Bundles to manage assets, reserves and production.  Those are:
          * assets, reserved assets, reserved production, and excess production.
@@ -213,25 +223,6 @@ class Firm : public agent::AssetAgent {
          * of a failure).
          */
         virtual Reservation reserve(const BundleNegative &reserve);
-
-        /** Transfers the given Bundle reservation out of reserves and into the provided Bundle.
-         * Reserved production is performed if required.  Any negative quantities in the reservation
-         * are removed from the given Bundle and added to the firm's assets.  When the transfer is
-         * completed, reduceProduction() is called to see if any currently planned production can
-         * instead be supplied from the newly-gained assets.
-         */
-        void transfer(Reservation &res, Bundle &assets);
-
-        /** Cancels a reserved quantity previously reserved with reserve(), indicating that the
-         * quantity will not be transferred via `res.transfer()`.
-         *
-         * The default implementation attempts to transfer as much of the bundle to be released as
-         * possible from reserved_production_ to excess_production.  If that was sufficient to cover
-         * the whole request, it calls reduceExessProduction() and finishes.  Otherwise, any
-         * remaining amount is transferred from reserves to assets, followed by a reduceProduction()
-         * call.
-         */
-        void release(Reservation &res);
 
         /** Controls the relative tolerance for handling invalid requests such as being asked to
          * produce more than is available.  Requested amounts can be changed by up to this amount to
@@ -348,7 +339,8 @@ class Firm : public agent::AssetAgent {
          * ends.  If cancelled, reserved assets are returned to regular assets.
          *
          * \sa reserve()
-         * \sa transfer()
+         * \sa Firm::Reservation::transfer()
+         * \sa Firm::Reservation::release()
          * \sa assets_
          * \sa reserved_production_
          * \sa excess_production_
@@ -390,6 +382,9 @@ class Firm : public agent::AssetAgent {
          * \sa reduceProduction()
          */
         Bundle excess_production_;
+
+        friend class Reservation; // Reservation needs internal firm access to perform the transfer/release
+
 };
 
 /** Abstract specialization of Firm intended for firms with no instantaneous production capacity.

@@ -77,7 +77,7 @@ Market::Reservation::Reservation(SharedMember<Market> mkt, SharedMember<AssetAge
 }
 
 Market::Reservation::~Reservation() {
-    if (state == ReservationState::pending)
+    if (market and state == ReservationState::pending)
         release();
 }
 

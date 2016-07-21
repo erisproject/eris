@@ -106,7 +106,7 @@ class Market : public Member {
          * called automatically.
          *
          * This object is not intended to be used directly, but rather through the Reservation
-         * unique_ptr typedef.
+         * returned by reserve().
          */
         class Reservation final {
             private:
@@ -116,11 +116,11 @@ class Market : public Member {
 
                 // Default/copy construction not allowed
                 Reservation() = delete;
-                Reservation(const Reservation&) = delete;
+                Reservation(const Reservation &) = delete;
 
                 // Move/copy assignment not allowed
-                Reservation& operator=(Reservation &&move) = delete;
-                Reservation& operator=(const Reservation &copy) = delete;
+                Reservation& operator=(Reservation &&) = delete;
+                Reservation& operator=(const Reservation &) = delete;
 
                 std::forward_list<Firm::Reservation> firm_reservations_;
 
@@ -128,7 +128,7 @@ class Market : public Member {
 
             public:
                 /// Move constructor
-                Reservation(Reservation &&move) = default;
+                Reservation(Reservation &&) = default;
                 /** Destructor.  If this Reservation is destroyed without having been completed or aborted
                  * (via buy() or release()), it will be aborted (by calling release() on its Market).
                  */
