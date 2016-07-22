@@ -154,8 +154,9 @@ if (API_DOCS)
 endif()
 
 enable_testing()
-# Include a "check" target that works just like the "test" target, but in verbose mode.
-add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND} -V)
+# CMake's default "test" target doesn't support deps, so add a check target
+# that we can add dependencies to to build the tests.
+add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND})
 add_subdirectory(tests EXCLUDE_FROM_ALL)
 
 set(arch ${CMAKE_HOST_SYSTEM_PROCESSOR})
