@@ -75,7 +75,12 @@ class Firm : public Agent {
 
             public:
                 /// Move constructor
-                Reservation(Reservation &&) = default;
+                Reservation(Reservation &&move) : state{move.state},
+                    // need to const_cast away the constness on the move source (otherwise copy
+                    // constructors get invoked, which leaves firm set, which breaks destruction).
+                    bundle(std::move(const_cast<BundleNegative&>(move.bundle))),
+                    firm(std::move(const_cast<SharedMember<Firm>&>(move.firm))) {}
+
                 /** Destructor.  If this Reservation is destroyed without having been completed or aborted
                  * (via transfer() or release()), it will be aborted (by calling release()).
                  */

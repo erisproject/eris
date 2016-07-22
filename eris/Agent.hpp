@@ -19,7 +19,7 @@ public:
      * \sa eris::agent::ClearingAgent for a version that automatically clears the assets bundle
      * at the beginning of each period.
      */
-    Bundle assets{};
+    Bundle assets;
 protected:
     /// Returns a SharedMember<Member> wrapped around the current object
     SharedMember<Member> sharedSelf() const override;

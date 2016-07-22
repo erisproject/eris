@@ -137,9 +137,17 @@ class SharedMember final {
             if (from.ptr() and not ptr_) throw std::bad_cast();
         }
 
-        /** Copy constructor. */
-        SharedMember(const SharedMember<T> &from) : ptr_{from.ptr_}
-        {}
+        /// Default copy constructor.
+        SharedMember(const SharedMember<T> &) = default;
+
+        /// Default move constructor.  The underlying shared pointer is moved
+        SharedMember(SharedMember<T> &&) = default;
+
+        /// Default copy assignment
+        SharedMember<T>& operator=(const SharedMember<T> &) = default;
+
+        /// Default move assignment
+        SharedMember<T>& operator=(SharedMember<T> &&) = default;
 
     private:
         std::shared_ptr<T> ptr_;

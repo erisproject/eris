@@ -124,11 +124,19 @@ class Market : public Member {
 
                 std::forward_list<Firm::Reservation> firm_reservations_;
 
+                // Temporary bundle that holds the payment when the reservation is constructed and
+                // either returns it to the agent (if cancelled) or gives it to firms (if completed).
                 Bundle b_;
 
             public:
                 /// Move constructor
-                Reservation(Reservation &&) = default;
+                Reservation(Reservation &&move) : firm_reservations_(std::move(move.firm_reservations_)),
+                b_(std::move(move.b_)), state{move.state}, quantity{move.quantity}, price{move.price},
+                // need to const_cast away the constness on the move source (otherwise copy
+                // constructors get invoked, which leaves market set, which breaks destruction).
+                market(std::move(const_cast<SharedMember<Market>&>(move.market))),
+                agent(std::move(const_cast<SharedMember<Agent>&>(move.agent))) {}
+
                 /** Destructor.  If this Reservation is destroyed without having been completed or aborted
                  * (via buy() or release()), it will be aborted (by calling release() on its Market).
                  */
