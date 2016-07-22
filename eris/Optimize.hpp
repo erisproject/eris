@@ -122,8 +122,8 @@ class OptApply : public virtual Optimize, public virtual Apply {};
 class Advance {
     public:
         /** This method is called to take care of any actions that need to be performed when
-         * advancing.  For example, eris::agent::AssetAgent uses interAdvance to clear the agent's
-         * assets bundle.
+         * advancing.  For example, eris::agent::ClearingAgent uses interAdvance to clear the
+         * agent's assets bundle.
          */
         virtual void interAdvance() = 0;
 

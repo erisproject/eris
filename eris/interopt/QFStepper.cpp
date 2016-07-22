@@ -16,7 +16,7 @@ void QFStepper::take_step(double relative) {
 bool QFStepper::should_jump() {
     auto firm = simAgent<QFirm>(firm_);
 
-    double sales = firm->started - firm->assets().multiples(firm->output());
+    double sales = firm->started - firm->assets.multiples(firm->output());
     if (sales <= firm->capacity / 2) {
         jump_cap_ = sales;
         return true;

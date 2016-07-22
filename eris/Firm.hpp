@@ -1,5 +1,5 @@
 #pragma once
-#include <eris/agent/AssetAgent.hpp>
+#include <eris/Agent.hpp>
 #include <exception>
 #include <stdexcept>
 #include <string>
@@ -17,7 +17,7 @@ enum class ReservationState { pending, complete, aborted };
 /** Abstract base class for representing a firm that uses some input (such as money) to supply some
  * output (such as a good).
  */
-class Firm : public agent::AssetAgent {
+class Firm : public Agent {
     public:
         /** Returns true if the firm is able to supply the given Bundle.  Returning false thus 
          * indicates that the firm either cannot supply some of the items in the Bundle, or else
@@ -308,8 +308,8 @@ class Firm : public agent::AssetAgent {
 
         /** This method checks currently planned production for any possible reductions.
          * Specifically, this does two things:
-         * - If assets_ contains any of the currently reserved production, that amount is moved from
-         *   assets_ to reserves_, and moved from reserved_production_ to excess_production_.
+         * - If assets contains any of the currently reserved production, that amount is moved from
+         *   assets to reserves_, and moved from reserved_production_ to excess_production_.
          * - reduceExcessProduction() is called to reduce any production levels as appropriate.
          */
         void reduceProduction();
@@ -411,16 +411,16 @@ class FirmNoProd : public Firm {
          * period.  If current assets are sufficient, this does nothing; otherwise it calls
          * produceNext with the Bundle of quantities required to hit the target Bundle.
          *
-         * \param b the Bundle of quantities needed in assets() next period.
+         * \param b the Bundle of quantities needed in `assets` next period.
          */
         void ensureNext(const Bundle &b);
 
         /** Called to produce at least b for next period.  This is typically called indirectly
          * through ensureNext(), which takes into account current assets to hit a target capacity.
-         * Thus this method must not take into account the current level of assets(): the passed-in
+         * Thus this method must not take into account the current level of `assets`: the passed-in
          * Bundle is the *additional* amount of production required.
          *
-         * \param b the (minimum) Bundle to be produced and added to current assets().
+         * \param b the (minimum) Bundle to be produced and added to current `assets`.
          *
          * \sa QFirm
          * \sa QFStepper

@@ -36,10 +36,10 @@ bool Firm::produces(const Bundle &b) const {
 
 double Firm::canSupplyAny(const Bundle &b) const {
     // We can supply the entire thing from current assets:
-    if (assets() >= b) return 1.0;
+    if (assets >= b) return 1.0;
 
     // Otherwise try production to make up the difference
-    Bundle onhand = Bundle::common(assets(), b);
+    Bundle onhand = Bundle::common(assets, b);
     Bundle need = b - onhand;
     double c = canProduceAny(need);
     if (c >= 1.0) return 1.0;
@@ -52,7 +52,7 @@ double Firm::canSupplyAny(const Bundle &b) const {
 
 bool Firm::supplies(const Bundle &b) const {
     Bundle check_produce;
-    const Bundle &a = assets();
+    const Bundle &a = assets;
     // Look through everything in the requested Bundle; if our current assets don't contain any of
     // something requested, we need to check whether we can produce it.
     for (auto item : b) {
@@ -68,14 +68,14 @@ bool Firm::supplies(const Bundle &b) const {
 
 Firm::Reservation Firm::supply(const BundleNegative &b, Bundle &assets) {
     auto res = reserve(b);
-    res->transfer(assets);
+    res.transfer(assets);
     return res;
 }
 
 Firm::Reservation Firm::reserve(const BundleNegative &reserve) {
     Bundle res_pos = reserve.positive();
     // First see if current assets can handle any of the requested Bundle
-    Bundle common = Bundle::common(assets(), res_pos);
+    Bundle common = Bundle::common(assets, res_pos);
     if (common != 0) res_pos -= common;
 
     if (res_pos != 0) {
@@ -97,7 +97,7 @@ Firm::Reservation Firm::reserve(const BundleNegative &reserve) {
 
     // Transfer any assets we matched above into reserves
     if (common != 0) {
-        assets().transferApprox(common, reserves_, epsilon);
+        assets.transferApprox(common, reserves_, epsilon);
     }
 
     return createReservation(reserve);
@@ -122,7 +122,7 @@ void Firm::produceReserved(const Bundle &b) {
     }
 
     excess_production_.beginTransaction();
-    assets().beginTransaction();
+    assets.beginTransaction();
 
     try {
         Bundle produced = produce(to_produce);
@@ -130,24 +130,24 @@ void Firm::produceReserved(const Bundle &b) {
         if (produced != to_produce) // Reduce planned excess production appropriately
             excess_production_.transferApprox(produced - to_produce, epsilon);
 
-        assets() += produced;
+        assets += produced;
     }
     catch (...) {
         reserved_production_.abortTransaction();
         excess_production_.abortTransaction();
-        assets().abortTransaction();
+        assets.abortTransaction();
     }
 
     reserved_production_.commitTransaction();
     excess_production_.commitTransaction();
-    assets().commitTransaction();
+    assets.commitTransaction();
 }
 
 void Firm::Reservation::transfer(Bundle &to) {
     if (state != ReservationState::pending)
         throw Reservation::non_pending_exception();
 
-    Bundle &assets = firm->assets();
+    Bundle &assets = firm->assets;
     double &epsilon = firm->epsilon;
     to.beginTransaction();
     assets.beginTransaction();
@@ -213,13 +213,13 @@ void Firm::Reservation::release() {
 
     // Anything left should be transferrable from reserves to assets.  This could throw a negativity
     // exception if something got screwed up.
-    firm->reserves_.transferApprox(res_pos, firm->assets(), firm->epsilon);
+    firm->reserves_.transferApprox(res_pos, firm->assets, firm->epsilon);
 
     firm->reduceProduction();
 }
 
 void Firm::reduceProduction() {
-    Bundle common = Bundle::reduce(assets(), reserved_production_);
+    Bundle common = Bundle::reduce(assets, reserved_production_);
 
     if (common != 0) {
         reserves_ += common;
@@ -238,16 +238,16 @@ Bundle FirmNoProd::produce(const Bundle&) {
 }
 
 bool FirmNoProd::supplies(const Bundle &b) const {
-    return assets().covers(b);
+    return assets.covers(b);
 }
 
 double FirmNoProd::canSupplyAny(const Bundle &b) const {
-    return assets().multiples(b);
+    return assets.multiples(b);
 }
 
 void FirmNoProd::ensureNext(const Bundle &b) {
-    if (!(assets() >= b))
-        produceNext(b - Bundle::common(assets(), b));
+    if (!(assets >= b))
+        produceNext(b - Bundle::common(assets, b));
 }
 
 void FirmNoProd::reserveProduction(const Bundle&) {

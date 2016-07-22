@@ -22,7 +22,7 @@ ProfitStepper::ProfitStepper(
 
 bool ProfitStepper::should_increase() {
     auto firm = simAgent<Firm>(firm_);
-    curr_profit_ = firm->assets().multiples(profit_basis_);
+    curr_profit_ = firm->assets.multiples(profit_basis_);
 
     bool incr = false;
 

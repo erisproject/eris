@@ -49,7 +49,7 @@ bool IncrementalBuyer::oneRound() {
     auto sim = simulation();
     SharedMember<Consumer> consumer = sim->agent(con_id);
 
-    Bundle &a = consumer->assets();
+    Bundle &a = consumer->assets;
 
     double cash = a[money];
     if (cash <= 0) {
