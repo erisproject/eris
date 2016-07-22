@@ -16,7 +16,7 @@ IncrementalBuyer::IncrementalBuyer(const Consumer &consumer, eris_id_t money, in
     con_id(consumer), money(money), money_unit(Bundle {{ money, 1 }}), rounds(rounds) {}
 
 void IncrementalBuyer::permuteThreshold(const double &thresh) noexcept {
-    threshold = (isnan(thresh) or thresh > 1.0) ? 1.0 : thresh;
+    threshold = (std::isnan(thresh) or thresh > 1.0) ? 1.0 : thresh;
 }
 
 void IncrementalBuyer::permuteAll() noexcept {
