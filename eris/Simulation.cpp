@@ -385,7 +385,6 @@ void Simulation::thr_stage(const RunStage &stage) {
 
             thr_cv_done_.wait(lock_d, [this] { return thr_running_ == 0; });
 
-            deferred_mutex_.lock();
             // The stage is done; handle deferred insertion/removal
             processDeferredQueue();
         }
