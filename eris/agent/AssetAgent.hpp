@@ -13,7 +13,7 @@ namespace eris { namespace agent {
  * To convert from AssetAgent to Agent, simply change the inheriting class and replace all
  * `->assets()` calls with an `->assets` member access.
  */
-class AssetAgent : public virtual Agent {
+class [[deprecated("AssetAgent is deprecated; Agent now provides an .assets attribute")]] AssetAgent : public virtual Agent {
 public:
     /// Returns a Bundle reference to the agent's current assets.
     Bundle& assets() { return Agent::assets; }
