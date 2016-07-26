@@ -49,6 +49,8 @@ set(LIBERIS_CURRENT  "6")
 set(LIBERIS_REVISION "0")
 set(LIBERIS_AGE      "0")
 
+cmake_policy(SET CMP0042 NEW)
+
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules)
 
 # No in-source building
@@ -70,7 +72,17 @@ else()
     message(STATUS "include-what-you-use header debugging support disabled (-DIWYU=on to enable)")
 endif()
 
-option(API_DOCS "Enable creativity API documentation generation (requires doxygen)" ON)
+set(api_docs_default ON)
+if (DEFINED API_DOCS)
+else()
+    find_package(Doxygen 1.8.2)
+    if (NOT DOXYGEN_FOUND OR NOT DOXYGEN_DOT_FOUND)
+        message(STATUS "doxygen (with dot) not found: setting default API_DOCS to OFF.  Use -DAPI_DOCS=(on|off) to override")
+        set(api_docs_default OFF)
+    endif()
+endif()
+
+option(API_DOCS "Enable creativity API documentation generation (requires doxygen)" ${api_docs_default})
 if (API_DOCS)
     message(STATUS "API documentation generation enabled (-DAPI_DOCS=off to disable)")
 else()
@@ -99,10 +111,10 @@ find_package(Threads REQUIRED)
 
 # Move semantics were during 3.3 development, and backported in 3.2.7:
 find_package(Eigen3 REQUIRED)
-if (EIGEN3_VERSION_STRING VERSION_LESS "3.2.7")
-    message(FATAL_ERROR "Eigen v3.2.7 required, but found v${EIGEN3_VERSION_STRING}")
+if (EIGEN3_VERSION VERSION_LESS "3.2.7")
+    message(FATAL_ERROR "Eigen >= 3.2.7 required, but found v${EIGEN3_VERSION}")
 else()
-    message(STATUS "Eigen version: ${EIGEN3_VERSION_STRING}")
+    message(STATUS "Eigen version: ${EIGEN3_VERSION}")
 endif()
 include_directories(${EIGEN3_INCLUDE_DIR})
 
