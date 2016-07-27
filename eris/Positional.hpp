@@ -32,7 +32,7 @@ class PositionalBase {
         double distance(const Position &pos) const;
 
         /// a.vectorTo(b) is an alias for `a.vectorTo(b.position())`.
-        virtual Position vectorTo(const PositionalBase &other) const;
+        Position vectorTo(const PositionalBase &other) const;
 
         /** `a.vectorTo(p)` Returns a vector \f$v\f$ (as a Position object) which is the shortest
          * vector that, when passed to moveBy(), would result in `a` being at position `p`.  The
@@ -77,14 +77,15 @@ class PositionalBase {
          */
         virtual Position upperBound() const noexcept;
 
-        /** Returns true if attempting to move to a position outside the object's bounding box should
-         * instead move to the nearest point on the boundary.  The default always returns false;
-         * subclasses should override if desired.
+        /** If this is true, attempting to move to a position outside the object's bounding box should
+         * instead move to the nearest point on the boundary.  The default is false: attempting to
+         * move outside the boundary will throw a PositionalBoundaryError exception.  Note that
+         * subclasses may ignore this property.
          */
-        virtual bool moveToBoundary() const noexcept { return false; }
+        bool move_to_boundary = false;
 
         /** Moves to the given position.  If the position is outside the bounding box,
-         * `moveToBoundary()` is checked: if true, the object moves to the boundary point closest to
+         * `move_to_boundary` is checked: if true, the object moves to the boundary point closest to
          * the destination; if false, a PositionalBoundaryError exception is thrown.
          *
          * This method is also invoked for a call to moveBy(), and so subclasses seeking to change
@@ -92,7 +93,7 @@ class PositionalBase {
          *
          * \returns true if the move was completed as requested, false if the move was corrected to
          * the nearest boundary point.
-         * \throws PositionalBoundaryError if moveToBoundary() was false and the destination
+         * \throws PositionalBoundaryError if `move_to_boundary` was false and the destination
          * was outside the boundary.
          * \throws std::length_error if p does not have the same dimensions as the object's position.
          *
@@ -105,14 +106,14 @@ class PositionalBase {
          *
          * \returns true if the move was completed as requested, false if the move was corrected to
          * the nearest boundary point.
-         * \throws PositionalBoundaryError if moveToBoundary() was false and the destination
+         * \throws PositionalBoundaryError if `move_to_boundary` was false and the destination
          * was outside the boundary.
          * \throws std::length_error if `relative` does not have the same dimensions as the object's
          * position.
          */
         bool moveBy(const Position &relative);
 
-        /** Returns a Position that is as close as the given Position as possible, but within the
+        /** Returns a Position that is as close to the given Position as possible, but within the
          * object's boundary.  If the object is unbounded, or the given point is not outside the
          * boundary, this is the same coordinate as given; if the point is outside the boundary, the
          * returned point will be on the boundary.
