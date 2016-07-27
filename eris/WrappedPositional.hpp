@@ -18,10 +18,11 @@ namespace eris {
  * \sa WrappedPositional<T>
  */
 class WrappedPositionalBase : public PositionalBase {
-    protected:
-
+    public:
+        /// Not default constructible
         WrappedPositionalBase() = delete;
 
+    protected:
         /** Constructs a WrappedPositionalBase at location `p` who has wrapping boundies in all
          * non-infinite dimensions given by the bounding box defined by the two boundary vertex
          * positions.
