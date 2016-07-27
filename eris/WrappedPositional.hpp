@@ -13,10 +13,13 @@ namespace eris {
 /** Base class for WrappedPositional<T> that works just like Positional<T>'s base class but adds
  * wrapping to one or more of the position dimensions.
  *
+ * You can inherit from this directly, or use the WrappedPositional<T> convenience wrapper.
+ *
  * \sa WrappedPositional<T>
  */
 class WrappedPositionalBase : public PositionalBase {
-    public:
+    protected:
+
         WrappedPositionalBase() = delete;
 
         /** Constructs a WrappedPositionalBase at location `p` who has wrapping boundies in all
@@ -63,6 +66,8 @@ class WrappedPositionalBase : public PositionalBase {
          * thus do not wrap).
          */
         WrappedPositionalBase(const Position &p);
+
+    public:
 
         /** Returns the shortest distance vector from this object to the given position.  Unlike
          * PositionalBase, this is more complicated because it needs to also consider vectors that
@@ -133,12 +138,12 @@ class WrappedPositionalBase : public PositionalBase {
 
         /** Returns true if a non-wrapping boundary applies to the position of this object.
          */
-        virtual bool bounded() const noexcept override;
+        virtual bool bounded() const override;
 
         /** Returns true if the object's position is currently on one of the non-wrapping boundaries,
          * false otherwise.
          */
-        virtual bool binding() const noexcept override;
+        virtual bool binding() const override;
 
         /** Returns true if the object's position is currently on the lower boundary in any
          * non-wrapping dimension, false otherwise.
@@ -146,7 +151,7 @@ class WrappedPositionalBase : public PositionalBase {
          * Note that it is possible for an object's position to be on both a lower bound and upper
          * bound simultaneously.
          */
-        virtual bool bindingLower() const noexcept override;
+        virtual bool bindingLower() const override;
 
         /** Returns true if the object's position is currently on the upper boundary in any
          * non-wrapping dimension, false otherwise.
@@ -154,31 +159,31 @@ class WrappedPositionalBase : public PositionalBase {
          * Note that it is possible for an object's position to be on both a lower bound and upper
          * bound simultaneously.
          */
-        virtual bool bindingUpper() const noexcept override;
+        virtual bool bindingUpper() const override;
 
         /** Returns the lowest-coordinates vertex of the bounding box.  Both unbounded
          * and wrapped dimension boundaries (which are really wrapping points, not boundaries) are
          * returned as negative infinity.
          */
-        virtual Position lowerBound() const noexcept override;
+        virtual Position lowerBound() const override;
         
         /** Returns the highest-coordinates vertex of the bounding box.  Both unbounded and wrapped
          * dimension boundaries (which are really wrapping points, not boundaries) are returned as
          * positive infinity.
          */
-        virtual Position upperBound() const noexcept override;
+        virtual Position upperBound() const override;
 
         /** Returns the lowest-coordinates vertex of the bounding box, including wrapping
          * boundaries.  Unlike lowerBound(), this returns the wrapping points for wrapped
          * dimensions.  Negative infinity is still returned for unbounded, unwrapped dimensions.
          */
-        virtual Position wrapLowerBound() const noexcept;
+        virtual Position wrapLowerBound() const;
 
         /** Returns the highest-coordinates vertex of the bounding box, including wrapping
          * boundaries.  Unlike upperBound(), this returns the wrapping points for wrapped
          * dimensions.  Positive infinity is still returned for unbounded, unwrapped dimensions.
          */
-        virtual Position wrapUpperBound() const noexcept;
+        virtual Position wrapUpperBound() const;
 
     protected:
         /** Truncates the given Position object but first applies dimension wrapping by passing the

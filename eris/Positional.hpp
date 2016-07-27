@@ -12,12 +12,18 @@ class PositionalBoundaryError : public std::range_error {
         PositionalBoundaryError() : std::range_error("Cannot move outside bounding box") {}
 };
 
-/** Handles positioning.  Should not be used directly but rather by inheriting from Positional<T>.
+/** Base class for adding a position (and related methods/attributes) to a member.  This can be
+ * inherited from, or can be applied on top of another object via the `Positional<T>` interface.
+ *
+ * \sa Positional<T>
  */
 class PositionalBase {
     public:
+        /// Not default constructible
+        PositionalBase() = delete;
+
         /** Returns the current position. */
-        const Position& position() const noexcept;
+        const Position& position() const { return position_; }
 
         /** Returns the distance from this object's position to the passed-in object's position.
          * This is simply an alias for `obj.vectorTo(target.position()).length()`.  Subclasses that
@@ -43,11 +49,11 @@ class PositionalBase {
 
         /** Returns true if a boundary applies to the position of this object.
          */
-        virtual bool bounded() const noexcept;
+        virtual bool bounded() const;
 
         /** Returns true if the object's position is currently on one of the boundaries, false
          * otherwise. */
-        virtual bool binding() const noexcept;
+        virtual bool binding() const;
 
         /** Returns true if the object's position is currently on the lower boundary in any
          * dimension, false otherwise.
@@ -55,7 +61,7 @@ class PositionalBase {
          * Note that it is possible for an object's position to be on both a lower bound and upper
          * bound simultaneously.
          */
-        virtual bool bindingLower() const noexcept;
+        virtual bool bindingLower() const;
 
         /** Returns true if the object's position is currently on the upper boundary in any
          * dimension, false otherwise.
@@ -63,19 +69,19 @@ class PositionalBase {
          * Note that it is possible for an object's position to be on both a lower bound and upper
          * bound simultaneously.
          */
-        virtual bool bindingUpper() const noexcept;
+        virtual bool bindingUpper() const;
 
         /** Returns the lowest-coordinates vertex of the bounding box.  For example, if bounding box
          * vertices of (1,-1,5) and (0,2,3) are given, this method returns the position (0,-1,3).
          * If the object is not bounded, this returns negative infinity for each dimension.
          */
-        virtual Position lowerBound() const noexcept;
+        virtual Position lowerBound() const;
         
         /** Returns the highest-coordinates vertex of the bounding box.  For example, if bounding box
          * vertices of (1,-1,5) and (0,2,3) are given, this method returns the position (1,2,5).  If
          * the object is not bounded, this returns infinity for each dimension.
          */
-        virtual Position upperBound() const noexcept;
+        virtual Position upperBound() const;
 
         /** If this is true, attempting to move to a position outside the object's bounding box should
          * instead move to the nearest point on the boundary.  The default is false: attempting to
@@ -123,15 +129,19 @@ class PositionalBase {
     protected:
         /// Constructs a PositionalBase for the given point and boundaries.
         PositionalBase(const Position &p, const Position &boundary1, const Position &boundary2);
+
         /** Constructs a PositionalBase for the given point with boundaries of `b1` and `b2` in
          * every dimension.
          */
         PositionalBase(const Position &p, double b1, double b2);
+
         /// Constructs an unbounded PositionalBase at the given point
         PositionalBase(const Position &p);
 
-        /// Destructor (protected to prevent creating/copying PositionalBase objects)
-        ~PositionalBase() = default;
+    public:
+        /// Virtual destructor
+        virtual ~PositionalBase() = default;
+
     private:
         friend class WrappedPositionalBase;
         /// The current position.
@@ -150,8 +160,6 @@ class PositionalBase {
          */
         virtual bool truncate(Position &pos, bool throw_on_truncation = false) const;
 };
-
-inline const Position& PositionalBase::position() const noexcept { return position_; }
 
 /** Generic subclass that adds a position and optional bounding box to a base type.  This is
  * intended for use in models involving spatial locations of simulation objects.  Positional<T> is a
