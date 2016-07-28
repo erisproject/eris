@@ -106,7 +106,7 @@ bool PositionalBase::moveTo(Position p) {
         throw std::length_error("position and moveTo coordinates have different dimensions");
     bool corrected = false;
     if (bounded_) {
-        corrected = truncate(p, not moveToBoundary());
+        corrected = truncate(p, not move_to_boundary);
     }
 
     position_ = p;
