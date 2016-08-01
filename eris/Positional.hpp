@@ -136,7 +136,7 @@ class PositionalBase {
         PositionalBase(const Position &p, double b1, double b2);
 
         /// Constructs an unbounded PositionalBase at the given point
-        PositionalBase(const Position &p);
+        explicit PositionalBase(const Position &p);
 
     public:
         /// Virtual destructor
@@ -186,7 +186,7 @@ class Positional : public PositionalBase, public T {
          * \throws std::length_error if `p`, `boundary1`, and `boundary2` are not of the same
          * dimension.
          */
-        template <typename... Args>
+        template <typename... Args, typename = typename std::enable_if<std::is_constructible<T, Args...>::value>::type>
         Positional(const Position &p, const Position &boundary1, const Position &boundary2, Args&&... T_args)
             : PositionalBase(p, boundary1, boundary2),
             T(std::forward<Args>(T_args)...)
@@ -199,8 +199,8 @@ class Positional : public PositionalBase, public T {
          */
         template<typename... Args, typename Numeric1, typename Numeric2,
             typename = typename std::enable_if<
-                (std::is_floating_point<Numeric1>::value or std::is_integral<Numeric1>::value) and
-                (std::is_floating_point<Numeric2>::value or std::is_integral<Numeric2>::value)
+                std::is_arithmetic<Numeric1>::value and std::is_arithmetic<Numeric2>::value and
+                std::is_constructible<T, Args...>::value
                 >::type>
         Positional(const Position &p, Numeric1 b1, Numeric2 b2, Args&&... T_args)
             : PositionalBase(p, (double) b1, (double) b2),
@@ -211,8 +211,8 @@ class Positional : public PositionalBase, public T {
          *
          * Any extra arguments are forwarded to T's constructor.
          */
-        template <typename... Args>
-        Positional(const Position &p, Args&&... T_args)
+        template <typename... Args, typename = typename std::enable_if<std::is_constructible<T, Args...>::value>::type>
+        explicit Positional(const Position &p, Args&&... T_args)
             : PositionalBase(p), T(std::forward<Args>(T_args)...)
         {}
 };

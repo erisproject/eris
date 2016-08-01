@@ -12,9 +12,15 @@
 
 using namespace eris;
 
+class Foo {
+public:
+    Foo(std::string) {}
+};
+
 TEST(Construction, Unbounded) {
     Positional<Agent> p1({1});
     WrappedPositional<Agent> p2({2.5}, {INF}, {-INF});
+    WrappedPositional<Foo> p3({9.9}, "hi");
 
     Position test_pos({1,2,3});
     EXPECT_EQ(Position({2,3,3,3,1}), test_pos.subdimensions({1,2,2,2,0}));
@@ -48,6 +54,8 @@ TEST(Construction, Bounded) {
     WrappedPositional<Agent> p2b({1}, {0}, {3});
     WrappedPositional<Agent> p2c({1}, {INF}, {0});
     WrappedPositional<Agent> p2d({1}, {-INF}, {3});
+    WrappedPositional<Foo> p3a({9.9}, {3}, {11}, "hi");
+    WrappedPositional<Foo> p3b({9.9}, {11}, {3}, "hi");
 
     EXPECT_EQP({1.0}, p1a.position());
     EXPECT_EQP({1.0}, p2c.position());
