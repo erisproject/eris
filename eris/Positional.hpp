@@ -22,6 +22,20 @@ class PositionalBase {
         /// Not default constructible
         PositionalBase() = delete;
 
+        /// Constructs a PositionalBase for the given point and boundaries.
+        PositionalBase(const Position &p, const Position &boundary1, const Position &boundary2);
+
+        /** Constructs a PositionalBase for the given point with boundaries of `b1` and `b2` in
+         * every dimension.
+         */
+        PositionalBase(const Position &p, double b1, double b2);
+
+        /// Constructs an unbounded PositionalBase at the given point
+        explicit PositionalBase(const Position &p);
+
+        /// Virtual destructor
+        virtual ~PositionalBase() = default;
+
         /** Returns the current position. */
         const Position& position() const { return position_; }
 
@@ -125,22 +139,6 @@ class PositionalBase {
          * returned point will be on the boundary.
          */
         virtual Position toBoundary(Position pos) const;
-
-    protected:
-        /// Constructs a PositionalBase for the given point and boundaries.
-        PositionalBase(const Position &p, const Position &boundary1, const Position &boundary2);
-
-        /** Constructs a PositionalBase for the given point with boundaries of `b1` and `b2` in
-         * every dimension.
-         */
-        PositionalBase(const Position &p, double b1, double b2);
-
-        /// Constructs an unbounded PositionalBase at the given point
-        explicit PositionalBase(const Position &p);
-
-    public:
-        /// Virtual destructor
-        virtual ~PositionalBase() = default;
 
     private:
         friend class WrappedPositionalBase;

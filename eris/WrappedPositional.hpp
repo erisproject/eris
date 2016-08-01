@@ -22,7 +22,6 @@ class WrappedPositionalBase : public PositionalBase {
         /// Not default constructible
         WrappedPositionalBase() = delete;
 
-    protected:
         /** Constructs a WrappedPositionalBase at location `p` who has wrapping boundies in all
          * non-infinite dimensions given by the bounding box defined by the two boundary vertex
          * positions.
@@ -67,8 +66,6 @@ class WrappedPositionalBase : public PositionalBase {
          * thus do not wrap).
          */
         explicit WrappedPositionalBase(const Position &p);
-
-    public:
 
         /** Returns the shortest distance vector from this object to the given position.  Unlike
          * PositionalBase, this is more complicated because it needs to also consider vectors that
