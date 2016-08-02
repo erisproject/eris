@@ -295,8 +295,6 @@ BayesianLinear::operator std::string() const {
 
 std::string BayesianLinear::display_name() const { return "BayesianLinear"; }
 
-void BayesianLinear::verifyParameters() const { NO_EMPTY_MODEL; }
-
 // Posterior constructor (prior copy version)
 BayesianLinear::BayesianLinear(
         const BayesianLinear &prior,

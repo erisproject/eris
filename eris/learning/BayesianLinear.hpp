@@ -533,12 +533,6 @@ class BayesianLinear {
          */
         virtual void reset();
 
-        /** Called during construction to verify that the given parameters are valid.  Subclasses
-         * should override to throw an exception if there are problems.  The default implementation
-         * in this class does nothing.
-         */
-        virtual void verifyParameters() const;
-
         /// The model size.  If 0, this is a default-constructed object which isn't a valid model.
         unsigned int K_{0};
 
