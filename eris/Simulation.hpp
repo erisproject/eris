@@ -161,36 +161,36 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
 #define ERIS_SIM_FILTER(T, BASE, WHICH) \
         template <class T = BASE> \
         typename enable_if_member<BASE, T, std::vector<SharedMember<T>>>::type \
-        WHICH##s(const std::function<bool(const T &WHICH)> &filter = nullptr) const { \
+        WHICH##s(const std::function<bool(SharedMember<T> WHICH)> &filter = nullptr) const { \
             return genericFilter(WHICH##s_, filter); \
         }
 
 #define ERIS_SIM_FILTER_COUNT(T, BASE, WHICH, METH_TYPE) \
         template <class T = BASE> \
         typename enable_if_member<BASE, T, size_t>::type \
-        count##METH_TYPE##s(const std::function<bool(const T &WHICH)> &filter = nullptr) const { \
+        count##METH_TYPE##s(const std::function<bool(SharedMember<T> WHICH)> &filter = nullptr) const { \
             return genericFilterCount(WHICH##s_, filter); \
         }
 
         /** Provides a vector of SharedMember<A>, optionally filtered to only include agents that
          * induce a true return from the provided filter function.
          *
-         * The template class, A, provides a second sort of filtering: if it is provided (it must be
-         * a class ultimately derived from Agent), only agents of type A will be returned.  If the
-         * filter is also provided, only A objects will be passed to the filter and only returned if
-         * the filter returns true.
+         * The template class, A, provides a second sort of filtering: if it is provided and set to
+         * a class ultimately derived from Agent (but not Agent itself), only agents of type A will
+         * be returned.  If the filter is also provided, only SharedMember<A> objects will be passed
+         * to the filter and only returned if the filter returns true.
          *
-         * The results of class filtering are cached so long as the template filter class is not the
-         * default (`Agent`) so that subsequent calls will not need to reperform extra work for
-         * class filtering.  This helps considerably when searching for agents whose type is only a
-         * small subset of the overall set of agents.  The cache is invalidated when any agent (of
-         * any type) is added or removed.
+         * The results of class filtering (but not lambda filtering) are cached so long as the
+         * template filter class is not the default (`Agent`) so that subsequent calls will not need
+         * to repeat extra work for class filtering.  This helps considerably when searching for
+         * agents whose type is only a small subset of the overall set of agents.  The cache is
+         * invalidated when any agent (of any type) is added or removed.
          */
         ERIS_SIM_FILTER(A, Agent, agent) // agents()
 
         /** Provides a count of matching simulation agents.  Agents are filtered by class and/or
          * callable filter and the count of matching agents is returned.  This is equivalent to
-         * agents<A>(filter).size(), but more efficient.
+         * agents<A>(filter).size(), but more efficient when the list of agents isn't needed.
          *
          * Note that this method populates and uses the same cache as agents() when `A` is not the
          * default `Agent` class.
@@ -447,10 +447,10 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
 
         // The method used by agents(), goods(), etc. to actually do the work
         template <class T, class B>
-        std::vector<SharedMember<T>> genericFilter(const MemberMap<B> &map, const std::function<bool(const T &member)> &filter) const;
+        std::vector<SharedMember<T>> genericFilter(const MemberMap<B> &map, const std::function<bool(SharedMember<T> member)> &filter) const;
         // The method used by countAgents(), countGoods(), etc. to actually do the work
         template <class T, class B>
-        size_t genericFilterCount(const MemberMap<B> &map, const std::function<bool(const T &member)> &filter) const;
+        size_t genericFilterCount(const MemberMap<B> &map, const std::function<bool(SharedMember<T> member)> &filter) const;
         // Method used by both of the above to access/create a class filter cache
         template <class T, class B>
         const std::vector<SharedMember<Member>>* genericFilterCache(const MemberMap<B> &map) const;
@@ -619,7 +619,7 @@ const std::vector<SharedMember<Member>>* Simulation::genericFilterCache(
 template <class T, class B>
 std::vector<SharedMember<T>> Simulation::genericFilter(
         const MemberMap<B>& map,
-        const std::function<bool(const T &member)> &filter) const {
+        const std::function<bool(SharedMember<T> member)> &filter) const {
 
     std::lock_guard<std::recursive_mutex> lock(member_mutex_);
 
@@ -634,12 +634,10 @@ std::vector<SharedMember<T>> Simulation::genericFilter(
         }
     }
     else { // Not class filtering, but possibly lambda filtering
+        // NB: since we aren't class filtering, it must be true that T == B
         for (auto &m : map) {
-            if (T* mem = dynamic_cast<T*>(m.second.get())) {
-                // The cast succeeded, so this Member is also a T
-                if (not filter or filter(*mem))
-                    matched.push_back(SharedMember<T>{m.second});
-            }
+            if (not filter or filter(m.second))
+                matched.push_back(m.second);
         }
     }
     return matched;
@@ -649,7 +647,7 @@ std::vector<SharedMember<T>> Simulation::genericFilter(
 template <class T, class B>
 size_t Simulation::genericFilterCount(
         const MemberMap<B>& map,
-        const std::function<bool(const T &member)> &filter) const {
+        const std::function<bool(SharedMember<T> member)> &filter) const {
 
     std::lock_guard<std::recursive_mutex> lock(member_mutex_);
 
@@ -663,16 +661,13 @@ size_t Simulation::genericFilterCount(
     }
     else if (cache) { // Class & lambda filtering
         for (auto &member : *cache) {
-            if (filter(*dynamic_cast<T*>(member.get()))) count++;
+            if (filter(member)) count++;
         }
     }
-    else {
+    else { // Not class filtering, i.e. T == B
         for (auto &m : map) {
-            if (T* mem = dynamic_cast<T*>(m.second.get())) {
-                // The cast succeeded, so this Member is also a T
-                if (filter(*mem))
-                    count++;
-            }
+            if (filter(m.second))
+                count++;
         }
     }
     return count;
