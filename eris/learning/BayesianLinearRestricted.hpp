@@ -1,5 +1,5 @@
 #pragma once
-#include <eris/belief/BayesianLinear.hpp>
+#include <eris/learning/BayesianLinear.hpp>
 #include <Eigen/Core>
 #include <algorithm>
 #include <cstddef>
@@ -8,7 +8,7 @@
 #include <string>
 #include <utility>
 
-namespace eris { namespace belief {
+namespace eris { namespace learning {
 
 /** Extension to the base BayesianLinear class that supports prior restrictions on parameters via Monte
  * Carlo integration that rejects restricted draws.

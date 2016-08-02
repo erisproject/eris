@@ -1,5 +1,5 @@
-#include <eris/belief/BayesianLinearRestricted.hpp>
-#include <eris/belief/BayesianLinear.hpp>
+#include <eris/learning/BayesianLinearRestricted.hpp>
+#include <eris/learning/BayesianLinear.hpp>
 #include <eris/random/rng.hpp>
 #include <eris/random/truncated_normal_distribution.hpp>
 #include <eris/random/truncated_distribution.hpp>
@@ -17,7 +17,7 @@
 
 using namespace Eigen;
 
-namespace eris { namespace belief {
+namespace eris { namespace learning {
 
 BayesianLinearRestricted::RestrictionProxy BayesianLinearRestricted::lowerBound(size_t k) {
     return RestrictionProxy(*this, k, false);

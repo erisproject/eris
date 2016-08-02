@@ -16,8 +16,8 @@ static_assert(false, "Eigen rvalue reference support is required (Eigen v3.2.7 o
 #endif
 
 namespace eris {
-/// Namespace for classes designed for handling agent beliefs and belief updating.
-namespace belief {
+/// Namespace for classes designed for handling agent learning, beliefs and belief updating.
+namespace learning {
 
 /** Base class for a linear model with a natural conjugate, normal-gamma prior.
  */

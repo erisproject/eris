@@ -1,4 +1,4 @@
-#include <eris/belief/BayesianLinear.hpp>
+#include <eris/learning/BayesianLinear.hpp>
 #include <eris/random/rng.hpp>
 #include <eris/random/util.hpp>
 #include <eris/random/normal_distribution.hpp>
@@ -8,7 +8,7 @@
 #include <cmath>
 #include <algorithm>
 
-namespace eris { namespace belief {
+namespace eris { namespace learning {
 
 using namespace Eigen;
 
