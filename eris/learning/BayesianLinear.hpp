@@ -258,9 +258,9 @@ class BayesianLinear {
 
         /** Returns the X data that has been added into this model but hasn't yet been used due to
          * it not being sufficiently large and different enough to achieve full column rank.  The
-         * data will be scaled appropriately if weaken() has been called, and so does not
-         * necessarily reflect the actual data added.  If no data has been added, returns a null
-         * (0x0) matrix.
+         * data will be scaled appropriately if the model is the result of a weakening/strengthening
+         * of a noninformative prior, and so does not necessarily reflect the actual data added.  If
+         * no data has been added, returns a null (0x0) matrix.
          *
          * \throws std::logic_error if noninformative() would return false.
          */
