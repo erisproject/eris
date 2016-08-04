@@ -140,6 +140,14 @@ class PositionalBase {
          */
         virtual Position toBoundary(Position pos) const;
 
+    protected:
+        /** Truncates the given Position object, updating (or throwing an exception) if required.
+         * Returns true if truncation was necessary and allowed, false if no changes were needed,
+         * and throws a PositionalBoundaryError exception if throw_on_truncation is true if changes
+         * are needed but not allowed.
+         */
+        virtual bool truncate(Position &pos, bool throw_on_truncation = false) const;
+
     private:
         friend class WrappedPositionalBase;
         /// The current position.
@@ -150,13 +158,6 @@ class PositionalBase {
         Position lower_bound_{Position::zero(position_.dimensions)};
         /// The upper vertex of the bounding box, defined by the greater value in each dimension.
         Position upper_bound_{Position::zero(position_.dimensions)};
-
-        /** Truncates the given Position object, updating (or throwing an exception) if required.
-         * Returns true if truncation was necessary and allowed, false if no changes were needed,
-         * and throws a PositionalBoundaryError exception if throw_on_truncation is true if changes
-         * are needed but not allowed.
-         */
-        virtual bool truncate(Position &pos, bool throw_on_truncation = false) const;
 };
 
 /** Generic subclass that adds a position and optional bounding box to a base type.  This is
