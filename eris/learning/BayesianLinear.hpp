@@ -9,7 +9,7 @@
 #include <eris/random/util.hpp>
 #include <boost/random/chi_squared_distribution.hpp>
 
-#ifndef EIGEN_HAVE_RVALUE_REFERENCES
+#if !defined(EIGEN_HAVE_RVALUE_REFERENCES) && !defined(EIGEN_HAS_RVALUE_REFERENCES)
 // Before v3.2.7, some Eigen classes, when compiled under C++11, would get implicit move constructors
 // that didn't work properly; don't even try to compile with those versions.
 static_assert(false, "Eigen rvalue reference support is required (Eigen v3.2.7 or above required).")
