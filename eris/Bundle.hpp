@@ -525,11 +525,41 @@ class Bundle final : public BundleSigned {
          */
         Bundle(const BundleSigned &b);
 
+        /// Copy constructor.  Only the current values, not the transaction state, is copied.
+        Bundle(const Bundle &b);
+
+        /** Move constructor.  Unlike the copy constructor, this preserves the transaction state. */
+        Bundle(Bundle &&b) = default;
+
         /** Sets the quantitity associated with good `gid` to `quantity`.
          *
          * \throws Bundle::negativity_error if quantity is negative.
          */
         void set(eris_id_t gid, double quantity) override;
+
+        /** Assigns a bundle to this bundle.  The transaction state of the current bundle is
+         * maintained, while only the currently-visible values of the given bundle are copied
+         * into the current bundle (or bundle transaction, if one is in progress).
+         */
+        Bundle& operator = (const Bundle &b);
+
+        /** Adds a bundle (or signed bundle) to this bundle.  This is exactly the same as the
+         * BundleSigned += operator, but returns the object cast as a Bundle& rather than
+         * BundleSigned&.
+         *
+         * The addition is carried out in a transaction: that is, if it fails because some
+         * quantities would become negative, no quantities will have been changed.
+         */
+        Bundle& operator += (const BundleSigned &b);
+
+        /** Subtracts a bundle (or signed bundle) from this bundle.  This simply calls the
+         * BundleSigned += operator, but returns the object cast as a Bundle& instead of a
+         * BundleSigned&.
+         *
+         * The subtraction is carried out in a transaction: that is, if it fails because some
+         * quantities would become negative, no quantities will have been changed.
+         */
+        Bundle& operator -= (const BundleSigned &b);
 
         /** Scales a bundle by `m`.
          *

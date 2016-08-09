@@ -283,6 +283,10 @@ BundleSigned& BundleSigned::operator OPEQ (const BundleSigned &b) {\
     commitTransaction();\
     return *this;\
 }\
+Bundle& Bundle::operator OPEQ (const BundleSigned &b) {\
+    BundleSigned::operator OPEQ(b);\
+    return *this;\
+}\
 BundleSigned BundleSigned::operator OP (const BundleSigned &b) const {\
     BundleSigned ret(*this);\
     ret.beginEncompassing();\
