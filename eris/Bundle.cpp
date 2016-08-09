@@ -11,61 +11,62 @@
 
 namespace eris {
 
-BundleNegative::BundleNegative() {}
-BundleNegative::BundleNegative(eris_id_t g, double q) { set(g, q); }
-BundleNegative::BundleNegative(const BundleNegative &b) {
+BundleSigned::BundleSigned() {}
+BundleSigned::BundleSigned(eris_id_t g, double q) { set(g, q); }
+BundleSigned::BundleSigned(const BundleSigned &b) {
     for (auto &g : b) set(g.first, g.second);
 }
-BundleNegative::BundleNegative(const std::initializer_list<std::pair<eris_id_t, double>> &init) {
+BundleSigned::BundleSigned(const std::initializer_list<std::pair<eris_id_t, double>> &init) {
     for (auto &g : init) set(g.first, g.second);
 }
 
-Bundle::Bundle() : BundleNegative() {}
-Bundle::Bundle(eris_id_t g, double q) : BundleNegative() { set(g, q); }
-Bundle::Bundle(const BundleNegative &b) : BundleNegative() {
+Bundle::Bundle() : BundleSigned() {}
+Bundle::Bundle(eris_id_t g, double q) : BundleSigned() { set(g, q); }
+Bundle::Bundle(const BundleSigned &b) : BundleSigned() {
     for (auto &g : b) set(g.first, g.second);
 }
+Bundle::Bundle(const Bundle &b) : Bundle((BundleSigned&) b) {}
 Bundle::Bundle(const std::initializer_list<std::pair<eris_id_t, double>> &init) {
     for (auto &g : init) set(g.first, g.second);
 }
 
-constexpr double BundleNegative::zero_;
-const double& BundleNegative::operator[] (eris_id_t gid) const {
+constexpr double BundleSigned::zero_;
+const double& BundleSigned::operator[] (eris_id_t gid) const {
     // Don't want to invoke map's [] operator, because it auto-vivifies the element
     auto &f = q_stack_.front();
     auto it = f.find(gid);
     return it == f.end() ? zero_ : it->second;
 }
-BundleNegative::valueproxy BundleNegative::operator[] (eris_id_t gid) {
+BundleSigned::valueproxy BundleSigned::operator[] (eris_id_t gid) {
     return valueproxy(*this, gid);
 }
 
-void BundleNegative::set(eris_id_t gid, double quantity) {
+void BundleSigned::set(eris_id_t gid, double quantity) {
     q_stack_.front()[gid] = quantity;
 }
 
 void Bundle::set(eris_id_t gid, double quantity) {
     if (quantity < 0) throw negativity_error(gid, quantity);
-    BundleNegative::set(gid, quantity);
+    BundleSigned::set(gid, quantity);
 }
 
-bool BundleNegative::empty() const {
+bool BundleSigned::empty() const {
     return q_stack_.front().empty();
 }
-std::unordered_map<eris_id_t, double>::size_type BundleNegative::size() const {
+std::unordered_map<eris_id_t, double>::size_type BundleSigned::size() const {
     return q_stack_.front().size();
 }
-int BundleNegative::count(eris_id_t gid) const {
+int BundleSigned::count(eris_id_t gid) const {
     return q_stack_.front().count(gid);
 }
-std::unordered_map<eris_id_t, double>::const_iterator BundleNegative::begin() const {
+std::unordered_map<eris_id_t, double>::const_iterator BundleSigned::begin() const {
     return q_stack_.front().cbegin();
 }
-std::unordered_map<eris_id_t, double>::const_iterator BundleNegative::end() const {
+std::unordered_map<eris_id_t, double>::const_iterator BundleSigned::end() const {
     return q_stack_.front().cend();
 }
 
-void BundleNegative::clearZeros() {
+void BundleSigned::clearZeros() {
     auto &goods = q_stack_.front();
     for (auto it = goods.begin(); it != goods.end(); ) {
         if (it->second == 0)
@@ -75,15 +76,15 @@ void BundleNegative::clearZeros() {
     }
 }
 
-void BundleNegative::clear() {
+void BundleSigned::clear() {
     q_stack_.front().clear();
 }
 
-int BundleNegative::erase(eris_id_t gid) {
+int BundleSigned::erase(eris_id_t gid) {
     return q_stack_.front().erase(gid);
 }
 
-double BundleNegative::remove(eris_id_t gid) {
+double BundleSigned::remove(eris_id_t gid) {
     double d = operator[](gid);
     erase(gid);
     return d;
@@ -136,7 +137,7 @@ double Bundle::multiples(const Bundle &b) const noexcept {
     return mult;
 }
 
-Bundle Bundle::common(const BundleNegative &a, const BundleNegative &b) noexcept {
+Bundle Bundle::common(const BundleSigned &a, const BundleSigned &b) noexcept {
     Bundle result;
     for (auto &ag : a) {
         if (ag.second >= 0 and b.count(ag.first)) {
@@ -147,7 +148,7 @@ Bundle Bundle::common(const BundleNegative &a, const BundleNegative &b) noexcept
     return result;
 }
 
-Bundle Bundle::reduce(BundleNegative &a, BundleNegative &b) {
+Bundle Bundle::reduce(BundleSigned &a, BundleSigned &b) {
     if (&a == &b) throw std::invalid_argument("Bundle::reduce(a, b) called with &a == &b; a and b must be distinct objects");
     Bundle result = common(a, b);
     a.beginTransaction(true);
@@ -166,19 +167,19 @@ Bundle Bundle::reduce(BundleNegative &a, BundleNegative &b) {
     return result;
 }
 
-Bundle BundleNegative::positive() const noexcept {
+Bundle BundleSigned::positive() const noexcept {
     Bundle b;
     for (auto &g : *this) { if (g.second > 0) b.set(g.first, g.second); }
     return b;
 }
 
-Bundle BundleNegative::negative() const noexcept {
+Bundle BundleSigned::negative() const noexcept {
     Bundle b;
     for (auto &g : *this) { if (g.second < 0) b.set(g.first, -g.second); }
     return b;
 }
 
-Bundle BundleNegative::zeros() const noexcept {
+Bundle BundleSigned::zeros() const noexcept {
     Bundle b;
     for (auto &g : *this) { if (g.second == 0) b.set(g.first, 0); }
     return b;
@@ -186,30 +187,30 @@ Bundle BundleNegative::zeros() const noexcept {
 
 Bundle& Bundle::operator *= (double m) {
     if (m < 0) throw negativity_error("Attempt to scale Bundle by negative value " + std::to_string(m), 0, m);
-    BundleNegative::operator*=(m);
+    BundleSigned::operator*=(m);
     return *this;
 }
-BundleNegative& BundleNegative::operator /= (double d) {
+BundleSigned& BundleSigned::operator /= (double d) {
     return *this *= (1.0 / d);
 }
 Bundle& Bundle::operator /= (double d) {
     if (d < 0) throw negativity_error("Attempt to scale Bundle by negative value 1/" + std::to_string(d), 0, d);
-    BundleNegative::operator/=(d);
+    BundleSigned::operator/=(d);
     return *this;
 }
-BundleNegative BundleNegative::operator - () const {
+BundleSigned BundleSigned::operator - () const {
     return *this * -1.0;
 }
 // Doxygen bug: doxygen erroneously warns about non-inlined friend methods
 /// \cond
-BundleNegative operator * (double m, const BundleNegative &b) {
+BundleSigned operator * (double m, const BundleSigned &b) {
     return b * m;
 }
 /// \endcond
 Bundle operator * (double m, const Bundle &b) {
     return b * m;
 }
-BundleNegative BundleNegative::operator / (double d) const {
+BundleSigned BundleSigned::operator / (double d) const {
     return *this * (1.0/d);
 }
 Bundle Bundle::operator / (double d) const {
@@ -220,7 +221,7 @@ Bundle Bundle::operator / (double d) const {
 // operator; this macro handles that.  REVOP is the reverse order version of the operator, needed
 // for the static (e.g. 3 >= b) operator, as it just translate this into (b <= 3)
 #define _ERIS_BUNDLE_CPP_COMPARE(OP, REVOP) \
-bool BundleNegative::operator OP (const BundleNegative &b) const noexcept {\
+bool BundleSigned::operator OP (const BundleSigned &b) const noexcept {\
     std::unordered_set<eris_id_t> goods;\
     for (auto &g : *this) goods.insert(g.first);\
     for (auto &g : b) goods.insert(g.first);\
@@ -229,12 +230,12 @@ bool BundleNegative::operator OP (const BundleNegative &b) const noexcept {\
         if (!(operator[](g) OP b[g])) return false;\
     return true;\
 }\
-bool BundleNegative::operator OP (double q) const noexcept {\
+bool BundleSigned::operator OP (double q) const noexcept {\
     for (auto &g : *this)\
         if (!(g.second OP q)) return false;\
     return true;\
 }\
-bool operator OP (double q, const BundleNegative &b) noexcept {\
+bool operator OP (double q, const BundleSigned &b) noexcept {\
     return b REVOP q;\
 }
 
@@ -247,17 +248,17 @@ _ERIS_BUNDLE_CPP_COMPARE(>=, <=)
 #undef _ERIS_BUNDLE_CPP_COMPARE
 
 
-bool BundleNegative::operator != (const BundleNegative &b) const noexcept {
+bool BundleSigned::operator != (const BundleSigned &b) const noexcept {
     return !(*this == b);
 }
-bool BundleNegative::operator != (double q) const noexcept {
+bool BundleSigned::operator != (double q) const noexcept {
     return !(*this == q);
 }
-bool operator != (double q, const BundleNegative &b) noexcept {
+bool operator != (double q, const BundleSigned &b) noexcept {
     return !(b == q);
 }
 
-BundleNegative& BundleNegative::operator = (const BundleNegative &b) {
+BundleSigned& BundleSigned::operator = (const BundleSigned &b) {
     beginTransaction();
     try {
         clear();
@@ -268,16 +269,21 @@ BundleNegative& BundleNegative::operator = (const BundleNegative &b) {
     return *this;
 }
 
+Bundle& Bundle::operator = (const Bundle &b) {
+    BundleSigned::operator=(b);
+    return *this;
+}
+
 #define _ERIS_BUNDLE_CPP_ADDSUB(OP, OPEQ)\
-BundleNegative& BundleNegative::operator OPEQ (const BundleNegative &b) {\
+BundleSigned& BundleSigned::operator OPEQ (const BundleSigned &b) {\
     beginTransaction();\
     try { for (auto &g : b) set(g.first, operator[](g.first) OP g.second); }\
     catch (...) { abortTransaction(); throw; }\
     commitTransaction();\
     return *this;\
 }\
-BundleNegative BundleNegative::operator OP (const BundleNegative &b) const {\
-    BundleNegative ret(*this);\
+BundleSigned BundleSigned::operator OP (const BundleSigned &b) const {\
+    BundleSigned ret(*this);\
     ret.beginEncompassing();\
     ret OPEQ b;\
     ret.endEncompassing();\
@@ -304,7 +310,7 @@ Bundle Bundle::operator - (const Bundle &b) const {
     return ret;
 }
 
-BundleNegative& BundleNegative::operator *= (double m) {
+BundleSigned& BundleSigned::operator *= (double m) {
     beginTransaction();
     try { for (auto &g : *this) set(g.first, g.second * m); }
     catch (...) { abortTransaction(); throw; }
@@ -312,8 +318,8 @@ BundleNegative& BundleNegative::operator *= (double m) {
     return *this;
 }
 
-BundleNegative BundleNegative::operator * (double m) const {
-    BundleNegative ret(*this);
+BundleSigned BundleSigned::operator * (double m) const {
+    BundleSigned ret(*this);
     ret.beginEncompassing();
     ret *= m;
     ret.endEncompassing();
@@ -328,7 +334,7 @@ Bundle Bundle::operator * (double m) const {
     return ret;
 }
 
-void BundleNegative::beginTransaction(const bool encompassing) noexcept {
+void BundleSigned::beginTransaction(const bool encompassing) noexcept {
     if (not encompassed_.empty()) {
         encompassed_.push_front(true);
         return;
@@ -340,7 +346,7 @@ void BundleNegative::beginTransaction(const bool encompassing) noexcept {
     if (encompassing) encompassed_.push_front(true);
 }
 
-void BundleNegative::commitTransaction() {
+void BundleSigned::commitTransaction() {
     if (not encompassed_.empty()) {
         if (not encompassed_.front())
             throw no_transaction_exception("commitTransaction() called to terminate beginEncompassing()");
@@ -358,7 +364,7 @@ void BundleNegative::commitTransaction() {
     q_stack_.erase_after(q_stack_.begin());
 }
 
-void BundleNegative::abortTransaction() {
+void BundleSigned::abortTransaction() {
     if (not encompassed_.empty()) {
         if (not encompassed_.front())
             throw no_transaction_exception("abortTransaction() called to terminate beginEncompassing()");
@@ -375,11 +381,11 @@ void BundleNegative::abortTransaction() {
     q_stack_.pop_front();
 }
 
-void BundleNegative::beginEncompassing() noexcept {
+void BundleSigned::beginEncompassing() noexcept {
     encompassed_.push_front(false);
 }
 
-void BundleNegative::endEncompassing() {
+void BundleSigned::endEncompassing() {
     if (encompassed_.empty())
         throw no_transaction_exception("endEncompassing() called with no encompassing in effect");
 
@@ -390,10 +396,10 @@ void BundleNegative::endEncompassing() {
 }
 
 
-BundleNegative BundleNegative::transferApprox(const BundleNegative &amount, BundleNegative &to, double epsilon) {
+BundleSigned BundleSigned::transferApprox(const BundleSigned &amount, BundleSigned &to, double epsilon) {
     beginTransaction(true);
     to.beginTransaction(true);
-    BundleNegative actual;
+    BundleSigned actual;
     try {
         for (auto &g : amount) {
             double abs_transfer = fabs(g.second);
@@ -435,9 +441,9 @@ BundleNegative BundleNegative::transferApprox(const BundleNegative &amount, Bund
     return actual;
 }
 
-BundleNegative BundleNegative::transferApprox(const BundleNegative &amount, double epsilon) {
+BundleSigned BundleSigned::transferApprox(const BundleSigned &amount, double epsilon) {
     beginTransaction(true);
-    BundleNegative actual;
+    BundleSigned actual;
     actual.beginEncompassing();
     try {
         for (auto &g : amount) {
@@ -471,7 +477,7 @@ BundleNegative BundleNegative::transferApprox(const BundleNegative &amount, doub
     return actual;
 }
 
-bool Bundle::hasApprox(const BundleNegative &amount, const Bundle &to, double epsilon) const {
+bool Bundle::hasApprox(const BundleSigned &amount, const Bundle &to, double epsilon) const {
     for (auto &g : amount) {
         double abs_transfer = fabs(g.second);
         if (abs_transfer == 0) continue;
@@ -485,7 +491,7 @@ bool Bundle::hasApprox(const BundleNegative &amount, const Bundle &to, double ep
     return true;
 }
 
-bool Bundle::hasApprox(const BundleNegative &amount, double epsilon) const {
+bool Bundle::hasApprox(const BundleSigned &amount, double epsilon) const {
     for (auto &g : amount) {
         if (g.second <= 0) continue;
 
@@ -498,8 +504,8 @@ bool Bundle::hasApprox(const BundleNegative &amount, double epsilon) const {
     return true;
 }
 
-// Prints everything *after* the "Bundle" or "BundleNegative" tag, i.e. starting from "(".
-void BundleNegative::_print(std::ostream &os) const {
+// Prints everything *after* the "Bundle" or "BundleSigned" tag, i.e. starting from "(".
+void BundleSigned::_print(std::ostream &os) const {
     os << "(";
 
     // Sort the keys:
@@ -518,8 +524,8 @@ void BundleNegative::_print(std::ostream &os) const {
     os << ")";
 }
 
-std::ostream& operator << (std::ostream &os, const BundleNegative &b) {
-    os << ((dynamic_cast<const Bundle*>(&b) != NULL) ? "Bundle" : "BundleNegative");
+std::ostream& operator << (std::ostream &os, const BundleSigned &b) {
+    os << ((dynamic_cast<const Bundle*>(&b) != NULL) ? "Bundle" : "BundleSigned");
     b._print(os);
     return os;
 }

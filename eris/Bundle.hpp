@@ -11,8 +11,8 @@
 namespace eris {
 
 /**
- * \class BundleNegative
- * \brief A BundleNegative represents a set of goods with quantities, which may be negative.
+ * \class BundleSigned
+ * \brief A BundleSigned represents a set of goods with quantities, which may be negative.
  *
  * \class Bundle
  * \brief A Bundle represents a set of goods with each good containing a non-negative quantity.
@@ -30,9 +30,9 @@ namespace eris {
  * The usual `+`, `-`, `*`, `/` operators are overloaded as expected for adding/scaling bundles,
  * plus the analogous `+=`, `-=`, `*=`, and `/=` operators.  After addition or subtraction, the
  * result will contain all goods that existed in either good, even if those goods had quantities of
- * 0.  Unary negative is defined, but always returns a BundleNegative (even for a Bundle).  Adding
+ * 0.  Unary negative is defined, but always returns a BundleSigned (even for a Bundle).  Adding
  * and subtracting two Bundles returns a Bundle; if either of the bundles being added or subtracted
- * are BundleNegative objects, a BundleNegative is returned.
+ * are BundleSigned objects, a BundleSigned is returned.
  *
  * Comparison operators are also overloaded.  Each of `==`, `>`, `>=`, `<`, and `<=` returns true
  * iff all the inequality relation is satisfied for the quantities of every good in either bundle.
@@ -61,7 +61,7 @@ namespace eris {
  * Note that this behaviour may not do what you expect if goods that you care about aren't actually
  * in the bundle.  For example, if a=(x=1,y=2) and b=(x=1,y=1,z=1), a >= 1 will be true, though a-b
  * will result in a potentially unexpected negative (and illegal, if using Bundle instead of
- * BundleNegative) quantity.  If in doubt, always compare to fixed Bundle that has known
+ * BundleSigned) quantity.  If in doubt, always compare to fixed Bundle that has known
  * (significant) quantities.
  *
  * Attempting to do something to a Bundle that would induce a negative quantity for one of the
@@ -74,32 +74,32 @@ namespace eris {
  */
 
 class Bundle;
-class BundleNegative {
+class BundleSigned {
     protected:
         class valueproxy; // Predeclaration
     public:
-        /// Constructs a new BundleNegative with no initial good/quantity values.
-        BundleNegative();
+        /// Constructs a new BundleSigned with no initial good/quantity values.
+        BundleSigned();
 
-        /// Constructs a new BundleNegative containing a single good, g, with quantity q.
-        BundleNegative(eris_id_t g, double q);
+        /// Constructs a new BundleSigned containing a single good, g, with quantity q.
+        BundleSigned(eris_id_t g, double q);
 
         /** Allows initialization with a static std::initializer_list of std::pairs, such as:
-         * BundleNegative b {{1, 1.0}, {2, 0.5}, {3, 100}};
+         * BundleSigned b {{1, 1.0}, {2, 0.5}, {3, 100}};
          * Since an initializer_list requires constant values, this is primary useful for debugging
          * purposes.
          */
-        BundleNegative(const std::initializer_list<std::pair<eris_id_t, double>> &init);
+        BundleSigned(const std::initializer_list<std::pair<eris_id_t, double>> &init);
 
         /** Creates a new Bundle by copying quantities from another Bundle.
          *
          * Note that this differs from a default copy constructor: it does *not* copy the
          * transaction state, but rather only copies the current transaction quantities.
          */
-        BundleNegative(const BundleNegative &b);
+        BundleSigned(const BundleSigned &b);
 
         /** Move constructor.  Unlike the copy constructor, this preserves the transaction state. */
-        BundleNegative(BundleNegative &&b) = default;
+        BundleSigned(BundleSigned &&b) = default;
 
         /** Assigns the values of the given Bundle to the current Bundle.
          *
@@ -107,15 +107,15 @@ class BundleNegative {
          * the transaction state and underlying values are not.  If the current Bundle is in a
          * transaction, the assigned values become part of the transaction values.
          */
-        BundleNegative& operator = (const BundleNegative &b);
+        BundleSigned& operator = (const BundleSigned &b);
 
-        virtual ~BundleNegative() = default;
+        virtual ~BundleSigned() = default;
 
-        /** Read-only access to BundleNegative quantities given a good id.  Note that this does not
+        /** Read-only access to BundleSigned quantities given a good id.  Note that this does not
          * autovivify goods that don't exist in the bundle (unlike std::map's `operator[]`). */
         const double& operator[] (eris_id_t gid) const;
 
-        /** Modifiable access to BundleNegative quantities given a good id.  This returns a proxy
+        /** Modifiable access to BundleSigned quantities given a good id.  This returns a proxy
          * object that can be used to adjust the value by internally calling set() for any
          * adjustments (to allow for value checking as needed).
          */
@@ -170,16 +170,16 @@ class BundleNegative {
         void clear();
 
         /** Constructs a new Bundle consisting of all the strictly positive quantities of this
-         * BundleNegative.  Note that goods with a quantity of 0 are not included. */
+         * BundleSigned.  Note that goods with a quantity of 0 are not included. */
         Bundle positive() const noexcept;
 
         /** Constructs a new Bundle consisting of all the strictly negative quantities on this
-         * BundleNegative, converted to positive values.  Note that goods with a quantity of 0 are
+         * BundleSigned, converted to positive values.  Note that goods with a quantity of 0 are
          * not included.
          *
          * For example:
          *
-         *     BundleNegative new {{1, -2}, {2, 1}, {3, 0}};
+         *     BundleSigned new {{1, -2}, {2, 1}, {3, 0}};
          *     new.negative() == Bundle {{1, 2}, {3, 0}};
          *
          * This is equivalent to (-bundle).positive(), but more efficient.
@@ -190,14 +190,14 @@ class BundleNegative {
          */
         Bundle zeros() const noexcept;
 
-        /// Adds the values of one BundleNegative to the current BundleNegative.
-        BundleNegative& operator += (const BundleNegative &b);
-        /// Subtracts the values of one BundleNegative from the current BundleNegative.
-        BundleNegative& operator -= (const BundleNegative &b);
-        /// Scales a BundleNegative's quantites by `m`
-        BundleNegative& operator *= (double m);
-        /// Scales a BundleNegative's quantities by `1/d`
-        BundleNegative& operator /= (double d);
+        /// Adds the values of one BundleSigned to the current BundleSigned.
+        BundleSigned& operator += (const BundleSigned &b);
+        /// Subtracts the values of one BundleSigned from the current BundleSigned.
+        BundleSigned& operator -= (const BundleSigned &b);
+        /// Scales a BundleSigned's quantites by `m`
+        BundleSigned& operator *= (double m);
+        /// Scales a BundleSigned's quantities by `1/d`
+        BundleSigned& operator /= (double d);
 
         /// The default epsilon for transferApprox() and hasApprox(), if not specified.
         static constexpr double default_transfer_epsilon = 1.0e-12;
@@ -233,15 +233,15 @@ class BundleNegative {
          * - Otherwise, if a transfer would results in a good in the destination Bundle having a
          *   quantity with absolute value less than `epsilon` times the pre-transfer quantity, the
          *   transferred quantity will be the amount required to reach exactly 0.  (Note that this
-         *   case is only possible when the destination is a BundleNegative with a negative
+         *   case is only possible when the destination is a BundleSigned with a negative
          *   quantity, since the destination bundle is always the one being added to).
          *
          * \param amount the amount to transfer.  Goods with positive quantities are transferred
          * from the object into `to`; negative quantities are transferred frin `to` into the object.
-         * \param to the Bundle (or BundleNegative) to transfer positive amounts to, and negative
+         * \param to the Bundle (or BundleSigned) to transfer positive amounts to, and negative
          * amounts from.  `from` may be given as `amount` in order to transfer everything from
          * `from` to `to` (this is particularly useful if `from` is actually a Bundle rather than a
-         * BundleNegative).
+         * BundleSigned).
          * \param epsilon the threshold (relative to initial value) below which quantities in the
          * `amount` and `to` bundles will be truncated to 0.
          *
@@ -249,15 +249,15 @@ class BundleNegative {
          * because of numerical pricision handling.
          *
          * \throws Bundle::negativity_error if either the caller or `to` are actually Bundle objects
-         * (rather than BundleNegative objects) with insufficient quantities to approximately
+         * (rather than BundleSigned objects) with insufficient quantities to approximately
          * satisfy the transfer.
          *
-         * \sa Bundle::hasApprox(const BundleNegative&, BundleNegative&, double)
+         * \sa Bundle::hasApprox(const BundleSigned&, BundleSigned&, double)
          */
-        BundleNegative transferApprox(const BundleNegative &amount, BundleNegative &to, double epsilon = default_transfer_epsilon);
+        BundleSigned transferApprox(const BundleSigned &amount, BundleSigned &to, double epsilon = default_transfer_epsilon);
 
         /** Transfers approximately the given amount from the caller object and returns it.  This is
-         * like the above 3-argument transferApprox(const BundleNegative&, BundleNegative&, double)
+         * like the above 3-argument transferApprox(const BundleSigned&, BundleSigned&, double)
          * except that the amount is not transferred into a target Bundle but simply returned.  Like
          * the 3-argument version, negative transfer amounts are added to the calling object and
          * will be negative in the returned object.
@@ -290,86 +290,86 @@ class BundleNegative {
          * `amount` because of numerical precision handling.
          *
          * \throws Bundle::negativity_error if either the caller is actually a Bundle object (rather
-         * than BundleNegative) with insufficient quantities to approximately satisfy the transfer.
+         * than BundleSigned) with insufficient quantities to approximately satisfy the transfer.
          *
-         * \sa Bundle::hasApprox(const BundleNegative&, double)
+         * \sa Bundle::hasApprox(const BundleSigned&, double)
          */
-        BundleNegative transferApprox(const BundleNegative &amount, double epsilon = default_transfer_epsilon);
+        BundleSigned transferApprox(const BundleSigned &amount, double epsilon = default_transfer_epsilon);
 
-        /// Adds two BundleNegative objects together and returns the result.
-        BundleNegative operator + (const BundleNegative &b) const;
-        /// Subtracts one BundleNegative from another and returns the result.
-        BundleNegative operator - (const BundleNegative &b) const;
-        /// Negates all quantities of a BundleNegative and returns the result.
-        BundleNegative operator - () const;
-        /// Scales all BundleNegative quantities by `m` and returns the result.
-        BundleNegative operator * (double m) const;
-        /// Scales all BundleNegative quantities by `1/d` and returns the result.
-        BundleNegative operator / (double d) const;
-        /// Scales all BundleNegative quantities by `m` and returns the result.
-        friend BundleNegative operator * (double m, const BundleNegative &b);
+        /// Adds two BundleSigned objects together and returns the result.
+        BundleSigned operator + (const BundleSigned &b) const;
+        /// Subtracts one BundleSigned from another and returns the result.
+        BundleSigned operator - (const BundleSigned &b) const;
+        /// Negates all quantities of a BundleSigned and returns the result.
+        BundleSigned operator - () const;
+        /// Scales all BundleSigned quantities by `m` and returns the result.
+        BundleSigned operator * (double m) const;
+        /// Scales all BundleSigned quantities by `1/d` and returns the result.
+        BundleSigned operator / (double d) const;
+        /// Scales all BundleSigned quantities by `m` and returns the result.
+        friend BundleSigned operator * (double m, const BundleSigned &b);
 
         // Bundle <-> Bundle comparisons:
         
         /** Returns true if all quantities in the LHS bundle exceed those in the RHS bundle.  If one
          * of the two bundles is missing values contained in the other, those values are considered
          * to exist with numeric value 0 for the purpose of the comparison. */
-        bool operator >  (const BundleNegative &b) const noexcept;
+        bool operator >  (const BundleSigned &b) const noexcept;
         /** Returns true if all quantities in the LHS bundle are at least as large as those in the
          * RHS bundle.  If one of the two bundles is missing values contained in the other, those
          * values are considered to exist with numeric value 0 for the purpose of the comparison. */
-        bool operator >= (const BundleNegative &b) const noexcept;
+        bool operator >= (const BundleSigned &b) const noexcept;
         /** Returns true if all quantities in the LHS bundle are exactly equal to those in the RHS
          * bundle.  If one of the two bundles is missing values contained in the other, those
          * values are considered to exist with numeric value 0 for the purpose of the comparison. */
-        bool operator == (const BundleNegative &b) const noexcept;
+        bool operator == (const BundleSigned &b) const noexcept;
         /** Returns true if any quantities in the LHS bundle are not equal to those in the RHS
          * bundle.  If one of the two bundles is missing values contained in the other, those
          * values are considered to exist with numeric value 0 for the purpose of the comparison.
          * Note that `a != b` is equivalent to `!(a == b). */
-        bool operator != (const BundleNegative &b) const noexcept;
+        bool operator != (const BundleSigned &b) const noexcept;
         /** Returns true if all quantities in the RHS bundle exceed those in the LHS bundle.  If one
          * of the two bundles is missing values contained in the other, those values are considered
          * to exist with numeric value 0 for the purpose of the comparison. */
-        bool operator <  (const BundleNegative &b) const noexcept;
+        bool operator <  (const BundleSigned &b) const noexcept;
         /** Returns true if all quantities in the RHS bundle are at least as large as those in the
          * LHS bundle.  If one of the two bundles is missing values contained in the other, those
          * values are considered to exist with numeric value 0 for the purpose of the comparison. */
-        bool operator <= (const BundleNegative &b) const noexcept;
+        bool operator <= (const BundleSigned &b) const noexcept;
 
         // Bundle <-> constant comparisons:
-        /** Returns true if every quantity that exists in this BundleNegative exceeds `q`.  Returns
-         * true if the BundleNegative is empty. */
+        /** Returns true if every quantity that exists in this BundleSigned exceeds `q`.  Returns
+         * true if the BundleSigned is empty. */
         bool operator >  (double q) const noexcept;
-        /** Returns true if every quantity that exists in this BundleNegative equals or exceeds `q`.
-         * Returns true if the BundleNegative is empty. */
+        /** Returns true if every quantity that exists in this BundleSigned equals or exceeds `q`.
+         * Returns true if the BundleSigned is empty. */
         bool operator >= (double q) const noexcept;
-        /** Returns true if every quantity that exists in this BundleNegative equals or exceeds `q`.
-         * Returns true if the BundleNegative is empty. */
+        /** Returns true if every quantity that exists in this BundleSigned equals or exceeds `q`.
+         * Returns true if the BundleSigned is empty. */
         bool operator == (double q) const noexcept;
-        /** Returns true if any quantity that exists in this BundleNegative does not equal `q`.
-         * Returns false if the BundleNegative is empty.  `a != 4` is equivalent to `!(a == 4)`. */
+        /** Returns true if any quantity that exists in this BundleSigned does not equal `q`.
+         * Returns false if the BundleSigned is empty.  `a != 4` is equivalent to `!(a == 4)`. */
         bool operator != (double q) const noexcept;
-        /** Returns true if every quantity that exists in this BundleNegative is less than `q`.
-         * Returns true if the BundleNegative is empty. */
+        /** Returns true if every quantity that exists in this BundleSigned is less than `q`.
+         * Returns true if the BundleSigned is empty. */
         bool operator <  (double q) const noexcept;
-        /** Returns true if every quantity that exists in this BundleNegative is less than or equal
-         * to `q`.  Returns true if the BundleNegative is empty. */
+        /** Returns true if every quantity that exists in this BundleSigned is less than or equal
+         * to `q`.  Returns true if the BundleSigned is empty. */
         bool operator <= (double q) const noexcept;
 
         // constant <-> Bundle comparisons:
         /// `q > bundle` is equivalent to `bundle < q`
-        friend bool operator >  (double q, const BundleNegative &b) noexcept;
+        friend bool operator >  (double q, const BundleSigned &b) noexcept;
         /// `q >= bundle` is equivalent to `bundle <= q`
-        friend bool operator >= (double q, const BundleNegative &b) noexcept;
+        friend bool operator >= (double q, const BundleSigned &b) noexcept;
         /// `q == bundle` is equivalent to `bundle == q`
-        friend bool operator == (double q, const BundleNegative &b) noexcept;
+        friend bool operator == (double q, const BundleSigned &b) noexcept;
         /// `q != bundle` is equivalent to `bundle != q`
-        friend bool operator != (double q, const BundleNegative &b) noexcept;
+        friend bool operator != (double q, const BundleSigned &b) noexcept;
         /// `q < bundle` is equivalent to `bundle > q`
-        friend bool operator <  (double q, const BundleNegative &b) noexcept;
+        friend bool operator <  (double q, const BundleSigned &b) noexcept;
         /// `q <= bundle` is equivalent to `bundle >= q`
-        friend bool operator <= (double q, const BundleNegative &b) noexcept;
+        friend bool operator <= (double q, const BundleSigned &b) noexcept;
 
         /** Begins a transaction for this bundle.  When a transaction is in progress, all Bundle
          * arithmetic is stored separately from the underlying Bundle results and can be reverted to
@@ -458,11 +458,11 @@ class BundleNegative {
          *
          *     Bundle([4]=12, [6]=0)
          *     Bundle()
-         *     BundleNegative([3]=-3.75, [2]=0, [1]=4.2e-24)
+         *     BundleSigned([3]=-3.75, [2]=0, [1]=4.2e-24)
          *
          * The value in brackets is the eris_id_t of the good.
          */
-        friend std::ostream& operator << (std::ostream &os, const BundleNegative &b);
+        friend std::ostream& operator << (std::ostream &os, const BundleSigned &b);
 
     protected:
         /// Internal method used for bundle printing.
@@ -471,12 +471,12 @@ class BundleNegative {
         /// Value proxy class that maps individual good quantity manipulation into set() calls.
         class valueproxy {
             private:
-                BundleNegative &bundle_;
+                BundleSigned &bundle_;
                 const eris_id_t gid_;
             public:
                 valueproxy() = delete;
-                /// Constructs a valueproxy from a BundleNegative and good id of the proxied value
-                valueproxy(BundleNegative &bn, eris_id_t gid) : bundle_(bn), gid_(gid) {}
+                /// Constructs a valueproxy from a BundleSigned and good id of the proxied value
+                valueproxy(BundleSigned &bn, eris_id_t gid) : bundle_(bn), gid_(gid) {}
                 /// Assigns a new value to the proxied bundle quantity
                 void operator=(double q) { bundle_.set(gid_, q); }
                 /// Adds a value to the current proxied bundle quantity
@@ -488,7 +488,7 @@ class BundleNegative {
                 /// Scales the value of the current proxied bundle quantity
                 void operator/=(double q) { bundle_.set(gid_, *this / q); }
                 /// Const access to the double quantity underlying this proxy
-                operator const double&() const { return const_cast<const BundleNegative&>(bundle_)[gid_]; }
+                operator const double&() const { return const_cast<const BundleSigned&>(bundle_)[gid_]; }
         };
 
     private:
@@ -506,7 +506,10 @@ class BundleNegative {
         static constexpr double zero_ = 0.0;
 };
 
-class Bundle final : public BundleNegative {
+/// BundleNegative is a deprecated alias for BundleSigned
+using BundleNegative = BundleSigned;
+
+class Bundle final : public BundleSigned {
     public:
         /// Creates a new, empty Bundle.
         Bundle();
@@ -514,13 +517,13 @@ class Bundle final : public BundleNegative {
         Bundle(eris_id_t g, double q);
         /// Creates a new Bundle from an initializer list of goods and quantities.
         Bundle(const std::initializer_list<std::pair<eris_id_t, double>> &init);
-        /** Creates a new Bundle by copying quantities from another Bundle (or BundleNegative).  If
-         * the other Bundle is currently in a transaction, only the current values are copied; the
-         * transactions and pre-transactions values are not.
+        /** Creates a new Bundle by copying quantities from a BundleSigned.  If the other Bundle is
+         * currently in a transaction, only the current values are copied; the transactions and
+         * pre-transactions values are not.
          *
-         * \throws Bundle::negativity_error if the given BundleNegative has negative quantities.
+         * \throws Bundle::negativity_error if the given BundleSigned has negative quantities.
          */
-        Bundle(const BundleNegative &b);
+        Bundle(const BundleSigned &b);
 
         /** Sets the quantitity associated with good `gid` to `quantity`.
          *
@@ -539,48 +542,48 @@ class Bundle final : public BundleNegative {
          */
         Bundle& operator /= (double d);
 
-        // Explicitly inherit the BundleNegative versions of these (because otherwise the operator +
+        // Explicitly inherit the BundleSigned versions of these (because otherwise the operator +
         // below would hide them)
-        using BundleNegative::operator +;
-        using BundleNegative::operator -;
+        using BundleSigned::operator +;
+        using BundleSigned::operator -;
         /** Adding two Bundle objects returns a Bundle object.  Note that this operator is only
          * invoked when the visible type of both Bundles is Bundle.  In other words, in the
-         * following code `c` will be a Bundle and `d` will be a BundleNegative:
+         * following code `c` will be a Bundle and `d` will be a BundleSigned:
          *
          *     Bundle a = ...;
          *     Bundle b = ...;
          *     auto c = a + b;
-         *     auto d = a + (BundleNegative) b;
+         *     auto d = a + (BundleSigned) b;
          */
         Bundle operator + (const Bundle &b) const;
         /** Subtracting two Bundle objects returns a Bundle object.  Note that this can throw an
          * exception if the quantity any good in b is greater than in a.  If you want to allow for
-         * the quantity to be negative, you should cast one of the objects to a BundleNegative or
-         * use unary minus (which returns a BundleNegative), such as one of these:
+         * the quantity to be negative, you should cast one of the objects to a BundleSigned or
+         * use unary minus (which returns a BundleSigned), such as one of these:
          *
          *     Bundle a({{ 1, 2 }});
          *     Bundle b({{ 1, 3 }});
          *
          *     auto pos1 = b - a;                  // Bundle([1]=1)
-         *     auto neg1 = (BundleNegative) a - b; // BundleNegative([1]=-1)
+         *     auto neg1 = (BundleSigned) a - b; // BundleSigned([1]=-1)
          *     auto neg2 = -b + a;                 // Same
          *     auto neg3 = a - b; // Oops: throws eris::Bundle::negativity_error
          *
          * The `neg1` calculation above is slightly more efficient than neg2 as it doesn't need to
-         * create the intermediate `-b` BundleNegative object.
+         * create the intermediate `-b` BundleSigned object.
          */
         Bundle operator - (const Bundle &b) const;
         /** Multiplying a Bundle by a constant returns a Bundle with quantities scaled by the
          * constant.
          *
          * \throws Bundle::negativity_error if `m < 0`.  If you need a negative, first cast the Bundle
-         * as a BundleNegative, such as: `auto neg = ((BundleNegative) b) * -3;`
+         * as a BundleSigned, such as: `auto neg = ((BundleSigned) b) * -3;`
          */
         Bundle operator * (double m) const;
-        /** Scales all BundleNegative quantities by `m` and returns the result.
+        /** Scales all BundleSigned quantities by `m` and returns the result.
          *
          * \throws Bundle::negativity_error if `m < 0`.  If you need a negative, first cast the Bundle
-         * as a BundleNegative, such as: `auto neg = -3 * (BundleNegative) b;`
+         * as a BundleSigned, such as: `auto neg = -3 * (BundleSigned) b;`
          */
         friend Bundle operator * (double m, const Bundle &a);
         /** Dividing a Bundle by a constant returns a Bundle with quantities scaled by the inverse
@@ -591,7 +594,7 @@ class Bundle final : public BundleNegative {
         Bundle operator / (double d) const;
 
         /** Performs "bundle coverage," returning the multiples of the provided bundle needed to
-         * cover the called-upon Bundle.  Coverage of a Bundle (but *not* BundleNegative) by another
+         * cover the called-upon Bundle.  Coverage of a Bundle (but *not* BundleSigned) by another
          * is also defined as follows:  `a.coverage(b)` returns the minimum value \f$m\f$ such that
          * \f$mb \gtreq a\f$.
          *
@@ -685,13 +688,13 @@ class Bundle final : public BundleNegative {
          * Example: if \f$b_1=[a=1, b=3, c=1, d=0, e=-3], b_2=[a=4, c=1, d=4, e=2]\f$ then
          * \f$common(b_1,b_2) = [a=1,c=1,d=0]\f$.
          *
-         * \see reduce(BundleNegative&, BundleNegative&)
+         * \see reduce(BundleSigned&, BundleSigned&)
          */
-        static Bundle common(const BundleNegative &a, const BundleNegative &b) noexcept;
+        static Bundle common(const BundleSigned &a, const BundleSigned &b) noexcept;
         /** This is like common(), but it also subtracts the common Bundle from both bundles before
          * returning it.
          */
-        static Bundle reduce(BundleNegative &a, BundleNegative &b);
+        static Bundle reduce(BundleSigned &a, BundleSigned &b);
 
         /** Returns true if the called-upon bundle has approximately enough of each
          * positive-quantity good in `amount`, and the bundle `to` has approximately enough of each
@@ -709,7 +712,7 @@ class Bundle final : public BundleNegative {
          * If this method returns true, it is a guarantee that transferApprox() called with the same
          * arguments will succeed (i.e. without resulting in a Bundle::negativity_error exception).
          */
-        bool hasApprox(const BundleNegative &amount, const Bundle &to, double epsilon = default_transfer_epsilon) const;
+        bool hasApprox(const BundleSigned &amount, const Bundle &to, double epsilon = default_transfer_epsilon) const;
 
         /** Returns true if the called-upon bundle has approximately enough of each
          * positive-quantity good in `amount` to complete a transfer via transferApprox().  Negative
@@ -726,7 +729,7 @@ class Bundle final : public BundleNegative {
          * If this method returns true, it is a guarantee that transferApprox() called with the same
          * arguments will succeed (i.e. without resulting in a Bundle::negativity_error exception).
          */
-        bool hasApprox(const BundleNegative &amount, double epsilon = default_transfer_epsilon) const;
+        bool hasApprox(const BundleSigned &amount, double epsilon = default_transfer_epsilon) const;
 
         /** Overloaded so that a Bundle can be printed nicely with `std::cout << bundle`.
          *
@@ -734,7 +737,7 @@ class Bundle final : public BundleNegative {
          *
          *     Bundle([4]=12, [6]=0)
          *     Bundle()
-         *     BundleNegative([3]=-3.75, [2]=0, [1]=4.2e-24)
+         *     BundleSigned([3]=-3.75, [2]=0, [1]=4.2e-24)
          *
          * The value in brackets is the eris_id_t of the good.
          */
