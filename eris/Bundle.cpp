@@ -259,6 +259,7 @@ bool operator != (double q, const BundleSigned &b) noexcept {
 }
 
 BundleSigned& BundleSigned::operator = (const BundleSigned &b) {
+    if (this == &b) return *this; // Assigning something to itself is a no-op.
     beginTransaction();
     try {
         clear();
