@@ -44,12 +44,9 @@ class BayesianLinearRestricted : public BayesianLinear {
         /// Other constructors inherited from BayesianLinear
         using BayesianLinear::BayesianLinear;
 
-    protected:
         // forward declaration
         class RestrictionProxy;
         class RestrictionIneqProxy;
-
-    public:
 
         /** Returns a proxy object that allows assigning coefficient upper bounds.  Element `i` is
          * the upper bound for `beta[i]`, for `i` values between 0 and K-1.
@@ -440,8 +437,6 @@ class BayesianLinearRestricted : public BayesianLinear {
          */
         virtual const Eigen::VectorXd& drawRejection(long max_discards = -1);
 
-        // These are const from the public point of view; privately we adjust them (via a
-        // const_cast)
         int
             draw_rejection_discards_last{0}, ///< Tracks the number of inadmissable draws by the most recent call to drawRejection()
             draw_rejection_success{0}, ///< The cumulative number of successful rejection draws
@@ -462,21 +457,12 @@ class BayesianLinearRestricted : public BayesianLinear {
 
         /** Overloaded to append the restrictions after the regular BayesianLinear details.
          */
-        virtual operator std::string() const override;
+        operator std::string() const override;
 
         /** The display name of the model to use when printing it.  Defaults to "BayesianLinearRestricted"
          * but subclasses should override.
          */
-        virtual std::string display_name() const override;
-
-    protected:
-        /// Creates a BayesianLinearRestricted from a BayesianLinear rvalue
-        BayesianLinearRestricted(BayesianLinear &&move) : BayesianLinear(std::move(move)) {}
-
-        /** Resets any drawn values and draw-related variables.  Called automatically when adding a
-         * restriction, in addition to the `BayesianLinear` cases (updating and weakening).
-         */
-        virtual void reset() override;
+        std::string display_name() const override;
 
         /** Proxy object that converts assignments into restriction rows on the associated
          * BayesianLinearRestricted model.
@@ -574,6 +560,16 @@ class BayesianLinearRestricted : public BayesianLinear {
                 BayesianLinearRestricted &lr_;
                 const size_t k_;
         };
+
+    protected:
+        /// Creates a BayesianLinearRestricted from a BayesianLinear rvalue
+        BayesianLinearRestricted(BayesianLinear &&move) : BayesianLinear(std::move(move)) {}
+
+        /** Resets any drawn values and draw-related variables.  Called automatically when adding a
+         * restriction, in addition to the `BayesianLinear` cases (updating and weakening).
+         */
+        void reset() override;
+
 
         /** Returns true if there is a single-parameter, upper- or lower-bound restriction on
          * `beta[k]`.  Note that this ignores any multi-parameter restriction involving `beta[k]`.

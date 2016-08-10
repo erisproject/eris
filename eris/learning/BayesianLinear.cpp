@@ -332,9 +332,9 @@ BayesianLinear::BayesianLinear(BayesianLinear &&prior, double w) : BayesianLinea
 void BayesianLinear::updateInPlace(const Ref<const VectorXd> &y, const Ref<const MatrixXd> &X) {
     NO_EMPTY_MODEL;
     if (y.rows() != X.rows())
-        throw std::logic_error("update(y, X) failed: y and X are non-conformable");
+        throw std::logic_error("model update failed: y (" + std::to_string(y.rows()) + "x1) and X (" + std::to_string(X.rows()) + "x" + std::to_string(X.cols()) + ") are non-conformable");
     if (X.rows() > 0 and X.cols() != K())
-        throw std::logic_error("update(y, X) failed: X has wrong number of columns (expected " + std::to_string(K()) + ", got " + std::to_string(X.cols()) + ")");
+        throw std::logic_error("model update failed: X has wrong number of columns (expected " + std::to_string(K()) + ", got " + std::to_string(X.cols()) + ")");
 
     reset();
 
