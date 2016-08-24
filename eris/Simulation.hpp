@@ -40,6 +40,8 @@ class Market;
  *
  * In short, this is the central piece of the Eris framework that dictates how all the other pieces
  * interact.
+ *
+ * For an overview of the simulation stage mechanism, see the run() method.
  */
 class Simulation final : public std::enable_shared_from_this<Simulation>, private noncopyable {
     public:
@@ -315,6 +317,15 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
          *     all intra-period optimizers have their intraApply() method called.
          *   - All intra-period optimizers have their intraFinish() method called to indicate the
          *     end of the period.
+         *
+         * If more stages are required than the above provides, each stage can be divided into
+         * multiple stages by registered optimizers with a non-default (0) priority.  If the
+         * simulation contains such optimizing members, each of the above stages is split into
+         * multiple steps: first all optimizers at the lowest priority are invoked, then all
+         * optimizers at the next-lowest priority, and so on until all optimizers of each stage are
+         * complete.  Like the stages above, all optimizers at each priority level are completed
+         * before advancing to the next priority level.  See interBeginPriority(),
+         * intraOptimizePriority(), etc.
          *
          * \throws std::runtime_error if attempting to call run() recursively (i.e. during a run()
          * call).
