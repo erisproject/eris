@@ -481,6 +481,9 @@ void Simulation::run() {
 Simulation::RunStage Simulation::runStage() const {
     return stage_;
 }
+double Simulation::runStagePriority() const {
+    return stage_priority_;
+}
 
 bool Simulation::runStageIntra() const {
     switch ((RunStage) stage_) {

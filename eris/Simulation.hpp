@@ -365,6 +365,13 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
          */
         RunStage runStage() const;
 
+        /** The current priority level of the simulation stage.  Optimizers can specify a
+         * non-default priority to add extra stages: earlier priority stages are completed before
+         * advancing to the next priority level within the same stage.  The default priority (for
+         * opimizers that do not override priority) is 0.
+         */
+        double runStagePriority() const;
+
         /** Returns true if the simulation is currently in any of the intra-period optimization
          * stages, false otherwise.
          */
