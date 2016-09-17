@@ -123,35 +123,6 @@ next_increasing_integer_permutation(BidirIt first, BidirIt last, typename BidirI
 }
 
 
-/** Wrapper class around a pair of iterators that converts the pair into a range, so that a
- * for-range statement can be used.  The primary target of this is multimap's equal_range method,
- * which returns just such a pair.  This class is typically invoked via the range() function.
- */
-template <class Iter>
-class range_ final : public std::pair<Iter, Iter> {
-    public:
-        /// Builds an iteratable range from a start and end iterator
-        range_(std::pair<Iter, Iter> const &pair) : std::pair<Iter, Iter>(pair) {}
-        /// Returns the beginning of the range
-        Iter begin() const { return this->first;  }
-        /// Returns the end of the range
-        Iter end()   const { return this->second; }
-};
-/** Takes a std::pair of iterators that represents a range, and returns an iterable object for that
- * range.  This is intended to allow for range-based for loops for methods that return a pair of
- * iterators representing a range, such as multimap's equal_range() method.
- *
- * Example:
- *
- *     for (auto &whatever : eris::range(mmap.equal_range(key))) {
- *         ...
- *     }
- */
-template <class Iter>
-range_<Iter> range(std::pair<Iter, Iter> const &pair) {
-    return range_<Iter>(pair);
-}
-
 /** Generic class for a stepping a value up or down by a certain amount, increasing or decreasing
  * the step size based on the previous steps.  This is often used in optimizers to find an optimal
  * output/price level.
