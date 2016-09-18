@@ -2,6 +2,8 @@
 #include <cstdint>
 #include <iostream>
 #include <boost/detail/endian.hpp>
+#include <array>
+#include <eris/util.hpp>
 
 namespace eris { namespace serialize {
 
@@ -110,6 +112,7 @@ public:
     static constexpr size_t size = sizeof(T);
 
 protected:
+    template <typename, typename> friend class serializer;
     /** Serializes the data by writing it as bytes and copying it to the given ostream in
      * little-endian order.
      */
@@ -150,6 +153,7 @@ public:
     static constexpr size_t size = sizeof(T);
 
 protected:
+    template <typename, typename> friend class serializer;
     inline void store_to(std::ostream &os) const override {
         const char *in = reinterpret_cast<const char*>(&ref);
 #if defined(BOOST_LITTLE_ENDIAN)
@@ -162,6 +166,41 @@ protected:
     }
 private:
     T &ref;
+};
+
+/** Specialization for std::array; the type of elements stored by the array must themselves have
+ * serialize<T> specializations.
+ *
+ * Note that the given array is not stored directly, but references to its elements are, and so the
+ * array must stay alive for the lifetime of the serializer instance.
+ */
+template <typename T, size_t N>
+class serializer<std::array<T, N>> : public serializer_base {
+    template <size_t... Index>
+    serializer(std::array<T, N> &var, index_sequence<Index...>)
+    : serializers{{serializer<T>(std::get<Index>(var))...}}
+    {}
+public:
+    /// Wraps a serializer around a reference
+    explicit serializer(std::array<T, N> &var) : serializer(var, make_index_sequence<N>()) {}
+
+    /// The fixed size of this serialization
+    static constexpr size_t size = N * serializer<T>::size;
+
+protected:
+    /** Serializes the data by serializing each array element in sequence. */
+    inline void store_to(std::ostream &os) const override {
+        for (auto &s : serializers) s.store_to(os);
+    }
+    /** Deserializes the data by reading the individual serialized values from the given istream and
+     * storing them, in order, in the referenced array.
+     */
+    inline void load_from(std::istream &is) override {
+        for (auto &s : serializers) s.load_from(is);
+    }
+
+private:
+    std::array<serializer<T>, N> serializers;
 };
 
 }}
