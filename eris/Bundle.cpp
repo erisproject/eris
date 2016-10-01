@@ -31,6 +31,8 @@ Bundle::Bundle(const std::initializer_list<std::pair<eris_id_t, double>> &init) 
 }
 
 constexpr double BundleSigned::zero_;
+constexpr double BundleSigned::default_transfer_epsilon;
+
 const double& BundleSigned::operator[] (eris_id_t gid) const {
     // Don't want to invoke map's [] operator, because it auto-vivifies the element
     auto &f = q_stack_.front();
