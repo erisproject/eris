@@ -120,12 +120,16 @@ public:
      *
      * If an existing file (or memory buffer) is open, it will be closed (or discarded).
      *
-     * \param s the existing stringstream to use for storage.  If the stream contains existing
-     * XZ-compressed data, that data will be decompressed into a new stringstream.
+     * \param s a unique_ptr to the existing stringstream to use for storage.  The Serialization
+     * object takes over management of the pointer (i.e. the caller should not keep it).  If the
+     * stream contains existing XZ-compressed data, that data will be decompressed into a new
+     * stringstream.
      * \param mode the mode of the resulting buffer.  Mode::OVERWRITE may not be used.  Defaults to
      * Mode::READONLY.
      */
-    void memory(std::stringstream &&s, Mode mode = Mode::READONLY);
+    void memory(std::unique_ptr<std::stringstream> &&s, Mode mode = Mode::READONLY);
+    // NB: the above would be much nicer if it just took a std::stringstream&&, but stringstreams
+    // are not move constructible in gcc (actually libstdc++) before 5.0.
 
     /** Returns true if close() may take time due to required copying and/or compression.  Returns
      * false if results have been written directly to the final (uncompressed) file, or if no

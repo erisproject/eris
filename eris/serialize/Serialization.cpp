@@ -30,11 +30,11 @@ void Serialization::memory() {
     writeHeader();
 }
 
-void Serialization::memory(std::stringstream &&str, Mode mode) {
-
+void Serialization::memory(std::unique_ptr<std::stringstream> &&str, Mode mode) {
     close();
+    f_ = std::move(str);
+    if (!f_) throw std::runtime_error("Serialization::memory(...) called with a null unique ptr");
 
-    f_.reset(new std::stringstream(std::move(str)));
     f_->exceptions(f_->failbit | f_->badbit);
     if (mode == Mode::OVERWRITE) throw std::logic_error("Serialization::memory(ss, mode) called with invalid mode: Mode::OVERWRITE");
     read_only_ = mode == Mode::READONLY;
