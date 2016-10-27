@@ -30,6 +30,54 @@ void Serialization::memory() {
     writeHeader();
 }
 
+void Serialization::memory(std::stringstream &&str, Mode mode) {
+
+    close();
+
+    f_.reset(new std::stringstream(std::move(str)));
+    f_->exceptions(f_->failbit | f_->badbit);
+    if (mode == Mode::OVERWRITE) throw std::logic_error("Serialization::memory(ss, mode) called with invalid mode: Mode::OVERWRITE");
+    read_only_ = mode == Mode::READONLY;
+    changed_ = false;
+    compress_ = false;
+    memory_only_ = true;
+
+    try {
+        f_->seekg(0, f_->end);
+        auto str_size = f_->tellg();
+        if (str_size == 0) {
+            if (mode != Mode::READWRITE)
+                throw parse_error("stringstream to read is empty");
+
+            // Now write the header (either to the tempfile/memory buffer, or to the actual file)
+            writeHeader();
+        }
+        else {
+            // First check to see if it's an XZ-compressed file:
+            if (checkXZ(str_size)) {
+                // We preserve the compression when saving:
+                compress_ = true;
+                std::unique_ptr<std::iostream> tmpf;
+                tmpf.reset(new std::stringstream(open_readwrite));
+                decompressXZ(*f_, *tmpf);
+
+                // Now replace the f_ pointer with with temporary one (which will close the original
+                // stringstream).
+                f_ = std::move(tmpf);
+            }
+            // Now either f_ is the original contents or, if compressed, the decompressed content.
+            // Either way, we should find the eris header (and throw if we don't):
+            readHeader();
+        }
+    }
+    catch (std::ios_base::failure &c) {
+        // Open failed: clean up any opened files/tempfiles:
+        close();
+        throw std::ios_base::failure("Unable to open/read string buffer: " + std::string(strerror(errno)));
+    }
+}
+
+
 void Serialization::open(
         const std::string &filename,
         Mode mode,
@@ -118,7 +166,6 @@ void Serialization::open(
                 std::unique_ptr<std::iostream> tmpf;
                 if (memory) {
                     tmpf.reset(new std::stringstream(open_readwrite));
-                    //f_.reset(fmem);
                 }
                 else {
                     auto tempfile = Serialization::tempfile(filename, tmpdir);

@@ -83,8 +83,8 @@ public:
      *
      * \param memory governs the use of an in-memory buffer for compressed files and new files.  If
      * opening and reading an existing, XZ-compressed file, a true value here causes decompression
-     * to happen into an in-memory buffer.  Otherwise, when opening a new file (or overwriting an
-     * existing one), this causes all data to be written to an in-memory buffer and written to disk
+     * to happen into an in-memory buffer.  For non-XZ-compressed files, and new (or overwritten)
+     * files, this causes all data to be written to an in-memory buffer and written to disk
      * all at once when close() is called or the object is destroyed.  If this is false (the
      * default), compressed files will involve an intermediate temporary file; uncompressed files
      * will be read/written directly.
@@ -107,12 +107,25 @@ public:
             const std::string &tmpdir = "",
             bool compress_new = true);
 
-    /** Opens an in-memory buffer rather than a file-backed buffer.  This is considerably faster in
-     * most cases, but also requires considerably more memory.
+    /** Opens a new in-memory buffer rather than a file-backed buffer, in read-write mode.  This is
+     * considerably faster in most cases, but also requires considerably more memory.
      *
      * If an existing file (or memory buffer) is open, it will be closed (or discarded).
      */
     void memory();
+
+    /** Reads from an existing std::stringstream in the given mode.  If the stringstream contains
+     * XZ-compressed data, that data is immediately decompressed into a new stringstream (and the
+     * original is closed).  Otherwise the stringstream is used as-is.
+     *
+     * If an existing file (or memory buffer) is open, it will be closed (or discarded).
+     *
+     * \param s the existing stringstream to use for storage.  If the stream contains existing
+     * XZ-compressed data, that data will be decompressed into a new stringstream.
+     * \param mode the mode of the resulting buffer.  Mode::OVERWRITE may not be used.  Defaults to
+     * Mode::READONLY.
+     */
+    void memory(std::stringstream &&s, Mode mode = Mode::READONLY);
 
     /** Returns true if close() may take time due to required copying and/or compression.  Returns
      * false if results have been written directly to the final (uncompressed) file, or if no
