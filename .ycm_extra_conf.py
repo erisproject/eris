@@ -41,9 +41,22 @@ def MakeRelativePathsInFlagsAbsolute( flags, working_directory ):
             new_flags.append( new_flag )
     return new_flags
 
+# Dirty hack until ycm #2330 is solved
+def LoadSystemIncludes():
+    regex = re.compile(ur'(?:\#include \<...\> search starts here\:)(?P<list>.*?)(?:End of search list)', re.DOTALL);
+    process = subprocess.Popen(['clang', '-v', '-E', '-x', 'c++', '-'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE);
+    process_out, process_err = process.communicate('');
+    output = process_out + process_err;
+    includes = [];
+    for p in re.search(regex, output).group('list').split('\n'):
+        p = p.strip();
+        if len(p) > 0 and p.find('(framework directory)') < 0:
+            includes.append('-isystem');
+            includes.append(p);
+    return includes;
 
 def FlagsForFile( filename, **kwargs ):
-    final_flags = MakeRelativePathsInFlagsAbsolute( flags, DirectoryOfThisScript() )
+    final_flags = MakeRelativePathsInFlagsAbsolute( flags, DirectoryOfThisScript() ) + LoadSystemIncludes()
     return {
             'flags': final_flags,
             'do_cache': True
