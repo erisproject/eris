@@ -10,4 +10,3 @@ override_dh_auto_configure:
 		-DMATHJAX_PATH=mathjax
 
 override_dh_auto_test:
-
