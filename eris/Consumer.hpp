@@ -1,5 +1,5 @@
 #pragma once
-#include <eris/agent/AssetAgent.hpp>
+#include <eris/Agent.hpp>
 #include <map>
 #include <vector>
 #include <functional>
@@ -9,18 +9,18 @@ namespace eris {
 /** Namespace for all specific eris::Consumer implementations. */
 namespace consumer{}
 
-/** Base class for consumers, a (general) specialization of an AssetAgent which has a utility
+/** Base class for consumers, a (general) specialization of an Agent which has a utility
  * function for any Bundle of goods.
  */
-class Consumer : public agent::AssetAgent {
+class Consumer : public Agent {
     public:
         /** Returns the Consumer's utility for the given Bundle.
          * /param b a BundleNegative (or Bundle) at which to evaluate the consumer's utility.
          */
         virtual double utility(const BundleNegative &b) const = 0;
 
-        /** Returns the Consumer's utility for the current assets() Bundle.  This is identical to
-         * calling consumer->utility(consumer->assets()).
+        /** Returns the Consumer's utility for the current assets Bundle.  This is identical to
+         * calling consumer->utility(consumer->assets).
          */
         double currUtility() const;
 

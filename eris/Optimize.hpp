@@ -55,6 +55,7 @@ class Begin {
          */
         virtual double interBeginPriority() const { return 0.0; }
     protected:
+        /// Protected destructor: object destruction via the optimizer interface is not permitted.
         ~Begin() = default;
 };
 
@@ -76,6 +77,7 @@ class Optimize {
         /// \copydoc interopt::Begin::interBeginPriority()
         virtual double interOptimizePriority() const { return 0.0; }
     protected:
+        /// Protected destructor: object destruction via the optimizer interface is not permitted.
         ~Optimize() = default;
 };
 
@@ -94,6 +96,7 @@ class Apply {
         /// \copydoc interopt::Begin::interBeginPriority()
         virtual double interApplyPriority() const { return 0.0; }
     protected:
+        /// Protected destructor: object destruction via the optimizer interface is not permitted.
         ~Apply() = default;
 };
 
@@ -119,14 +122,15 @@ class OptApply : public virtual Optimize, public virtual Apply {};
 class Advance {
     public:
         /** This method is called to take care of any actions that need to be performed when
-         * advancing.  For example, eris::agent::AssetAgent uses interAdvance to clear the agent's
-         * assets bundle.
+         * advancing.  For example, eris::agent::ClearingAgent uses interAdvance to clear the
+         * agent's assets bundle.
          */
         virtual void interAdvance() = 0;
 
         /// \copydoc interopt::Begin::interBeginPriority()
         virtual double interAdvancePriority() const { return 0.0; }
     protected:
+        /// Protected destructor: object destruction via the optimizer interface is not permitted.
         ~Advance() = default;
 };
 
@@ -157,6 +161,7 @@ class Initialize {
         /// \copydoc interopt::Begin::interBeginPriority()
         virtual double intraInitializePriority() const { return 0.0; }
     protected:
+        /// Protected destructor: object destruction via the optimizer interface is not permitted.
         ~Initialize() = default;
 };
 
@@ -182,6 +187,7 @@ class Reset {
         /// \copydoc interopt::Begin::interBeginPriority()
         virtual double intraResetPriority() const { return 0.0; }
     protected:
+        /// Protected destructor: object destruction via the optimizer interface is not permitted.
         ~Reset() = default;
 };
 
@@ -216,6 +222,7 @@ class Optimize {
         /// \copydoc interopt::Begin::interBeginPriority()
         virtual double intraOptimizePriority() const { return 0.0; }
     protected:
+        /// Protected destructor: object destruction via the optimizer interface is not permitted.
         ~Optimize() = default;
 };
 
@@ -252,6 +259,7 @@ class Reoptimize {
         /// \copydoc interopt::Begin::interBeginPriority()
         virtual double intraReoptimizePriority() const { return 0.0; }
     protected:
+        /// Protected destructor: object destruction via the optimizer interface is not permitted.
         ~Reoptimize() = default;
 };
 
@@ -291,6 +299,7 @@ class Finish {
         /// \copydoc interopt::Begin::interBeginPriority()
         virtual double intraFinishPriority() const { return 0.0; }
     protected:
+        /// Protected destructor: object destruction via the optimizer interface is not permitted.
         ~Finish() = default;
 };
 

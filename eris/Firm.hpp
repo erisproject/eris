@@ -1,5 +1,5 @@
 #pragma once
-#include <eris/agent/AssetAgent.hpp>
+#include <eris/Agent.hpp>
 #include <exception>
 #include <stdexcept>
 #include <string>
@@ -17,7 +17,7 @@ enum class ReservationState { pending, complete, aborted };
 /** Abstract base class for representing a firm that uses some input (such as money) to supply some
  * output (such as a good).
  */
-class Firm : public agent::AssetAgent {
+class Firm : public Agent {
     public:
         /** Returns true if the firm is able to supply the given Bundle.  Returning false thus 
          * indicates that the firm either cannot supply some of the items in the Bundle, or else
@@ -25,7 +25,7 @@ class Firm : public agent::AssetAgent {
          * simply calls canSupplyAny, and returns true or false depending on whether canSupplyAny
          * returned a value >= 1.
         */
-        virtual bool canSupply(const Bundle &b) const noexcept;
+        virtual bool canSupply(const Bundle &b) const;
 
         /** Returns a non-negative double indicating whether the firm is able to supply the given
          * Bundle.  Values of 1 (or greater) indicate that the firm can supply the entire Bundle
@@ -41,14 +41,14 @@ class Firm : public agent::AssetAgent {
          * value of exactly 1.0 DOES NOT indicate that no further amount can be supplied (though
          * specific subclasses may add that interpretation).
          */
-        virtual double canSupplyAny(const Bundle &b) const noexcept;
+        virtual double canSupplyAny(const Bundle &b) const;
 
         /** This is similar to canSupplyAny(), but only returns a true/false value indicating
          * whether the firm can supply any positive multiple of the given Bundle.  This is identical
          * in functionality to (canSupplyAny(b) > 0), but more efficient (as the calculations to
          * figure out the precise multiple that can be supplied are skipped).
          */
-        virtual bool supplies(const Bundle &b) const noexcept;
+        virtual bool supplies(const Bundle &b) const;
 
         /** Contains a reservation of a BundleNegative net transfer from a firm.  The firm will
          * consider the reserved quantity unavailable until a call of either transfer() (which
@@ -58,7 +58,7 @@ class Firm : public agent::AssetAgent {
          * called automatically.
          *
          * This object is not intended to be used directly, but rather through the Reservation
-         * unique_ptr typedef.
+         * returned by reserve().
          */
         class Reservation final {
             private:
@@ -70,14 +70,19 @@ class Firm : public agent::AssetAgent {
                 Reservation(const Reservation &) = delete;
 
                 // Move/copy assignment not allowed
-                Reservation& operator=(Reservation &&move) = delete;
-                Reservation& operator=(const Reservation &copy) = delete;
+                Reservation& operator=(Reservation &&) = delete;
+                Reservation& operator=(const Reservation &) = delete;
 
             public:
                 /// Move constructor
-                Reservation(Reservation &&move) = default;
+                Reservation(Reservation &&move) : state{move.state},
+                    // need to const_cast away the constness on the move source (otherwise copy
+                    // constructors get invoked, which leaves firm set, which breaks destruction).
+                    bundle(std::move(const_cast<BundleNegative&>(move.bundle))),
+                    firm(std::move(const_cast<SharedMember<Firm>&>(move.firm))) {}
+
                 /** Destructor.  If this Reservation is destroyed without having been completed or aborted
-                 * (via transfer() or release()), it will be aborted (by calling release() on its Firm).
+                 * (via transfer() or release()), it will be aborted (by calling release()).
                  */
                 ~Reservation();
                 /// The state of this reservation.
@@ -88,12 +93,21 @@ class Firm : public agent::AssetAgent {
                 const BundleNegative bundle;
                 /// The firm for which this Reservation applies.
                 const SharedMember<Firm> firm;
-                /** Calls transfer() on the firm with the Reservation object.  Calling
-                 * obj->transfer(a) is equivalent to calling `obj->firm->transfer(obj, a)`.
+                /** Transfers the given Bundle reservation out of reserves and into the provided Bundle.
+                 * Reserved production is performed if required.  Any negative quantities in the reservation
+                 * are removed from the given Bundle and added to the firm's assets.  When the transfer is
+                 * completed, reduceProduction() is called to see if any currently planned production can
+                 * instead be supplied from the newly-gained assets.
                  */
                 void transfer(Bundle &to);
-                /** Calls release() on the firm.  This is equivalent to calling
-                 * `obj->firm->release(obj)`.
+                /** Cancels a reserved quantity previously reserved with reserve(), indicating that the
+                 * quantity will not be transferred via `res.transfer()`.
+                 *
+                 * This method attempts to transfer as much of the bundle to be released as possible
+                 * from reserved_production_ to excess_production.  If that was sufficient to cover
+                 * the whole request, it calls reduceExessProduction() and finishes.  Otherwise, any
+                 * remaining amount is transferred from reserves to assets, followed by a
+                 * reduceProduction() call (which itself also calls reduceExcessProduction).
                  */
                 void release();
 
@@ -109,14 +123,15 @@ class Firm : public agent::AssetAgent {
         /** Tells the firm to supply the given Bundle and transfer it to the given assets bundle.
          * This method is simply a wrapper around reserve() and transfer(); see those methods for
          * details.  That is, `firm->supply(b, assets)` is identical to
-         * `firm->reserve(b)->transfer(assets)`.
+         * `firm->reserve(b)->transfer(assets)`, except that it returns the (completed) reservation
+         * object.
          *
          * \returns the (completed) Reservation
          *
-         * \sa reserve()
-         * \sa transfer()
+         * \sa Firm::Reservation::reserve()
+         * \sa Firm::Reservation::transfer()
          */
-        virtual Reservation supply(const BundleNegative &b, Bundle &assets);
+        Reservation supply(const BundleNegative &b, Bundle &assets);
 
         /** An exception class that can be thrown by supply() to indicate a supply failure.
          * This may be subclassed as needed to provide for more specific supply errors.
@@ -180,7 +195,7 @@ class Firm : public agent::AssetAgent {
 
 
         /** Reserves the given quantities to be later transferred from the firm by a
-         * transferReserves() call, or aborted via a release() call.
+         * reservation transfer() call, or aborted via a release() call.
          *
          * This works with 4 internal Bundles to manage assets, reserves and production.  Those are:
          * assets, reserved assets, reserved production, and excess production.
@@ -214,25 +229,6 @@ class Firm : public agent::AssetAgent {
          */
         virtual Reservation reserve(const BundleNegative &reserve);
 
-        /** Transfers the given Bundle reservation out of reserves and into the provided Bundle.
-         * Reserved production is performed if required.  Any negative quantities in the reservation
-         * are removed from the given Bundle and added to the firm's assets.  When the transfer is
-         * completed, reduceProduction() is called to see if any currently planned production can
-         * instead be supplied from the newly-gained assets.
-         */
-        void transfer(Reservation &res, Bundle &assets);
-
-        /** Cancels a reserved quantity previously reserved with reserve(), indicating that the
-         * quantity will not be transferred via transferReserves.
-         *
-         * The default implementation attempts to transfer as much of the bundle to be released as
-         * possible from reserved_production_ to excess_production.  If that was sufficient to cover
-         * the whole request, it calls reduceExessProduction() and finishes.  Otherwise, any
-         * remaining amount is transferred from reserves to assets, followed by a reduceProduction()
-         * call.
-         */
-        virtual void release(Reservation &res);
-
         /** Controls the relative tolerance for handling invalid requests such as being asked to
          * produce more than is available.  Requested amounts can be changed by up to this amount to
          * avoid a constraint or to use up all of a resource (rather than leaving a miniscule amount
@@ -248,14 +244,15 @@ class Firm : public agent::AssetAgent {
          * simply calls canProduceAny() and returns true iff it returns >= 1.0, which should be
          * sufficient in most cases.
          */
-        virtual bool canProduce(const Bundle &b) const noexcept;
+        virtual bool canProduce(const Bundle &b) const;
 
         /** Analogous to (and called by) canSupplyAny(), this method should return a value between 0
-         * and 1 indicating the proportion of the bundle the firm can instantly produce.  By default
-         * it returns 0, which should be appropriate for firms that don't instantaneously produce,
-         * but will certainly need to be overridden by classes with within-period production.
+         * and 1 indicating the proportion of the bundle the firm can instantly produce.
+         *
+         * Must be provided by a subclass.  Non-producing subclasses (such as the alternate
+         * FirmNoProd base class) can simply return 0.
          */
-        virtual double canProduceAny(const Bundle &b) const noexcept;
+        virtual double canProduceAny(const Bundle &b) const = 0;
 
         /** Analogous to (and called by) supplies(), this method returns true if the firm is able to
          * produce some positive quantity of each good of the given Bundle.  This is equivalent to
@@ -266,7 +263,7 @@ class Firm : public agent::AssetAgent {
          * default canProduceAny(b) simply returns 0.  If overriding canProduceAny(b) with more
          * complicated logic, you should also contemplate overriding produces().
          */
-        virtual bool produces(const Bundle &b) const noexcept;
+        virtual bool produces(const Bundle &b) const;
 
         /** This method is called by transfer() with the portion of the Bundle that cannot be
          * transferred from the firm's current assets, if any.  This method uses up reserved
@@ -285,7 +282,7 @@ class Firm : public agent::AssetAgent {
          * reserved_production_ (and excess_production_, if appropriate) and adds the produced
          * amount to the firm's current assets.
          */
-        virtual void produceReserved(const Bundle &b);
+        void produceReserved(const Bundle &b);
 
         /** Abstract method called by produceReserved() to produce the actual Bundle.  Returns the
          * Bundle produced, which must be >= the requested bundle.  This method does not need to
@@ -300,10 +297,10 @@ class Firm : public agent::AssetAgent {
         Reservation createReservation(BundleNegative bundle);
 
         /** Reserves the given quantities to be produced by the firm by a later produce() call, or
-         * aborted via a releaseProduction() call.  Should increases reserved_production_ by the
-         * given amount, and possibly increases excess_production_ if appropriate.  If appropriate,
-         * this method could include other checks such as capacity constraints, depending on the
-         * functionality of the subclass.
+         * aborted via a release() call.  Should increases reserved_production_ by the given amount,
+         * and possibly increases excess_production_ if appropriate.  If appropriate, this method
+         * could include other checks such as capacity constraints, depending on the functionality
+         * of the subclass.
          *
          * This method is intentionally protected rather than public as it is intended to be called
          * by reserve() when needed.
@@ -314,13 +311,13 @@ class Firm : public agent::AssetAgent {
          */
         virtual void reserveProduction(const Bundle &reserve) = 0;
 
-        /** This method checks currently planned production for any possible reductions.  The
-         * default implementation does two things:
-         * - If assets_ contains any of the currently reserved production, that amount is moved from
-         *   assets_ to reserves_, and moved from reserved_production_ to excess_production_.
+        /** This method checks currently planned production for any possible reductions.
+         * Specifically, this does two things:
+         * - If assets contains any of the currently reserved production, that amount is moved from
+         *   assets to reserves_, and moved from reserved_production_ to excess_production_.
          * - reduceExcessProduction() is called to reduce any production levels as appropriate.
          */
-        virtual void reduceProduction();
+        void reduceProduction();
 
         /** Attempts to reduce currently excess production.  Typically this happens as the result of
          * the cancellation of some reserved amount, in which case some or all of the cancelled
@@ -347,7 +344,8 @@ class Firm : public agent::AssetAgent {
          * ends.  If cancelled, reserved assets are returned to regular assets.
          *
          * \sa reserve()
-         * \sa transferReserves()
+         * \sa Firm::Reservation::transfer()
+         * \sa Firm::Reservation::release()
          * \sa assets_
          * \sa reserved_production_
          * \sa excess_production_
@@ -389,6 +387,9 @@ class Firm : public agent::AssetAgent {
          * \sa reduceProduction()
          */
         Bundle excess_production_;
+
+        friend class Reservation; // Reservation needs internal firm access to perform the transfer/release
+
 };
 
 /** Abstract specialization of Firm intended for firms with no instantaneous production capacity.
@@ -400,31 +401,31 @@ class FirmNoProd : public Firm {
         /** Throws a Firm::production_unavailable exception if called.  FirmNoProd have no
          * instantaneous production capabilities.
          */
-        virtual Bundle produce(const Bundle &b) override;
+        Bundle produce(const Bundle &b) override;
 
         /// Overridden to optimize by avoiding production checks.
-        virtual bool supplies(const Bundle &b) const noexcept override;
+        bool supplies(const Bundle &b) const override;
 
         /** Overridden to optimized by skipping production method calculations and calls.  Note that
          * unlike the Firm version of this method, this will return values greater than 1 (when
          * appropriate).
          */
-        virtual double canSupplyAny(const Bundle &b) const noexcept override;
+        double canSupplyAny(const Bundle &b) const override;
 
         /** Calls to ensure that there is at least the given Bundle available in assets for the next
          * period.  If current assets are sufficient, this does nothing; otherwise it calls
          * produceNext with the Bundle of quantities required to hit the target Bundle.
          *
-         * \param b the Bundle of quantities needed in assets() next period.
+         * \param b the Bundle of quantities needed in `assets` next period.
          */
-        virtual void ensureNext(const Bundle &b);
+        void ensureNext(const Bundle &b);
 
         /** Called to produce at least b for next period.  This is typically called indirectly
          * through ensureNext(), which takes into account current assets to hit a target capacity.
-         * Thus this method must not take into account the current level of assets(): the passed-in
+         * Thus this method must not take into account the current level of `assets`: the passed-in
          * Bundle is the *additional* amount of production required.
          *
-         * \param b the (minimum) Bundle to be produced and added to current assets().
+         * \param b the (minimum) Bundle to be produced and added to current `assets`.
          *
          * \sa QFirm
          * \sa QFStepper
@@ -435,16 +436,12 @@ class FirmNoProd : public Firm {
         /** Overrides Firm::reserveProduction() to simply throw a Firm::production_unavailable
          * exception if called, since this class does not support intra-period production.
          */
-        virtual void reserveProduction(const Bundle &reserve) override;
+        void reserveProduction(const Bundle &reserve) override;
 
-        /** Overrides Firm::reduceProduction() with a version that does nothing, since firms of this
-         * base class have no production at all.
-         */
-        virtual void reduceProduction() override;
         /** Provides an implementation of Firm::reduceExcessProduction that does nothing (since
          * this class of firm has no production at all).
          */
-        virtual void reduceExcessProduction() override;
+        void reduceExcessProduction() override;
 };
 
 }

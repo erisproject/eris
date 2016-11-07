@@ -224,7 +224,7 @@ Bertrand::allocation Bertrand::allocate(double q) const {
     return a;
 }
 
-Market::Reservation Bertrand::reserve(SharedMember<agent::AssetAgent> agent, double q, double p_max) {
+Market::Reservation Bertrand::reserve(SharedMember<Agent> agent, double q, double p_max) {
     // Lock the market and the agent, and the market's firms
     std::vector<SharedMember<Member>> to_lock;
     to_lock.push_back(agent);
@@ -239,7 +239,7 @@ Market::Reservation Bertrand::reserve(SharedMember<agent::AssetAgent> agent, dou
     if (a.p.total > p_max) throw low_price();
 
     Bundle cost = a.p.total*price_unit;
-    if (!(agent->assets() >= cost)) throw insufficient_assets();
+    if (!(agent->assets >= cost)) throw insufficient_assets();
 
     double total_q = 0, total_p = 0;
 

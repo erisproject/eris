@@ -293,4 +293,18 @@ Member::Lock Member::Lock::remove(SharedMember<Member> member) {
     return remove(to_remove);
 }
 
+Member::Lock::Supplemental::Supplemental(Lock &lock, const SharedMember<Member> &member) : lock_{lock}, member_{member} {
+    lock_.add(member_);
+}
+
+Member::Lock::Supplemental::Supplemental(Supplemental &&s) : lock_{s.lock_}, member_{std::move(s.member_)} {}
+
+Member::Lock::Supplemental::~Supplemental() {
+    if (member_) lock_.remove(member_);
+}
+
+Member::Lock::Supplemental Member::Lock::supplement(const SharedMember<Member> &member) {
+    return Supplemental(*this, member);
+}
+
 }

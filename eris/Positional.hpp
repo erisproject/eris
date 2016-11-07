@@ -12,12 +12,32 @@ class PositionalBoundaryError : public std::range_error {
         PositionalBoundaryError() : std::range_error("Cannot move outside bounding box") {}
 };
 
-/** Handles positioning.  Should not be used directly but rather by inheriting from Positional<T>.
+/** Base class for adding a position (and related methods/attributes) to a member.  This can be
+ * inherited from, or can be applied on top of another object via the `Positional<T>` interface.
+ *
+ * \sa Positional<T>
  */
 class PositionalBase {
     public:
+        /// Not default constructible
+        PositionalBase() = delete;
+
+        /// Constructs a PositionalBase for the given point and boundaries.
+        PositionalBase(const Position &p, const Position &boundary1, const Position &boundary2);
+
+        /** Constructs a PositionalBase for the given point with boundaries of `b1` and `b2` in
+         * every dimension.
+         */
+        PositionalBase(const Position &p, double b1, double b2);
+
+        /// Constructs an unbounded PositionalBase at the given point
+        explicit PositionalBase(const Position &p);
+
+        /// Virtual destructor
+        virtual ~PositionalBase() = default;
+
         /** Returns the current position. */
-        const Position& position() const noexcept;
+        const Position& position() const { return position_; }
 
         /** Returns the distance from this object's position to the passed-in object's position.
          * This is simply an alias for `obj.vectorTo(target.position()).length()`.  Subclasses that
@@ -32,7 +52,7 @@ class PositionalBase {
         double distance(const Position &pos) const;
 
         /// a.vectorTo(b) is an alias for `a.vectorTo(b.position())`.
-        virtual Position vectorTo(const PositionalBase &other) const;
+        Position vectorTo(const PositionalBase &other) const;
 
         /** `a.vectorTo(p)` Returns a vector \f$v\f$ (as a Position object) which is the shortest
          * vector that, when passed to moveBy(), would result in `a` being at position `p`.  The
@@ -43,11 +63,11 @@ class PositionalBase {
 
         /** Returns true if a boundary applies to the position of this object.
          */
-        virtual bool bounded() const noexcept;
+        virtual bool bounded() const;
 
         /** Returns true if the object's position is currently on one of the boundaries, false
          * otherwise. */
-        virtual bool binding() const noexcept;
+        virtual bool binding() const;
 
         /** Returns true if the object's position is currently on the lower boundary in any
          * dimension, false otherwise.
@@ -55,7 +75,7 @@ class PositionalBase {
          * Note that it is possible for an object's position to be on both a lower bound and upper
          * bound simultaneously.
          */
-        virtual bool bindingLower() const noexcept;
+        virtual bool bindingLower() const;
 
         /** Returns true if the object's position is currently on the upper boundary in any
          * dimension, false otherwise.
@@ -63,28 +83,29 @@ class PositionalBase {
          * Note that it is possible for an object's position to be on both a lower bound and upper
          * bound simultaneously.
          */
-        virtual bool bindingUpper() const noexcept;
+        virtual bool bindingUpper() const;
 
         /** Returns the lowest-coordinates vertex of the bounding box.  For example, if bounding box
          * vertices of (1,-1,5) and (0,2,3) are given, this method returns the position (0,-1,3).
          * If the object is not bounded, this returns negative infinity for each dimension.
          */
-        virtual Position lowerBound() const noexcept;
+        virtual Position lowerBound() const;
         
         /** Returns the highest-coordinates vertex of the bounding box.  For example, if bounding box
          * vertices of (1,-1,5) and (0,2,3) are given, this method returns the position (1,2,5).  If
          * the object is not bounded, this returns infinity for each dimension.
          */
-        virtual Position upperBound() const noexcept;
+        virtual Position upperBound() const;
 
-        /** Returns true if attempting to move to a position outside the object's bounding box should
-         * instead move to the nearest point on the boundary.  The default always returns false;
-         * subclasses should override if desired.
+        /** If this is true, attempting to move to a position outside the object's bounding box should
+         * instead move to the nearest point on the boundary.  The default is false: attempting to
+         * move outside the boundary will throw a PositionalBoundaryError exception.  Note that
+         * subclasses may ignore this property.
          */
-        virtual bool moveToBoundary() const noexcept { return false; }
+        bool move_to_boundary = false;
 
         /** Moves to the given position.  If the position is outside the bounding box,
-         * `moveToBoundary()` is checked: if true, the object moves to the boundary point closest to
+         * `move_to_boundary` is checked: if true, the object moves to the boundary point closest to
          * the destination; if false, a PositionalBoundaryError exception is thrown.
          *
          * This method is also invoked for a call to moveBy(), and so subclasses seeking to change
@@ -92,7 +113,7 @@ class PositionalBase {
          *
          * \returns true if the move was completed as requested, false if the move was corrected to
          * the nearest boundary point.
-         * \throws PositionalBoundaryError if moveToBoundary() was false and the destination
+         * \throws PositionalBoundaryError if `move_to_boundary` was false and the destination
          * was outside the boundary.
          * \throws std::length_error if p does not have the same dimensions as the object's position.
          *
@@ -105,14 +126,14 @@ class PositionalBase {
          *
          * \returns true if the move was completed as requested, false if the move was corrected to
          * the nearest boundary point.
-         * \throws PositionalBoundaryError if moveToBoundary() was false and the destination
+         * \throws PositionalBoundaryError if `move_to_boundary` was false and the destination
          * was outside the boundary.
          * \throws std::length_error if `relative` does not have the same dimensions as the object's
          * position.
          */
         bool moveBy(const Position &relative);
 
-        /** Returns a Position that is as close as the given Position as possible, but within the
+        /** Returns a Position that is as close to the given Position as possible, but within the
          * object's boundary.  If the object is unbounded, or the given point is not outside the
          * boundary, this is the same coordinate as given; if the point is outside the boundary, the
          * returned point will be on the boundary.
@@ -120,17 +141,13 @@ class PositionalBase {
         virtual Position toBoundary(Position pos) const;
 
     protected:
-        /// Constructs a PositionalBase for the given point and boundaries.
-        PositionalBase(const Position &p, const Position &boundary1, const Position &boundary2);
-        /** Constructs a PositionalBase for the given point with boundaries of `b1` and `b2` in
-         * every dimension.
+        /** Truncates the given Position object, updating (or throwing an exception) if required.
+         * Returns true if truncation was necessary and allowed, false if no changes were needed,
+         * and throws a PositionalBoundaryError exception if throw_on_truncation is true if changes
+         * are needed but not allowed.
          */
-        PositionalBase(const Position &p, double b1, double b2);
-        /// Constructs an unbounded PositionalBase at the given point
-        PositionalBase(const Position &p);
+        virtual bool truncate(Position &pos, bool throw_on_truncation = false) const;
 
-        /// Destructor (protected to prevent creating/copying PositionalBase objects)
-        ~PositionalBase() = default;
     private:
         friend class WrappedPositionalBase;
         /// The current position.
@@ -141,23 +158,14 @@ class PositionalBase {
         Position lower_bound_{Position::zero(position_.dimensions)};
         /// The upper vertex of the bounding box, defined by the greater value in each dimension.
         Position upper_bound_{Position::zero(position_.dimensions)};
-
-        /** Truncates the given Position object, updating (or throwing an exception) if required.
-         * Returns true if truncation was necessary and allowed, false if no changes were needed,
-         * and throws a PositionalBoundaryError exception if throw_on_truncation is true if changes
-         * are needed but not allowed.
-         */
-        virtual bool truncate(Position &pos, bool throw_on_truncation = false) const;
 };
-
-inline const Position& PositionalBase::position() const noexcept { return position_; }
 
 /** Generic subclass that adds a position and optional bounding box to a base type.  This is
  * intended for use in models involving spatial locations of simulation objects.  Positional<T> is a
  * type that inherits from PositionalBase (giving you its methods) and T, essentially adding
  * positional handling to a T object.
  *
- * For example, Positional<Agent> gives you an agent with a position; Positional<Good::Discrete>
+ * For example, Positional<Agent> gives you an agent with a position; Positional<Good>
  * gives you a good with a position.
  */
 template <class T>
@@ -177,7 +185,7 @@ class Positional : public PositionalBase, public T {
          * \throws std::length_error if `p`, `boundary1`, and `boundary2` are not of the same
          * dimension.
          */
-        template <typename... Args>
+        template <typename... Args, typename = typename std::enable_if<std::is_constructible<T, Args...>::value>::type>
         Positional(const Position &p, const Position &boundary1, const Position &boundary2, Args&&... T_args)
             : PositionalBase(p, boundary1, boundary2),
             T(std::forward<Args>(T_args)...)
@@ -190,8 +198,8 @@ class Positional : public PositionalBase, public T {
          */
         template<typename... Args, typename Numeric1, typename Numeric2,
             typename = typename std::enable_if<
-                (std::is_floating_point<Numeric1>::value or std::is_integral<Numeric1>::value) and
-                (std::is_floating_point<Numeric2>::value or std::is_integral<Numeric2>::value)
+                std::is_arithmetic<Numeric1>::value and std::is_arithmetic<Numeric2>::value and
+                std::is_constructible<T, Args...>::value
                 >::type>
         Positional(const Position &p, Numeric1 b1, Numeric2 b2, Args&&... T_args)
             : PositionalBase(p, (double) b1, (double) b2),
@@ -202,8 +210,8 @@ class Positional : public PositionalBase, public T {
          *
          * Any extra arguments are forwarded to T's constructor.
          */
-        template <typename... Args>
-        Positional(const Position &p, Args&&... T_args)
+        template <typename... Args, typename = typename std::enable_if<std::is_constructible<T, Args...>::value>::type>
+        explicit Positional(const Position &p, Args&&... T_args)
             : PositionalBase(p), T(std::forward<Args>(T_args)...)
         {}
 };

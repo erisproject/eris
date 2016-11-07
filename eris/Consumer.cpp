@@ -3,7 +3,7 @@
 namespace eris {
 
 double Consumer::currUtility() const {
-    return utility(assets());
+    return utility(assets);
 }
 
 std::map<eris_id_t, double> Consumer::Differentiable::gradient(const std::vector<eris_id_t> &goods, const BundleNegative &b) const {

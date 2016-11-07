@@ -76,10 +76,10 @@ using namespace eris::intraopt;
     auto sim = Simulation::create(); \
     sim->maxThreads(0); \
     \
-    auto m = sim->spawn<Good::Continuous>("Money"); \
-    auto x = sim->spawn<Good::Continuous>("x"); \
-    auto y = sim->spawn<Good::Continuous>("y"); \
-    auto z = sim->spawn<Good::Continuous>("z"); \
+    auto m = sim->spawn<Good>("Money"); \
+    auto x = sim->spawn<Good>("x"); \
+    auto y = sim->spawn<Good>("y"); \
+    auto z = sim->spawn<Good>("z"); \
     \
     Bundle m1(m, 1); \
     Bundle m6(m, 6); \

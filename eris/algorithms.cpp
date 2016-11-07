@@ -60,7 +60,7 @@ constexpr double sps_right_mid_ = boost::math::constants::phi<double>() - 1;
 // Relative left midpoint position.  Equal to 1 minus `sps_right_mid_`, which also equals 2 - phi.
 constexpr double sps_left_mid_ = 1 - sps_right_mid_;
 
-double single_peak_search(
+single_peak_result single_peak_search(
         const std::function<double(const double &)> &f,
         double left,
         double right,
@@ -69,6 +69,9 @@ double single_peak_search(
 
     if (tol_rel < 0) tol_rel = 0;
     if (tol_abs < 0) tol_abs = 0;
+
+    // Track whether the peak is strictly inside the initial boundaries:
+    bool inside_left = false, inside_right = false;
 
     double midleft = left + sps_left_mid_*(right - left);
     double midright = left + sps_right_mid_*(right - left);
@@ -83,6 +86,7 @@ double single_peak_search(
         if (fml >= fmr) {
             // midleft is the higher point, so we can exclude everything right of midright.
             right = midright; fr = fmr;
+            inside_right = true;
             midright = midleft; fmr = fml;
             midleft = left + (right - left) * sps_left_mid_;
             fml = f(midleft);
@@ -92,6 +96,7 @@ double single_peak_search(
         else {
             // midright is higher, so exclude everything left of midleft.
             left = midleft; fl = fml;
+            inside_left = true;
             midleft = midright; fml = fmr;
             midright = left + (right - left) * sps_right_mid_;
             fmr = f(midright);
@@ -108,11 +113,31 @@ double single_peak_search(
         }
     }
 
+    single_peak_result result;
     // Prefer the end-points for ties (the max might legitimate be an end-point), and prefer
     // left over right (for no particularly good reason).
-    return fl >= fml && fl >= fmr && fl >= fr ? left :
-        fr >= fmr && fr >= fml ? right :
-        fml >= fmr ? midleft : midright;
+    if (fl >= fml && fl >= fmr && fl >= fr) {
+        result.arg = left;
+        result.max = fl;
+        result.inside = inside_left;
+    }
+    else if (fr >= fmr && fr >= fml) {
+        result.arg = right;
+        result.max = fr;
+        result.inside = inside_right;
+    }
+    else if (fml >= fmr) {
+        result.arg = midleft;
+        result.max = fml;
+        result.inside = true;
+    }
+    else {
+        result.arg = midright;
+        result.max = fmr;
+        result.inside = true;
+    }
+
+    return result;
 }
 
 }

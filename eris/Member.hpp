@@ -91,9 +91,9 @@ class Member : private noncopyable {
          */
         void dependsWeaklyOn(eris_id_t id);
 
-        /** A locking class for holding one or more simultaneous Member locks.  Locks are
-         * established during object construction and released when the object is destroyed.  A
-         * Lock may be copied, in which case all copies must be destroyed before the lock is
+        /** A RAII-style locking class for holding one or more simultaneous Member locks.  Locks are
+         * established during object construction and released when the object is destroyed.  A Lock
+         * may be copied, in which case all copies must be destroyed before the lock is
          * automatically released.
          *
          * This class satisfies the requirements of Lockable (that is, is has lock(), unlock(), and
@@ -271,6 +271,52 @@ class Member : private noncopyable {
                  */
                 Lock remove(SharedMember<Member> member);
 
+                /** RAII class returned by supplement().  The class is move constructible but not
+                 * copyable or move assignable; it adds the given member during construction, and
+                 * removes it during destruction.
+                 */
+                class Supplemental final : private eris::noncopyable {
+                public:
+                    /// Not default constructible
+                    Supplemental() = delete;
+                    /// Constructs a supplemental lock that adds `member` to `lock` when constructed
+                    Supplemental(Lock &lock, const SharedMember<Member> &member);
+                    /// Destructor: removes member from lock
+                    ~Supplemental();
+                    /** Move constructor; the stored member_ is transferred to the new object, thus
+                     * preventing the moved-from object from actually removing during destruction.
+                     */
+                    Supplemental(Supplemental &&s);
+
+                private:
+                    Lock &lock_;
+                    SharedMember<Member> member_;
+                };
+
+                /** This is an RAII version of add(): it adds the given member to the lock
+                 * (releasing and blocking, as per add()), but returns a Supplemental object
+                 * that automatically removes the member from the lock when destroyed.  This thus
+                 * allows usage such as:
+                 *
+                 *     {
+                 *         auto extra_lock = lock.supplement(member);
+                 *         // ... this code has a lock on all of `lock`s members plus member
+                 *     }
+                 *    // extra_lock is destroyed: `member` is no longer part of `lock`.
+                 *
+                 * as an alternative to:
+                 *
+                 *     {
+                 *         lock.add(member);
+                 *         // ...
+                 *         lock.remove(member);
+                 *     }
+                 *
+                 * You must ensure that the returned object does not persist beyond the lifetime of
+                 * the lock it is based upon.
+                 */
+                [[gnu::warn_unused_result]] Supplemental supplement(const SharedMember<Member> &member);
+
                 /** Removes the given members from the current lock, transferring them to a new lock
                  * of the same type and status as the current lock without releasing the locks on
                  * those members (if active).  Since this method does not take out any new locks, it
@@ -316,14 +362,14 @@ class Member : private noncopyable {
 
                 /** Creates a lock that applies to a multiset of members. Calls lock() (which calls
                  * read() or write()) before returning. */
-                explicit Lock(bool write, std::multiset<SharedMember<Member>> &&members);
+                Lock(bool write, std::multiset<SharedMember<Member>> &&members);
 
                 /** Creates a lock that applies to a multiset of members, initially in the given
                  * lock status.  Note that this does *not* establish a lock, even if `lock` is true:
                  * this method is primarily intended for use by remove() to split a Lock into
                  * multiple Locks without requiring an intermediate release and relocking.
                  */
-                explicit Lock(bool write, bool locked, std::multiset<SharedMember<Member>> &&members);
+                Lock(bool write, bool locked, std::multiset<SharedMember<Member>> &&members);
 
                 /** Obtains a mutex lock on all members.  If `write` is true, each mutex lock must
                  * additionally have readlocks_ = 0 (otherwise the mutex lock is considered failed

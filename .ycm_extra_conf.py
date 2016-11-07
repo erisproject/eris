@@ -1,10 +1,12 @@
 import os
+import re
 import ycm_core
 
 flags = [
         '-Wall',
         '-Wextra',
         '-std=c++11',
+        '-x', 'c++',
         '-I', '.',
         '-I', '/usr/include/eigen3',
         '-DERIS_TESTS' # Needed for test scripts to compile
@@ -40,7 +42,6 @@ def MakeRelativePathsInFlagsAbsolute( flags, working_directory ):
         if new_flag:
             new_flags.append( new_flag )
     return new_flags
-
 
 def FlagsForFile( filename, **kwargs ):
     final_flags = MakeRelativePathsInFlagsAbsolute( flags, DirectoryOfThisScript() )

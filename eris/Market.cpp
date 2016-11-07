@@ -3,8 +3,6 @@
 
 namespace eris {
 
-using agent::AssetAgent;
-
 Market::Market(Bundle output_unit, Bundle price_unit) : output_unit(output_unit), price_unit(price_unit) {}
 
 void Market::addFirm(SharedMember<Firm> f) {
@@ -43,7 +41,7 @@ void Market::buy(Reservation &res) {
         firm_res.transfer(res.b_);
 
     // Now b_ has had the payment removed, and the output added, so send it back to the agent
-    res.agent->assets() += res.b_;
+    res.agent->assets += res.b_;
     res.b_.clear();
 }
 
@@ -63,21 +61,21 @@ void Market::release(Reservation &res) {
         firm_res.release();
 
     // Refund that payment that was extracted when the reservation was made
-    res.agent->assets() += res.b_;
+    res.agent->assets += res.b_;
     res.b_.clear();
 }
 
-Market::Reservation::Reservation(SharedMember<Market> mkt, SharedMember<AssetAgent> agt, double qty, double pr)
+Market::Reservation::Reservation(SharedMember<Market> mkt, SharedMember<Agent> agt, double qty, double pr)
     : state(ReservationState::pending), quantity(qty), price(pr), market(mkt), agent(agt) {
     auto lock = agent->writeLock(market);
 
     Bundle payment = price * market->price_unit;
-    agent->assets() -= payment;
+    agent->assets -= payment;
     b_ += payment;
 }
 
 Market::Reservation::~Reservation() {
-    if (state == ReservationState::pending)
+    if (market and state == ReservationState::pending)
         release();
 }
 
@@ -94,12 +92,9 @@ void Market::Reservation::release() {
     market->release(*this);
 }
 
-Market::Reservation Market::createReservation(SharedMember<AssetAgent> agent, double q, double p) {
+Market::Reservation Market::createReservation(SharedMember<Agent> agent, double q, double p) {
     return Reservation(sharedSelf(), agent, q, p);
 }
-
-Market::price_info::price_info(double total, double marginal, double marginalFirst)
-    : feasible(true), total(total), marginal(marginal), marginalFirst(marginalFirst) {}
 
 const char* Market::Reservation::non_pending_exception::what() const noexcept {
     return "Attempt to buy/release a non-pending market Reservation";

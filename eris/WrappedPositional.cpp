@@ -133,7 +133,7 @@ Position WrappedPositionalBase::vectorTo(const Position &pos) const {
     return v - position();
 }
 
-bool WrappedPositionalBase::bounded() const noexcept {
+bool WrappedPositionalBase::bounded() const {
     for (size_t d = 0; d < position_.dimensions; d++) {
         if (not wrapped_[d] and (std::isfinite(lower_bound_[d]) or std::isfinite(upper_bound_[d])))
             return true; // Not wrapped and has a non-finite bound
@@ -141,7 +141,7 @@ bool WrappedPositionalBase::bounded() const noexcept {
     return false;
 }
 
-bool WrappedPositionalBase::binding() const noexcept {
+bool WrappedPositionalBase::binding() const {
     if (not bounded_) return false;
 
     for (size_t d = 0; d < position_.dimensions; d++) {
@@ -154,7 +154,7 @@ bool WrappedPositionalBase::binding() const noexcept {
     return false;
 }
 
-bool WrappedPositionalBase::bindingLower() const noexcept {
+bool WrappedPositionalBase::bindingLower() const {
     if (not bounded_) return false;
 
     for (size_t d = 0; d < position_.dimensions; d++) {
@@ -166,7 +166,7 @@ bool WrappedPositionalBase::bindingLower() const noexcept {
     return false;
 }
 
-bool WrappedPositionalBase::bindingUpper() const noexcept {
+bool WrappedPositionalBase::bindingUpper() const {
     if (not bounded_) return false;
 
     for (size_t d = 0; d < position_.dimensions; d++) {
@@ -178,7 +178,7 @@ bool WrappedPositionalBase::bindingUpper() const noexcept {
     return false;
 }
 
-Position WrappedPositionalBase::lowerBound() const noexcept {
+Position WrappedPositionalBase::lowerBound() const {
     Position lower(lower_bound_);
 
     for (size_t d = 0; d < position_.dimensions; d++)
@@ -187,7 +187,7 @@ Position WrappedPositionalBase::lowerBound() const noexcept {
     return lower;
 }
 
-Position WrappedPositionalBase::upperBound() const noexcept {
+Position WrappedPositionalBase::upperBound() const {
     Position upper(upper_bound_);
 
     for (size_t d = 0; d < position_.dimensions; d++)
@@ -196,11 +196,11 @@ Position WrappedPositionalBase::upperBound() const noexcept {
     return upper;
 }
 
-Position WrappedPositionalBase::wrapLowerBound() const noexcept {
+Position WrappedPositionalBase::wrapLowerBound() const {
     return lower_bound_;
 }
 
-Position WrappedPositionalBase::wrapUpperBound() const noexcept {
+Position WrappedPositionalBase::wrapUpperBound() const {
     return upper_bound_;
 }
 

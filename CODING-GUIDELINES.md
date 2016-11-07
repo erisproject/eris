@@ -1,7 +1,8 @@
 # Eris coding guidelines
 
-This document covers the coding guidelines to be used in Eris code.  Not all
-classes currently conform to this, but all new code should aim to do so.
+This document covers the coding guidelines used in Eris code for consistency.
+Not all classes currently conform to this, but all new code should aim to do
+so.
 
 This document is neither exhaustive nor absolute.  Minor violations may be
 acceptable if they have a good rationale behind them.
@@ -32,22 +33,19 @@ Guide](http://google-styleguide.googlecode.com/svn/trunk/cppguide.xml)
   separating words, and followed by an underscore, such as `foo_` or
   `some_value_`.
 
-- Local variables should be named in the same way as public member variables.
+- Local variables should generally be named in the same way as public member
+  variables, but there is considerably more freedom since such variables are
+  not part of the API.
 
 
 ## Directory and source filename structure
-
-- Library headers live in `include/eris`, library source files live in
-  `src/eris`.  Files in `include` or `src` locations *not* under `.../eris` are
-  reserved for code that is distributed with eris but not part of the liberis
-  library.
 
 - Headers for C++ code use a .hpp extension.  Only if a header is pure C code
   may .h be used.
 
 - Header file hierarchy should follow the C++ namespace hierarchy.  For
-  example, class eris::ClassName belongs in `include/eris/ClassName.hpp`;
-  eris::firm::Magical belongs in `include/eris/firm/Magical.hpp`.
+  example, class eris::ClassName belongs in `eris/ClassName.hpp`;
+  eris::firm::Magical belongs in `eris/firm/Magical.hpp`.
 
 - Headers for classes are generally stored in a header file with the same name
   as the class, such as `eris::ClassName` being defined in
@@ -74,9 +72,10 @@ documentation:
 - Every public and protected member should be documented in its `.hpp` file
   with doxygen-compatible comments.
 
-- Comments should be useful enough for someone to understand the interface and
-  purpose of a function or variable (for public members), and useful enough
-  for a subclass writer to make use of the member (for protected members).
+- Documentation comments should be useful enough for someone to understand the
+  interface and purpose of a function or variable (for public members), and
+  useful enough for a subclass writer to make use of the member (for protected
+  members).
 
 - Multi-line comments should be formatted using `/** ... */` comments, in the
   following style:
@@ -90,12 +89,13 @@ documentation:
        */
       void foo(int blah);
 
-- Single-line comments may use either `/** ... */` comments, or `/// ...`
-  comments. `/// ...` should *not* be used for multi-line comments.
+- Single-line documentation comments may use either `/** ... */` comments, or
+  `/// ...` comments. `/// ...` should *not* be used for multi-line comments.
 
 - Mathematical equations (as opposed to computational equations) should be in
   LaTeX using [doxygen's MathJax
-  interface](http://www.stack.nl/~dimitri/doxygen/manual/formulas.html).
+  interface](http://www.stack.nl/~dimitri/doxygen/manual/formulas.html) whenever
+  such notation is helpful.  For example, \f$\pi = 3.1415\hdots\f$.
 
 - Namespaces should be documented in an appropriate and logical place.  If
   classes in a given namespace typically have a common base class, the base
@@ -111,14 +111,14 @@ documentation:
 
 ### Headers
 - Every header should begin with `#pragma once` (rather than an explicit
-  include guard).
+  include guard definition).
 
 - Eris library code should use angle-bracket includes rather than quoted
   includes, i.e. `#include <path/name.hpp>` instead of `#include
   "path/name.hpp"`.
 
 - Use inline functions/methods only when they are small and frequently called,
-  and have relatively simple logic, or are otherwise required (e.g.  for
+  and have relatively simple logic, or are otherwise required (e.g. for
   templated classes or methods)
 
 - Use as few `#include`s as is practical.  Consider using forward declarations
@@ -166,7 +166,7 @@ documentation:
           static constexpr double default_foo = 3.0;
           virtual void doSomething(double foo = default_foo);
 
-  Don't bother with a `constexpr`, however, when the default is boolean, false,
+  Don't bother with a `constexpr`, however, when the default is boolean,
   nullptr, or similar.
 
 - Overridden methods should have an explicit "override" identifier,
@@ -180,8 +180,10 @@ documentation:
 ### C++ language features
 - Eris is C++11 code; all standard C++11 features are acceptable and
   encouraged.
+
 - use `auto` to avoid pointlessly cluttered type names (especially for
   templated type names).
+
 - Avoid direct use of pointers as much as possible, preferring
   `std::shared_ptr`, `std::unique_ptr`, etc.
 
@@ -194,10 +196,11 @@ documentation:
   100 characters (because any decent editor makes this easy), unless strictly
   needed (for example, for a code example).
 
-- Opening braces (`{`) following unwrapped lines should be at the end of a line.  If the opening
-  brace follows a wrapped declaration (for example, a complicated method declaration or if statement),
-  the brace may be at the end of the last line or on a new line; in the latter case the brace should
-  not be indented.
+- Opening braces (`{`) following unwrapped lines should be at the end of a
+  line.  If the opening brace follows a wrapped declaration (for example, a
+  complicated method declaration or if statement), the brace may be at the end
+  of the last line or on a new line; in the latter case the brace should not be
+  indented.
 
 - Closing braces should line up with the first character that started the
   block, if on their own line, and on the same line as the opening brace, if
@@ -291,3 +294,18 @@ documentation:
       ...
       
       }}
+
+- The public:/protected:/private: keyword may be outdended, such as:
+
+      class SomeClass {
+      public:
+          SomeClass();
+          void someMethod();
+
+  This is not, however, required: the following is also acceptable:
+
+      class SomeClass {
+          public:
+              SomeClass();
+              void someMethod();
+

@@ -3,7 +3,7 @@
 #include <eris/Bundle.hpp>
 #include <eris/Optimize.hpp>
 
-namespace eris { namespace agent { class AssetAgent; } }
+namespace eris { class Agent; }
 
 namespace eris { namespace intraopt {
 
@@ -15,7 +15,7 @@ class FixedIncome : public Member, public virtual Initialize {
         /** Creates a new FixedIncome optimizer that adds the bundle income to the given agent at
          * the beginning of each period.
          */
-        FixedIncome(const agent::AssetAgent &agent, Bundle income);
+        FixedIncome(const Agent &agent, Bundle income);
 
         /** Adds the income bundle to the agent's assets. */
         virtual void intraInitialize() override;

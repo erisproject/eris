@@ -9,7 +9,7 @@ QFirm::QFirm(Bundle out, double initial_capacity, double depr) : capacity(initia
 }
 
 Bundle QFirm::depreciate() const {
-    const Bundle &a = assets();
+    const Bundle &a = assets;
     Bundle remaining;
     double left_mult = 1 - depreciation();
     if (left_mult > 0) {
@@ -34,7 +34,7 @@ const Bundle& QFirm::output() const noexcept {
 
 void QFirm::interAdvance() {
     // Clear everything except what is left by depreciation
-    assets() = depreciate();
+    assets = depreciate();
 }
 
 void QFirm::intraInitialize() {
@@ -46,11 +46,11 @@ void QFirm::produceNext(const Bundle &b) {
     double quantity = b.coverage(output());
     if (not std::isfinite(quantity))
         throw supply_mismatch();
-    assets() += quantity * output();
+    assets += quantity * output();
 }
 
 void QFirm::updateStarted() {
-    started = assets().multiples(output());
+    started = assets.multiples(output());
 }
 
 } }

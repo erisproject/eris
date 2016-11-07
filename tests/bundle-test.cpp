@@ -1040,7 +1040,7 @@ TEST(AdvancedAlgebra, BundleCoverage) {
     EXPECT_EQ(1, bb[6].coverage(bb[7]));
     EXPECT_EQ(1, bb[7].coverage(bb[6]));
 
-    EXPECT_TRUE(isnan((Bundle {}).coverage(Bundle {})));
+    EXPECT_TRUE(std::isnan((Bundle {}).coverage(Bundle {})));
 }
 TEST(AdvancedAlgebra, BundleConverageExcess) {
     COMPARE_BUNDLES;
@@ -1092,14 +1092,14 @@ TEST(AdvancedAlgebra, multiples) {
     EXPECT_EQ(numeric_limits<double>::infinity(), a.multiples(z));
     EXPECT_EQ(numeric_limits<double>::infinity(), a.multiples(z0));
 
-    EXPECT_TRUE(isnan(z.coverage(z)));
-    EXPECT_TRUE(isnan(z0.coverage(z)));
-    EXPECT_TRUE(isnan(z.coverage(z0)));
-    EXPECT_TRUE(isnan(z0.coverage(z0)));
-    EXPECT_TRUE(isnan(z.multiples(z)));
-    EXPECT_TRUE(isnan(z0.multiples(z)));
-    EXPECT_TRUE(isnan(z.multiples(z0)));
-    EXPECT_TRUE(isnan(z0.multiples(z0)));
+    EXPECT_TRUE(std::isnan(z.coverage(z)));
+    EXPECT_TRUE(std::isnan(z0.coverage(z)));
+    EXPECT_TRUE(std::isnan(z.coverage(z0)));
+    EXPECT_TRUE(std::isnan(z0.coverage(z0)));
+    EXPECT_TRUE(std::isnan(z.multiples(z)));
+    EXPECT_TRUE(std::isnan(z0.multiples(z)));
+    EXPECT_TRUE(std::isnan(z.multiples(z0)));
+    EXPECT_TRUE(std::isnan(z0.multiples(z0)));
 }
 
 TEST(AdvancedAlgebra, covers) {

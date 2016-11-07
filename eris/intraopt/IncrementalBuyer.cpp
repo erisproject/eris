@@ -16,7 +16,7 @@ IncrementalBuyer::IncrementalBuyer(const Consumer &consumer, eris_id_t money, in
     con_id(consumer), money(money), money_unit(Bundle {{ money, 1 }}), rounds(rounds) {}
 
 void IncrementalBuyer::permuteThreshold(const double &thresh) noexcept {
-    threshold = (isnan(thresh) or thresh > 1.0) ? 1.0 : thresh;
+    threshold = (std::isnan(thresh) or thresh > 1.0) ? 1.0 : thresh;
 }
 
 void IncrementalBuyer::permuteAll() noexcept {
@@ -49,7 +49,7 @@ bool IncrementalBuyer::oneRound() {
     auto sim = simulation();
     SharedMember<Consumer> consumer = sim->agent(con_id);
 
-    Bundle &a = consumer->assets();
+    Bundle &a = consumer->assets;
 
     double cash = a[money];
     if (cash <= 0) {

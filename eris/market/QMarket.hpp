@@ -96,7 +96,7 @@ class QMarket : public Market,
         double firmQuantities(double max = std::numeric_limits<double>::infinity()) const;
 
         /// Reserves q units, paying at most p_max for them.
-        virtual Reservation reserve(SharedMember<agent::AssetAgent> agent, double q, double p_max = std::numeric_limits<double>::infinity()) override;
+        virtual Reservation reserve(SharedMember<Agent> agent, double q, double p_max = std::numeric_limits<double>::infinity()) override;
 
         /// Adds a firm to this market.  The Firm must be a QFirm object (or subclass)
         virtual void addFirm(SharedMember<Firm> f) override;

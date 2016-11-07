@@ -45,7 +45,8 @@ class Market : public Member {
             /// Default constructor: yields a price_info with `.feasible` set to false.
             price_info() = default;
             /// Constructor for feasible quantities; sets `feasible` to true.
-            price_info(double total, double marginal, double marginalFirst);
+            price_info(double total, double marginal, double marginalFirst)
+                : feasible{true}, total{total}, marginal{marginal}, marginalFirst{marginalFirst} {}
             /// True if the requested quantity is available.
             bool feasible = false;
             /// Total price 
@@ -63,18 +64,38 @@ class Market : public Member {
          * \sa quantity(double)
          */
         struct quantity_info {
+            /** Default construct: yields a quantity_info with `.constrained` set to false, and
+             * numeric values set to 'nan'.
+             */
+            quantity_info() = default;
+
+            /** Constructor for a set of quantities; initializes quantity, constrained, spent,
+             * unspent to the given values.
+             */
+            quantity_info(double quantity, bool constrained, double spent, double unspent)
+                : quantity{quantity}, constrained{constrained}, spent{spent}, unspent{unspent} {}
+
+            /** Constructor for an unconstrained purchase; `quantity` and `spent` are set to the given values,
+             * `constrained` is set to false, and `unspent` is set to 0.
+             */
+            quantity_info(double quantity, double spent)
+                : quantity{quantity}, constrained{false}, spent{spent}, unspent{0} {}
+
             /// The quantity purchasable
-            double quantity;
+            double quantity = std::numeric_limits<double>::quiet_NaN();
+
             /// True if the purchase would hit a market constraint
-            bool constrained;
+            bool constrained = false;
+
             /** The price amount that would be actually spent.  This is simply the provided spending
              * amount when .contrained is false, but will be less when a constraint would be hit.
              */
-            double spent;
+            double spent = std::numeric_limits<double>::quiet_NaN();
+
             /** The amount (in multiples of the market's price Bundle) of unspent income.  Exactly
              * equal to .price - input_price.  Will be 0 when .constrained is false.
              */
-            double unspent;
+            double unspent = std::numeric_limits<double>::quiet_NaN();
         };
 
         /** Contains a reservation of market purchase.  The market will consider the reserved
@@ -85,29 +106,37 @@ class Market : public Member {
          * called automatically.
          *
          * This object is not intended to be used directly, but rather through the Reservation
-         * unique_ptr typedef.
+         * returned by reserve().
          */
         class Reservation final {
             private:
                 friend class Market;
 
-                Reservation(SharedMember<Market> market, SharedMember<agent::AssetAgent> agent, double quantity, double price);
+                Reservation(SharedMember<Market> market, SharedMember<Agent> agent, double quantity, double price);
 
                 // Default/copy construction not allowed
                 Reservation() = delete;
-                Reservation(const Reservation&) = delete;
+                Reservation(const Reservation &) = delete;
 
                 // Move/copy assignment not allowed
-                Reservation& operator=(Reservation &&move) = delete;
-                Reservation& operator=(const Reservation &copy) = delete;
+                Reservation& operator=(Reservation &&) = delete;
+                Reservation& operator=(const Reservation &) = delete;
 
                 std::forward_list<Firm::Reservation> firm_reservations_;
 
+                // Temporary bundle that holds the payment when the reservation is constructed and
+                // either returns it to the agent (if cancelled) or gives it to firms (if completed).
                 Bundle b_;
 
             public:
                 /// Move constructor
-                Reservation(Reservation &&move) = default;
+                Reservation(Reservation &&move) : firm_reservations_(std::move(move.firm_reservations_)),
+                b_(std::move(move.b_)), state{move.state}, quantity{move.quantity}, price{move.price},
+                // need to const_cast away the constness on the move source (otherwise copy
+                // constructors get invoked, which leaves market set, which breaks destruction).
+                market(std::move(const_cast<SharedMember<Market>&>(move.market))),
+                agent(std::move(const_cast<SharedMember<Agent>&>(move.agent))) {}
+
                 /** Destructor.  If this Reservation is destroyed without having been completed or aborted
                  * (via buy() or release()), it will be aborted (by calling release() on its Market).
                  */
@@ -121,7 +150,7 @@ class Market : public Member {
                 /// The market to which this Reservation applies.
                 const SharedMember<Market> market;
                 /// The agent for which this Reservation is being held.
-                const SharedMember<agent::AssetAgent> agent;
+                const SharedMember<Agent> agent;
                 /** Reserves the given BundleNegative transfer from the given firm and stores the
                  * result, to be transferred if buy() is called, and aborted if release() is called.
                  * Positive amounts are to be transferred from the firm, negative amounts are to be
@@ -191,17 +220,17 @@ class Market : public Member {
         virtual quantity_info quantity(double p) const = 0;
 
         /** Reserves q times the output Bundle for price at most p_max * price Bundle.  Removes the
-         * purchase price (which could be less than p_max * price) from the assets() bundle of the
-         * provided AssetAgent.  When the reservation is completed, the amount is transfered to the
-         * firm; if aborted, the amount is returned to the AssetAgent's assets() Bundle.  Returns a
+         * purchase price (which could be less than p_max * price) from the assets bundle of the
+         * provided Agent.  When the reservation is completed, the amount is transfered to the
+         * firm; if aborted, the amount is returned to the Agent's assets Bundle.  Returns a
          * Reservation object that should be passed in to buy() to complete the transfer, or
          * release() to abort the sale.
          *
          * \param q the quantity to reserve, as a multiple of the market's output_unit.
-         * \param agent a SharedMember<AssetAgent> (or AssetAgent subclass) from whose assets()
+         * \param agent a SharedMember<Agent> (or Agent subclass) from whose assets
          * Bundle the payment will be taken.  The removed amount will be held until either buy() or
          * release() is called, at which point it will be transferred to the seller(s) or returned
-         * to the AssetAgent, respectively.
+         * to the Agent, respectively.
          * \param p_max the maximum price to pay, as a multiple of the market's price_unit.
          * Optional; if omitted, defaults to infinity (i.e. no limit).
          *
@@ -225,10 +254,10 @@ class Market : public Member {
          * when assets are less than p_max*price: the actual transaction price could be low enough
          * that assets is sufficient.
          */
-        virtual Reservation reserve(SharedMember<agent::AssetAgent> agent, double q, double p_max = std::numeric_limits<double>::infinity()) = 0;
+        virtual Reservation reserve(SharedMember<Agent> agent, double q, double p_max = std::numeric_limits<double>::infinity()) = 0;
 
         /** Completes a reservation made with reserve().  Transfers the reserved assets into the
-         * assets() Bundle of the AssetAgent supplied when creating the reservation, and transfers
+         * assets Bundle of the Agent supplied when creating the reservation, and transfers
          * the reserved payment to the firm(s) supplying the output.
          *
          * The provided Reservation object is updated to record that it has been purchased.
@@ -264,7 +293,7 @@ class Market : public Member {
 
         /** Returns the std::unordered_set of the eris_id_t's of firms supplying this market.
          */
-        virtual const std::unordered_set<eris_id_t>& firms();
+        const std::unordered_set<eris_id_t>& firms();
 
         /** Exception class thrown when a quantity that exceeds the market capacity has been
          * requested.
@@ -303,10 +332,10 @@ class Market : public Member {
         std::unordered_set<eris_id_t> suppliers_;
 
         /** Creates a Reservation and returns it.  For use by subclasses only.  The reserved payment
-         * (i.e. p*price_unit) will be transferred out of the AssetAgent's assets() Bundle and held
+         * (i.e. p*price_unit) will be transferred out of the Agent's assets Bundle and held
          * in the Reservation until completed or cancelled.
          */
-        Reservation createReservation(SharedMember<agent::AssetAgent> agent, double q, double p);
+        Reservation createReservation(SharedMember<Agent> agent, double q, double p);
 
         /** Overridden to automatically remove a firm from the market when the firm is removed from
          * the simulation.

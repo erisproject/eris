@@ -123,35 +123,6 @@ next_increasing_integer_permutation(BidirIt first, BidirIt last, typename BidirI
 }
 
 
-/** Wrapper class around a pair of iterators that converts the pair into a range, so that a
- * for-range statement can be used.  The primary target of this is multimap's equal_range method,
- * which returns just such a pair.  This class is typically invoked via the range() function.
- */
-template <class Iter>
-class range_ final : public std::pair<Iter, Iter> {
-    public:
-        /// Builds an iteratable range from a start and end iterator
-        range_(std::pair<Iter, Iter> const &pair) : std::pair<Iter, Iter>(pair) {}
-        /// Returns the beginning of the range
-        Iter begin() const { return this->first;  }
-        /// Returns the end of the range
-        Iter end()   const { return this->second; }
-};
-/** Takes a std::pair of iterators that represents a range, and returns an iterable object for that
- * range.  This is intended to allow for range-based for loops for methods that return a pair of
- * iterators representing a range, such as multimap's equal_range() method.
- *
- * Example:
- *
- *     for (auto &whatever : eris::range(mmap.equal_range(key))) {
- *         ...
- *     }
- */
-template <class Iter>
-range_<Iter> range(std::pair<Iter, Iter> const &pair) {
-    return range_<Iter>(pair);
-}
-
 /** Generic class for a stepping a value up or down by a certain amount, increasing or decreasing
  * the step size based on the previous steps.  This is often used in optimizers to find an optimal
  * output/price level.
@@ -277,6 +248,8 @@ class Stepper final {
 
 };
 
+struct single_peak_result; // forward declaration
+
 /** Performs a golden section search to find a maximum of a single-peaked function between two
  * limits.  This function must be called with left and right end points.  This function will not
  * work reliably if `f()` has multiple maximum in `[left, right]`; you'll just get a local maximum.
@@ -308,12 +281,26 @@ class Stepper final {
  * \param tol_abs the absolute size of the domain at which the algorithm stops.  In particular, the
  * algorithm stops if \f$right - left \leq tol_{abs}\f$.  Note that the algorithm might
  * alternatively stop because of the `tol_rel` value.
+ *
+ * \return a single_peak_result struct with `.arg` set to the peak argument, and `.max` set to the
+ * value of the function at `.arg`.
  */
-double single_peak_search(
+single_peak_result single_peak_search(
         const std::function<double(const double &)> &f,
         double left,
         double right,
         double tol_rel = 1e-10,
         double tol_abs = 1e-20);
+
+/// Struct holding the results of a call to single_peak_search()
+struct single_peak_result {
+    double arg; ///< The argument that maximizes the function given to `single_peak_search`
+    double max; ///< The value of the function at `.arg`
+    /** Whether `.arg` is strictly inside the given left/right limits.  If false, the peak was at
+     * one of the end-points, and may not actually be a peak at all.
+     */
+    bool inside;
+    operator double() const { return arg; } ///< Implicit conversion to double returns `.arg`
+};
 
 }

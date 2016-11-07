@@ -1,4 +1,4 @@
-#include <eris/belief/BayesianLinear.hpp>
+#include <eris/learning/BayesianLinear.hpp>
 #include <eris/random/rng.hpp>
 #include <eris/random/util.hpp>
 #include <eris/random/normal_distribution.hpp>
@@ -8,7 +8,7 @@
 #include <cmath>
 #include <algorithm>
 
-namespace eris { namespace belief {
+namespace eris { namespace learning {
 
 using namespace Eigen;
 
@@ -295,8 +295,6 @@ BayesianLinear::operator std::string() const {
 
 std::string BayesianLinear::display_name() const { return "BayesianLinear"; }
 
-void BayesianLinear::verifyParameters() const { NO_EMPTY_MODEL; }
-
 // Posterior constructor (prior copy version)
 BayesianLinear::BayesianLinear(
         const BayesianLinear &prior,
@@ -334,9 +332,9 @@ BayesianLinear::BayesianLinear(BayesianLinear &&prior, double w) : BayesianLinea
 void BayesianLinear::updateInPlace(const Ref<const VectorXd> &y, const Ref<const MatrixXd> &X) {
     NO_EMPTY_MODEL;
     if (y.rows() != X.rows())
-        throw std::logic_error("update(y, X) failed: y and X are non-conformable");
+        throw std::logic_error("model update failed: y (" + std::to_string(y.rows()) + "x1) and X (" + std::to_string(X.rows()) + "x" + std::to_string(X.cols()) + ") are non-conformable");
     if (X.rows() > 0 and X.cols() != K())
-        throw std::logic_error("update(y, X) failed: X has wrong number of columns (expected " + std::to_string(K()) + ", got " + std::to_string(X.cols()) + ")");
+        throw std::logic_error("model update failed: X has wrong number of columns (expected " + std::to_string(K()) + ", got " + std::to_string(X.cols()) + ")");
 
     reset();
 
@@ -442,8 +440,6 @@ void BayesianLinear::updateInPlaceInformative(const Ref<const VectorXd> &y, cons
     VectorXd beta_diff = beta() - beta_pr;
 
     double s2_prior_beta_delta = beta_diff.transpose() * V_inv_pr * beta_diff;
-    s2_prior_beta_delta *= pending_weakening_;
-    pending_weakening_ = 1.0;
 
     // Calculate new s2 from SSR of new data plus n times previous s2 (==SSR before) plus the change
     // to the old SSR that would are a result of beta changing:
@@ -480,9 +476,6 @@ void BayesianLinear::weakenInPlace(const double stdev_scale) {
     V_inv_beta_ /= var_scale;
     // The V value doesn't need to be reset (if previously calculated), we can simply scale it:
     if (V_inv_inv_) *V_inv_inv_ *= var_scale;
-
-    // This tracks how to undo the Vinv weakening when calculating an updated s2 value
-    pending_weakening_ *= var_scale;
 
     // The decompositions will have to be recalculated, if set (in theory these could be updated by
     // scaling D by 1/var_scale for the LDLT and scaling L by 1/stdev_scale for the LLT, but

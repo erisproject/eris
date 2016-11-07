@@ -19,6 +19,9 @@
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
+#include <boost/thread/shared_mutex.hpp>
+#include <boost/thread/locks.hpp>
+#include <boost/thread/lock_types.hpp>
 
 /// Base namespace containing all eris classes.
 namespace eris {
@@ -37,6 +40,8 @@ class Market;
  *
  * In short, this is the central piece of the Eris framework that dictates how all the other pieces
  * interact.
+ *
+ * For an overview of the simulation stage mechanism, see the run() method.
  */
 class Simulation final : public std::enable_shared_from_this<Simulation>, private noncopyable {
     public:
@@ -44,11 +49,6 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
          * interface to creating a Simulation.
          */
         static std::shared_ptr<Simulation> create();
-
-        /** Old version of create().
-         *
-         * \deprecated Call create() instead. */
-        [[deprecated("Call create() instead")]] static std::shared_ptr<Simulation> spawn();
 
         /// Destructor.  When destruction occurs, any outstanding threads are killed and rejoined.
         virtual ~Simulation();
@@ -58,47 +58,69 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
         /// typedef for the map of id's to the set of dependent members
         typedef std::unordered_map<eris_id_t, std::unordered_set<eris_id_t>> DepMap;
 
+        /** Wrapper around std::enable_if that defines a typedef `type` (defaulting to
+         * SharedMember<Derived>) only if `Derived` is a `Base` member type.  `Base` must itself be
+         * a class derived from `Member`.  If `Base` is `Member` itself, this checks for "other"
+         * member types--that is, it additionally requires that `Derived` is *not* derived from
+         * `Agent`, `Good`, or `Market` (despite those being themselves derived from `Member`); for
+         * other `Base` values it simply requires that `Derived` is actually derived from `Base`.
+         */
+        template <class Base, class Derived, class T = SharedMember<Derived>>
+        struct enable_if_member : public std::enable_if<
+            std::is_base_of<Member, Base>::value and
+            std::is_base_of<Base, Derived>::value and
+            (not std::is_same<Base, Member>::value or
+             not ( // Base == Member, which means we only want to allow "other" member types:
+                 std::is_base_of<Agent, Derived>::value or
+                 std::is_base_of<Good, Derived>::value or
+                 std::is_base_of<Market, Derived>::value)
+            ),
+            T> {};
+
+#define ERIS_SIM_MEMBER_ACCESS(T, Base, NAME) \
+        template <class T = Base> \
+        typename enable_if_member<Base, T>::type \
+        NAME(eris_id_t id) const { \
+            std::lock_guard<std::recursive_mutex> lock(member_mutex_); \
+            return SharedMember<T>(NAME##s_.at(id)); \
+        }
+
         /** Accesses an agent given the agent's eris_id_t.  Templated to allow conversion to
          * a SharedMember of the given Agent subclass; defaults to Agent.
          */
-        template <class A = Agent, typename = typename std::enable_if<std::is_base_of<Agent, A>::value>::type>
-        SharedMember<A> agent(eris_id_t aid) const;
+        ERIS_SIM_MEMBER_ACCESS(A, Agent, agent) // agent(eris_id_t)
+
         /** Accesses a good given the good's eris_id_t.  Templated to allow conversion to a
          * SharedMember of the given Good subclass; defaults to Good.
          */
-        template <class G = Good, typename = typename std::enable_if<std::is_base_of<Good, G>::value>::type>
-        SharedMember<G> good(eris_id_t gid) const;
+        ERIS_SIM_MEMBER_ACCESS(G, Good, good) // good(eris_id_t)
+
         /** Accesses a market given the market's eris_id_t.  Templated to allow conversion to a
          * SharedMember of the given Market subclass; defaults to Market.
          */
-        template <class M = Market, typename = typename std::enable_if<std::is_base_of<Market, M>::value>::type>
-        SharedMember<M> market(eris_id_t mid) const;
+        ERIS_SIM_MEMBER_ACCESS(M, Market, market) // market(eris_id_t)
+
         /** Accesses a non-agent/good/market member that has been added to this simulation.  This is
          * typically an optimization object.
          */
-        template <class O = Member, typename = typename std::enable_if<
-            std::is_base_of<Member, O>::value
-            and not (
-                    std::is_base_of<Agent, O>::value or
-                    std::is_base_of<Good, O>::value or
-                    std::is_base_of<Market, O>::value)
-            >::type>
-        SharedMember<O> other(eris_id_t oid) const;
+        ERIS_SIM_MEMBER_ACCESS(O, Member, other) // other(eris_id_t)
+
+#undef ERIS_SIM_MEMBER_ACCESS
 
         /** Returns true if the simulation has an agent with the given id, false otherwise. */
-        bool hasAgent(eris_id_t id) const noexcept;
+        bool hasAgent(eris_id_t id) const { std::lock_guard<std::recursive_mutex> lock(member_mutex_); return agents_.count(id) > 0; }
         /** Returns true if the simulation has a good with the given id, false otherwise. */
-        bool hasGood(eris_id_t id) const noexcept;
+        bool hasGood(eris_id_t id) const { std::lock_guard<std::recursive_mutex> lock(member_mutex_); return goods_.count(id) > 0; }
         /** Returns true if the simulation has a market with the given id, false otherwise. */
-        bool hasMarket(eris_id_t id) const noexcept;
+        bool hasMarket(eris_id_t id) const { std::lock_guard<std::recursive_mutex> lock(member_mutex_); return markets_.count(id) > 0; }
         /** Returns true if the simulation has a non-agent/good/market member with the given id,
          * false otherwise. */
-        bool hasOther(eris_id_t id) const noexcept;
+        bool hasOther(eris_id_t id) const { std::lock_guard<std::recursive_mutex> lock(member_mutex_); return others_.count(id) > 0; }
 
-        /** Constructs a new T object using the given constructor arguments Args and adds it to the
-         * simulation (but see below).  T must be a subclass of Member; if it is also a subclass of
-         * Agent, Good, or Market it will be treated as the appropriate type; otherwise it is
-         * treated as an "other" member.
+        /** Constructs a new T object, forwarding any given arguments Args to the T constructor, and
+         * adds the new member to the simulation (but see below).  T must be a subclass of Member;
+         * if it is also a subclass of Agent, Good, or Market it will be treated as the appropriate
+         * type; otherwise it is treated as an "other" member.
          *
          * If the new object is spawned during an optimizer stage, adding the member to the
          * simulation is deferred until the current stage or stage priority level finishes; thus it
@@ -111,15 +133,21 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
          *     auto good = sim->spawn<Good::Continuous>("x");
          *     auto market = sim->spawn<Bertrand>(Bundle(good, 1), Bundle(money, 1));
          */
-        template <class T, typename... Args, class = typename std::enable_if<std::is_base_of<Member, T>::value>::type>
-        SharedMember<T> spawn(Args&&... args);
-
-        /** Old version of spawn<T>().
-         *
-         * \deprecated Call spawn<T>() instead.
-         */
         template <class T, typename... Args>
-        [[deprecated("Call spawn<T>(...) instead")]] SharedMember<T> create(Args&&... args);
+        typename std::enable_if<std::is_base_of<Member, T>::value, SharedMember<T>>::type
+        spawn(Args&&... args) {
+            auto member_ptr = std::make_shared<T>(std::forward<Args>(args)...);
+            return SharedMember<T>(add(member_ptr));
+        }
+
+        /** Adds a Member-derived object to the simulation, via shared pointer.  The given member
+         * must not already belong to a simulation.  This method is primarily intended for use when
+         * the templated-version of spawn cannot be used; creating objects with spawn() is generally
+         * preferred.
+         *
+         * \throws std::logic_error if the member already belongs to a simulation
+         */
+        SharedMember<Member> add(std::shared_ptr<Member> new_member);
 
         /** Removes the given member (and any dependencies) from this simulation.
          *
@@ -132,77 +160,86 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
          */
         void remove(eris_id_t id);
 
+#define ERIS_SIM_FILTER(T, BASE, WHICH) \
+        template <class T = BASE> \
+        typename enable_if_member<BASE, T, std::vector<SharedMember<T>>>::type \
+        WHICH##s(const std::function<bool(SharedMember<T> WHICH)> &filter = nullptr) const { \
+            return genericFilter(WHICH##s_, filter); \
+        }
+
+#define ERIS_SIM_FILTER_COUNT(T, BASE, WHICH, METH_TYPE) \
+        template <class T = BASE> \
+        typename enable_if_member<BASE, T, size_t>::type \
+        count##METH_TYPE##s(const std::function<bool(SharedMember<T> WHICH)> &filter = nullptr) const { \
+            return genericFilterCount(WHICH##s_, filter); \
+        }
+
         /** Provides a vector of SharedMember<A>, optionally filtered to only include agents that
          * induce a true return from the provided filter function.
          *
-         * The template class, A, provides a second sort of filtering: if it is provided (it must be
-         * a class ultimately derived from Agent), only agents of type A will be returned.  If the
-         * filter is also provided, only A objects will be passed to the filter and only returned if
-         * the filter returns true.
+         * The template class, A, provides a second sort of filtering: if it is provided and set to
+         * a class ultimately derived from Agent (but not Agent itself), only agents of type A will
+         * be returned.  If the filter is also provided, only SharedMember<A> objects will be passed
+         * to the filter and only returned if the filter returns true.
          *
-         * The results of class filtering are cached so long as the template filter class is not the
-         * default (`Agent`) so that subsequent calls will not need to reperform extra work for
-         * class filtering.  This helps considerably when searching for agents whose type is only a
-         * small subset of the overall set of agents.  The cache is invalidated when any agent (of
-         * any type) is added or removed.
+         * The results of class filtering (but not lambda filtering) are cached so long as the
+         * template filter class is not the default (`Agent`) so that subsequent calls will not need
+         * to repeat extra work for class filtering.  This helps considerably when searching for
+         * agents whose type is only a small subset of the overall set of agents.  The cache is
+         * invalidated when any agent (of any type) is added or removed.
          */
-        template <class A = Agent, typename = typename std::enable_if<std::is_base_of<Agent, A>::value>::type>
-        std::vector<SharedMember<A>> agents(const std::function<bool(const A &agent)> &filter = nullptr) const;
+        ERIS_SIM_FILTER(A, Agent, agent) // agents()
+
         /** Provides a count of matching simulation agents.  Agents are filtered by class and/or
          * callable filter and the count of matching agents is returned.  This is equivalent to
-         * agents<A>(filter).size(), but more efficient.
+         * agents<A>(filter).size(), but more efficient when the list of agents isn't needed.
          *
          * Note that this method populates and uses the same cache as agents() when `A` is not the
          * default `Agent` class.
          */
-        template <class A = Agent, typename = typename std::enable_if<std::is_base_of<Agent, A>::value>::type>
-        size_t countAgents(const std::function<bool(const A &agent)> &filter = nullptr) const;
+        ERIS_SIM_FILTER_COUNT(A, Agent, agent, Agent) // countAgents()
 
         /** Provides a filtered vector of simulation goods.  This works just like agents(), but for
          * goods.
          *
          * \sa agents()
          */
-        template <class G = Good, typename = typename std::enable_if<std::is_base_of<Good, G>::value>::type>
-        std::vector<SharedMember<G>> goods(const std::function<bool(const G &good)> &filter = nullptr) const;
+        ERIS_SIM_FILTER(G, Good, good) // goods()
+
         /** Provides a count of matching simulation goods.  Goods are filtered by class and/or
          * callable filter and the count of matching goods is returned.  This is equivalent to
          * goods<G>(filter).size(), but more efficient.
          */
-        template <class G = Good, typename = typename std::enable_if<std::is_base_of<Good, G>::value>::type>
-        size_t countGoods(const std::function<bool(const G &good)> &filter = nullptr) const;
+        ERIS_SIM_FILTER_COUNT(G, Good, good, Good) // countGoods()
 
         /** Provides a filtered vector of simulation markets.  This works just like agents(), but
          * for markets.
          *
          * \sa agents()
          */
-        template <class M = Market, typename = typename std::enable_if<std::is_base_of<Market, M>::value>::type>
-        std::vector<SharedMember<M>> markets(const std::function<bool(const M &market)> &filter = nullptr) const;
+        ERIS_SIM_FILTER(M, Market, market) // markets()
+
         /** Provides a count of matching simulation markets.  Markets are filtered by class and/or
          * callable filter and the count of matching markets is returned.  This is equivalent to
          * markets<G>(filter).size(), but more efficient.
          */
-        template <class M = Market, typename = typename std::enable_if<std::is_base_of<Market, M>::value>::type>
-        size_t countMarkets(const std::function<bool(const M &good)> &filter = nullptr) const;
+        ERIS_SIM_FILTER_COUNT(M, Market, market, Market) // countMarkets()
 
         /** Provides a filtered vector of non-agent/good/market simulation objects.  This works just like
          * agentFilter, but for non-agent/good/market members.
          *
          * \sa agentFilter
          */
-        template <class O = Member, typename = typename std::enable_if<
-            std::is_base_of<Member, O>::value and not std::is_base_of<Agent, O>::value and not std::is_base_of<Market, O>::value
-            >::type>
-        std::vector<SharedMember<O>> others(const std::function<bool(const O &other)> &filter = nullptr) const;
+        ERIS_SIM_FILTER(O, Member, other) // others()
+
         /** Provides a count of matching simulation non-agent/good/market members.  Members are
          * filtered by class and/or callable filter and the count of matching members is returned.
          * This is equivalent to members<G>(filter).size(), but more efficient.
          */
-        template <class O = Member, typename = typename std::enable_if<
-            std::is_base_of<Member, O>::value and not std::is_base_of<Agent, O>::value and not std::is_base_of<Market, O>::value
-            >::type>
-        size_t countOthers(const std::function<bool(const O &good)> &filter = nullptr) const;
+        ERIS_SIM_FILTER_COUNT(O, Member, other, Other) // countOthers()
+
+#undef ERIS_SIM_FILTER
+#undef ERIS_SIM_FILTER_COUNT
 
         /** Records already-stored member `depends_on` as a dependency of `member`.  If `depends_on`
          * is removed from the simulation, `member` will be automatically removed as well.
@@ -248,7 +285,7 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
          */
         void maxThreads(unsigned long max_threads);
 
-        /** Returns the maximum number of threads that are can be used in the current run() call (if
+        /** Returns the maximum number of threads that can be used in the current run() call (if
          * called during run()) or in the next run() call (otherwise).  Returns 0 if threading is
          * disabled entirely.
          *
@@ -256,7 +293,7 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
          *
          * \sa maxThreads(unsigned long)
          */
-        unsigned long maxThreads();
+        unsigned long maxThreads() { return max_threads_; }
 
         /** Runs one period of period of the simulation.  The following happens, in order:
          *
@@ -281,6 +318,15 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
          *   - All intra-period optimizers have their intraFinish() method called to indicate the
          *     end of the period.
          *
+         * If more stages are required than the above provides, each stage can be divided into
+         * multiple stages by registered optimizers with a non-default (0) priority.  If the
+         * simulation contains such optimizing members, each of the above stages is split into
+         * multiple steps: first all optimizers at the lowest priority are invoked, then all
+         * optimizers at the next-lowest priority, and so on until all optimizers of each stage are
+         * complete.  Like the stages above, all optimizers at each priority level are completed
+         * before advancing to the next priority level.  See interBeginPriority(),
+         * intraOptimizePriority(), etc.
+         *
          * \throws std::runtime_error if attempting to call run() recursively (i.e. during a run()
          * call).
          */
@@ -292,7 +338,7 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
          *
          * This is initially 0 (until the first run() call).
          */
-        eris_time_t t() const;
+        eris_time_t t() const { return t_; }
 
         /** enum of the different stages of the simulation, primarily used for synchronizing threads.
          *
@@ -319,6 +365,13 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
          */
         RunStage runStage() const;
 
+        /** The current priority level of the simulation stage.  Optimizers can specify a
+         * non-default priority to add extra stages: earlier priority stages are completed before
+         * advancing to the next priority level within the same stage.  The default priority (for
+         * opimizers that do not override priority) is 0.
+         */
+        double runStagePriority() const;
+
         /** Returns true if the simulation is currently in any of the intra-period optimization
          * stages, false otherwise.
          */
@@ -335,18 +388,18 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
          */
         bool runStageOptimize() const;
 
-        /** Obtains a lock that, when held, guarantees that a simulation stage is not in progress.
-         * This is designed for external code (e.g. GUI displays) to sychronize code, ensuring that
-         * it does not run simultaneously with an active run call.  This lock is held internally
-         * during run().
+        /** Obtains a shared lock that, when held, guarantees that a simulation stage is not in
+         * progress.  This is designed for external code (e.g. GUI displays) to sychronize code,
+         * ensuring that it does not run simultaneously with an active run call.  This lock is held
+         * (exclusively!) during run().
          */
-        std::unique_lock<std::mutex> runLock();
+        boost::shared_lock<boost::shared_mutex> runLock();
 
         /** Tries to obtain a lock that, when held, guarantees that a simulation stage is not in
          * progress.  If the lock cannot be obtained (i.e. because something else already holds it),
          * this returns an unheld lock object.
          */
-        std::unique_lock<std::mutex> runLockTry();
+        boost::shared_lock<boost::shared_mutex> runLockTry();
 
         /** Contains the number of rounds of the intra-period optimizers in the previous run() call.
          * A round is defined by a intraReset() call, a set of intraOptimize() calls, and a set of
@@ -391,6 +444,10 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
         // Internal remove() method that doesn't defer if currently running
         void removeNoDefer(eris_id_t id);
 
+        // Processes any deferred member insertions/removals.  This is called at the end of each
+        // stage (while the exclusive run lock is held).
+        void processDeferredQueue();
+
         // Internal method to remove one of the various types.  Called by the public remove()
         // method, which figures out which type the removal request is for.
         void removeAgent(eris_id_t aid);
@@ -408,10 +465,10 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
 
         // The method used by agents(), goods(), etc. to actually do the work
         template <class T, class B>
-        std::vector<SharedMember<T>> genericFilter(const MemberMap<B> &map, const std::function<bool(const T &member)> &filter) const;
+        std::vector<SharedMember<T>> genericFilter(const MemberMap<B> &map, const std::function<bool(SharedMember<T> member)> &filter) const;
         // The method used by countAgents(), countGoods(), etc. to actually do the work
         template <class T, class B>
-        size_t genericFilterCount(const MemberMap<B> &map, const std::function<bool(const T &member)> &filter) const;
+        size_t genericFilterCount(const MemberMap<B> &map, const std::function<bool(SharedMember<T> member)> &filter) const;
         // Method used by both of the above to access/create a class filter cache
         template <class T, class B>
         const std::vector<SharedMember<Member>>* genericFilterCache(const MemberMap<B> &map) const;
@@ -425,14 +482,15 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
         // Invalidate the filter cache for objects of type B, which should be one of the base Agent,
         // Good, or Market classes, or Member, which invalidates the "other" filter cache.
 
-        template <class B,
-                 class = typename std::enable_if<
-                     std::is_same<B, Member>::value or
-                     std::is_same<B, Agent>::value or
-                     std::is_same<B, Good>::value or
-                     std::is_same<B, Market>::value
-                  >::type>
-        void invalidateCache();
+        template <class B>
+        typename std::enable_if<
+            std::is_same<B, Member>::value or std::is_same<B, Agent>::value or std::is_same<B, Good>::value or std::is_same<B, Market>::value,
+            void
+        >::type
+        invalidateCache() {
+            std::lock_guard<std::recursive_mutex> lock(member_mutex_);
+            filter_cache_.erase(std::type_index(typeid(B)));
+        }
 
         DepMap depends_on_, weak_dep_;
 
@@ -450,9 +508,9 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
         // Protects member access/updates
         mutable std::recursive_mutex member_mutex_;
 
-        // Mutex held during a run which is available for outside threads to ensure operation not
-        // during an active stage.  See runLock().
-        std::mutex run_mutex_;
+        // Mutex held exclusively during a run which is available for outside threads to ensure
+        // operation not during an active stage.  See runLock() and runLockTry()
+        boost::shared_mutex run_mutex_;
 
         // Pool of threads we can use
         std::vector<std::thread> thr_pool_;
@@ -547,59 +605,6 @@ class Simulation final : public std::enable_shared_from_this<Simulation>, privat
         void thr_wait(const RunStage &not_stage, double not_priority);
 };
 
-
-template <class T, typename... Args, class> SharedMember<T> Simulation::spawn(Args&&... args) {
-    SharedMember<T> member(std::make_shared<T>(std::forward<Args>(args)...));
-    if (auto lock = runLockTry()) {
-        insert(member);
-    }
-    else {
-        deferred_mutex_.lock();
-        deferred_insert_.push_back(member);
-        deferred_mutex_.unlock();
-    }
-    return member;
-}
-
-template <class T, typename... Args> SharedMember<T> Simulation::create(Args&&... args) {
-    return spawn<T>(std::forward<Args>(args)...);
-}
-
-// doxygen following macros can't figure out that these are actually the same as the ones in the
-// class definition, so ignore:
-/// \cond
-
-// These methods are all basically identical for the four core types (agent, good, market, other),
-// so use a macro.  TYPE (agent, good, etc.) is used to create a TYPE and a TYPEs method (e.g.
-// agent() and agents()).
-//
-// Searching help:
-// agent() good() market() other()
-// agents() goods() markets() others()
-// hasAgent() hasGood() hasMarket() hasOther()
-// countAgents() countGoods() countMarkets() countOthers()
-#define ERIS_SIM_TYPE_METHODS(TYPE, CAP_TYPE)\
-template <class T, typename> SharedMember<T> Simulation::TYPE(eris_id_t id) const {\
-    std::lock_guard<std::recursive_mutex> lock(member_mutex_);\
-    return SharedMember<T>(TYPE##s_.at(id));\
-}\
-template <class T, typename> std::vector<SharedMember<T>> Simulation::TYPE##s(const std::function<bool(const T &TYPE)> &filter) const {\
-    return genericFilter(TYPE##s_, filter);\
-}\
-inline bool Simulation::has##CAP_TYPE(eris_id_t id) const noexcept {\
-    return TYPE##s_.count(id) > 0;\
-}\
-template <class T, typename> size_t Simulation::count##CAP_TYPE##s(const std::function<bool(const T &TYPE)> &filter) const {\
-    return genericFilterCount(TYPE##s_, filter);\
-}
-ERIS_SIM_TYPE_METHODS(agent, Agent)
-ERIS_SIM_TYPE_METHODS(good, Good)
-ERIS_SIM_TYPE_METHODS(market, Market)
-ERIS_SIM_TYPE_METHODS(other, Other)
-#undef ERIS_SIM_TYPE_METHODS
-
-/// \endcond
-
 template <class T, class B>
 const std::vector<SharedMember<Member>>* Simulation::genericFilterCache(
         const MemberMap<B>& map
@@ -607,7 +612,7 @@ const std::vector<SharedMember<Member>>* Simulation::genericFilterCache(
     const auto &B_t = typeid(B), &T_t = typeid(T);
 
     // If T equals B we aren't class filtering at all, so there is no cache to build: eligible
-    // elements are the enter set.
+    // elements are the entire set.
     if (B_t == T_t) return nullptr;
 
     const std::type_index B_h{B_t}, T_h{T_t};
@@ -616,7 +621,7 @@ const std::vector<SharedMember<Member>>* Simulation::genericFilterCache(
         // Cache miss: build the [B_h][T_h] cache
         std::vector<SharedMember<Member>> cache;
         for (auto &m : map) {
-            if (dynamic_cast<T*>(m.second.ptr_.get())) {
+            if (dynamic_cast<T*>(m.second.get())) {
                 // The cast succeeded, so this member is a T
                 cache.push_back(m.second);
             }
@@ -632,7 +637,7 @@ const std::vector<SharedMember<Member>>* Simulation::genericFilterCache(
 template <class T, class B>
 std::vector<SharedMember<T>> Simulation::genericFilter(
         const MemberMap<B>& map,
-        const std::function<bool(const T &member)> &filter) const {
+        const std::function<bool(SharedMember<T> member)> &filter) const {
 
     std::lock_guard<std::recursive_mutex> lock(member_mutex_);
 
@@ -647,12 +652,10 @@ std::vector<SharedMember<T>> Simulation::genericFilter(
         }
     }
     else { // Not class filtering, but possibly lambda filtering
+        // NB: since we aren't class filtering, it must be true that T == B
         for (auto &m : map) {
-            if (T* mem = dynamic_cast<T*>(m.second.ptr_.get())) {
-                // The cast succeeded, so this Member is also a T
-                if (not filter or filter(*mem))
-                    matched.push_back(SharedMember<T>{m.second});
-            }
+            if (not filter or filter(m.second))
+                matched.push_back(m.second);
         }
     }
     return matched;
@@ -662,7 +665,7 @@ std::vector<SharedMember<T>> Simulation::genericFilter(
 template <class T, class B>
 size_t Simulation::genericFilterCount(
         const MemberMap<B>& map,
-        const std::function<bool(const T &member)> &filter) const {
+        const std::function<bool(SharedMember<T> member)> &filter) const {
 
     std::lock_guard<std::recursive_mutex> lock(member_mutex_);
 
@@ -676,33 +679,16 @@ size_t Simulation::genericFilterCount(
     }
     else if (cache) { // Class & lambda filtering
         for (auto &member : *cache) {
-            if (filter(*dynamic_cast<T*>(member.ptr_.get()))) count++;
+            if (filter(member)) count++;
         }
     }
-    else {
+    else { // Not class filtering, i.e. T == B
         for (auto &m : map) {
-            if (T* mem = dynamic_cast<T*>(m.second.ptr_.get())) {
-                // The cast succeeded, so this Member is also a T
-                if (filter(*mem))
-                    count++;
-            }
+            if (filter(m.second))
+                count++;
         }
     }
     return count;
-}
-
-template <class B, class>
-void Simulation::invalidateCache() {
-    std::lock_guard<std::recursive_mutex> lock(member_mutex_);
-
-    filter_cache_.erase(std::type_index(typeid(B)));
-}
-
-inline unsigned long Simulation::maxThreads() { return max_threads_; }
-
-
-inline eris_time_t Simulation::t() const {
-    return t_;
 }
 
 }

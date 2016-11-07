@@ -11,7 +11,7 @@ namespace eris {
 /** Wrapper around std::shared_ptr<T> that adds automatic T and eris_id_t cast conversion.  Since
  * Member references must be stored both by calling code, the Simulation object, and potentially in
  * other classes, a Simulation's members are stored in std::shared_ptr objects.  This wrapper allows
- * transparent access to the underlying Member, including automatic Member and eris_id_t converstion
+ * transparent access to the underlying Member, including automatic Member and eris_id_t conversion
  * and member method access via ->.  It also supports automatic cast conversion between
  * sub/superclasses: e.g. a SharedMember<Good::Continuous> instance can be cast as a
  * SharedMember<Member>, and the same SharedMember<Member> variable can be cast as a
@@ -19,9 +19,6 @@ namespace eris {
  *
  * A less-than comparison operator is provided so that SharedMembers can be stored in a sorted
  * container.
- *
- * Note that SharedMember instances *cannot* be constructed directly (except when copying from
- * another compatible SharedMember instance), but are created via the Simulation::create method.
  */
 template<class T>
 class SharedMember final {
@@ -30,6 +27,18 @@ class SharedMember final {
          * object.
          */
         SharedMember() {}
+
+        /** Constructs a SharedMember from a copy of the given shared_ptr.  This also allows
+         * implicit conversion from a shared_ptr to a SharedMember. */
+        SharedMember(const std::shared_ptr<T> &ptr) : ptr_{ptr} {}
+
+        /** Constructs a SharedMember by moving the given shared_ptr rvalue. */
+        SharedMember(std::shared_ptr<T> &&ptr) : ptr_{std::move(ptr)} {}
+
+        /** Constructs a SharedMember from a pointer.  The management of the pointer is taken over
+         * by the new SharedMember<T>'s internal shared_ptr.
+         */
+        explicit SharedMember(T *ptr) : ptr_{ptr} {}
 
         /** Using as a T gives you the underlying T object */
         operator T& () const { return *ptr_; }
@@ -44,6 +53,11 @@ class SharedMember final {
         T& operator * () const { return *ptr_; }
         /** Dereferencing member access works on the underlying T */
         T* operator -> () const { return ptr_.get(); }
+        /// Returns the stored pointer
+        T* get() const { return ptr_.get(); }
+
+        /// Conversion operator: returns a shared_ptr that shares this object's pointer
+        operator std::shared_ptr<T> () const noexcept { return ptr_; }
 
         /** Equality comparison.  Two SharedMember objects are considered equal if and only if they
          * both have positive and equal eris_id_t values; if either object is a null pointer, or
@@ -123,17 +137,20 @@ class SharedMember final {
             if (from.ptr() and not ptr_) throw std::bad_cast();
         }
 
-        /** Copy constructor. */
-        SharedMember(const SharedMember<T> &from) : ptr_{from.ptr_}
-        {}
+        /// Default copy constructor.
+        SharedMember(const SharedMember<T> &) = default;
+
+        /// Default move constructor.  The underlying shared pointer is moved
+        SharedMember(SharedMember<T> &&) = default;
+
+        /// Default copy assignment
+        SharedMember<T>& operator=(const SharedMember<T> &) = default;
+
+        /// Default move assignment
+        SharedMember<T>& operator=(SharedMember<T> &&) = default;
 
     private:
-        SharedMember(const std::shared_ptr<T> &ptr) : ptr_{ptr} {}
-        SharedMember(std::shared_ptr<T> &&ptr) : ptr_{std::move(ptr)} {}
-
         std::shared_ptr<T> ptr_;
-
-        friend class Simulation;
 };
 
 }

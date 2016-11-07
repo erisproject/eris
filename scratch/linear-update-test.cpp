@@ -1,5 +1,6 @@
-#include <eris/belief/BayesianLinear.hpp>
+#include <eris/learning/BayesianLinear.hpp>
 #include <eris/random/rng.hpp>
+#include <eris/random/normal_distribution.hpp>
 #include <Eigen/QR>
 #include <Eigen/SVD>
 #include <iostream>
@@ -18,7 +19,7 @@
     u8"    X'X: " << (X.transpose() * X).format(IOFormat(StreamPrecision, 0, " ", "\n         ")) << "\n"
 
     
-using namespace eris::belief;
+using namespace eris::learning;
 using namespace Eigen;
 using namespace eris;
 
@@ -34,7 +35,7 @@ int main() {
     VectorXd u(100);
 
     auto &rng = random::rng();
-    std::normal_distribution<double> stdnormal;
+    eris::random::normal_distribution<double> stdnormal;
 
     for (int t = 0; t < 100; t++) {
         for (int k = 0; k < 3; k++) {

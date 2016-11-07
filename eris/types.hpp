@@ -1,10 +1,9 @@
 #pragma once
 #include <cstdint>
 
-/** \file eris/types.hpp basic type and class forward declarations
+/** \file eris/types.hpp basic types
  *
- * This header includes some basic types such as eris_id_t and RunStage and ReservationState enums,
- * and forward-declares various top-level eris types (so as to avoid nested header problems).
+ * This header includes the basic typedefs for eris_id_t and eris_time_t.
  */
 
 namespace eris {

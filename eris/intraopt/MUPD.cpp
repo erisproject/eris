@@ -96,7 +96,7 @@ void MUPD::intraOptimize() {
     // Before bothering with anything else, make sure the consumer actually has some money to spend
     {
         auto lock = consumer->readLock();
-        if (consumer->assets()[money] <= 0)
+        if (consumer->assets[money] <= 0)
             return;
     }
 
@@ -138,7 +138,7 @@ void MUPD::intraOptimize() {
     markets = spending.size()-1; // -1 for the id=0 cash pseudo-market
     if (markets == 0) return;
 
-    Bundle &a = consumer->assets();
+    Bundle &a = consumer->assets;
     Bundle a_no_money = a;
     double cash = a_no_money.remove(money);
     if (cash <= 0) {

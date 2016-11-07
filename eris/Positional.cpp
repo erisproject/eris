@@ -58,11 +58,11 @@ Position PositionalBase::vectorTo(const PositionalBase &other) const {
     return vectorTo(other.position());
 }
 
-bool PositionalBase::bounded() const noexcept {
+bool PositionalBase::bounded() const {
     return bounded_;
 }
 
-bool PositionalBase::binding() const noexcept {
+bool PositionalBase::binding() const {
     if (not bounded_) return false;
 
     for (size_t d = 0; d < position_.dimensions; d++) {
@@ -73,7 +73,7 @@ bool PositionalBase::binding() const noexcept {
     return false;
 }
 
-bool PositionalBase::bindingLower() const noexcept {
+bool PositionalBase::bindingLower() const {
     if (not bounded_) return false;
 
     for (size_t d = 0; d < position_.dimensions; d++) {
@@ -83,7 +83,7 @@ bool PositionalBase::bindingLower() const noexcept {
     return false;
 }
 
-bool PositionalBase::bindingUpper() const noexcept {
+bool PositionalBase::bindingUpper() const {
     if (not bounded_) return false;
 
     for (size_t d = 0; d < position_.dimensions; d++) {
@@ -93,11 +93,11 @@ bool PositionalBase::bindingUpper() const noexcept {
     return false;
 }
 
-Position PositionalBase::lowerBound() const noexcept {
+Position PositionalBase::lowerBound() const {
     return lower_bound_;
 }
 
-Position PositionalBase::upperBound() const noexcept {
+Position PositionalBase::upperBound() const {
     return upper_bound_;
 }
 
@@ -106,7 +106,7 @@ bool PositionalBase::moveTo(Position p) {
         throw std::length_error("position and moveTo coordinates have different dimensions");
     bool corrected = false;
     if (bounded_) {
-        corrected = truncate(p, not moveToBoundary());
+        corrected = truncate(p, not move_to_boundary);
     }
 
     position_ = p;
