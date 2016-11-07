@@ -48,35 +48,13 @@ See also the various [classes of the creativity
 ABM](https://imaginary.ca/eris/creativity/annotated.html) for a working example
 of a moderately complex agent-based model.
 
-## Installing (Debian-based systems)
-
-Regularly updated library, header, and documentation packages are available for
-amd64 systems by adding one of the following lines to /etc/apt/sources.list:
-
-    deb https://imaginary.ca/debian jessie main
-    deb https://imaginary.ca/debian sid main
-    deb https://imaginary.ca/ubuntu trusty main
-    deb https://imaginary.ca/ubuntu wily main
-
-The first is for debian stable; the second for debian testing and unstable; the
-last two are for Ubuntu releases.
-
-The required key signature for package verification can be installed using:
-
-    curl -s https://imaginary.ca/public.gpg | sudo apt-key add -
-
-You generally want to install the liberis-dev package and possibly the eris-doc
-package.
-
-These packages are built from the "debian", "debian-jessie", "ubuntu-trusty",
-and "ubuntu-wily" branches of the eris package repository.
-
 ## Compiling
 
 ### Requirements
 
-- [boost](http://www.boost.org/); only the Math component is needed.
-- [Eigen](http://eigen.tuxfamily.org/)
+- [boost](http://www.boost.org/)
+- [liblzma](http://tukaani.org/xz/)
+- [Eigen](http://eigen.tuxfamily.org/), version 3.2.7 or above.
 - A C++ compiler supporting the C++11 standard, such as
   [clang](http://clang.llvm.org/) (3.3+) or [g++](https://gcc.gnu.org/) (4.9+)
 
