@@ -8,3 +8,6 @@ override_dh_auto_configure:
 		-DSCRATCH=OFF \
 		-DAPI_DOCS=ON \
 		-DMATHJAX_PATH=mathjax
+
+override_dh_auto_test:
+
