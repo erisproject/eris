@@ -6,7 +6,7 @@ Priority: optional
 Standards-Version: 3.9.6
 Build-Depends: debhelper (>= 9), cmake, libeigen3-dev (>= 3.2.7), libboost-dev, doxygen, libgtest-dev, graphviz
 
-Package: liberis5
+Package: liberis6
 Section: libs
 Architecture: any
 Multi-Arch: same
