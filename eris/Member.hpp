@@ -46,13 +46,24 @@ class Member : private noncopyable {
         std::shared_ptr<Simulation> simulation() const;
 
         /** Shortcut for `member.simulation()->agent<A>()` */
-        template <class A = Agent> SharedMember<A> simAgent(eris_id_t aid) const;
+        template <class A = Agent> SharedMember<A> simAgent(eris_id_t aid) const {
+            return simulation()->agent<A>(aid);
+        }
         /** Shortcut for `member.simulation()->good<G>()` */
-        template <class G = Good> SharedMember<G> simGood(eris_id_t gid) const;
+        template <class G = Good> SharedMember<G> simGood(eris_id_t gid) const {
+            return simulation()->good<G>(gid);
+        }
         /** Shortcut for `member.simulation()->market<M>()` */
-        template <class M = Market> SharedMember<M> simMarket(eris_id_t mid) const;
+        template <class M = Market> SharedMember<M> simMarket(eris_id_t mid) const {
+            return simulation()->market<M>(mid);
+        }
         /** Shortcut for `member.simulation()->other<O>()` */
-        template <class O = Member> SharedMember<O> simOther(eris_id_t oid) const;
+        template <class O = Member> SharedMember<O> simOther(eris_id_t oid) const {
+            return simulation()->other<O>(oid);
+        }
+
+        /// Shortcut for `member.simulation()->t()`, i.e. returns the current simulation time period.
+        eris_time_t simT() const { return simulation()->t(); }
 
         /** Records a dependency with the Simulation object.  This should not be called until after
          * the member has been added to a simulation, and is typically invoked in an overridden
@@ -558,7 +569,7 @@ class Member : private noncopyable {
         /** Returns the maximum number of threads in the simulation.  This is simply an alias for
          * simulation()->maxThreads().
          */
-        unsigned long maxThreads() const;
+        unsigned long maxThreads() const { return simulation()->maxThreads(); }
 
     private:
         eris_id_t id_{0};
@@ -635,19 +646,4 @@ class Member : private noncopyable {
         void member_zip_(std::multiset<SharedMember<Member>>&) const {}
 };
 
-template <class A> SharedMember<A> Member::simAgent(eris_id_t aid) const {
-    return simulation()->agent<A>(aid);
-}
-template <class G> SharedMember<G> Member::simGood(eris_id_t gid) const {
-    return simulation()->good<G>(gid);
-}
-template <class M> SharedMember<M> Member::simMarket(eris_id_t mid) const {
-    return simulation()->market<M>(mid);
-}
-template <class O> SharedMember<O> Member::simOther(eris_id_t oid) const {
-    return simulation()->other<O>(oid);
-}
-inline unsigned long Member::maxThreads() const {
-    return simulation()->maxThreads();
-}
 }

@@ -12,7 +12,7 @@ set(eris_description "Agent-based economic modelling library")
 # Eris package version
 set(ERIS_VERSION_MAJOR "0")
 set(ERIS_VERSION_MINOR "5")
-set(ERIS_VERSION_PATCH "0")
+set(ERIS_VERSION_PATCH "1")
 set(ERIS_VERSION "${ERIS_VERSION_MAJOR}.${ERIS_VERSION_MINOR}.${ERIS_VERSION_PATCH}")
 
 # eris library version (CURRENT.REVISION.AGE), which is totally separate
