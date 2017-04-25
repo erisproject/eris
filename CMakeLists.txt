@@ -12,7 +12,7 @@ set(eris_description "Agent-based economic modelling library")
 # Eris package version
 set(ERIS_VERSION_MAJOR "0")
 set(ERIS_VERSION_MINOR "5")
-set(ERIS_VERSION_PATCH "1")
+set(ERIS_VERSION_PATCH "900")
 set(ERIS_VERSION "${ERIS_VERSION_MAJOR}.${ERIS_VERSION_MINOR}.${ERIS_VERSION_PATCH}")
 
 # eris library version (CURRENT.REVISION.AGE), which is totally separate
@@ -45,7 +45,7 @@ set(ERIS_VERSION "${ERIS_VERSION_MAJOR}.${ERIS_VERSION_MINOR}.${ERIS_VERSION_PAT
 # (So something like 3.7.1 indicates the 8th revision of the liberis.so.3
 # interface, and that code that links against liberis.so.2 can safely link
 # against this version, but code that links against liberis.so.1 cannot.
-set(LIBERIS_CURRENT  "6")
+set(LIBERIS_CURRENT  "7")
 set(LIBERIS_REVISION "0")
 set(LIBERIS_AGE      "0")
 
