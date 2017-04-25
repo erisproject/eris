@@ -41,9 +41,16 @@ class Member : private noncopyable {
         bool hasSimulation() const;
 
         /** Creates and returns a shared pointer to the simulation this object belongs.  If the
-         * member does not belong to a simulation, throws a no_simulation_error exception.
+         * member does not belong to a simulation, throws a no_simulation_error exception.  The
+         * optional `T` parameter allows casting the shared pointer to a Simulation subclass.
          */
-        std::shared_ptr<Simulation> simulation() const;
+        template <typename T = Simulation>
+        std::shared_ptr<T> simulation() const {
+            auto shptr = simulation_.lock();
+            if (!shptr)
+                throw no_simulation_error();
+            return as_sim_<T>(std::move(shptr));
+        }
 
         /** Shortcut for `member.simulation()->agent<A>()` */
         template <class A = Agent> SharedMember<A> simAgent(eris_id_t aid) const {
@@ -576,6 +583,12 @@ class Member : private noncopyable {
         /** Stores a weak pointer to the simulation this Member belongs to. */
         std::weak_ptr<eris::Simulation> simulation_;
 
+        /// Generic version: uses simulation to cast itself to the desired type.  A specialization
+        /// for T = Simulation, below, avoids the extra shared_ptr and cast when T = Simulation.
+        template <typename T> static std::shared_ptr<T> as_sim_(std::shared_ptr<Simulation> &&sim) {
+            return sim->as<T>();
+        }
+
         /** Mutex used both for a write lock and instantaneously for a read lock.  Also guards
          * access to readlocks_ */
         mutable std::recursive_mutex wmutex_;
@@ -645,5 +658,10 @@ class Member : private noncopyable {
         }
         void member_zip_(std::multiset<SharedMember<Member>>&) const {}
 };
+
+// Non-casting specialization that avoids an extra shared_ptr creation + static cast:
+template <> inline std::shared_ptr<Simulation> Member::as_sim_<Simulation>(std::shared_ptr<Simulation> &&sim) {
+    return sim;
+}
 
 }

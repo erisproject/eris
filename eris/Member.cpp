@@ -28,13 +28,6 @@ bool Member::hasSimulation() const {
     return !(simulation_.expired());
 }
 
-std::shared_ptr<Simulation> Member::simulation() const {
-    if (simulation_.expired()) {
-        throw no_simulation_error();
-    }
-    return simulation_.lock();
-}
-
 void Member::added() {}
 void Member::removed() {}
 

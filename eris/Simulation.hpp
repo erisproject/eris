@@ -43,12 +43,27 @@ class Market;
  *
  * For an overview of the simulation stage mechanism, see the run() method.
  */
-class Simulation final : public std::enable_shared_from_this<Simulation>, private noncopyable {
+class Simulation : public std::enable_shared_from_this<Simulation>, private noncopyable {
     public:
         /** Creates a new Simulation and returns a shared_ptr to it.  This is the only public
          * interface to creating a Simulation.
+         *
+         * If subclassing Simulation, you may pass the subclass as a template parameter and any
+         * needed constructor arguments; they will be forwarded to the subclass constructor.
          */
-        static std::shared_ptr<Simulation> create();
+        template <typename T = Simulation, typename... Args, typename = typename std::enable_if<std::is_base_of<Simulation, T>::value>::type>
+        static std::shared_ptr<T> create(Args &&... args) {
+            return std::make_shared<T>(std::forward<Args>(args)...);
+        }
+
+        /** Obtains a shared pointer to this simulation cast to the given `T` argument using
+         * std::static_pointer_cast.  This should only be called when the simulation instance is
+         * known to be a subclass of the given type.
+         */
+        template <typename T, typename = typename std::enable_if<std::is_base_of<Simulation, T>::value>::type>
+        std::shared_ptr<T> as() {
+            return std::static_pointer_cast<T>(shared_from_this());
+        }
 
         /// Destructor.  When destruction occurs, any outstanding threads are killed and rejoined.
         virtual ~Simulation();
