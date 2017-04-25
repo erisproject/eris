@@ -162,7 +162,7 @@ class Simulation : public std::enable_shared_from_this<Simulation>, private nonc
          *
          * \throws std::logic_error if the member already belongs to a simulation
          */
-        SharedMember<Member> add(std::shared_ptr<Member> new_member);
+        virtual SharedMember<Member> add(std::shared_ptr<Member> new_member);
 
         /** Removes the given member (and any dependencies) from this simulation.
          *
@@ -173,7 +173,7 @@ class Simulation : public std::enable_shared_from_this<Simulation>, private nonc
          * \throws std::out_of_range if the given id does not belong to this simulation.  If called
          * during optimization, the exception may also be deferred (to the encompassing run()).
          */
-        void remove(eris_id_t id);
+        virtual void remove(eris_id_t id);
 
 #define ERIS_SIM_FILTER(T, BASE, WHICH) \
         template <class T = BASE> \
@@ -345,7 +345,7 @@ class Simulation : public std::enable_shared_from_this<Simulation>, private nonc
          * \throws std::runtime_error if attempting to call run() recursively (i.e. during a run()
          * call).
          */
-        void run();
+        virtual void run();
 
         /** Returns the iteration number, where 1 is the first iteration.  This is incremented just
          * before inter-period optimizers run, and so, if called from inter-period optimizer code,
