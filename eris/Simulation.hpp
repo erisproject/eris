@@ -53,7 +53,7 @@ class Simulation : public std::enable_shared_from_this<Simulation>, private nonc
          */
         template <typename T = Simulation, typename... Args, typename = typename std::enable_if<std::is_base_of<Simulation, T>::value>::type>
         static std::shared_ptr<T> create(Args &&... args) {
-            return std::make_shared<T>(std::forward<Args>(args)...);
+            return std::shared_ptr<T>(new T(std::forward<Args>(args)...));
         }
 
         /** Obtains a shared pointer to this simulation cast to the given `T` argument using
@@ -434,12 +434,16 @@ class Simulation : public std::enable_shared_from_this<Simulation>, private nonc
         const DepMap __weakDeps() { return weak_dep_; }
 #endif
 
-    private:
+    protected:
         /* Simulation constructor.  Simulation objects should be constructed by calling
          * Simulation::create() instead of calling the constructor directly.
+         *
+         * Subclasses must enforce this: the Simulation relies on being stored in a shared_ptr (so
+         * that shared_from_this() is valid).
          */
         Simulation() = default;
 
+    private:
         unsigned long max_threads_ = 0;
         eris_id_t id_next_ = 1;
         MemberMap<Agent> agents_;
