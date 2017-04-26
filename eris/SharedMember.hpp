@@ -92,6 +92,9 @@ class SharedMember final {
         /** const access to the underlying shared_ptr */
         const std::shared_ptr<T>& ptr() const noexcept { return ptr_; }
 
+        /** Resets the underlying shared_ptr */
+        void reset() { ptr_.reset(); }
+
         /** The type T that this SharedMember wraps */
         typedef T member_type;
 
