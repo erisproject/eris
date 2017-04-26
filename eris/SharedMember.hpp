@@ -151,6 +151,8 @@ class SharedMember final {
 
     private:
         std::shared_ptr<T> ptr_;
+
+        template <typename O> friend class SharedMember;
 };
 
 }
