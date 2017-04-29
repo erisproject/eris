@@ -127,9 +127,9 @@ class InterStepper : public Member, public virtual OptApply {
         /// Whether we are going to step up.  Calculated in optimize(), given to stepper_ in apply()
         bool curr_up_ = false;
         /// The period; we only try to take a step every `period_` times.  1 means always.
-        const int period_;
+        const eris_time_t period_;
         /// The offset; we take a step in periods in which `sim->t() % period_ == period_offset_`
-        const unsigned int period_offset_;
+        const eris_time_t period_offset_;
         /// True if we're going to step this round.  Will be always true if `period_ == 1`.
         bool stepping_ = false;
         /// True if we're going to jump this round instead of stepping.
