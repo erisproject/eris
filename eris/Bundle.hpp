@@ -82,7 +82,7 @@ class BundleSigned {
         BundleSigned();
 
         /// Constructs a new BundleSigned containing a single good, g, with quantity q.
-        BundleSigned(eris_id_t g, double q);
+        BundleSigned(MemberID g, double q);
 
         /** Allows initialization with a static std::initializer_list of std::pairs, such as:
          * BundleSigned b {{1, 1.0}, {2, 0.5}, {3, 100}};
@@ -113,16 +113,16 @@ class BundleSigned {
 
         /** Read-only access to BundleSigned quantities given a good id.  Note that this does not
          * autovivify goods that don't exist in the bundle (unlike std::map's `operator[]`). */
-        const double& operator[] (eris_id_t gid) const;
+        const double& operator[] (MemberID gid) const;
 
         /** Modifiable access to BundleSigned quantities given a good id.  This returns a proxy
          * object that can be used to adjust the value by internally calling set() for any
          * adjustments (to allow for value checking as needed).
          */
-        valueproxy operator[] (eris_id_t gid);
+        valueproxy operator[] (MemberID gid);
 
         /** Sets the quantity of the given good id to the given value. */
-        virtual void set(eris_id_t gid, double quantity);
+        virtual void set(MemberID gid, double quantity);
 
         /** This method is is provided to be able to use a Bundle in a range for loop; it is, however, a
          * const_iterator, mapped internally to the underlying std::unordered_map's cbegin() method.
@@ -148,20 +148,20 @@ class BundleSigned {
 
         /** Returns 1 if the given id exists in the Bundle (even if it equals 0), 0 otherwise.
          */
-        int count(eris_id_t gid) const;
+        int count(MemberID gid) const;
 
         /** Removes the specified good from the bundle (if it exists), and returns either 0 or 1
          * indicating whether the good was present in the bundle, like std::unordered_map::erase.
          *
          * \sa remove
          */
-        int erase(eris_id_t gid);
+        int erase(MemberID gid);
 
         /** Like erase(id), but returns the quantity of the removed good, or 0 if the good was not
          * in the bundle.  Note that there is no way to distinguish between a good that was not in
          * the Bundle and a good that was in the Bundle with a quantity of 0.
          */
-        double remove(eris_id_t gid);
+        double remove(MemberID gid);
 
         /** Removes any goods from the bundle that have a quantity equal to 0. */
         void clearZeros();
@@ -514,7 +514,7 @@ class Bundle final : public BundleSigned {
         /// Creates a new, empty Bundle.
         Bundle();
         /// Creates a new Bundle containing a single good of the given quantity.
-        Bundle(eris_id_t g, double q);
+        Bundle(MemberID g, double q);
         /// Creates a new Bundle from an initializer list of goods and quantities.
         Bundle(const std::initializer_list<std::pair<eris_id_t, double>> &init);
         /** Creates a new Bundle by copying quantities from a BundleSigned.  If the other Bundle is
@@ -535,7 +535,7 @@ class Bundle final : public BundleSigned {
          *
          * \throws Bundle::negativity_error if quantity is negative.
          */
-        void set(eris_id_t gid, double quantity) override;
+        void set(MemberID gid, double quantity) override;
 
         /** Assigns a bundle to this bundle.  The transaction state of the current bundle is
          * maintained, while only the currently-visible values of the given bundle are copied

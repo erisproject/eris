@@ -34,7 +34,7 @@ class Good : public Member {
         virtual double atom() { return 0.0; }
 
     protected:
-        SharedMember<Member> sharedSelf() const override { return simGood(*this); }
+        SharedMember<Member> sharedSelf() const override { return simGood(id()); }
 };
 
 }

@@ -42,7 +42,7 @@ Market::quantity_info QMarket::quantity(double p) const {
     bool constrained = q > available;
     if (constrained) q = available;
     double spent = constrained ? price_*q : p;
-    return { .quantity=q, .constrained=constrained, .spent=spent, .unspent=p-spent };
+    return { q, constrained, spent, p-spent };
 }
 
 Market::Reservation QMarket::reserve(SharedMember<Agent> agent, double q, double p_max) {

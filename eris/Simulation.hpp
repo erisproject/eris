@@ -68,10 +68,10 @@ class Simulation : public std::enable_shared_from_this<Simulation>, private nonc
         /// Destructor.  When destruction occurs, any outstanding threads are killed and rejoined.
         virtual ~Simulation();
 
-        /// Alias for a map of eris_id_t to SharedMember<A> of arbitrary type A
+        /// Alias for a map of eris_id_t to SharedMember<T> of arbitrary type T
         template <class T> using MemberMap = std::unordered_map<eris_id_t, SharedMember<T>>;
         /// typedef for the map of id's to the set of dependent members
-        typedef std::unordered_map<eris_id_t, std::unordered_set<eris_id_t>> DepMap;
+        using DepMap = std::unordered_map<eris_id_t, std::unordered_set<eris_id_t>>;
 
         /** Wrapper around std::enable_if that defines a typedef `type` (defaulting to
          * SharedMember<Derived>) only if `Derived` is a `Base` member type.  `Base` must itself be
@@ -95,7 +95,7 @@ class Simulation : public std::enable_shared_from_this<Simulation>, private nonc
 #define ERIS_SIM_MEMBER_ACCESS(T, Base, NAME) \
         template <class T = Base> \
         typename enable_if_member<Base, T>::type \
-        NAME(eris_id_t id) const { \
+        NAME(MemberID id) const { \
             std::lock_guard<std::recursive_mutex> lock(member_mutex_); \
             return SharedMember<T>(NAME##s_.at(id)); \
         }
@@ -123,14 +123,14 @@ class Simulation : public std::enable_shared_from_this<Simulation>, private nonc
 #undef ERIS_SIM_MEMBER_ACCESS
 
         /** Returns true if the simulation has an agent with the given id, false otherwise. */
-        bool hasAgent(eris_id_t id) const { std::lock_guard<std::recursive_mutex> lock(member_mutex_); return agents_.count(id) > 0; }
+        bool hasAgent(MemberID id) const { std::lock_guard<std::recursive_mutex> lock(member_mutex_); return agents_.count(id) > 0; }
         /** Returns true if the simulation has a good with the given id, false otherwise. */
-        bool hasGood(eris_id_t id) const { std::lock_guard<std::recursive_mutex> lock(member_mutex_); return goods_.count(id) > 0; }
+        bool hasGood(MemberID id) const { std::lock_guard<std::recursive_mutex> lock(member_mutex_); return goods_.count(id) > 0; }
         /** Returns true if the simulation has a market with the given id, false otherwise. */
-        bool hasMarket(eris_id_t id) const { std::lock_guard<std::recursive_mutex> lock(member_mutex_); return markets_.count(id) > 0; }
+        bool hasMarket(MemberID id) const { std::lock_guard<std::recursive_mutex> lock(member_mutex_); return markets_.count(id) > 0; }
         /** Returns true if the simulation has a non-agent/good/market member with the given id,
          * false otherwise. */
-        bool hasOther(eris_id_t id) const { std::lock_guard<std::recursive_mutex> lock(member_mutex_); return others_.count(id) > 0; }
+        bool hasOther(MemberID id) const { std::lock_guard<std::recursive_mutex> lock(member_mutex_); return others_.count(id) > 0; }
 
         /** Constructs a new T object, forwarding any given arguments Args to the T constructor, and
          * adds the new member to the simulation (but see below).  T must be a subclass of Member;
@@ -173,7 +173,7 @@ class Simulation : public std::enable_shared_from_this<Simulation>, private nonc
          * \throws std::out_of_range if the given id does not belong to this simulation.  If called
          * during optimization, the exception may also be deferred (to the encompassing run()).
          */
-        virtual void remove(eris_id_t id);
+        virtual void remove(MemberID id);
 
 #define ERIS_SIM_FILTER(T, BASE, WHICH) \
         template <class T = BASE> \
@@ -262,7 +262,13 @@ class Simulation : public std::enable_shared_from_this<Simulation>, private nonc
          * Note that dependents are removed *after* removal of their dependencies.  That is, if A
          * depends on B, and B is removed, the B removal occurs *first*, followed by the A removal.
          */
-        void registerDependency(eris_id_t member, eris_id_t depends_on);
+        void registerDependency(MemberID member, MemberID depends_on);
+
+        /** Same as above, but takes SharedMembers for convenience */
+        template <typename T1, typename T2>
+        void registerDependency(const SharedMember<T1> &member, const SharedMember<T2> &depends_on) {
+            registerDependency(member->id(), depends_on->id());
+        }
 
         /** Records already-stored member `depends_on` is a weak dependency of `member`.  In
          * contrast to a non-weak dependency, the member is only notified of the removal of the
@@ -271,7 +277,13 @@ class Simulation : public std::enable_shared_from_this<Simulation>, private nonc
          * When `depends_on` is removed from the simulation, `member` will have its depRemoved()
          * method called with the just-removed (but still not destroyed) member.
          */
-        void registerWeakDependency(eris_id_t member, eris_id_t depends_on);
+        void registerWeakDependency(MemberID member, MemberID depends_on);
+
+        /// Same as above, but takes SharedMembers for convenience
+        template <typename T1, typename T2>
+        void registerWeakDependency(const SharedMember<T1> &member, const SharedMember<T2> &depends_on) {
+            registerWeakDependency(member->id(), depends_on->id());
+        }
 
         /** Sets the maximum number of threads to use for subsequent calls to run().  The default
          * value is 0 (which uses no threads at all; see below).  If this is lowered between calls
@@ -445,7 +457,6 @@ class Simulation : public std::enable_shared_from_this<Simulation>, private nonc
 
     private:
         unsigned long max_threads_ = 0;
-        eris_id_t id_next_ = 1;
         MemberMap<Agent> agents_;
         MemberMap<Good> goods_;
         MemberMap<Market> markets_;
@@ -517,7 +528,7 @@ class Simulation : public std::enable_shared_from_this<Simulation>, private nonc
         void removeDeps(eris_id_t member);
 
         // Notifies weak dependents
-        void notifyWeakDeps(SharedMember<Member> member, eris_id_t old_id);
+        void notifyWeakDeps(SharedMember<Member> member);
 
         // Tracks the iteration number, can be accessed via t().
         eris_time_t t_ = 0;

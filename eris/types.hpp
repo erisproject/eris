@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <type_traits>
 
 /** \file eris/types.hpp basic types
  *
@@ -31,5 +32,36 @@ typedef uint64_t eris_id_t;
 /** Signed integer type that stores an eris time period.  This is a signed type that can also be
  * used for time period deltas. */
 typedef int32_t eris_time_t;
+
+
+/** Simple class used for methods that need to accept an eris_id_t but wants to allow any of an
+ * eris_id_t, Member, Member pointer, or a SharedMember<T> to be provided (more precisely, anything
+ * with either a `.id()` or `->id()` that returns an eris_id_t).  Wherever this is accepted you can
+ * pass the actual id, a Member-derived object, or a SharedMember<T>.  This object is typically not
+ * constructed explicitly but instead simply provides intermediate conversion between members and
+ * associated eris_id_t values.
+ */
+struct MemberID {
+private:
+    eris_id_t id;
+public:
+    /// Not default constructible
+    MemberID() = delete;
+    /// Implicit construction from a raw eris_id_t
+    MemberID(eris_id_t id) : id{id} {}
+    /// Implicit construction from anything with an `id()` method that returns an eris_id_t, most
+    /// notably Member (and derived)
+    template <typename T, typename std::enable_if<std::is_same<
+        decltype(std::declval<T>().id()), eris_id_t>::value, int>::type = 0>
+    MemberID(const T &member) : id{member.id()} {}
+    /// Implicit construction from anything with a `->id()` indirect method that returns an
+    /// eris_id_t, most notably SharedMember<T> and Member pointer
+    template <typename T, typename std::enable_if<std::is_same<
+        decltype(std::declval<T>()->id()), eris_id_t>::value, int>::type = 0>
+    MemberID(const T &shared_member) : id{shared_member->id()} {}
+
+    /// Implicit conversion to an eris_id_t
+    operator eris_id_t() const { return id; }
+};
 
 }

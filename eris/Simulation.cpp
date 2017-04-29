@@ -9,12 +9,12 @@
 
 namespace eris {
 
-void Simulation::registerDependency(eris_id_t member, eris_id_t depends_on) {
+void Simulation::registerDependency(MemberID member, MemberID depends_on) {
     std::lock_guard<std::recursive_mutex> lock(member_mutex_);
     depends_on_[depends_on].insert(member);
 }
 
-void Simulation::registerWeakDependency(eris_id_t member, eris_id_t depends_on) {
+void Simulation::registerWeakDependency(MemberID member, MemberID depends_on) {
     std::lock_guard<std::recursive_mutex> lock(member_mutex_);
     weak_dep_[depends_on].insert(member);
 }
@@ -53,10 +53,9 @@ void Simulation::insert(const SharedMember<Member> &member) {
 #define ERIS_SIM_INSERT_REMOVE_MEMBER(TYPE, CLASS, MAP)\
 void Simulation::insert##TYPE(const SharedMember<CLASS> &member) {\
     std::lock_guard<std::recursive_mutex> mbr_lock(member_mutex_);\
-    eris_id_t member_id = id_next_++;\
-    MAP.insert(std::make_pair(member_id, member));\
+    MAP.emplace(member->id(), member);\
     invalidateCache<CLASS>();\
-    member->simulation(shared_from_this(), member_id);\
+    member->simulation(shared_from_this());\
     insertOptimizers(member);\
 }\
 void Simulation::remove##TYPE(eris_id_t id) {\
@@ -66,9 +65,9 @@ void Simulation::remove##TYPE(eris_id_t id) {\
     removeOptimizers(member);\
     MAP.erase(id);\
     invalidateCache<CLASS>();\
-    member->simulation(nullptr, 0); /* calls member->removed() */ \
+    member->simulation(nullptr); /* calls member->removed() */ \
     removeDeps(id);\
-    notifyWeakDeps(member, id);\
+    notifyWeakDeps(member);\
 }
 ERIS_SIM_INSERT_REMOVE_MEMBER(Agent,  Agent,  agents_)
 ERIS_SIM_INSERT_REMOVE_MEMBER(Good,   Good,   goods_)
@@ -79,7 +78,7 @@ ERIS_SIM_INSERT_REMOVE_MEMBER(Other,  Member, others_)
 // More searching help: these are in eris/Simulation.hpp:
 // agent() agents() good() goods() market() markets() other() others()
 
-void Simulation::remove(eris_id_t id) {
+void Simulation::remove(MemberID id) {
     if (auto lock = runLockTry())
         removeNoDefer(id);
     else {
@@ -183,16 +182,17 @@ void Simulation::removeDeps(eris_id_t member) {
     }
 }
 
-void Simulation::notifyWeakDeps(SharedMember<Member> member, eris_id_t old_id) {
+void Simulation::notifyWeakDeps(SharedMember<Member> member) {
     std::lock_guard<std::recursive_mutex> lock(member_mutex_);
 
-    if (!weak_dep_.count(old_id)) return;
+    auto id = member->id();
+    if (!weak_dep_.count(id)) return;
 
     // member is already removed, so now clean it out of the weak_dep_
-    const auto weak_deps = weak_dep_[old_id];
-    weak_dep_.erase(old_id);
+    const auto weak_deps = weak_dep_[id];
+    weak_dep_.erase(id);
 
-    for (const auto &dep : weak_deps) {
+    for (auto dep : weak_deps) {
         SharedMember<Member> dep_mem;
         if      ( agents_.count(dep)) dep_mem = agents_[dep];
         else if (  goods_.count(dep)) dep_mem = goods_[dep];
@@ -200,7 +200,7 @@ void Simulation::notifyWeakDeps(SharedMember<Member> member, eris_id_t old_id) {
         else if ( others_.count(dep)) dep_mem = others_[dep];
         else continue; // The weak dep is no longer around
 
-        dep_mem->weakDepRemoved(member, old_id);
+        dep_mem->weakDepRemoved(member);
     }
 }
 

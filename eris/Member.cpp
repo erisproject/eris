@@ -4,24 +4,25 @@
 
 namespace eris {
 
-void Member::dependsOn(eris_id_t id) {
-    simulation()->registerDependency(*this, id);
+std::atomic<eris_id_t> Member::next_id_{1};
+
+void Member::dependsOn(MemberID dep_id) {
+    simulation()->registerDependency(id(), dep_id);
 }
 
-void Member::dependsWeaklyOn(eris_id_t id) {
-    simulation()->registerWeakDependency(*this, id);
+void Member::dependsWeaklyOn(MemberID dep_id) {
+    simulation()->registerWeakDependency(id(), dep_id);
 }
 
-void Member::weakDepRemoved(SharedMember<Member>, eris_id_t) {}
+void Member::weakDepRemoved(SharedMember<Member>) {}
 
 
-SharedMember<Member> Member::sharedSelf() const { return simOther<Member>(id()); }
+SharedMember<Member> Member::sharedSelf() const { return simOther(id()); }
 
-void Member::simulation(const std::shared_ptr<Simulation> &sim, eris_id_t id) {
-    if (id == 0) removed();
+void Member::simulation(const std::shared_ptr<Simulation> &sim) {
+    if (!sim) removed();
     simulation_ = sim;
-    id_ = id;
-    if (id > 0) added();
+    if (sim) added();
 }
 
 bool Member::hasSimulation() const {

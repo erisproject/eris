@@ -7,7 +7,7 @@ Market::Market(Bundle output_unit, Bundle price_unit) : output_unit(output_unit)
 
 void Market::addFirm(SharedMember<Firm> f) {
     auto lock = writeLock();
-    suppliers_.insert(f);
+    suppliers_.insert(f->id());
     dependsWeaklyOn(f);
 }
 
@@ -20,8 +20,8 @@ const std::unordered_set<eris_id_t>& Market::firms() {
     return suppliers_;
 }
 
-void Market::weakDepRemoved(SharedMember<Member>, eris_id_t old_id) {
-    removeFirm(old_id);
+void Market::weakDepRemoved(SharedMember<Member> firm) {
+    removeFirm(firm->id());
 }
 
 void Market::buy(Reservation &res) {

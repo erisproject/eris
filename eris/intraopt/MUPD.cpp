@@ -10,14 +10,15 @@ using std::unordered_map;
 namespace eris { namespace intraopt {
 
 MUPD::MUPD(const Consumer::Differentiable &consumer, eris_id_t money, double tolerance) :
-    tolerance(tolerance), con_id(consumer), money(money), money_unit(Bundle {{ money, 1 }})
+    tolerance(tolerance), con_id(consumer.id()), money(money), money_unit(Bundle {{ money, 1 }})
     {}
 
 double MUPD::price_ratio(const SharedMember<Market> &m) const {
-    if (!price_ratio_cache.count(m))
-        price_ratio_cache[m] = money_unit.coverage(m->price_unit);
+    auto mid = m->id();
+    if (!price_ratio_cache.count(mid))
+        price_ratio_cache[mid] = money_unit.coverage(m->price_unit);
 
-    return price_ratio_cache[m];
+    return price_ratio_cache[mid];
 }
 
 MUPD::allocation MUPD::spending_allocation(const unordered_map<eris_id_t, double> &spending) const {
@@ -44,7 +45,7 @@ MUPD::allocation MUPD::spending_allocation(const unordered_map<eris_id_t, double
                 if (q.constrained) {
                     // The market is constrained, so add any leftover (unspent) money back into the
                     // bundle
-                    a.constrained.insert(mkt);
+                    a.constrained.insert(mkt->id());
                     a.bundle += mkt->price_unit * q.unspent;
                     a.quantity[0] += q.unspent / price_ratio(mkt);
                 }
@@ -75,7 +76,7 @@ double MUPD::calc_mu_per_d(
     for (auto g : mkt->output_unit)
         mu += g.second * con->d(b, g.first);
 
-    double q = alloc.quantity.count(mkt) ? alloc.quantity.at(mkt) : 0;
+    double q = alloc.quantity.count(mkt_id) ? alloc.quantity.at(mkt_id) : 0;
     auto pricing = mkt->price(q);
 
     lock.remove(mkt);
@@ -124,7 +125,7 @@ void MUPD::intraOptimize() {
         }
 
         // We assign an exact value later, once we know how many eligible markets there are.
-        spending[market] = 0.0;
+        spending[market->id()] = 0.0;
     }
 
     unsigned int markets = spending.size()-1; // -1 to account for the cash non-market (id=0)

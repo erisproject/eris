@@ -27,14 +27,11 @@ class Member : private noncopyable {
         Member() = default;
 
         virtual ~Member() = default;
-        /** Returns the eris_id_t ID of this member.  Returns 0 if this Member instance has not yet
-         * been added to a Simulation.
+
+        /** Returns the eris_id_t ID of this member.  An ID is assigned when the Member is created,
+         * and is unique across all Member instances.
          */
         eris_id_t id() const { return id_; }
-        /** A Member object can be used anywhere an eris_id_t value is called for and will evaluate
-         * to the Member's ID.
-         */
-        operator eris_id_t() const { return id_; }
 
         /** Returns true if this member belongs to a simulation, false otherwise.
          */
@@ -53,19 +50,19 @@ class Member : private noncopyable {
         }
 
         /** Shortcut for `member.simulation()->agent<A>()` */
-        template <class A = Agent> SharedMember<A> simAgent(eris_id_t aid) const {
+        template <class A = Agent> SharedMember<A> simAgent(MemberID aid) const {
             return simulation()->agent<A>(aid);
         }
         /** Shortcut for `member.simulation()->good<G>()` */
-        template <class G = Good> SharedMember<G> simGood(eris_id_t gid) const {
+        template <class G = Good> SharedMember<G> simGood(MemberID gid) const {
             return simulation()->good<G>(gid);
         }
         /** Shortcut for `member.simulation()->market<M>()` */
-        template <class M = Market> SharedMember<M> simMarket(eris_id_t mid) const {
+        template <class M = Market> SharedMember<M> simMarket(MemberID mid) const {
             return simulation()->market<M>(mid);
         }
         /** Shortcut for `member.simulation()->other<O>()` */
-        template <class O = Member> SharedMember<O> simOther(eris_id_t oid) const {
+        template <class O = Member> SharedMember<O> simOther(MemberID oid) const {
             return simulation()->other<O>(oid);
         }
 
@@ -88,7 +85,7 @@ class Member : private noncopyable {
          * \sa Simulation::registerDependency()
          * \sa dependsWeaklyOn()
          */
-        void dependsOn(eris_id_t id);
+        void dependsOn(MemberID id);
 
         /** Records a dependency with the Simulation object.  This should not be called until after
          * the member has been added to a simulation, and is typically invoked in an overridden
@@ -107,7 +104,7 @@ class Member : private noncopyable {
          * \sa dependsOn()
          * \sa weakDepRemoved()
          */
-        void dependsWeaklyOn(eris_id_t id);
+        void dependsWeaklyOn(MemberID id);
 
         /** A RAII-style locking class for holding one or more simultaneous Member locks.  Locks are
          * established during object construction and released when the object is destroyed.  A Lock
@@ -557,12 +554,11 @@ class Member : private noncopyable {
         };
 
     protected:
-        /** Called (by Simulation) to store a weak pointer to the simulation this member belongs to
-         * and the member's id.  This is called once when the Member is added to a simulation, and
-         * again (with a null shared pointer and id of 0) when the Member is removed from a
-         * Simulation.
+        /** Called (by Simulation) to store a weak pointer to the simulation this member belongs to.
+         * This is called once when the Member is added to a simulation, and again (with a null
+         * shared pointer) when the Member is removed from the Simulation.
          */
-        void simulation(const std::shared_ptr<Simulation> &sim, eris_id_t id);
+        void simulation(const std::shared_ptr<Simulation> &sim);
         friend class eris::Simulation;
 
         /** Virtual method called just after the member is added to a Simulation object.  The
@@ -597,12 +593,10 @@ class Member : private noncopyable {
          * and after any non-weak dependencies of the removed member have themselves been removed.
          *
          * \param removed is the dependency that was just removed
-         * \param old_id is the eris_id_t of that removed dependency (its stored id is set to 0 when
-         * removed).
          * \sa dependsWeaklyOn()
          * \sa Simulation::registerWeakDependency()
          */
-        virtual void weakDepRemoved(SharedMember<Member> removed, eris_id_t old_id);
+        virtual void weakDepRemoved(SharedMember<Member> removed);
 
         /** Returns a SharedMember wrapper around the current object, obtained through the
          * Simulation object (so that the shared_ptr is properly shared with everything else that
@@ -622,7 +616,12 @@ class Member : private noncopyable {
         unsigned long maxThreads() const { return simulation()->maxThreads(); }
 
     private:
-        eris_id_t id_{0};
+        // The global id counter
+        static std::atomic<eris_id_t> next_id_;
+
+        // The unique id
+        eris_id_t id_{next_id_++};
+
         /** Stores a weak pointer to the simulation this Member belongs to. */
         std::weak_ptr<eris::Simulation> simulation_;
 

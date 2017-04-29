@@ -340,7 +340,7 @@ class Market : public Member {
         /** Overridden to automatically remove a firm from the market when the firm is removed from
          * the simulation.
          */
-        virtual void weakDepRemoved(SharedMember<Member>, eris_id_t old_id) override;
+        virtual void weakDepRemoved(SharedMember<Member> firm) override;
 
 };
 

@@ -12,7 +12,7 @@
 namespace eris {
 
 BundleSigned::BundleSigned() {}
-BundleSigned::BundleSigned(eris_id_t g, double q) { set(g, q); }
+BundleSigned::BundleSigned(MemberID g, double q) { set(g, q); }
 BundleSigned::BundleSigned(const BundleSigned &b) {
     for (auto &g : b) set(g.first, g.second);
 }
@@ -21,7 +21,7 @@ BundleSigned::BundleSigned(const std::initializer_list<std::pair<eris_id_t, doub
 }
 
 Bundle::Bundle() : BundleSigned() {}
-Bundle::Bundle(eris_id_t g, double q) : BundleSigned() { set(g, q); }
+Bundle::Bundle(MemberID g, double q) : BundleSigned() { set(g, q); }
 Bundle::Bundle(const BundleSigned &b) : BundleSigned() {
     for (auto &g : b) set(g.first, g.second);
 }
@@ -33,21 +33,21 @@ Bundle::Bundle(const std::initializer_list<std::pair<eris_id_t, double>> &init) 
 constexpr double BundleSigned::zero_;
 constexpr double BundleSigned::default_transfer_epsilon;
 
-const double& BundleSigned::operator[] (eris_id_t gid) const {
+const double& BundleSigned::operator[] (MemberID gid) const {
     // Don't want to invoke map's [] operator, because it auto-vivifies the element
     auto &f = q_stack_.front();
     auto it = f.find(gid);
     return it == f.end() ? zero_ : it->second;
 }
-BundleSigned::valueproxy BundleSigned::operator[] (eris_id_t gid) {
+BundleSigned::valueproxy BundleSigned::operator[] (MemberID gid) {
     return valueproxy(*this, gid);
 }
 
-void BundleSigned::set(eris_id_t gid, double quantity) {
+void BundleSigned::set(MemberID gid, double quantity) {
     q_stack_.front()[gid] = quantity;
 }
 
-void Bundle::set(eris_id_t gid, double quantity) {
+void Bundle::set(MemberID gid, double quantity) {
     if (quantity < 0) throw negativity_error(gid, quantity);
     BundleSigned::set(gid, quantity);
 }
@@ -58,7 +58,7 @@ bool BundleSigned::empty() const {
 std::unordered_map<eris_id_t, double>::size_type BundleSigned::size() const {
     return q_stack_.front().size();
 }
-int BundleSigned::count(eris_id_t gid) const {
+int BundleSigned::count(MemberID gid) const {
     return q_stack_.front().count(gid);
 }
 std::unordered_map<eris_id_t, double>::const_iterator BundleSigned::begin() const {
@@ -82,11 +82,11 @@ void BundleSigned::clear() {
     q_stack_.front().clear();
 }
 
-int BundleSigned::erase(eris_id_t gid) {
+int BundleSigned::erase(MemberID gid) {
     return q_stack_.front().erase(gid);
 }
 
-double BundleSigned::remove(eris_id_t gid) {
+double BundleSigned::remove(MemberID gid) {
     double d = operator[](gid);
     erase(gid);
     return d;

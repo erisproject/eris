@@ -52,7 +52,7 @@ Market::quantity_info Bertrand::quantity(double price) const {
         }
     }
 
-    return { .quantity=quantity, .constrained=(price > 0), .spent=(price-unspent), .unspent=unspent };
+    return { quantity, price > 0, price-unspent, unspent };
 }
 
 Bertrand::allocation Bertrand::allocate(double q) const {
@@ -89,7 +89,7 @@ Bertrand::allocation Bertrand::allocate(double q) const {
                 // other (see Bundle.hpp's description of Bundle division)
                 double firm_price = output_unit.coverage(firm->output()) * firm->price().coverage(price_unit);
                 price_agg_q[firm_price] += productivity;
-                schedule[firm_price].push_back(std::pair<eris_id_t,double>(firm, productivity));
+                schedule[firm_price].emplace_back(firm->id(), productivity);
             }
         }
         lock.remove(firm);
@@ -252,7 +252,7 @@ Market::Reservation Bertrand::reserve(SharedMember<Agent> agent, double q, doubl
 
         total_q += share.q;
         total_p += share.p;
-        firm_transfers[firm] += share.p * -price_unit + share.q * output_unit;
+        firm_transfers[firm->id()] += share.p * -price_unit + share.q * output_unit;
     }
 
     Reservation res = createReservation(agent, total_q, total_p);

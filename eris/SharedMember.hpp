@@ -28,6 +28,12 @@ class SharedMember final {
          */
         SharedMember() {}
 
+        /** The type T that this SharedMember wraps */
+        using member_type = T;
+
+        /** Bool operator; returns true if the SharedMember actually references a Member. */
+        explicit operator bool() const { return (bool) ptr_; }
+
         /** Constructs a SharedMember from a copy of the given shared_ptr.  This also allows
          * implicit conversion from a shared_ptr to a SharedMember. */
         SharedMember(const std::shared_ptr<T> &ptr) : ptr_{ptr} {}
@@ -40,15 +46,8 @@ class SharedMember final {
          */
         explicit SharedMember(T *ptr) : ptr_{ptr} {}
 
-        /** Using as a T gives you the underlying T object */
+        /** Implicit conversion to T& */
         operator T& () const { return *ptr_; }
-        /** Using as an eris_id_t gives you the object's id.  This returns 0 if the pointer is
-         * a null pointer, or if the object does not belong to a simulation.  (To distinguish
-         * between the two, call .ptr() in a boolean context).
-         *
-         * This method also doubles as a boolean operator.
-         */
-        operator eris_id_t () const noexcept { return ptr_ ? ptr_->id() : 0; }
         /** Dereferencing gives you the underlying T */
         T& operator * () const { return *ptr_; }
         /** Dereferencing member access works on the underlying T */
@@ -56,37 +55,33 @@ class SharedMember final {
         /// Returns the stored pointer
         T* get() const { return ptr_.get(); }
 
-        /// Conversion operator: returns a shared_ptr that shares this object's pointer
+        /// Implicit conversion to a shared_ptr that shares this object's pointer
         operator std::shared_ptr<T> () const noexcept { return ptr_; }
 
-        /** Equality comparison.  Two SharedMember objects are considered equal if and only if they
-         * both have positive and equal eris_id_t values; if either object is a null pointer, or
-         * either object has an eris_id_t of 0, the two are not considered equal (even if both are
-         * null, or both have eris_id_t of 0).
+        /** Equality comparison.  Two SharedMember<T> objects are considered equal if and only if
+         * they are both set and both have equal id() values, or are both unset.  The two objects
+         * are not required to have the same `T` (so that a SharedMember<Member> will == a
+         * SharedMember<Good> if both refer to the same object).
          */
         template <class O>
-        bool operator == (const SharedMember<O> &other) noexcept {
-            if (not ptr_ or not other.ptr_) return false;
-            eris_id_t myid = ptr_->id();
-            if (myid == 0) return false;
-            eris_id_t otherid = other.ptr_->id();
-            if (otherid == 0) return false;
-            return myid == otherid;
+        bool operator == (const SharedMember<O> &other) const noexcept {
+            if (!ptr_) return !other.ptr_;
+            if (!other.ptr_) return false;
+            return ptr_->id() == other.ptr_->id();
         }
 
         /// Inequality comparison.  This simply returns the negation of the == operator.
-        template <class O> bool operator != (const SharedMember<O> &other) noexcept {
-            return not(*this == other);
+        template <class O> bool operator != (const SharedMember<O> &other) const noexcept {
+            return !(*this == other);
         }
 
         /** Less-than comparison operator.  This method is guaranteed to provide a unique ordering
-         * of SharedMembers that belong to the same simulation.  This is currently done by sorting
-         * by eris_id_t value (and using 0 for null SharedMembers and Members that are not part of a
-         * simulation), but that behaviour could change.
+         * of SharedMembers that have a referenced Member.  This is currently done by comparing id()
+         * values (and using 0 for null SharedMembers), but that behaviour could change.
          */
         template <class O>
-        bool operator < (const SharedMember<O> &other) noexcept {
-            return (eris_id_t) *this < (eris_id_t) other;
+        bool operator < (const SharedMember<O> &other) const noexcept {
+            return (*this ? ptr_->id() : 0) < (other ? other->id() : 0);
         }
 
         /** const access to the underlying shared_ptr */
@@ -94,9 +89,6 @@ class SharedMember final {
 
         /** Resets the underlying shared_ptr */
         void reset() { ptr_.reset(); }
-
-        /** The type T that this SharedMember wraps */
-        typedef T member_type;
 
         /** Constructing a new SharedMember<A> using an existing SharedMember<F> recasts the F
          * pointer to an A pointer.  This constructor also allows you to do things like:
@@ -116,7 +108,7 @@ class SharedMember final {
          */
         template<class F>
         SharedMember(const SharedMember<F> &from,
-                typename std::enable_if<std::is_base_of<T, F>::value and not std::is_same<T, F>::value>::type* = 0)
+                typename std::enable_if<std::is_base_of<T, F>::value && !std::is_same<T, F>::value>::type* = 0)
             : ptr_{std::static_pointer_cast<T,F>(from.ptr())}
         {}
 
@@ -132,12 +124,12 @@ class SharedMember final {
          */
         template<class F>
         SharedMember(const SharedMember<F> &from,
-                typename std::enable_if<std::is_base_of<F, T>::value and not std::is_same<T, F>::value>::type* = 0)
+                typename std::enable_if<std::is_base_of<F, T>::value && !std::is_same<T, F>::value>::type* = 0)
             : ptr_{std::dynamic_pointer_cast<T,F>(from.ptr())} {
             // Raise an exception if the ptr above gave back a null shared pointer: that means the
             // cast attempted to cast to a derived class, when the actual object is only a base
-            // class instance.
-            if (from.ptr() and not ptr_) throw std::bad_cast();
+            // class instance or some other derived instance.
+            if (from.ptr() && !ptr_) throw std::bad_cast();
         }
 
         /// Default copy constructor.

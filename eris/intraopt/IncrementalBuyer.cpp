@@ -13,7 +13,7 @@
 namespace eris { namespace intraopt {
 
 IncrementalBuyer::IncrementalBuyer(const Consumer &consumer, eris_id_t money, int rounds) :
-    con_id(consumer), money(money), money_unit(Bundle {{ money, 1 }}), rounds(rounds) {}
+    con_id(consumer.id()), money(money), money_unit(Bundle {{ money, 1 }}), rounds(rounds) {}
 
 void IncrementalBuyer::permuteThreshold(const double &thresh) noexcept {
     threshold = (std::isnan(thresh) or thresh > 1.0) ? 1.0 : thresh;
@@ -96,8 +96,10 @@ bool IncrementalBuyer::oneRound() {
             continue;
         }
 
+        auto mktid = market->id();
+
         // Cache the value, as we may need it again and ->quantity can be expensive
-        q_cache[market].emplace(1, qinfo);
+        q_cache[mktid].emplace(1, qinfo);
 
         Bundle cons = remaining + qinfo.quantity * market->output_unit;
         // If spending hit a constraint, we need to add the unused spending back in (as cash)
@@ -106,9 +108,9 @@ bool IncrementalBuyer::oneRound() {
         }
 
         double mkt_delta_u = consumer->utility(cons) - current_utility;
-        delta_u[market] = mkt_delta_u;
+        delta_u[mktid] = mkt_delta_u;
         if (mkt_delta_u > best_delta_u) {
-            best[0] = market;
+            best[0] = mktid;
             best_delta_u = mkt_delta_u;
         }
     }

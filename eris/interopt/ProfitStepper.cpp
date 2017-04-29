@@ -11,7 +11,7 @@ ProfitStepper::ProfitStepper(
         double step,
         int increase_count,
         int period
-        ) : InterStepper(step, increase_count, period), firm_(firm), profit_basis_(profit_basis) {}
+        ) : InterStepper(step, increase_count, period), firm_(firm.id()), profit_basis_(profit_basis) {}
 
 ProfitStepper::ProfitStepper(
         const eris::firm::PriceFirm &firm, 
