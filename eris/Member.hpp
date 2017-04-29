@@ -593,6 +593,9 @@ class Member : private noncopyable {
         /** Called when a weak dependent of this object is removed from the simulation.  The default
          * implementation does nothing.
          *
+         * This method is called after the removed member has had its own `removed()` method called,
+         * and after any non-weak dependencies of the removed member have themselves been removed.
+         *
          * \param removed is the dependency that was just removed
          * \param old_id is the eris_id_t of that removed dependency (its stored id is set to 0 when
          * removed).

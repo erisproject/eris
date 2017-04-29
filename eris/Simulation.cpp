@@ -66,7 +66,7 @@ void Simulation::remove##TYPE(eris_id_t id) {\
     removeOptimizers(member);\
     MAP.erase(id);\
     invalidateCache<CLASS>();\
-    member->simulation(nullptr, 0);\
+    member->simulation(nullptr, 0); /* calls member->removed() */ \
     removeDeps(id);\
     notifyWeakDeps(member, id);\
 }
