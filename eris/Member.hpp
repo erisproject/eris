@@ -249,6 +249,17 @@ class Member : private noncopyable {
                  */
                 bool isLocked();
 
+                /** Tries to add the given member to the current set of locked members.  If the
+                 * member can be added to the current lock without blocking (i.e. because there
+                 * isn't a restricting lock, or the current lock isn't currently locked at all), the
+                 * member is added and true is returned.  Otherwise the member is not added and
+                 * false is returned.
+                 *
+                 * This method is mainly for internal use of `add()` but can be called directly if
+                 * needed.
+                 */
+                bool try_add(const SharedMember<Member> &member);
+
                 /** Adds the given member to the current set of locked members.  If a lock on the
                  * given member cannot be obtained immediately, all locks currently held by the
                  * Lock object are released until a lock on all objects (current plus new) can be
@@ -258,7 +269,24 @@ class Member : private noncopyable {
                  * If the object is currently not locked, this takes out no lock, but adds the given
                  * member to the set of members that will be locked when lock() is called.
                  */
-                void add(SharedMember<Member> member);
+                void add(const SharedMember<Member> &member);
+
+                /** Container-accepting version of add(). */
+                template <class Container>
+                typename std::enable_if<std::is_base_of<Member, typename Container::value_type::member_type>::value, Lock
+                >::type add(const Container &members) {
+                    bool add_failed = false;
+                    for (auto &mem : members) {
+                        if (!try_add(mem)) { // Adding the member would block
+                            // Release the lock, add this (and then any remaining members), then relock at the end
+                            add_failed = true;
+                            unlock();
+                            try_add(mem);
+                        }
+                    }
+                    if (add_failed)
+                        lock(); // Relock with everything
+                }
 
                 /** Transfers the locked members of `from` into the called lock.  After the call,
                  * the calling object will own the locks of its current members and all the members
@@ -287,7 +315,7 @@ class Member : private noncopyable {
                  *
                  * \throws std::out_of_range if the lock doesn't contain the given member.
                  */
-                Lock remove(SharedMember<Member> member);
+                Lock remove(const SharedMember<Member> &member);
 
                 /** RAII class returned by supplement().  The class is move constructible but not
                  * copyable or move assignable; it adds the given member during construction, and
@@ -299,16 +327,20 @@ class Member : private noncopyable {
                     Supplemental() = delete;
                     /// Constructs a supplemental lock that adds `member` to `lock` when constructed
                     Supplemental(Lock &lock, const SharedMember<Member> &member);
+                    /// Constructs a supplemental lock that adds a container of `members` to `lock` when constructed
+                    template <class Container, typename = typename
+                        std::enable_if<std::is_base_of<Member, typename Container::value_type::member_type>::value, Lock>::type>
+                    Supplemental(Lock &lock, const Container &members) : lock_{lock}, members_(members.begin(), members.end()) {
+                        lock_.add(members_);
+                    }
                     /// Destructor: removes member from lock
                     ~Supplemental();
-                    /** Move constructor; the stored member_ is transferred to the new object, thus
-                     * preventing the moved-from object from actually removing during destruction.
-                     */
-                    Supplemental(Supplemental &&s);
+                    /** Move constructor */
+                    Supplemental(Supplemental &&s) : lock_{s.lock_}, members_{std::move(s.members_)} {}
 
                 private:
                     Lock &lock_;
-                    SharedMember<Member> member_;
+                    std::list<SharedMember<Member>> members_;
                 };
 
                 /** This is an RAII version of add(): it adds the given member to the lock
@@ -334,6 +366,14 @@ class Member : private noncopyable {
                  * the lock it is based upon.
                  */
                 [[gnu::warn_unused_result]] Supplemental supplement(const SharedMember<Member> &member);
+
+                /** Container-accepting version of supplement() */
+                template <class Container>
+                [[gnu::warn_unused_result]]
+                typename std::enable_if<std::is_base_of<Member, typename Container::value_type::member_type>::value, Supplemental
+                >::type supplement(const Container &members) {
+                    return Supplemental(*this, members);
+                }
 
                 /** Removes the given members from the current lock, transferring them to a new lock
                  * of the same type and status as the current lock without releasing the locks on

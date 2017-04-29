@@ -233,7 +233,7 @@ void Member::Lock::transfer(Member::Lock &from) {
     from.data->members.clear();
 }
 
-void Member::Lock::add(SharedMember<Member> member) {
+bool Member::Lock::try_add(const SharedMember<Member> &member) {
 
     bool need_release = false; // Will be true if we fail to get a non-blocking lock
 
@@ -266,34 +266,39 @@ void Member::Lock::add(SharedMember<Member> member) {
         }
     }
 
-    if (need_release) {
-        // We failed to obtain a lock on the new member, so we need to release the current lock,
-        // add the new member, then try for a lock on all members.
+    if (need_release)
+        return false;
+    else {
+        data->members.insert(member);
+        return true;
+    }
+}
+
+void Member::Lock::add(const SharedMember<Member> &member) {
+    bool added = try_add(member);
+
+    if (!added) {
+        // Adding failed, which means we need to release the current lock, add the new member, then
+        // try for a lock on all members.
         unlock();
         data->members.insert(member);
         lock();
     }
-    else {
-        // Either the lock isn't active, or we got the lock without blocking, so all that's left is
-        // adding the new member into the list of locked members.
-        data->members.insert(member);
-    }
+    // Otherwise adding the member succeeded.
 }
 
-Member::Lock Member::Lock::remove(SharedMember<Member> member) {
+Member::Lock Member::Lock::remove(const SharedMember<Member> &member) {
     std::vector<SharedMember<Member>> to_remove;
     to_remove.push_back(std::move(member));
     return remove(to_remove);
 }
 
-Member::Lock::Supplemental::Supplemental(Lock &lock, const SharedMember<Member> &member) : lock_{lock}, member_{member} {
-    lock_.add(member_);
+Member::Lock::Supplemental::Supplemental(Lock &lock, const SharedMember<Member> &member) : lock_{lock}, members_(1, member) {
+    lock_.add(member);
 }
 
-Member::Lock::Supplemental::Supplemental(Supplemental &&s) : lock_{s.lock_}, member_{std::move(s.member_)} {}
-
 Member::Lock::Supplemental::~Supplemental() {
-    if (member_) lock_.remove(member_);
+    if (!members_.empty()) lock_.remove(members_);
 }
 
 Member::Lock::Supplemental Member::Lock::supplement(const SharedMember<Member> &member) {
