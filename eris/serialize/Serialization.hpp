@@ -5,6 +5,7 @@
 #include <list>
 #include <unordered_map>
 #include <limits>
+#include <functional>
 
 extern "C" {
 #include <lzma.h>
