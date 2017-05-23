@@ -403,7 +403,7 @@ void BundleSigned::endEncompassing() {
 }
 
 
-BundleSigned BundleSigned::transferApprox(const BundleSigned &amount, BundleSigned &to, double epsilon) {
+BundleSigned BundleSigned::transfer(const BundleSigned &amount, BundleSigned &to, double epsilon) {
     beginTransaction(true);
     to.beginTransaction(true);
     BundleSigned actual;
@@ -448,7 +448,7 @@ BundleSigned BundleSigned::transferApprox(const BundleSigned &amount, BundleSign
     return actual;
 }
 
-BundleSigned BundleSigned::transferApprox(const BundleSigned &amount, double epsilon) {
+BundleSigned BundleSigned::transfer(const BundleSigned &amount, double epsilon) {
     beginTransaction(true);
     BundleSigned actual;
     actual.beginEncompassing();
@@ -491,7 +491,7 @@ bool Bundle::hasApprox(const BundleSigned &amount, const Bundle &to, double epsi
 
         const double &q = g.second > 0 ? (*this)[g.first] : to[g.first];
 
-        // If the final amount is lower than -ε*(original q), the transferApprox will fail
+        // If the final amount is lower than -ε*(original q), the transfer will fail
         if (q - abs_transfer <= -epsilon * q)
             return false;
     }
@@ -504,7 +504,7 @@ bool Bundle::hasApprox(const BundleSigned &amount, double epsilon) const {
 
         const double &q = (*this)[g.first];
 
-        // If the final amount is lower than -ε*(original q), the transferApprox will fail
+        // If the final amount is lower than -ε*(original q), the transfer will fail
         if (q - g.second <= -epsilon * q)
             return false;
     }

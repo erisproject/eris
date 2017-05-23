@@ -97,7 +97,7 @@ Firm::Reservation Firm::reserve(const BundleNegative &reserve) {
 
     // Transfer any assets we matched above into reserves
     if (common != 0) {
-        assets.transferApprox(common, reserves_, epsilon);
+        assets.transfer(common, reserves_, epsilon);
     }
 
     return createReservation(reserve);
@@ -108,7 +108,7 @@ void Firm::produceReserved(const Bundle &b) {
 
     Bundle to_produce;
     try {
-        to_produce = reserved_production_.transferApprox(b, epsilon);
+        to_produce = reserved_production_.transfer(b, epsilon);
     }
     catch (Bundle::negativity_error& e) {
         // If the transfer throws a negativity error, we attempted to transfer more than
@@ -128,7 +128,7 @@ void Firm::produceReserved(const Bundle &b) {
         Bundle produced = produce(to_produce);
 
         if (produced != to_produce) // Reduce planned excess production appropriately
-            excess_production_.transferApprox(produced - to_produce, epsilon);
+            excess_production_.transfer(produced - to_produce, epsilon);
 
         assets += produced;
     }
@@ -155,20 +155,20 @@ void Firm::Reservation::transfer(Bundle &to) {
     try {
         // Take payment:
         Bundle in = bundle.negative();
-        to.transferApprox(bundle.negative(), assets, epsilon);
+        to.transfer(bundle.negative(), assets, epsilon);
 
         // Now transfer and/or produce output
         Bundle out = bundle.positive();
         out.beginEncompassing();
         Bundle from_reserves = Bundle::common(firm->reserves_, out);
 
-        Bundle done = firm->reserves_.transferApprox(from_reserves, to, epsilon);
-        out.transferApprox(done, epsilon);
+        Bundle done = firm->reserves_.transfer(from_reserves, to, epsilon);
+        out.transfer(done, epsilon);
 
         if (out > 0) {
             // Need to produce the rest
             firm->produceReserved(out);
-            assets.transferApprox(out, to, epsilon);
+            assets.transfer(out, to, epsilon);
         }
 
         // Call this in case any of the excess production and/or payment assets allow us to reduce
@@ -213,7 +213,7 @@ void Firm::Reservation::release() {
 
     // Anything left should be transferrable from reserves to assets.  This could throw a negativity
     // exception if something got screwed up.
-    firm->reserves_.transferApprox(res_pos, firm->assets, firm->epsilon);
+    firm->reserves_.transfer(res_pos, firm->assets, firm->epsilon);
 
     firm->reduceProduction();
 }

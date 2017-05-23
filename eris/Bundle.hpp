@@ -199,7 +199,7 @@ class BundleSigned {
         /// Scales a BundleSigned's quantities by `1/d`
         BundleSigned& operator /= (double d);
 
-        /// The default epsilon for transferApprox() and hasApprox(), if not specified.
+        /// The default epsilon for transfer() and hasApprox(), if not specified.
         static constexpr double default_transfer_epsilon = 1.0e-12;
 
         /** Transfers (approximately) the given amount between two Bundles.  Positive quantities in
@@ -210,7 +210,7 @@ class BundleSigned {
          *
          * Calling
          *
-         *     from.transferApprox(amount, to);
+         *     from.transfer(amount, to);
          *
          * is roughly equivalent to
          *
@@ -254,10 +254,10 @@ class BundleSigned {
          *
          * \sa Bundle::hasApprox(const BundleSigned&, BundleSigned&, double)
          */
-        BundleSigned transferApprox(const BundleSigned &amount, BundleSigned &to, double epsilon = default_transfer_epsilon);
+        BundleSigned transfer(const BundleSigned &amount, BundleSigned &to, double epsilon = default_transfer_epsilon);
 
         /** Transfers approximately the given amount from the caller object and returns it.  This is
-         * like the above 3-argument transferApprox(const BundleSigned&, BundleSigned&, double)
+         * like the above 3-argument transfer(const BundleSigned&, BundleSigned&, double)
          * except that the amount is not transferred into a target Bundle but simply returned.  Like
          * the 3-argument version, negative transfer amounts are added to the calling object and
          * will be negative in the returned object.
@@ -267,8 +267,8 @@ class BundleSigned {
          * This method is also useful for adding or removing approximate amounts from a bundle by
          * simple ignoring the return value.  Thus the following:
          *
-         *     bundle.transferApprox({ goodid, 3.0 });
-         *     bundle.transferApprox({ goodid, -4.0 });
+         *     bundle.transfer({ goodid, 3.0 });
+         *     bundle.transfer({ goodid, -4.0 });
          *
          * is roughly the same as:
          *
@@ -276,8 +276,8 @@ class BundleSigned {
          *     bundle[goodid] += 4.0;
          *
          * except when the bundle initially contains values very close to (but not exactly equal to)
-         * 3 or -1: in the former case, the first transferApprox will remove slightly more or less
-         * than 3 (and remove the good from the bundle entirely); the second transferApprox adds
+         * 3 or -1: in the former case, the first transfer() will remove slightly more or less
+         * than 3 (and remove the good from the bundle entirely); the second transfer() adds
          * exactly 4 units of `goodid` to the bundle.  If the initial value is -1, the first call
          * subtracts exactly 3, and the second call ends up adding slightly more or less than 4 to
          * bring the quantity to exactly 0 (and then removes it).
@@ -294,7 +294,18 @@ class BundleSigned {
          *
          * \sa Bundle::hasApprox(const BundleSigned&, double)
          */
-        BundleSigned transferApprox(const BundleSigned &amount, double epsilon = default_transfer_epsilon);
+        BundleSigned transfer(const BundleSigned &amount, double epsilon = default_transfer_epsilon);
+
+        /// transferApprox() is a deprecated name for transfer()
+        template <typename... Args>
+#if __cplusplus >= 201402L
+        [[deprecated("transferApprox() is deprecated; use transfer() instead")]]
+#else
+        [[deprecated]]
+#endif
+            BundleSigned transferApprox(Args &&...args) {
+            return transfer(std::forward<Args>(args)...);
+        }
 
         /// Adds two BundleSigned objects together and returns the result.
         BundleSigned operator + (const BundleSigned &b) const;
@@ -734,18 +745,18 @@ class Bundle final : public BundleSigned {
          *
          * is notionally equivalent to:
          *
-         *     (a >= transfer.positive() and b >= transfer.negative())
+         *     (a >= transfer.positive() && b >= transfer.negative())
          *
          * except that it allows slight numerical imprecision when the compared amounts are very
          * similar.
          *
-         * If this method returns true, it is a guarantee that transferApprox() called with the same
+         * If this method returns true, it is a guarantee that transfer() called with the same
          * arguments will succeed (i.e. without resulting in a Bundle::negativity_error exception).
          */
         bool hasApprox(const BundleSigned &amount, const Bundle &to, double epsilon = default_transfer_epsilon) const;
 
         /** Returns true if the called-upon bundle has approximately enough of each
-         * positive-quantity good in `amount` to complete a transfer via transferApprox().  Negative
+         * positive-quantity good in `amount` to complete a transfer via transfer().  Negative
          * quantites in `amount` are ignored.
          *
          *     a.hasApprox(bundle)
@@ -756,7 +767,7 @@ class Bundle final : public BundleSigned {
          *
          * except that it allows for numerical error for goods with very similar quantities.
          *
-         * If this method returns true, it is a guarantee that transferApprox() called with the same
+         * If this method returns true, it is a guarantee that transfer() called with the same
          * arguments will succeed (i.e. without resulting in a Bundle::negativity_error exception).
          */
         bool hasApprox(const BundleSigned &amount, double epsilon = default_transfer_epsilon) const;
