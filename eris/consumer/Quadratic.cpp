@@ -15,19 +15,19 @@ double Quadratic::coef() const {
     return offset;
 }
 // Linear term
-double& Quadratic::coef(eris_id_t g) {
+double& Quadratic::coef(MemberID g) {
     return linear[g];
 }
-double Quadratic::coef(eris_id_t g) const {
+double Quadratic::coef(MemberID g) const {
     return linear.count(g) ? linear.at(g) : 0.0;
 }
 // Quadratic term
-double& Quadratic::coef(eris_id_t g1, eris_id_t g2) {
+double& Quadratic::coef(MemberID g1, MemberID g2) {
     // quad only stores elements with g1 <= g2, so swap if necessary
     if (g1 > g2) std::swap(g1, g2);
     return quad[g1][g2];
 }
-double Quadratic::coef(eris_id_t g1, eris_id_t g2) const {
+double Quadratic::coef(MemberID g1, MemberID g2) const {
     if (g1 > g2) std::swap(g1, g2);
     return quad.count(g1) && quad.at(g1).count(g2) ? quad.at(g1).at(g2) : 0.0;
 }
@@ -48,7 +48,7 @@ double Quadratic::utility(const BundleNegative &b) const {
     return u;
 }
 
-double Quadratic::d(const BundleNegative &b, eris_id_t g) const {
+double Quadratic::d(const BundleNegative &b, MemberID g) const {
     double up = linear.count(g) ? linear.at(g) : 0.0;
 
     for (auto g2 : b) {
@@ -65,7 +65,7 @@ double Quadratic::d(const BundleNegative &b, eris_id_t g) const {
 
 // The second derivative is really easy: it's just the coefficient for off-diagonals, and double the
 // coefficient for diagonals; it doesn't depend on the bundle at all.
-double Quadratic::d2(const BundleNegative&, eris_id_t g1, eris_id_t g2) const {
+double Quadratic::d2(const BundleNegative&, MemberID g1, MemberID g2) const {
     double upp = coef(g1, g2);
     if (g1 == g2) upp *= 2.0;
     return upp;

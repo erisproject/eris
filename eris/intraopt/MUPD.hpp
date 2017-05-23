@@ -32,7 +32,7 @@ class MUPD : public Member, public virtual OptApplyReset {
          * difference between highest and lowest MU/$ values (calculated as \f$ \frac{highest -
          * lowest}{highest} \f$ is smaller than this value.  Defaults to 1.0e-10.
          */
-        MUPD(const Consumer::Differentiable &consumer, eris_id_t money, double tolerance = default_tolerance);
+        MUPD(SharedMember<Consumer::Differentiable> consumer, SharedMember<Good> money, double tolerance = default_tolerance);
 
         /** Attempts to spend any available money optimally.  Returns false is no money was spent;
          * typically, with no other changes to the economy between calls, optimize() will return
@@ -65,10 +65,10 @@ class MUPD : public Member, public virtual OptApplyReset {
         };
 
     protected:
-        /// The id of the consumer this optimizer applies to
-        const eris_id_t con_id;
-        /// The id of the money good that the consumer spends
-        const eris_id_t money;
+        /// The consumer this optimizer applies to
+        const SharedMember<Consumer::Differentiable> con;
+        /// The money good that the consumer spends
+        const SharedMember<Good> money;
         /// A fixed bundle of exactly 1 unit of the money good
         const Bundle money_unit;
 

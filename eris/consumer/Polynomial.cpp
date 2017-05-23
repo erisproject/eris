@@ -14,7 +14,7 @@ Polynomial::Polynomial(double offset) : offset(offset) {}
 
 Polynomial::Polynomial(std::map<eris_id_t, std::vector<double>> coef, double offset) : offset(offset), coefficients(coef) {}
 
-double& Polynomial::coef(eris_id_t g, unsigned int n) {
+double& Polynomial::coef(MemberID g, unsigned int n) {
     if (n == 0) return coef();
 
     if (coefficients[g].size() < n)
@@ -23,7 +23,7 @@ double& Polynomial::coef(eris_id_t g, unsigned int n) {
     return coefficients[g][n-1];
 }
 
-double Polynomial::coef(eris_id_t g, unsigned int n) const {
+double Polynomial::coef(MemberID g, unsigned int n) const {
     if (n == 0) return coef();
 
     return coefficients.count(g) and coefficients.at(g).size() > n
@@ -57,7 +57,7 @@ double Polynomial::utility(const BundleNegative &b) const {
 
 // Calculate the derivative for good g.  Since utility is separable, we only
 // need to use the coefficients for good g to get the value of the derivative
-double Polynomial::d(const BundleNegative &b, eris_id_t g) const {
+double Polynomial::d(const BundleNegative &b, MemberID g) const {
     if (!coefficients.count(g)) return 0.0;
     auto c = coefficients.at(g);
     double up = 0.0;
@@ -72,7 +72,7 @@ double Polynomial::d(const BundleNegative &b, eris_id_t g) const {
     return up;
 }
 
-double Polynomial::d2(const BundleNegative &b, eris_id_t g1, eris_id_t g2) const {
+double Polynomial::d2(const BundleNegative &b, MemberID g1, MemberID g2) const {
     double upp = 0.0;
 
     // Separable polynomial utility has no iteration terms, so Hessian is diagonal; thus we can just

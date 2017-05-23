@@ -49,21 +49,21 @@ class CobbDouglas : public Consumer::Differentiable {
         /** Accesses the exponent on good \f$g\f$.  Creates it (initially set to 0) if it is not yet
          * set.
          */
-        double& exp(eris_id_t g);
+        double& exp(MemberID g);
 
         /** `const` accessor for the exponent on good \f$g\f$.  Returns 0 (without creating it) if
          * not yet set.
          */
-        double exp(eris_id_t g) const;
+        double exp(MemberID g) const;
 
         /// Evaluates the utility given the current coefficients at bundle \f$b\f$.
-        virtual double utility(const BundleNegative &b) const;
+        double utility(const BundleNegative &b) const override;
 
         /// Returns the first derivative w.r.t. good g, evaluated at bundle b.
-        virtual double d(const BundleNegative &b, eris_id_t g) const;
+        double d(const BundleNegative &b, MemberID g) const override;
 
         /// Returns the second derivative w.r.t. goods g1, g2, evaluated at bundle b.
-        virtual double d2(const BundleNegative &b, eris_id_t g1, eris_id_t g2) const;
+        virtual double d2(const BundleNegative &b, MemberID g1, MemberID g2) const override;
     protected:
         /// The constant offset.  \sa coef()
         double constant = 0.0;

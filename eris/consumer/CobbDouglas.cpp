@@ -29,10 +29,10 @@ double CobbDouglas::coef() const {
     return constant;
 }
 // Linear term
-double& CobbDouglas::exp(eris_id_t g) {
+double& CobbDouglas::exp(MemberID g) {
     return exponents[g];
 }
-double CobbDouglas::exp(eris_id_t g) const {
+double CobbDouglas::exp(MemberID g) const {
     return exponents.count(g) ? exponents.at(g) : 0.0;
 }
 
@@ -64,7 +64,7 @@ double CobbDouglas::utility(const BundleNegative &b) const {
     return u;
 }
 
-double CobbDouglas::d(const BundleNegative &b, eris_id_t g) const {
+double CobbDouglas::d(const BundleNegative &b, MemberID g) const {
     // Short-circuit cases resulting in a 0 derivative
     if (!exponents.count(g) or exponents.at(g) == 0)
         return 0.0;
@@ -85,7 +85,7 @@ double CobbDouglas::d(const BundleNegative &b, eris_id_t g) const {
     }
     return grad;
 }
-double CobbDouglas::d2(const BundleNegative &b, eris_id_t g1, eris_id_t g2) const {
+double CobbDouglas::d2(const BundleNegative &b, MemberID g1, MemberID g2) const {
     // Short-circuit all the things that always result in a 0 second derivative
     if (!exponents.count(g1) or !exponents.count(g2) or exponents.at(g1) == 0 or exponents.at(g2) == 0)
         return 0.0;

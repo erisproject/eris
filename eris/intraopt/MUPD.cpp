@@ -1,6 +1,7 @@
 #include <eris/intraopt/MUPD.hpp>
 #include <eris/Consumer.hpp>
 #include <eris/Market.hpp>
+#include <eris/Good.hpp>
 #include <limits>
 #include <unordered_map>
 #include <utility>
@@ -9,8 +10,8 @@ using std::unordered_map;
 
 namespace eris { namespace intraopt {
 
-MUPD::MUPD(const Consumer::Differentiable &consumer, eris_id_t money, double tolerance) :
-    tolerance(tolerance), con_id(consumer.id()), money(money), money_unit(Bundle {{ money, 1 }})
+MUPD::MUPD(SharedMember<Consumer::Differentiable> c, SharedMember<Good> m, double tolerance) :
+    tolerance(tolerance), con(std::move(c)), money(std::move(m)), money_unit{money, 1}
     {}
 
 double MUPD::price_ratio(const SharedMember<Market> &m) const {
@@ -91,13 +92,12 @@ double MUPD::calc_mu_per_d(
 void MUPD::intraOptimize() {
 
     auto sim = simulation();
-    auto consumer = sim->agent<Consumer::Differentiable>(con_id);
 
 
     // Before bothering with anything else, make sure the consumer actually has some money to spend
     {
-        auto lock = consumer->readLock();
-        if (consumer->assets[money] <= 0)
+        auto lock = con->readLock();
+        if (con->assets[money] <= 0)
             return;
     }
 
@@ -134,12 +134,12 @@ void MUPD::intraOptimize() {
     if (markets == 0) return;
 
     // Now hold a write lock on this optimizer and the consumer.  We'll add and remove market locks to this as needed.
-    auto big_lock = writeLock(consumer);
+    auto big_lock = writeLock(con);
 
     markets = spending.size()-1; // -1 for the id=0 cash pseudo-market
     if (markets == 0) return;
 
-    Bundle &a = consumer->assets;
+    Bundle &a = con->assets;
     Bundle a_no_money = a;
     double cash = a_no_money.remove(money);
     if (cash <= 0) {
@@ -165,7 +165,7 @@ void MUPD::intraOptimize() {
                 Bundle tryout = a_no_money + alloc.bundle;
 
                 for (auto m : spending) {
-                    mu_per_d[m.first] = calc_mu_per_d(consumer, big_lock, m.first, alloc, tryout);
+                    mu_per_d[m.first] = calc_mu_per_d(con, big_lock, m.first, alloc, tryout);
                 }
 
                 eris_id_t highest = 0, lowest = 0;
@@ -192,7 +192,7 @@ void MUPD::intraOptimize() {
                     break; // Nothing more to optimize
                 }
 
-                double baseU = consumer->utility(tryout);
+                double baseU = con->utility(tryout);
                 // Attempt to transfer all of the low utility spending to the high-utility market.  If MU/$
                 // are equal, we're done; if the lower utility is still lower, transfer 3/4, otherwise
                 // transfer 1/4.  Repeat.
@@ -208,8 +208,8 @@ void MUPD::intraOptimize() {
 
                 alloc = spending_allocation(try_spending);
                 tryout = a_no_money + alloc.bundle;
-                if (consumer->utility(tryout) < baseU or
-                        calc_mu_per_d(consumer, big_lock, highest, alloc, tryout) < calc_mu_per_d(consumer, big_lock, lowest, alloc, tryout)) {
+                if (con->utility(tryout) < baseU or
+                        calc_mu_per_d(con, big_lock, highest, alloc, tryout) < calc_mu_per_d(con, big_lock, lowest, alloc, tryout)) {
                     // Transferring *everything* from lowest to highest is too much (MU/$ for the highest
                     // good would end up lower than the lowest good, post-transfer, or else overall utility
                     // goes down entirely).
@@ -244,7 +244,7 @@ void MUPD::intraOptimize() {
 
                         alloc = spending_allocation(try_spending);
                         tryout = a_no_money + alloc.bundle;
-                        double delta = calc_mu_per_d(consumer, big_lock, highest, alloc, tryout) - calc_mu_per_d(consumer, big_lock, lowest, alloc, tryout);
+                        double delta = calc_mu_per_d(con, big_lock, highest, alloc, tryout) - calc_mu_per_d(con, big_lock, lowest, alloc, tryout);
                         if (delta == 0)
                             // We equalized MU/$.  Done.
                             break;
@@ -286,7 +286,7 @@ void MUPD::intraOptimize() {
         }
 
         // Safety check: make sure we're actually increasing utility; if not, don't do anything.
-        if (consumer->utility(a_no_money + final_alloc.bundle) <= consumer->currUtility()) {
+        if (con->utility(a_no_money + final_alloc.bundle) <= con->currUtility()) {
             return;
         }
 
@@ -306,7 +306,7 @@ void MUPD::intraOptimize() {
                 auto market = sim->market(m.first);
                 big_lock.add(market);
                 try {
-                    reservations.push_front(market->reserve(consumer, m.second));
+                    reservations.push_front(market->reserve(con, m.second));
                 }
                 catch (Market::output_infeasible &e) {
                     restart = true;
@@ -337,13 +337,13 @@ void MUPD::intraOptimize() {
 }
 
 void MUPD::intraReset() {
-    auto lock = writeLock(simAgent<Consumer::Differentiable>(con_id));
+    auto lock = writeLock(con);
 
     reservations.clear();
 }
 
 void MUPD::intraApply() {
-    auto lock = writeLock(simAgent<Consumer::Differentiable>(con_id));
+    auto lock = writeLock(con);
 
     for (auto &res: reservations) {
         res.buy();
@@ -353,7 +353,7 @@ void MUPD::intraApply() {
 }
 
 void MUPD::added() {
-    dependsOn(con_id);
+    dependsOn(con);
     dependsOn(money);
 }
 
