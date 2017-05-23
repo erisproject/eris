@@ -208,4 +208,25 @@ private:
     std::array<serializer<T>, N> serializers;
 };
 
+/** Specialization for std::pair<A, B>.  A and B must have serialize<T> specializations.
+ *
+ * This holds a reference to the given pair; it should stay alive for the duration of the
+ * serialization object.
+ */
+template <typename T1, typename T2>
+class serializer<std::pair<T1, T2>> : public serializer_base {
+public:
+    /// Wraps a serializer around a reference
+    explicit serializer(std::pair<T1, T2> &var) :
+        serializers{{serializer<T1>(var.first), serializer<T2>(var.second)}}
+    {}
+
+    /// If both pair types have fixed sizes, this is the sum of those sizes, else 0 (i.e. variable size)
+    static constexpr size_t size = (serializer<T1>::size > 0 && serializer<T2>::size > 0)
+        ? serializer<T1>::size + serializer<T2>::size : 0;
+
+private:
+    std::pair<serializer<T1>, serializer<T2>> serializers;
+};
+
 }}
