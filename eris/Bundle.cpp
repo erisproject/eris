@@ -409,7 +409,7 @@ BundleSigned BundleSigned::transferApprox(const BundleSigned &amount, BundleSign
     BundleSigned actual;
     try {
         for (auto &g : amount) {
-            double abs_transfer = fabs(g.second);
+            double abs_transfer = std::abs(g.second);
             if (abs_transfer == 0) continue;
             bool transfer_to = g.second > 0;
 
@@ -418,9 +418,9 @@ BundleSigned BundleSigned::transferApprox(const BundleSigned &amount, BundleSign
             double q_src  = src[g.first];
             double q_dest = dest[g.first];
 
-            if (fabs(q_src - abs_transfer) < fabs(epsilon*q_src))
+            if (std::abs(q_src - abs_transfer) < std::abs(epsilon*q_src))
                 abs_transfer = q_src;
-            else if (q_dest < 0 and fabs(q_dest + abs_transfer) < fabs(epsilon*q_dest))
+            else if (q_dest < 0 && std::abs(q_dest + abs_transfer) < std::abs(epsilon*q_dest))
                 abs_transfer = -q_dest;
 
             if (transfer_to) {
@@ -454,14 +454,14 @@ BundleSigned BundleSigned::transferApprox(const BundleSigned &amount, double eps
     actual.beginEncompassing();
     try {
         for (auto &g : amount) {
-            double abs_transfer = fabs(g.second);
+            double abs_transfer = std::abs(g.second);
             if (abs_transfer == 0) continue;
             bool transfer_to = g.second > 0;
 
             double q = (*this)[g.first];
-            if (transfer_to and fabs(q - abs_transfer) < fabs(epsilon * q))
+            if (transfer_to and std::abs(q - abs_transfer) < std::abs(epsilon * q))
                 abs_transfer = q;
-            else if (not transfer_to and q < 0 and fabs(q + abs_transfer) < fabs(epsilon * q))
+            else if (not transfer_to and q < 0 and std::abs(q + abs_transfer) < std::abs(epsilon * q))
                 abs_transfer = -q;
 
             if (transfer_to) {
@@ -486,7 +486,7 @@ BundleSigned BundleSigned::transferApprox(const BundleSigned &amount, double eps
 
 bool Bundle::hasApprox(const BundleSigned &amount, const Bundle &to, double epsilon) const {
     for (auto &g : amount) {
-        double abs_transfer = fabs(g.second);
+        double abs_transfer = std::abs(g.second);
         if (abs_transfer == 0) continue;
 
         const double &q = g.second > 0 ? (*this)[g.first] : to[g.first];
