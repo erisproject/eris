@@ -344,8 +344,8 @@ class BundleSigned {
         /** Returns true if every quantity that exists in this BundleSigned equals or exceeds `q`.
          * Returns true if the BundleSigned is empty. */
         bool operator >= (double q) const noexcept;
-        /** Returns true if every quantity that exists in this BundleSigned equals or exceeds `q`.
-         * Returns true if the BundleSigned is empty. */
+        /** Returns true if every quantity that exists in this BundleSigned equals `q`.  Returns
+         * true if the BundleSigned is empty. */
         bool operator == (double q) const noexcept;
         /** Returns true if any quantity that exists in this BundleSigned does not equal `q`.
          * Returns false if the BundleSigned is empty.  `a != 4` is equivalent to `!(a == 4)`. */
