@@ -27,11 +27,11 @@ namespace eris {
  * - ids are *currently* allocated sequentially, starting at 1.  This behaviour is not
  *   guaranteed.
  */
-typedef uint64_t eris_id_t;
+using eris_id_t = uint64_t;
 
 /** Signed integer type that stores an eris time period.  This is a signed type that can also be
  * used for time period deltas. */
-typedef int32_t eris_time_t;
+using eris_time_t = int32_t;
 
 
 /** Simple class used for methods that need to accept an eris_id_t but wants to allow any of an
