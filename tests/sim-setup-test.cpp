@@ -44,8 +44,8 @@ std::string as_string(const unordered_map<eris_id_t, unordered_set<eris_id_t>> &
     return s.str();
 }
 
-#define MEMBERS(id, type, Type) \
-    sim->type##s<Type>([&](const Type &m) { return m == id; })
+#define MEMBERS(ID, type, Type) \
+    sim->type##s<Type>([&](const Type &m) { return m.id() == ID; })
 #define AGENTS(id) MEMBERS(id, agent, Agent)
 #define GOODS(id) MEMBERS(id, good, Good)
 #define OTHERS(id) MEMBERS(id, other, Member)
@@ -90,11 +90,11 @@ TEST(Dependencies, Create) {
 
     EXPECT_EQ(xid, x->id());
     EXPECT_EQ(yid, y->id());
-    EXPECT_EQ(1, GOODS(mid).size());
-    EXPECT_EQ(1, GOODS(xid).size());
-    EXPECT_EQ(1, GOODS(yid).size());
-    EXPECT_EQ(1, AGENTS(cid).size());
-    EXPECT_EQ(1, OTHERS(oid).size());
+    EXPECT_EQ(1u, GOODS(mid).size());
+    EXPECT_EQ(1u, GOODS(xid).size());
+    EXPECT_EQ(1u, GOODS(yid).size());
+    EXPECT_EQ(1u, AGENTS(cid).size());
+    EXPECT_EQ(1u, OTHERS(oid).size());
 }
 
 TEST(Dependencies, Delete) {
@@ -132,13 +132,13 @@ TEST(Dependencies, Delete) {
 
     EXPECT_EQ(as_string(want), as_string(sim->__deps()));
 
-    EXPECT_EQ(0, x->id());
-    EXPECT_EQ(0, y->id());
-    EXPECT_EQ(0, GOODS(xid).size());
-    EXPECT_EQ(0, GOODS(yid).size());
-    EXPECT_EQ(1, GOODS(mid).size());
-    EXPECT_EQ(cid, sim->agent(cid));
-    EXPECT_EQ(oid, sim->other(oid));
+    EXPECT_FALSE(x->hasSimulation());
+    EXPECT_FALSE(y->hasSimulation());
+    EXPECT_EQ(0u, GOODS(xid).size());
+    EXPECT_EQ(0u, GOODS(yid).size());
+    EXPECT_EQ(1u, GOODS(mid).size());
+    EXPECT_EQ(cid, sim->agent(cid)->id());
+    EXPECT_EQ(oid, sim->other(oid)->id());
 
     sim->remove(m);
 
@@ -150,14 +150,14 @@ TEST(Dependencies, Delete) {
 
     EXPECT_EQ(as_string(want), as_string(sim->__deps()));
 
-    EXPECT_EQ(0, x->id());
-    EXPECT_EQ(0, y->id());
-    EXPECT_EQ(0, m->id());
-    EXPECT_EQ(0, GOODS(xid).size());
-    EXPECT_EQ(0, GOODS(yid).size());
-    EXPECT_EQ(0, GOODS(mid).size());
-    EXPECT_EQ(1, AGENTS(cid).size());
-    EXPECT_EQ(0, OTHERS(oid).size());
+    EXPECT_FALSE(x->hasSimulation());
+    EXPECT_FALSE(y->hasSimulation());
+    EXPECT_FALSE(m->hasSimulation());
+    EXPECT_EQ(0u, GOODS(xid).size());
+    EXPECT_EQ(0u, GOODS(yid).size());
+    EXPECT_EQ(0u, GOODS(mid).size());
+    EXPECT_EQ(1u, AGENTS(cid).size());
+    EXPECT_EQ(0u, OTHERS(oid).size());
 }
 
 TEST(Dependencies, DeleteChain) {
@@ -194,19 +194,19 @@ TEST(Dependencies, DeleteChain) {
 
     EXPECT_EQ("", as_string(sim->__deps()));
 
-    EXPECT_EQ(0, x->id());
-    EXPECT_EQ(0, y->id());
-    EXPECT_EQ(0, m->id());
-    EXPECT_EQ(0, con->id());
-    EXPECT_EQ(0, opt->id());
-    EXPECT_EQ(0, GOODS(xid).size());
-    EXPECT_EQ(0, GOODS(yid).size());
-    EXPECT_EQ(0, GOODS(mid).size());
-    EXPECT_EQ(0, sim->goods().size());
-    EXPECT_EQ(0, AGENTS(cid).size());
-    EXPECT_EQ(0, sim->agents().size());
-    EXPECT_EQ(0, OTHERS(oid).size());
-    EXPECT_EQ(0, sim->others().size());
+    EXPECT_FALSE(x->hasSimulation());
+    EXPECT_FALSE(y->hasSimulation());
+    EXPECT_FALSE(m->hasSimulation());
+    EXPECT_FALSE(con->hasSimulation());
+    EXPECT_FALSE(opt->hasSimulation());
+    EXPECT_EQ(0u, GOODS(xid).size());
+    EXPECT_EQ(0u, GOODS(yid).size());
+    EXPECT_EQ(0u, GOODS(mid).size());
+    EXPECT_EQ(0u, sim->goods().size());
+    EXPECT_EQ(0u, AGENTS(cid).size());
+    EXPECT_EQ(0u, sim->agents().size());
+    EXPECT_EQ(0u, OTHERS(oid).size());
+    EXPECT_EQ(0u, sim->others().size());
 
 }
 
