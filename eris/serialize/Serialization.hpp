@@ -224,8 +224,8 @@ public:
      * reference an actual, non-const storage location that remains valid.
      *
      * The added type T must have a eris::serialize::serializer<T> implementation, which must be a
-     * fixed size (exposed as ::size).  Primitive floating point and integer types will work (with
-     * the default serializer<T> implementation).
+     * fixed size (exposed as non-zero static constexpr size_t ::size).  Primitive floating point
+     * and integer types will work (with the default serializer<T> implementation).
      *
      * Subclasses should call this method during configureHeaderFields() to ensure that all fields
      * are set up for the detected file version.
@@ -239,6 +239,7 @@ public:
     template <typename T>
     typename std::enable_if<not std::is_const<T>::value>::type
     addHeaderField(T &store) {
+        static_assert(serializer<T>::size > 0, "addHeaderField requires a fixed-size type");
         if (header_fields_done_) throw std::logic_error("Cannot add header fields after the header has been read or written");
         auto s = std::make_shared<serializer<T>>(store);
         app_fields_.emplace_back(s);
@@ -363,6 +364,7 @@ public:
      */
     template <typename T>
     uint64_t blockListCreate(uint16_t elements_per_block = 511) {
+        static_assert(serializer<T>::size > 0, "blockListCreate requires a fixed-size type");
         static_assert(serializer<T>::size <= std::numeric_limits<uint8_t>::max(), "Block element size must be <= 255");
         return blockListCreate(serializer<T>::size, elements_per_block);
     }

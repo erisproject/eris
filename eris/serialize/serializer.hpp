@@ -23,9 +23,10 @@ namespace eris { namespace serialize {
  * across architectures with more fundamental differences (e.g. different floating point
  * representations).
  *
- * If the serialized type has a constant size, it should be exposed by declaring a static `size`
- * member indicating the size; this will allow it to be used in places such as
- * Serializer::addHeaderField, which only allow constant-sized serialization values.
+ * If the serialized type has a constant size, it should be exposed by declaring a static `size_t
+ * size` member indicating the size; this will allow it to be used in places such as
+ * Serializer::addHeaderField, which only allow constant-sized serialization values.  To explicitly
+ * indicate a non-constant size, a `size` field can be declared with a value of 0.
  */
 template <typename T, typename Sfinae = void>
 class serializer;
@@ -42,6 +43,10 @@ class serializer_base {
 public:
     /// Virtual destructor.
     virtual ~serializer_base() = default;
+
+    /// The default size, 0, which indicates non-constant size.  Constant-size serializers should
+    /// mask this with their own non-zero value.
+    static constexpr size_t size = 0;
 
     /// Replaces the current value with a value read from the given input stream.
     virtual void load_from(std::istream &is) = 0;
