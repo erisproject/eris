@@ -95,12 +95,10 @@ std::istream& operator>>(std::istream &in, serializer_base &s);
 /// Read a serialized value from an input stream, rvalue version
 std::istream& operator>>(std::istream &in, serializer_base &&s);
 
-template <typename T> using EnableFixedArithmetic = typename std::enable_if<
-    not std::is_const<T>::value and
-    std::is_arithmetic<T>::value>::type;
-template <typename T> using EnableFixedConstArithmetic = typename std::enable_if<
-    std::is_const<T>::value and
-    std::is_arithmetic<T>::value>::type;
+template <typename T> using EnableFixedArithmetic = std::enable_if_t<
+    !std::is_const<T>::value && std::is_arithmetic<T>::value>;
+template <typename T> using EnableFixedConstArithmetic = std::enable_if_t<
+    std::is_const<T>::value && std::is_arithmetic<T>::value>;
 
 #if not(defined(BOOST_LITTLE_ENDIAN) || defined(BOOST_BIG_ENDIAN))
 #error System endianness not supported (neither big-byte nor little-byte endianness detected)!

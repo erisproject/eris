@@ -298,11 +298,7 @@ class BundleSigned {
 
         /// transferApprox() is a deprecated name for transfer()
         template <typename... Args>
-#if __cplusplus >= 201402L
         [[deprecated("transferApprox() is deprecated; use transfer() instead")]]
-#else
-        [[deprecated]]
-#endif
             BundleSigned transferApprox(Args &&...args) {
             return transfer(std::forward<Args>(args)...);
         }

@@ -100,17 +100,17 @@ auto truncDist(
     unsigned int precdf_draws = 0
     )
 #ifndef DOXYGEN_SHOULD_SEE_THIS
-    -> typename std::enable_if<
+    -> std::enable_if_t<
             // Check that DistType and RNGType operate on the same type of floating-point variable:
-            std::is_same<typename DistType::value_type, typename RNGType::result_type>::value and
-            std::is_floating_point<typename DistType::value_type>::value and
+            std::is_same<typename DistType::value_type, typename RNGType::result_type>::value &&
+            std::is_floating_point<typename DistType::value_type>::value &&
             // Check that the required cdf/quantile/complement ADL functions are callable
-            std::is_same<ResultType, decltype(cdf(dist, ResultType{}))>::value and
-            std::is_same<ResultType, decltype(cdf(complement(dist, ResultType{})))>::value and
-            std::is_same<ResultType, decltype(quantile(dist, ResultType{}))>::value and
+            std::is_same<ResultType, decltype(cdf(dist, ResultType{}))>::value &&
+            std::is_same<ResultType, decltype(cdf(complement(dist, ResultType{})))>::value &&
+            std::is_same<ResultType, decltype(quantile(dist, ResultType{}))>::value &&
             std::is_same<ResultType, decltype(quantile(complement(dist, ResultType{})))>::value,
             ResultType
-        >::type
+        >
 #endif
 {
     if (min > max) throw std::range_error("truncDist() called with empty truncation range (min > max)");

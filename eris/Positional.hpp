@@ -185,7 +185,7 @@ class Positional : public PositionalBase, public T {
          * \throws std::length_error if `p`, `boundary1`, and `boundary2` are not of the same
          * dimension.
          */
-        template <typename... Args, typename = typename std::enable_if<std::is_constructible<T, Args...>::value>::type>
+        template <typename... Args, std::enable_if_t<std::is_constructible<T, Args...>::value, int> = 0>
         Positional(const Position &p, const Position &boundary1, const Position &boundary2, Args&&... T_args)
             : PositionalBase(p, boundary1, boundary2),
             T(std::forward<Args>(T_args)...)
@@ -197,10 +197,9 @@ class Positional : public PositionalBase, public T {
          * Any extra arguments are forwarded to T's constructor.
          */
         template<typename... Args, typename Numeric1, typename Numeric2,
-            typename = typename std::enable_if<
-                std::is_arithmetic<Numeric1>::value and std::is_arithmetic<Numeric2>::value and
-                std::is_constructible<T, Args...>::value
-                >::type>
+            std::enable_if_t<
+                std::is_arithmetic<Numeric1>::value && std::is_arithmetic<Numeric2>::value &&
+                std::is_constructible<T, Args...>::value, int> = 0>
         Positional(const Position &p, Numeric1 b1, Numeric2 b2, Args&&... T_args)
             : PositionalBase(p, (double) b1, (double) b2),
             T(std::forward<Args>(T_args)...)
@@ -210,7 +209,7 @@ class Positional : public PositionalBase, public T {
          *
          * Any extra arguments are forwarded to T's constructor.
          */
-        template <typename... Args, typename = typename std::enable_if<std::is_constructible<T, Args...>::value>::type>
+        template <typename... Args, std::enable_if_t<std::is_constructible<T, Args...>::value, int> = 0>
         explicit Positional(const Position &p, Args&&... T_args)
             : PositionalBase(p), T(std::forward<Args>(T_args)...)
         {}

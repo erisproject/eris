@@ -53,13 +53,13 @@ public:
     MemberID(eris_id_t id) : id{id} {}
     /// Implicit construction from anything with an `id()` method that returns an eris_id_t, most
     /// notably Member (and derived)
-    template <typename T, typename std::enable_if<std::is_same<
-        decltype(std::declval<T>().id()), eris_id_t>::value, int>::type = 0>
+    template <typename T, std::enable_if_t<std::is_same<
+        decltype(std::declval<const T>().id()), eris_id_t>::value, int> = 0>
     MemberID(const T &member) : id{member.id()} {}
     /// Implicit construction from anything with a `->id()` indirect method that returns an
     /// eris_id_t, most notably SharedMember<T> and Member pointer
-    template <typename T, typename std::enable_if<std::is_same<
-        decltype(std::declval<T>()->id()), eris_id_t>::value, int>::type = 0>
+    template <typename T, std::enable_if_t<std::is_same<
+        decltype(std::declval<const T>()->id()), eris_id_t>::value, int> = 0>
     MemberID(const T &shared_member) : id{shared_member->id()} {}
 
     /// Implicit conversion to an eris_id_t

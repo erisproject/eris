@@ -51,8 +51,9 @@ class Simulation : public std::enable_shared_from_this<Simulation>, private nonc
          * If subclassing Simulation, you may pass the subclass as a template parameter and any
          * needed constructor arguments; they will be forwarded to the subclass constructor.
          */
-        template <typename T = Simulation, typename... Args, typename = typename std::enable_if<std::is_base_of<Simulation, T>::value>::type>
+        template <typename T = Simulation, typename... Args>
         static std::shared_ptr<T> create(Args &&... args) {
+            static_assert(std::is_base_of<Simulation, T>::value, "Simulation::create<T>(...) requires T to be eris::Simulation or a subclass");
             return std::shared_ptr<T>(new T(std::forward<Args>(args)...));
         }
 
@@ -60,8 +61,9 @@ class Simulation : public std::enable_shared_from_this<Simulation>, private nonc
          * std::static_pointer_cast.  This should only be called when the simulation instance is
          * known to be a subclass of the given type.
          */
-        template <typename T, typename = typename std::enable_if<std::is_base_of<Simulation, T>::value>::type>
+        template <typename T>
         std::shared_ptr<T> as() {
+            static_assert(std::is_base_of<Simulation, T>::value, "sim.as<T>(...) requires T to be eris::Simulation or a subclass");
             return std::static_pointer_cast<T>(shared_from_this());
         }
 
@@ -149,8 +151,8 @@ class Simulation : public std::enable_shared_from_this<Simulation>, private nonc
          *     auto market = sim->spawn<Bertrand>(Bundle(good, 1), Bundle(money, 1));
          */
         template <class T, typename... Args>
-        typename std::enable_if<std::is_base_of<Member, T>::value, SharedMember<T>>::type
-        spawn(Args&&... args) {
+        SharedMember<T> spawn(Args&&... args) {
+            static_assert(std::is_base_of<Member, T>::value, "sim.spawn<T>(...) requires T to be eris::Member or a subclass");
             auto member_ptr = std::make_shared<T>(std::forward<Args>(args)...);
             return SharedMember<T>(add(member_ptr));
         }
@@ -513,11 +515,9 @@ class Simulation : public std::enable_shared_from_this<Simulation>, private nonc
         // Good, or Market classes, or Member, which invalidates the "other" filter cache.
 
         template <class B>
-        typename std::enable_if<
-            std::is_same<B, Member>::value or std::is_same<B, Agent>::value or std::is_same<B, Good>::value or std::is_same<B, Market>::value,
-            void
-        >::type
-        invalidateCache() {
+        void invalidateCache() {
+            static_assert(std::is_same<B, Member>::value || std::is_same<B, Agent>::value || std::is_same<B, Good>::value || std::is_same<B, Market>::value,
+                    "Internal error: invalidateCache() called with invalid cache type");
             std::lock_guard<std::recursive_mutex> lock(member_mutex_);
             filter_cache_.erase(std::type_index(typeid(B)));
         }

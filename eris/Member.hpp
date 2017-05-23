@@ -269,9 +269,9 @@ class Member : private noncopyable {
                 void add(const SharedMember<Member> &member);
 
                 /** Container-accepting version of add(). */
-                template <class Container>
-                typename std::enable_if<std::is_base_of<Member, typename Container::value_type::member_type>::value
-                >::type add(const Container &members) {
+                template <class Container,
+                    std::enable_if_t<std::is_base_of<Member, typename Container::value_type::member_type>::value, int> = 0>
+                void add(const Container &members) {
                     bool add_failed = false;
                     for (auto &mem : members) {
                         if (!try_add(mem)) { // Adding the member would block
@@ -362,13 +362,14 @@ class Member : private noncopyable {
                  * You must ensure that the returned object does not persist beyond the lifetime of
                  * the lock it is based upon.
                  */
-                [[gnu::warn_unused_result]] Supplemental supplement(const SharedMember<Member> &member);
+                [[gnu::warn_unused_result]]
+                Supplemental supplement(const SharedMember<Member> &member);
 
                 /** Container-accepting version of supplement() */
-                template <class Container>
+                template <class Container,
+                    std::enable_if_t<std::is_base_of<Member, typename Container::value_type::member_type>::value, int> = 0>
                 [[gnu::warn_unused_result]]
-                typename std::enable_if<std::is_base_of<Member, typename Container::value_type::member_type>::value, Supplemental
-                >::type supplement(const Container &members) {
+                Supplemental supplement(const Container &members) {
                     return Supplemental(*this, members);
                 }
 
@@ -387,9 +388,9 @@ class Member : private noncopyable {
                  * \throws std::out_of_range if the lock doesn't contain one or more of the given
                  * members.
                  */
-                template <class Container>
-                typename std::enable_if<std::is_base_of<Member, typename Container::value_type::member_type>::value, Lock
-                >::type remove(const Container &members) {
+                template <class Container,
+                    std::enable_if_t<std::is_base_of<Member, typename Container::value_type::member_type>::value, int> = 0>
+                Lock remove(const Container &members) {
                     if (members.empty()) return Lock(isWrite(), isLocked()); // Fake lock
 
                     std::multiset<SharedMember<Member>> new_lock_members;
@@ -526,11 +527,10 @@ class Member : private noncopyable {
          *
          * \sa Member::Lock
          */
-        template <class Container>
-        [[gnu::warn_unused_result]] Lock writeLock(const Container &plus,
-                typename std::enable_if<
-                    std::is_base_of<Member, typename Container::value_type::member_type>::value
-                >::type* = 0) const {
+        template <class Container,
+            std::enable_if_t<std::is_base_of<Member, typename Container::value_type::member_type>::value, int> = 0>
+        [[gnu::warn_unused_result]]
+        Lock writeLock(const Container &plus) const {
             return rwLock_(true, plus);
         }
 
@@ -656,11 +656,9 @@ class Member : private noncopyable {
         void unlock_many_(bool write, const std::multiset<SharedMember<Member>> &plus);
 
         /// Helper class doing all the grunt work of the Container version of readLock/writeLock.
-        template <class Container>
-        Lock rwLock_(const bool &write, const Container &plus,
-                typename std::enable_if<
-                    std::is_base_of<Member, typename Container::value_type::member_type>::value
-                >::type* = 0) const {
+        template <class Container,
+            std::enable_if_t<std::is_base_of<Member, typename Container::value_type::member_type>::value, int> = 0>
+        Lock rwLock_(const bool &write, const Container &plus) const {
             const bool has_sim = hasSimulation();
             if (has_sim and maxThreads() == 0) return Member::Lock(write); // Fake lock
             std::multiset<SharedMember<Member>> members;

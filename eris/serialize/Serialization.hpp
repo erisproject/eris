@@ -237,9 +237,9 @@ public:
      * Throws std::logic_error if called after the header has been parsed or written.
      */
     template <typename T>
-    typename std::enable_if<not std::is_const<T>::value>::type
-    addHeaderField(T &store) {
-        static_assert(serializer<T>::size > 0, "addHeaderField requires a fixed-size type");
+    void addHeaderField(T &store) {
+        static_assert(!std::is_const<T>::value, "addHeaderField() requires a non-const value reference");
+        static_assert(serializer<T>::size > 0, "addHeaderField() requires a fixed-size type");
         if (header_fields_done_) throw std::logic_error("Cannot add header fields after the header has been read or written");
         auto s = std::make_shared<serializer<T>>(store);
         app_fields_.emplace_back(s);
@@ -263,7 +263,7 @@ public:
      */
     template <typename T>
     void updateHeaderField(T &store) {
-        if (not header_fields_done_) return;
+        if (!header_fields_done_) return;
 
         writef();
 

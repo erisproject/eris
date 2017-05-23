@@ -106,9 +106,8 @@ class SharedMember final {
          * This template specification only participates when upcasting from a derived to a base
          * class.
          */
-        template<class F>
-        SharedMember(const SharedMember<F> &from,
-                typename std::enable_if<std::is_base_of<T, F>::value && !std::is_same<T, F>::value>::type* = 0)
+        template<class F, std::enable_if_t<std::is_base_of<T, F>::value && !std::is_same<T, F>::value, int> = 0>
+        SharedMember(const SharedMember<F> &from)
             : ptr_{std::static_pointer_cast<T,F>(from.ptr())}
         {}
 
@@ -122,9 +121,8 @@ class SharedMember final {
          *
          * \throws std::bad_cast if `*from` is not an instance of `T`.
          */
-        template<class F>
-        SharedMember(const SharedMember<F> &from,
-                typename std::enable_if<std::is_base_of<F, T>::value && !std::is_same<T, F>::value>::type* = 0)
+        template<class F, std::enable_if_t<std::is_base_of<F, T>::value && !std::is_same<T, F>::value, int> = 0>
+        SharedMember(const SharedMember<F> &from)
             : ptr_{std::dynamic_pointer_cast<T,F>(from.ptr())} {
             // Raise an exception if the ptr above gave back a null shared pointer: that means the
             // cast attempted to cast to a derived class, when the actual object is only a base
