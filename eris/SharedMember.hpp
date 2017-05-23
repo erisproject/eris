@@ -8,13 +8,13 @@
 
 namespace eris {
 
-/** Wrapper around std::shared_ptr<T> that adds automatic T and eris_id_t cast conversion.  Since
- * Member references must be stored both by calling code, the Simulation object, and potentially in
- * other classes, a Simulation's members are stored in std::shared_ptr objects.  This wrapper allows
- * transparent access to the underlying Member, including automatic Member and eris_id_t conversion
- * and member method access via ->.  It also supports automatic cast conversion between
- * sub/superclasses: e.g. a SharedMember<Good::Continuous> instance can be cast as a
- * SharedMember<Member>, and the same SharedMember<Member> variable can be cast as a
+/** Wrapper around std::shared_ptr<T> that adds automatic T cast conversion and automatic
+ * up/downcasting.  Since Member references must be stored both by calling code, the Simulation
+ * object, and potentially in other classes, a Simulation's members are stored in std::shared_ptr
+ * objects.  This wrapper allows transparent access to the underlying Member, including automatic
+ * Member and member method access via ->.  It also supports automatic cast conversion between
+ * sub/superclasses: e.g. a SharedMember<Good::Continuous> instance can be implicitly converted to a
+ * SharedMember<Member>, and the same SharedMember<Member> variable can be implicitly converted to a
  * SharedMember<Good>.
  *
  * A less-than comparison operator is provided so that SharedMembers can be stored in a sorted
