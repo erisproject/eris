@@ -33,6 +33,8 @@ using eris_id_t = uint64_t;
  * used for time period deltas. */
 using eris_time_t = int32_t;
 
+/** std::size_t alias primarily for internal eris use. */
+using size_t = std::size_t;
 
 /** Simple class used for methods that need to accept an eris_id_t but wants to allow any of an
  * eris_id_t, Member, Member pointer, or a SharedMember<T> to be provided (more precisely, anything
