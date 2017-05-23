@@ -270,7 +270,7 @@ class Member : private noncopyable {
 
                 /** Container-accepting version of add(). */
                 template <class Container>
-                typename std::enable_if<std::is_base_of<Member, typename Container::value_type::member_type>::value, Lock
+                typename std::enable_if<std::is_base_of<Member, typename Container::value_type::member_type>::value
                 >::type add(const Container &members) {
                     bool add_failed = false;
                     for (auto &mem : members) {
