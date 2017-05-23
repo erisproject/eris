@@ -307,6 +307,13 @@ class BundleSigned {
             return transfer(std::forward<Args>(args)...);
         }
 
+        /** Transfers all quantities held by the caller into the target bundle.  This uses
+         * transfer() internally.  It is almost equivalent to `bundle.transfer(bundle, to)`, except
+         * that `bundle` will always be cleared, while it is possible for `transfer()` to result
+         * in some neglible quantities remaining in `bundle`.
+         */
+        BundleSigned transferTo(BundleSigned &to, double epsilon = default_transfer_epsilon);
+
         /// Adds two BundleSigned objects together and returns the result.
         BundleSigned operator + (const BundleSigned &b) const;
         /// Subtracts one BundleSigned from another and returns the result.

@@ -484,6 +484,17 @@ BundleSigned BundleSigned::transfer(const BundleSigned &amount, double epsilon) 
     return actual;
 }
 
+BundleSigned BundleSigned::transferTo(BundleSigned &to, double epsilon) {
+    beginTransaction(true);
+    to.beginTransaction(true);
+    BundleSigned ret = transfer(*this, to, epsilon);
+    clear();
+    commitTransaction();
+    to.commitTransaction();
+    return ret;
+}
+
+
 bool Bundle::hasApprox(const BundleSigned &amount, const Bundle &to, double epsilon) const {
     for (auto &g : amount) {
         double abs_transfer = std::abs(g.second);
