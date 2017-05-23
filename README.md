@@ -55,8 +55,8 @@ of a moderately complex agent-based model.
 - [boost](http://www.boost.org/)
 - [liblzma](http://tukaani.org/xz/)
 - [Eigen](http://eigen.tuxfamily.org/), version 3.2.7 or above.
-- A C++ compiler supporting the C++11 standard, such as
-  [clang](http://clang.llvm.org/) (3.3+) or [g++](https://gcc.gnu.org/) (4.9+)
+- A C++ compiler supporting the C++14 standard, such as
+  [clang](http://clang.llvm.org/) (3.4+) or [g++](https://gcc.gnu.org/) (5+)
 
 If you wish to build the HTML API documentation, additional requirements are:
 - [doxygen](http://www.stack.nl/~dimitri/doxygen/)
