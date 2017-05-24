@@ -21,7 +21,7 @@ template <class Engine, class RealType, class Normal = eris::random::normal_dist
 RealType truncnorm_rejection_normal(Engine &eng, const RealType &mu, const RealType &sigma, const RealType &lower, const RealType &upper) {
     RealType x;
     Normal normal(mu, sigma);
-    do { x = normal(eng); } while (x < lower or x > upper);
+    do { x = normal(eng); } while (x < lower || x > upper);
     return x;
 }
 
@@ -44,10 +44,9 @@ template <class Engine, class RealType, class Normal = eris::random::normal_dist
 RealType truncnorm_rejection_halfnormal(Engine &eng, const RealType &mu, const RealType &signed_sigma, const RealType &lower, const RealType &upper) {
     RealType x;
     Normal normal;
-    using std::fabs;
     do {
-        x = mu + signed_sigma * fabs(normal(eng));
-    } while (x < lower or x > upper);
+        x = mu + signed_sigma * std::fabs(normal(eng));
+    } while (x < lower || x > upper);
     return x;
 }
 
@@ -77,9 +76,8 @@ RealType truncnorm_rejection_uniform(Engine &eng, const RealType &mu, const Real
     RealType x, rho;
     Uniform unif_ab(lower, upper);
     do {
-        using std::exp;
         x = unif_ab(eng);
-        rho = exp(inv2s2 * (shift2 - (x - mu)*(x - mu)));
+        rho = std::exp(inv2s2 * (shift2 - (x - mu)*(x - mu)));
     } while (Unif01()(eng) > rho);
     return x;
 }
@@ -216,8 +214,8 @@ public:
 
         /** Returns true if the two sets of parameters are the same. */
         BOOST_RANDOM_DETAIL_EQUALITY_OPERATOR(param_type, lhs, rhs) {
-            return lhs._mu == rhs._mu and lhs._sigma == rhs._sigma
-                and lhs._lower_limit == rhs._lower_limit and lhs._upper_limit == rhs._upper_limit;
+            return lhs._mu == rhs._mu && lhs._sigma == rhs._sigma &&
+                lhs._lower_limit == rhs._lower_limit && lhs._upper_limit == rhs._upper_limit;
         }
 
         /** Returns true if the two sets of parameters are the different. */
@@ -241,7 +239,7 @@ public:
             const RealType& upper_limit = +std::numeric_limits<RealType>::infinity())
       : _mu(mu), _sigma(sigma), _lower_limit(lower_limit), _upper_limit(upper_limit)
     {
-        BOOST_ASSERT(_sigma >= RealType(0) and _lower_limit <= _upper_limit);
+        BOOST_ASSERT(_sigma >= RealType(0) && _lower_limit <= _upper_limit);
     }
 
     /**
@@ -273,7 +271,7 @@ public:
     {
         // If we have already calculated _method, make sure that the given parameters are actually
         // different before we clear it (and thus require a recalculation)
-        if (_method == Method::UNKNOWN or parm != param()) {
+        if (_method == Method::UNKNOWN || parm != param()) {
             _mu = parm.mu();
             _sigma = parm.sigma();
             _lower_limit = parm.lower_limit();
@@ -338,9 +336,9 @@ public:
      */
     BOOST_RANDOM_DETAIL_EQUALITY_OPERATOR(truncated_normal_distribution, lhs, rhs)
     {
-        return lhs._mu == rhs._mu and lhs._sigma == rhs._sigma
-            and lhs._lower_limit == rhs._lower_limit
-            and lhs._upper_limit == rhs._upper_limit;
+        return lhs._mu == rhs._mu && lhs._sigma == rhs._sigma &&
+            lhs._lower_limit == rhs._lower_limit &&
+            lhs._upper_limit == rhs._upper_limit;
     }
 
     /**
@@ -445,15 +443,13 @@ private:
             b = _upper_limit - _mu;
         }
 
-        using std::isinf;
-
         // Now we're either in case 2 or three, and a and b are the (absolute value) distances from
         // the mean of the near and far limits in the relevant positive tail.
         if (a <= _sigma * detail::truncnorm_threshold<RealType>::hr_below_er_above) {
             // a is not too large: we resort to either halfnormal rejection sampling or, if its
             // acceptance rate would be too low (because b is too low), uniform rejection
             // sampling
-            if (isinf(b) or b - a >= detail::truncnorm_threshold<RealType>::ur_hr_threshold(a, _sigma)) {
+            if (std::isinf(b) || b - a >= detail::truncnorm_threshold<RealType>::ur_hr_threshold(a, _sigma)) {
                 _method = Method::HALFNORMAL;
                 _hr_signed_sigma = _lower_limit >= _mu ? _sigma : -_sigma;
             }
@@ -469,13 +465,12 @@ private:
             // Otherwise we're sufficiently far out in the tail that ER is preferred to HR; we
             // now have to decide whether UR is preferred to ER, and if not, whether the
             // simplified-parameter ER is preferred to the acceptance-optimal parameter.
-            if (isinf(b) or a * (b-a) >= (_sigma * _sigma) * detail::truncnorm_threshold<RealType>::prefer_ur_multiplier) {
+            if (std::isinf(b) || a * (b-a) >= (_sigma * _sigma) * detail::truncnorm_threshold<RealType>::prefer_ur_multiplier) {
                 _method = Method::EXPONENTIAL;
-                using std::sqrt;
                 _er_a = a;
                 _er_lambda_times_sigma = (a < _sigma * detail::truncnorm_threshold<RealType>::er_approximate_above)
                     // Relatively small a: calculating this thing is worthwhile:
-                    ? 0.5 * (a + sqrt(a*a + 4*(_sigma * _sigma)))
+                    ? 0.5 * (a + std::sqrt(a*a + 4*(_sigma * _sigma)))
                     : a; // a is large, so better to use a, avoid the calculation, and incur the potential extra discards
             }
             else {
