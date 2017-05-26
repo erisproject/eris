@@ -12,76 +12,81 @@
 
 namespace eris { namespace intraopt {
 
+/** Base class for callbacks */
+template <typename Return = void>
+class CallbackBase : public Member {
+public:
+    /// Not default constructible
+    CallbackBase() = delete;
+    /// Constructs a callback from a function or callable object.  Takes an optional priority; if
+    /// omitted, the optimizer runs at the default priority (0).
+    explicit CallbackBase(std::function<Return()> func, double priority = 0.0)
+        : callback_{std::move(func)}, priority_{priority} {}
+protected:
+    /// Stores the callback
+    const std::function<Return()> callback_;
+    /// Stores the priority
+    const double priority_;
+};
+
 /** Simple intraopt::Initialize implementation that invokes a callback when invoked. */
-class InitializeCallback final : public Member, public Initialize {
-    public:
-        InitializeCallback() = delete;
-        /** Constructs an InitializeCallback with a given callable target that will be invoked when intraInitialize() is called. */
-        InitializeCallback(std::function<void()> callback);
-        /** Invokes the callback when called. */
-        virtual void intraInitialize() override;
-    private:
-        std::function<void()> callback_;
+class InitializeCallback final : public CallbackBase<>, public Initialize {
+public:
+    using CallbackBase::CallbackBase;
+    /// Invokes the callback when called.
+    void intraInitialize() override { callback_(); }
+    /// Returns the callback priority, as given in in the constructor
+    double intraInitializePriority() const override { return priority_; }
 };
 
 /** Simple intraopt::Reset implementation that invokes a callback when invoked. */
-class ResetCallback final : public Member, public Reset {
-    public:
-        ResetCallback() = delete;
-        /** Constructs an ResetCallback with a given callable target that will be invoked when intraReset() is called. */
-        ResetCallback(std::function<void()> callback);
-        /** Invokes the callback when called. */
-        virtual void intraReset() override;
-    private:
-        std::function<void()> callback_;
+class ResetCallback final : public CallbackBase<>, public Reset {
+public:
+    using CallbackBase::CallbackBase;
+    /// Invokes the callback when called.
+    void intraReset() override { callback_(); }
+    /// Returns the callback priority, as given in the constructor
+    double intraResetPriority() const override { return priority_; }
 };
 
 /** Simple intraopt::Optimize implementation that invokes a callback when invoked. */
-class OptimizeCallback final : public Member, public Optimize {
-    public:
-        OptimizeCallback() = delete;
-        /** Constructs an OptimizeCallback with a given callable target that will be invoked when intraOptimize() is called. */
-        OptimizeCallback(std::function<void()> callback);
-        /** Invokes the callback when called. */
-        virtual void intraOptimize() override;
-    private:
-        std::function<void()> callback_;
+class OptimizeCallback final : public CallbackBase<>, public Optimize {
+public:
+    using CallbackBase::CallbackBase;
+    /// Invokes the callback when called.
+    void intraOptimize() override { callback_(); }
+    /// Returns the callback priority, as given in the constructor
+    double intraOptimizePriority() const override { return priority_; }
 };
 
 /** Simple intraopt::Reoptimize implementation that invokes a callback when invoked. */
-class ReoptimizeCallback final : public Member, public Reoptimize {
-    public:
-        ReoptimizeCallback() = delete;
-        /** Constructs an ReoptimizeCallback with a given callable target that will be invoked when intraReoptimize() is called. */
-        ReoptimizeCallback(std::function<bool()> callback);
-        /** Invokes the callback when called. */
-        virtual bool intraReoptimize() override;
-    private:
-        std::function<bool()> callback_;
+class ReoptimizeCallback final : public CallbackBase<bool>, public Reoptimize {
+public:
+    using CallbackBase::CallbackBase;
+    /// Invokes the callback when called.
+    bool intraReoptimize() override { return callback_(); }
+    /// Returns the callback priority, as given in the constructor
+    double intraReoptimizePriority() const override { return priority_; }
 };
 
 /** Simple intraopt::Apply implementation that invokes a callback when invoked. */
-class ApplyCallback final : public Member, public Apply {
-    public:
-        ApplyCallback() = delete;
-        /** Constructs an ApplyCallback with a given callable target that will be invoked when intraApply() is called. */
-        ApplyCallback(std::function<void()> callback);
-        /** Invokes the callback when called. */
-        virtual void intraApply() override;
-    private:
-        std::function<void()> callback_;
+class ApplyCallback final : public CallbackBase<>, public Apply {
+public:
+    using CallbackBase::CallbackBase;
+    /// Invokes the callback when called.
+    void intraApply() override { callback_(); }
+    /// Returns the callback priority, as given in the constructor
+    double intraApplyPriority() const override { return priority_; }
 };
 
 /** Simple intraopt::Finish implementation that invokes a callback when invoked. */
-class FinishCallback final : public Member, public Finish {
-    public:
-        FinishCallback() = delete;
-        /** Constructs an FinishCallback with a given callable target that will be invoked when intraFinish() is called. */
-        FinishCallback(std::function<void()> callback);
-        /** Invokes the callback when called. */
-        virtual void intraFinish() override;
-    private:
-        std::function<void()> callback_;
+class FinishCallback final : public CallbackBase<>, public Finish {
+public:
+    using CallbackBase::CallbackBase;
+    /// Invokes the callback when called.
+    void intraFinish() override { callback_(); }
+    /// Returns the callback priority, as given in the constructor
+    double intraFinishPriority() const override { return priority_; }
 };
 
 }}
