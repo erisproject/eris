@@ -29,7 +29,7 @@ if (dpkg_arch_result STREQUAL 0)
     message(STATUS "Debian system detected; enabling eris-symlinks-deb target")
     file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/eris-symlinks DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
     add_custom_target(eris-symlinks-deb
-        dpkg-buildpackage -uc -us -b
+        COMMAND ${CMAKE_COMMAND} -E env "ERIS_BUILD=${CMAKE_BINARY_DIR}" dpkg-buildpackage -uc -us -b
         COMMAND mv ../eris-symlinks_0_${dpkg_arch}.deb ../..
         DEPENDS eris api_doc
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/eris-symlinks

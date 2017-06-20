@@ -104,7 +104,7 @@ endforeach()
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
-set(CMAKE_CXX_FLAGS "-std=c++14 -O2 -Wall -Wextra ${CMAKE_CXX_FLAGS}")
+set(CMAKE_CXX_FLAGS "-std=c++14 -Wall -Wextra ${CMAKE_CXX_FLAGS}")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -DERIS_DEBUG")
 
 find_package(Threads REQUIRED)

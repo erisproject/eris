@@ -1,17 +1,18 @@
 #!/usr/bin/make -f
 
 ERIS_ROOT = $(realpath ../../..)
+ERIS_BUILD := $(if $(ERIS_BUILD),$(ERIS_BUILD),$(ERIS_ROOT/build))
 
 build:
 	mkdir -p usr/lib/$(DEB_TARGET_GNU_TYPE)/pkgconfig
 	mkdir -p usr/include/eris
-	ln -snf $(ERIS_ROOT)/build/liberis.so* usr/lib/$(DEB_TARGET_GNU_TYPE)
-	ln -snf $(ERIS_ROOT)/build/liberis.pc usr/lib/$(DEB_TARGET_GNU_TYPE)/pkgconfig
+	ln -snf $(ERIS_BUILD)/liberis.so* usr/lib/$(DEB_TARGET_GNU_TYPE)
+	ln -snf $(ERIS_BUILD)/liberis.pc usr/lib/$(DEB_TARGET_GNU_TYPE)/pkgconfig
 	ln -snf $(ERIS_ROOT)/eris/*/ usr/include/eris
 	ln -snf $(ERIS_ROOT)/eris/*.hpp usr/include/eris
-	ln -snf $(ERIS_ROOT)/build/eris/*.hpp usr/include/eris
+	ln -snf $(ERIS_BUILD)/eris/*.hpp usr/include/eris
 	mkdir -p usr/share/doc/eris-doc
-	ln -snf $(ERIS_ROOT)/build/doc/api usr/share/doc/eris-doc/html
+	ln -snf $(ERIS_BUILD)/doc/api usr/share/doc/eris-doc/html
 
 %:
 	dh $@
