@@ -106,6 +106,20 @@ class Member : private noncopyable {
          */
         void dependsWeaklyOn(MemberID id);
 
+    private:
+        using Mutex = std::shared_timed_mutex;
+
+        /// Shared mutex used by Member::Lock to read (shared) and write (exclusive) locks.
+        mutable Mutex mutex_;
+
+        /// Locks a single member mutex with an exclusive or shared lock.
+        void lock_(bool exclusive) { if (exclusive) mutex_.lock(); else mutex_.lock_shared(); }
+        /// Unlocks a single member mutex with an existing exclusive or shared lock.
+        void unlock_(bool exclusive) { if (exclusive) mutex_.unlock(); else mutex_.unlock_shared(); }
+        /// Tries to obtain a exclusive or shared lock on a member mutex
+        bool try_lock_(bool exclusive) { return exclusive ? mutex_.try_lock() : mutex_.try_lock_shared(); }
+
+    public:
         /** A RAII-style locking class for holding one or more simultaneous Member locks.  Locks are
          * established during object construction and released when the object is destroyed.  A Lock
          * may be copied, in which case all copies must be destroyed before the lock is
@@ -172,44 +186,38 @@ class Member : private noncopyable {
                 /** Releases the held lock(s) (unless copies of the Lock are still around). */
                 ~Lock();
                 /** If the lock is currently a read lock (or is currently inactive), calling this
-                 * converts it to a write lock.  If the lock is already a write lock, this does
-                 * nothing.  Since all copies of this Lock object share the lock status, they will
-                 * simultaneously become write locks.
+                 * converts it to a write lock and establishes the lock.  If the lock is already a
+                 * write lock, this does nothing.  Since all copies of this Lock object share the
+                 * lock status, they will simultaneously become write locks.
                  *
-                 * Note that if other threads currently have a read lock, this will block until all
-                 * other locks are released.
-                 *
-                 * If the lock has been explicitly released (by calling release()), calling this
-                 * method reestablishes the lock.
+                 * If the lock type is changed or the current lock is not established, this method
+                 * may block until the lock is obtained.
                  *
                  * If the optional `only_try` parameter is given and true, the write lock is
                  * established only if it can be done without blocking.  If blocking would be
                  * required, the lock is left unlocked (even if it was a previously active read
                  * lock) and false is returned.  Note that even if it lock fails, the lock will
-                 * still be changed to a write lock if it was previously a read lock.
+                 * still be changed to a write lock if it was previously a read lock (that is, a
+                 * subsequent `lock()` call will establish a write lock).
                  *
                  * \returns true if the write lock was established (or already active), false if
                  * `try_lock = true` was given and the write lock could not be immediately obtained.
                  */
                 bool write(bool only_try = false);
-                /** If the lock is currently a write lock, calling this converts it to a read lock.
-                 * If the lock is already a read lock, this does nothing.  Since all copies of this
-                 * Lock object share the lock status, they will simultaneously become read locks.
+                /** Converts the current lock into a read lock.  If the lock is currently an active
+                 * write lock, it is first released and then reacquired as a read lock.  If the lock
+                 * in inactive, it is acquired as a read lock.  If the lock is currently an active
+                 * read lock, this does nothing.
                  *
-                 * This is approximately equivalent to releasing the current write lock and
-                 * obtaining a new read lock, except that it is guaranteed not to block when called
-                 * on an active lock: when already a read lock it does nothing; when converting a
-                 * write lock to a read lock it establishes the read lock before releasing the held
-                 * write lock.
-                 *
-                 * If the lock has been explicitly released (by calling release()), calling this
-                 * method reestablishes the lock and may block.
+                 * If the lock type is changed or the current lock is not established, this method
+                 * may block until the lock is obtained.
                  *
                  * If the optional parameter `only_try` is provided and true, the lock is
                  * established only if it is possible to do so without blocking.  If blocking would
                  * be required, the lock is left unlocked and false is returned.  Note that even if
                  * the lock fails, the lock will still be converted to a read lock if it was
-                 * previously a write lock.
+                 * previously a write lock (that is, a subsequent `lock()` call will establish a
+                 * read lock).
                  *
                  * \returns true if the read lock was established (or already active), false if
                  * `try_lock = true` was given and the read lock could not be immediately obtained.
@@ -240,11 +248,18 @@ class Member : private noncopyable {
                 /** Returns true if this lock is currently a write lock, false if it is a read lock.
                  * Note that this does not distinguish between inactive and active locks.
                  */
-                bool isWrite();
+                bool isWrite() { return data->write; }
+                /** Alias for `!isWrite()` */
+                bool isRead() { return !isWrite(); }
+                /** Returns true if this is a "fake" lock, that is, a lock on members in a
+                 * simulation where threading is disabled (and thus the actual locking mechanics are
+                 * skipped).  Mainly internal use.
+                 */
+                bool isFake() { return data->members.empty(); }
                 /** Returns true if this lock is currently active (i.e. actually a lock), false
                  * otherwise.  Note that this status is shared among all copies of a Lock object.
                  */
-                bool isLocked();
+                bool isLocked() { return data->locked; }
 
                 /** Tries to add the given member to the current set of locked members.  If the
                  * member can be added to the current lock without blocking (i.e. because there
@@ -393,7 +408,7 @@ class Member : private noncopyable {
                 Lock remove(const Container &members) {
                     if (members.empty()) return Lock(isWrite(), isLocked()); // Fake lock
 
-                    std::multiset<SharedMember<Member>> new_lock_members;
+                    std::set<SharedMember<Member>> new_lock_members;
                     for (auto &mem : members) {
                         auto found = data->members.find(mem);
                         if (found == data->members.end())
@@ -416,21 +431,20 @@ class Member : private noncopyable {
                  */
                 explicit Lock(bool write, bool locked = true);
 
-                /** Creates a lock that applies to a multiset of members. Calls lock() (which calls
+                /** Creates a lock that applies to a set of members. Calls lock() (which calls
                  * read() or write()) before returning. */
-                Lock(bool write, std::multiset<SharedMember<Member>> &&members);
+                Lock(bool write, std::set<SharedMember<Member>> &&members);
 
-                /** Creates a lock that applies to a multiset of members, initially in the given
+                /** Creates a lock that applies to a set of members, initially in the given
                  * lock status.  Note that this does *not* establish a lock, even if `lock` is true:
                  * this method is primarily intended for use by remove() to split a Lock into
                  * multiple Locks without requiring an intermediate release and relocking.
                  */
-                Lock(bool write, bool locked, std::multiset<SharedMember<Member>> &&members);
+                Lock(bool write, bool locked, std::set<SharedMember<Member>> &&members);
 
-                /** Obtains a mutex lock on all members.  If `write` is true, each mutex lock must
-                 * additionally have readlocks_ = 0 (otherwise the mutex lock is considered failed
-                 * and immediately released).  This method blocks until a mutex is held on all
-                 * members, but never blocks while holding any mutex lock.  When this method
+                /** Obtains a lock on all members.  If `write` is true, all locks will be exclusive;
+                 * otherwise all locks will be shared.  This method blocks until a mutex is held on
+                 * all members, but never blocks while holding any mutex lock.  When this method
                  * returns, a mutex lock is held on every member.
                  *
                  * The optional `only_try` parameter changes the behaviour: if provided and true,
@@ -442,7 +456,7 @@ class Member : private noncopyable {
                  * This code is the core simultaneous locking code used by read() and write() to
                  * establish a lock on all members.
                  */
-                bool mutex_lock_(bool write, bool only_try = false);
+                bool lock_all_(bool write, bool only_try = false);
 
                 friend class Member;
 
@@ -450,13 +464,12 @@ class Member : private noncopyable {
                     public:
                         /** Default constructor explicitly deleted. */
                         Data() = delete;
-                        Data(std::multiset<SharedMember<Member>> &&mbrs, bool wrt, bool lckd = false)
+                        Data(std::set<SharedMember<Member>> &&mbrs, bool wrt, bool lckd = false)
                             : members{std::move(mbrs)}, write{wrt}, locked{lckd}
                         {}
-                        std::multiset<SharedMember<Member>> members;
+                        std::set<SharedMember<Member>> members;
                         bool write;
                         bool locked;
-                        bool fake;
                 };
 
                 std::shared_ptr<Data> data;
@@ -631,37 +644,13 @@ class Member : private noncopyable {
             return sim->as<T>();
         }
 
-        /** Mutex used both for a write lock and instantaneously for a read lock.  Also guards
-         * access to readlocks_ */
-        mutable std::recursive_mutex wmutex_;
-
-        /** Number of currently active read locks.  While this is > 0, no write lock will be
-         * granted.
-         */
-        mutable unsigned int readlocks_{0};
-        /** A condition_variable that is used to notify waiting threads when a read lock is released.
-         */
-        std::condition_variable_any readlock_cv_;
-
-        /** Called by the Lock nested class during construction to establish a lock on this object.
-         */
-        void lock_(bool write);
-        /** Called when a Lock object is destroyed to release the lock it held.
-         */
-        void unlock_(bool write);
-
-        /** Called during Lock destruction to release the locks on the current object and
-         * provided set of objects
-         */
-        void unlock_many_(bool write, const std::multiset<SharedMember<Member>> &plus);
-
         /// Helper class doing all the grunt work of the Container version of readLock/writeLock.
         template <class Container,
             std::enable_if_t<std::is_base_of<Member, typename Container::value_type::member_type>::value, int> = 0>
-        Lock rwLock_(const bool &write, const Container &plus) const {
+        Lock rwLock_(bool write, const Container &plus) const {
             const bool has_sim = hasSimulation();
-            if (has_sim and maxThreads() == 0) return Member::Lock(write); // Fake lock
-            std::multiset<SharedMember<Member>> members;
+            if (has_sim && maxThreads() == 0) return Member::Lock(write); // Fake lock
+            std::set<SharedMember<Member>> members;
             if (has_sim)
                 members.insert(sharedSelf());
             members.insert(plus.begin(), plus.end());
@@ -678,7 +667,7 @@ class Member : private noncopyable {
         Lock rwLock_(const bool &write, Args... more) const {
             const bool has_sim = hasSimulation();
             if (has_sim and maxThreads() == 0) return Member::Lock(write); // Fake lock
-            std::multiset<SharedMember<Member>> members;
+            std::set<SharedMember<Member>> members;
             if (has_sim)
                 members.insert(sharedSelf());
             member_zip_(members, more...);
@@ -690,13 +679,13 @@ class Member : private noncopyable {
             return Member::Lock(write, std::move(members));
         }
 
-        /** Sticks the passed-in SharedMember<T> objects into the passed-in std::multiset */
+        /** Sticks the passed-in SharedMember<T> objects into the passed-in std::set */
         template <class... Args>
-        void member_zip_(std::multiset<SharedMember<Member>> &zip, SharedMember<Member> add, Args... more) const {
+        void member_zip_(std::set<SharedMember<Member>> &zip, SharedMember<Member> add, Args... more) const {
             zip.insert(add);
             member_zip_(zip, more...);
         }
-        void member_zip_(std::multiset<SharedMember<Member>>&) const {}
+        void member_zip_(std::set<SharedMember<Member>>&) const {}
 };
 
 // Non-casting specialization that avoids an extra shared_ptr creation + static cast:

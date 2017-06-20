@@ -427,16 +427,16 @@ void Simulation::thr_thread_pool() {
     }
 }
 
-boost::shared_lock<boost::shared_mutex> Simulation::runLock() {
-    return boost::shared_lock<boost::shared_mutex>(run_mutex_);
+std::shared_lock<std::shared_timed_mutex> Simulation::runLock() {
+    return std::shared_lock<std::shared_timed_mutex>(run_mutex_);
 }
 
-boost::shared_lock<boost::shared_mutex> Simulation::runLockTry() {
-    return boost::shared_lock<boost::shared_mutex>(run_mutex_, boost::try_to_lock);
+std::shared_lock<std::shared_timed_mutex> Simulation::runLockTry() {
+    return std::shared_lock<std::shared_timed_mutex>(run_mutex_, std::try_to_lock);
 }
 
 void Simulation::run() {
-    boost::unique_lock<boost::shared_mutex> lock(run_mutex_);
+    std::unique_lock<std::shared_timed_mutex> lock(run_mutex_);
 
     stage_mutex_.lock();
     stage_ = RunStage::idle;

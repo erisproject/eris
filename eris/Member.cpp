@@ -32,43 +32,47 @@ bool Member::hasSimulation() const {
 void Member::added() {}
 void Member::removed() {}
 
-Member::Lock::Lock(bool write, bool locked) : Lock{write, locked, std::multiset<SharedMember<Member>>{}} {}
-Member::Lock::Lock(bool write, std::multiset<SharedMember<Member>> &&members)
+Member::Lock::Lock(bool write, bool locked) : Lock{write, locked, std::set<SharedMember<Member>>{}} {}
+Member::Lock::Lock(bool write, std::set<SharedMember<Member>> &&members)
     : data{std::make_shared<Data>(std::move(members), write)} {
     lock();
 }
-Member::Lock::Lock(bool write, bool locked, std::multiset<SharedMember<Member>> &&members)
+Member::Lock::Lock(bool write, bool locked, std::set<SharedMember<Member>> &&members)
     : data{std::make_shared<Data>(std::move(members), write, locked)} {}
 
 Member::Lock::Lock(const Lock &l) : data{l.data} {}
 
 Member::Lock::~Lock() {
-    if (data.unique() and isLocked()) unlock();
+    if (data.unique() && isLocked()) unlock();
 }
 
-bool Member::Lock::mutex_lock_(bool write, bool only_try) {
+bool Member::Lock::lock_all_(bool write, bool only_try) {
     // Not currently locked
     auto &members = data->members;
     auto mem_begin = members.begin();
     auto mem_end = members.end();
     auto holding_it = mem_end;
+
+    // The loops below work like this:
+    // - go through the list of members one-by-one, trying to obtain a lock as we go.
+    //   - if we fail to obtain a lock:
+    //     - release all the locks obtained in the loop iterations before the one that failed
+    //     - obtain a lock (with blocking) on the one that failed
+    //     - once that lock is obtained, redo the loop.  (The one already held is skipped.)
+    //     - repeat the above (Note 1: if the loop fails to obtain the lock *before* the one already
+    //       held, we have to additionally release that lock).  (Note 2: if `only_try` is true, we
+    //       don't repeat here, but instead return false after releasing all the locks).
+    // The whole thing repeats until we get all the way through the loop without any lock failures:
+    // at this point, we have a lock on everything and can return.
+
     while (true) {
         auto unwind_it = mem_end;
         for (auto it = mem_begin; it != mem_end; ++it) {
             if (holding_it == it) continue; // We're already holding this mutex lock from the previous attempt
 
-            auto &mutex = (*it)->wmutex_;
-
-            bool got_lock = mutex.try_lock();
-            // If we're getting a write lock, we need to check not only that we got the mutex lock,
-            // but also that we got it when readlocks_ equals 0; otherwise, we only really have a
-            // shared (i.e. read) lock, so need to release it and try again.
-            if (write and got_lock and (*it)->readlocks_ > 0) {
-                mutex.unlock();
-                got_lock = false;
-            }
-
-            if (not got_lock) {
+            if (!((*it)->try_lock_(write))) {
+                // If we didn't get the lock, we need to release all the locks previously obtained in
+                // this loop:
                 unwind_it = it;
                 break;
             }
@@ -84,31 +88,23 @@ bool Member::Lock::mutex_lock_(bool write, bool only_try) {
         // Otherwise unwind from the beginning up to the unwind iterator, unlocking all the
         // locks we acquired
         for (auto undoit = mem_begin; undoit != unwind_it; ++undoit) { // Undo [begin,unwind)
-            auto &mem = *undoit;
-            mem->wmutex_.unlock();
+            (*undoit)->unlock_(write);
             if (undoit == holding_it) undid_holding = true;
         }
 
-        // If we're also holding a lock from the previous time through that didn't just get
-        // undone, release it too
-        if (holding_it != mem_end and not undid_holding) {
-            (*holding_it)->wmutex_.unlock();
+        // If we're also holding a lock from the previous time through that didn't just get undone
+        // (i.e. last time we got stuck on lock `i`, this time we got stuck on lock `j < i`),
+        // release it too
+        if (holding_it != mem_end && !undid_holding) {
+            (*holding_it)->unlock_(write);
             holding_it = mem_end;
         }
-
-        auto unwind = *unwind_it;
 
         // If we're only trying, we failed, so return false.
         if (only_try) return false;
 
         // Now block waiting for unwind's lock, then repeat the whole procedure.
-        unwind->wmutex_.lock();
-
-        // If we're looking for a readlock, we need to release and wait on the readlocks_cv_ until
-        // we get the lock *and* readlocks_ == 0.
-        if (write) {
-            unwind->readlock_cv_.wait(unwind->wmutex_, [&] { return unwind->readlocks_ == 0; });
-        }
+        (*unwind_it)->lock_(write);
 
         // We've now got a lock on the member that was giving us trouble while trying to get all the
         // locks without blocking, so try again.
@@ -120,42 +116,27 @@ bool Member::Lock::mutex_lock_(bool write, bool only_try) {
 
 
 bool Member::Lock::read(bool only_try) {
-    if (data->members.empty()) {
+    if (isFake()) {
         // No members, this is a fake lock
         data->write = false;
         data->locked = true;
+        return true;
     }
-    else if (isLocked()) {
-        // Already locked
-        if (isWrite()) {
-            // Write lock already established; downgrade all locks to read locks by incrementing
-            // readlocks_ and releasing the member mutexes
-            for (auto &m : data->members) {
-                m->readlocks_++;
-                m->wmutex_.unlock();
-            }
-            data->write = false;
-        }
-        // Otherwise we don't care: calling read() on an active readlock does nothing.
-    }
-    else {
-        bool got_lock = mutex_lock_(false, only_try);
-        data->write = false;
-        data->locked = got_lock;
 
-        if (!got_lock) return false;
-
-        for (auto &m : data->members) {
-            m->readlocks_++;
-            m->wmutex_.unlock();
-        }
+    if (isLocked()) {
+        if (isRead())
+            return true; // Nothing to do
+        else
+            unlock(); // Currently a write lock: release it first
     }
-    return true;
+
+    data->write = false;
+    data->locked = lock_all_(false, only_try);
+    return isLocked();
 }
 
 bool Member::Lock::write(bool only_try) {
-    if (data->members.empty()) {
-        // Fake lock
+    if (isFake()) {
         data->write = true;
         data->locked = true;
         return true;
@@ -164,15 +145,13 @@ bool Member::Lock::write(bool only_try) {
     if (isLocked()) {
         if (isWrite()) // Already an active write lock, nothing to do.
             return true;
-        else // Read lock: release it first
-            unlock();
+        else
+            unlock(); // Currently a read lock: release it first
     }
 
-    bool got_lock = mutex_lock_(true, only_try);
     data->write = true;
-    data->locked = got_lock;
-
-    return got_lock;
+    data->locked = lock_all_(true, only_try);
+    return isLocked();
 }
 
 void Member::Lock::lock() {
@@ -189,42 +168,18 @@ bool Member::Lock::try_lock() {
 }
 
 void Member::Lock::unlock() {
-    if (not isLocked()) throw std::system_error(std::make_error_code(std::errc::operation_not_permitted),
+    if (!isLocked()) throw std::system_error(std::make_error_code(std::errc::operation_not_permitted),
             "Member::Lock::unlock: not locked");
-    if (data->members.empty()) {
-        // Fake lock
-    }
-    else if (isWrite()) {
-        // To release a write lock, simply release all the currently held mutex locks
+    if (!isFake()) {
+        const bool write = isWrite();
         for (auto &m : data->members)
-            m->wmutex_.unlock();
-    }
-    else {
-        // Releasing a read lock requires relocking the mutex, decrementing readlocks_, then
-        // releasing the mutex, repeated for each object.  (Since nothing ever holds a mutex except
-        // a write lock (which isn't possible if we're a read lock) and a momentary lock attempt,
-        // this may block for brief periods of time, but won't deadlock.
-        for (auto &m : data->members) {
-            m->wmutex_.lock();
-            bool notify = (--(m->readlocks_) == 0);
-            if (notify)
-                m->readlock_cv_.notify_all();
-            m->wmutex_.unlock();
-        }
+            m->unlock_(write);
     }
     data->locked = false;
 }
 
-bool Member::Lock::isLocked() {
-    return data->locked;
-}
-
-bool Member::Lock::isWrite() {
-    return data->write;
-}
-
 void Member::Lock::transfer(Member::Lock &from) {
-    if (isWrite() != from.isWrite() or isLocked() != from.isLocked()) {
+    if (isWrite() != from.isWrite() || isLocked() != from.isLocked()) {
         throw Member::Lock::mismatch_error();
     }
 
@@ -235,44 +190,23 @@ void Member::Lock::transfer(Member::Lock &from) {
 }
 
 bool Member::Lock::try_add(const SharedMember<Member> &member) {
-
-    bool need_release = false; // Will be true if we fail to get a non-blocking lock
+    if (isFake())
+        return true;
 
     if (isLocked()) {
         // First try to see if we can obtain a (non-blocking) lock on the new member.  If we can, great,
         // just hold that lock and add the new member to the set of locked members.  If not, we have to
         // release the existing lock, add the new one into the member list, then do a blocking lock on
         // the entire (old + new) set of members.
-        auto &mutex = member->wmutex_;
-        if (mutex.try_lock()) {
-            // Got the mutex lock right away
-            if (isWrite()) {
-                // But we need a write lock
-                if (member->readlocks_ > 0) {
-                    // Outstanding read locks, so we didn't really get a write lock
-                    mutex.unlock();
-                    need_release = true;
-                }
-            }
-            else {
-                // Read lock
-                member->readlocks_++;
-                mutex.unlock();
-            }
-        }
-        else {
-            // The mutex lock would blocked, so we need to release everything before going for the
-            // blocking lock.
-            need_release = true;
+        if (!(isWrite() ? member->mutex_.try_lock() : member->mutex_.try_lock_shared())) {
+            // Couldn't get the required lock; we'll have to release all and do a full blocking lock
+            return false;
         }
     }
 
-    if (need_release)
-        return false;
-    else {
-        data->members.insert(member);
-        return true;
-    }
+    // Either we successfully locked the new member, or the lock isn't active so we can add:
+    data->members.insert(member);
+    return true;
 }
 
 void Member::Lock::add(const SharedMember<Member> &member) {
