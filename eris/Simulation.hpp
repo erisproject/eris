@@ -264,12 +264,6 @@ class Simulation : public std::enable_shared_from_this<Simulation>, private nonc
          */
         void registerDependency(MemberID member, MemberID depends_on);
 
-        /** Same as above, but takes SharedMembers for convenience */
-        template <typename T1, typename T2>
-        void registerDependency(const SharedMember<T1> &member, const SharedMember<T2> &depends_on) {
-            registerDependency(member->id(), depends_on->id());
-        }
-
         /** Records already-stored member `depends_on` is a weak dependency of `member`.  In
          * contrast to a non-weak dependency, the member is only notified of the removal of the
          * dependent, it is not removed itself.
@@ -278,12 +272,6 @@ class Simulation : public std::enable_shared_from_this<Simulation>, private nonc
          * method called with the just-removed (but still not destroyed) member.
          */
         void registerWeakDependency(MemberID member, MemberID depends_on);
-
-        /// Same as above, but takes SharedMembers for convenience
-        template <typename T1, typename T2>
-        void registerWeakDependency(const SharedMember<T1> &member, const SharedMember<T2> &depends_on) {
-            registerWeakDependency(member->id(), depends_on->id());
-        }
 
         /** Sets the maximum number of threads to use for subsequent calls to run().  The default
          * value is 0 (which uses no threads at all; see below).  If this is lowered between calls
