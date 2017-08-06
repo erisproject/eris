@@ -372,4 +372,74 @@ search_result<ArgT, ValueT> single_peak_search(
         return {std::move(midright), std::move(fmr), true, iterations};
 }
 
+/** Performs a binary search to find the maximum function value that satisfies a constraint given
+ * a pair of values that satisfy and do not satisfy the constraint.
+ *
+ * This algorithm works by evaluating the function at the midpoint between `left` and `right`,
+ * eliminating either the left half or right half of the interval at each step depending on whether
+ * the constraint is satisfied or not at the mid-point.
+ *
+ * \param f the function (or function-like) object that can be called with a single double argument
+ * and returns true if the value satisfies the constraint and false otherwise.
+ * \param left the left edge of the domain to consider.
+ * \param right the right edge of the domain to consider.
+ *
+ * \return a `eris::search_result` struct.  If the initial `f(left)` is not satisfied, this
+ * immediately returns (with `value` set to false, `inside` set to false, and `arg` set to left).
+ * If the initial `f(right)` is satisfied, this immediately returns with `value` set to true,
+ * `inside` set to false, and `arg` set to right.  Otherwise (i.e. for an interior solution) this
+ * returns with `.arg` set to the maximum constraint-satisfying argument, `.value` set to true, and
+ * `.inside` set to true.  (Note that a maximum at exactly `left` is considered "inside" `[left,
+ * right)`).
+ */
+template <typename ArgT, typename Func>
+search_result<ArgT, bool> constrained_maximum_search(
+        Func f, ArgT left, ArgT right, std::common_type_t<ArgT> tol_rel = 1e-10) {
+    static_assert(std::is_same<bool, decltype(f(left))>::value,
+            "constrained_minimum_search: given function must return a `bool` value");
+
+    bool fl = f(left);
+    if (!fl) return {std::move(left), false, false, 0};
+
+    bool fr = f(right);
+    if (fr) return {std::move(right), true, false, 0};
+
+    ArgT span = right - left;
+    using std::abs; // Don't use std::abs directly (to allow ADL on abs)
+    using std::max;
+    int iterations = 0;
+    while (span > tol_rel * max(abs(left), abs(right))) {
+        iterations++;
+        ArgT mid = left + 0.5 * span;
+        if (mid == left || mid == right) break; // Numerical precision limit
+        bool fm = f(mid);
+        if (fm) {
+            // The midpoint satisfies the constraint, so throw away the left half
+            left = std::move(mid);
+            fl = fm;
+        }
+        else {
+            right = std::move(mid);
+            fr = fm;
+        }
+        span = right - left;
+    }
+
+    return {std::move(left), true, true, iterations};
+}
+
+/// Helper that converts arguments to use `constrained_maximum_search` to find the smallest
+/// satisfying argument rather than the largest.
+template <typename ArgT, typename Func>
+search_result<ArgT, bool> constrained_minimum_search(
+        Func f, ArgT left, ArgT right, std::common_type_t<ArgT> tol_rel = 1e-10) {
+    static_assert(std::is_same<bool, decltype(f(left))>::value,
+            "constrained_minimum_search: given function must return a `bool` value");
+    auto ret = constrained_maximum_search(
+            [f = std::move(f)](ArgT a) { return f(-a); },
+            -right, -left, tol_rel);
+    ret.arg *= -1;
+    return ret;
+}
+
 }

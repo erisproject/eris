@@ -43,4 +43,21 @@ int main() {
             [](FloatType x) { return 12 - x*x + 3*x; },
             0, 100, 0));
 
+
+    constexpr FloatType first_bad = 0.75;
+    print(eris::constrained_maximum_search<FloatType>(
+            [](FloatType x) { return x < first_bad; },
+            0.1, 0.95, 0));
+
+    print(eris::constrained_minimum_search<FloatType>(
+            [](FloatType x) { return x > first_bad; },
+            0.1, 0.95, 0));
+
+    auto quantity_demanded = [](double p) { return (int)(99 - 2*p); };
+    int x = 10;
+    double min = 0.0, max = 100.0;
+    auto r = eris::constrained_maximum_search(
+        [&](double p) { return quantity_demanded(p) >= x; },
+        min, max, 0);
+    std::cout << std::setprecision(16) << "p = " << r.arg << "\n";
 }
