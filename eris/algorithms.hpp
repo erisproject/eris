@@ -6,6 +6,7 @@
 #include <vector>
 #include <limits>
 #include <utility>
+#include <cmath>
 
 namespace eris {
 
@@ -247,7 +248,30 @@ class Stepper final {
 
 };
 
-struct single_peak_result; // forward declaration
+/// Struct holding the results of a call to an optimization function such as single_peak_search() or
+/// `constrained_maximum_search()`
+template <typename ArgType = double, typename ValueType = double> struct search_result {
+    ArgType arg; ///< The argument that maximizes the searched function
+    ValueType value; ///< The value of the function at `.arg`
+    /** Whether `.arg` is strictly inside the given left/right limits.  If false, the found value
+     * was at one of the end-points, and may not actually be a peak at all.
+     */
+    bool inside;
+    /// Number of iterations, if applicable (-1 otherwise).
+    int iterations;
+    operator ArgType() const { return arg; } ///< Implicit conversion to double returns `.arg`
+
+    search_result(ArgType a, ValueType v, bool in, int it = -1) : arg(std::move(a)), value(std::move(v)), inside(in), iterations(it) {}
+};
+
+/// The constant phi.  Callers can specialize this template if using custom types with more
+/// precision than a long double value.
+template <typename RealType> constexpr RealType phi = 1.61803398874989484820458683436563811L;
+
+/// The right inner point multiple for a golden section search, phi - 1.
+template <typename RealType> constexpr RealType golden_section_right = phi<RealType> - RealType(1);
+/// The left inner point multiple for a golden section search, 1 - right, which also equals 2 - phi.
+template <typename RealType> constexpr RealType golden_section_left = RealType(1) - golden_section_right<RealType>;
 
 /** Performs a golden section search to find a maximum of a single-peaked function between two
  * limits.  This function must be called with left and right end points.  This function will not
@@ -267,39 +291,85 @@ struct single_peak_result; // forward declaration
  * the prior midpoints will also be the midpoint of the next iteration, and so the function value
  * can simply be reused).
  *
- * \param f a function-like object that can be called with a single double argument and returns the
- * function value.
+ * \param f a function or function-like object that can be called with a single argument value and
+ * returns the function value at that argument.
  * \param left the left edge of the domain to consider
  * \param right the right edge of the domain to consider
  * \param tol_rel the relative size of the domain at which the algorithm stops.  In particular, the
  * algorithm stops if \f$\frac{right - left}{max\{\|left\|, \|right\|\}} \leq tol_{rel}\f$.  The
- * default, if the argument is omitted, is \f$10^{-10}\f$.  Note that the algorithm might
- * alternatively stop because of the `tol_abs` value.  Note also that there is also a numerical
- * lower bound on this value: if the midpoint calculation results in a midpoint exactly numerically
- * equal to an end point, the algorithm stops.
- * \param tol_abs the absolute size of the domain at which the algorithm stops.  In particular, the
- * algorithm stops if \f$right - left \leq tol_{abs}\f$.  Note that the algorithm might
- * alternatively stop because of the `tol_rel` value.
+ * default, if the argument is omitted, is \f$10^{-10}\f$.  Note that the algorithm will also stop
+ * when it reaches the limits of numerical precision, that is, where a calculated midpoint does not
+ * numerically differ from an end point (and so you can safely specify a tolerance of 0 to get
+ * maximum double precision).
  *
- * \return a single_peak_result struct with `.arg` set to the peak argument, and `.max` set to the
- * value of the function at `.arg`.
+ * \return a `eris::search_result` struct with `.arg` set to the peak argument, and `.max` set to
+ * the value of the function at `.arg`.
  */
-single_peak_result single_peak_search(
-        const std::function<double(const double &)> &f,
-        double left,
-        double right,
-        double tol_rel = 1e-10,
-        double tol_abs = 1e-20);
+template <typename ArgT, typename Func, typename ValueT = decltype(std::declval<Func>()(std::declval<ArgT>()))>
+search_result<ArgT, ValueT> single_peak_search(
+        Func f, ArgT left, ArgT right, std::common_type_t<ArgT> tol_rel = 1e-10) {
 
-/// Struct holding the results of a call to single_peak_search()
-struct single_peak_result {
-    double arg; ///< The argument that maximizes the function given to `single_peak_search`
-    double max; ///< The value of the function at `.arg`
-    /** Whether `.arg` is strictly inside the given left/right limits.  If false, the peak was at
-     * one of the end-points, and may not actually be a peak at all.
-     */
-    bool inside;
-    operator double() const { return arg; } ///< Implicit conversion to double returns `.arg`
-};
+    if (tol_rel < 0) tol_rel = 0;
+
+    constexpr ArgT midpoint_right = phi<ArgT> - ArgT(1);
+    constexpr ArgT midpoint_left = ArgT(1) - midpoint_right;
+
+    // Track whether the peak is strictly inside the initial boundaries:
+    bool inside_left = false, inside_right = false;
+
+    ArgT span = right - left;
+    ArgT midleft = left + midpoint_left * span;
+    ArgT midright = left + midpoint_right * span;
+    ValueT fl = f(left), fml = f(midleft), fmr = f(midright), fr = f(right);
+
+    int iterations = 1; // Count the above mid calcs as an iteration
+    using std::abs; // Don't use std::abs directly (to allow ADL on abs)
+    using std::max;
+    while (span > tol_rel * max(abs(left), abs(right))) {
+        iterations++;
+        if (fml >= fmr) {
+            // midleft is the higher point, so we can exclude everything right of midright.
+            right = std::move(midright); fr = std::move(fmr);
+            inside_right = true;
+            span = right - left;
+            midright = std::move(midleft); fmr = std::move(fml);
+            midleft = left + midpoint_left * span;
+            fml = f(midleft);
+            // If the midpoint is closer to the endpoint than is numerically distinguishable, finish:
+            if (midleft == left) break;
+        }
+        else {
+            // midright is higher, so exclude everything left of midleft.
+            left = std::move(midleft); fl = std::move(fml);
+            inside_left = true;
+            span = right - left;
+            midleft = std::move(midright); fml = std::move(fmr);
+            midright = left + midpoint_right * span;
+            fmr = f(midright);
+            // If the midpoint is closer to the endpoint than is numerically distinguishable, finish:
+            if (midright == right) break;
+        }
+
+        // Sometimes we can run into numerical instability that results in midleft > midright,
+        // particular when the optimum is close to 0.  If we encounter that, swap midleft and
+        // midright.
+        if (midleft > midright) {
+            using std::swap;
+            swap(midleft, midright);
+            swap(fml, fmr);
+        }
+    }
+
+    // Prefer the end-points for ties (the max might legitimately be an end-point), and prefer left
+    // over right (for no particularly good reason).
+    if (fl >= fml && fl >= fmr && fl >= fr)
+        return {std::move(left), std::move(fl), inside_left, iterations};
+    else if (fr >= fmr && fr >= fml)
+        return {std::move(right), std::move(fr), inside_right, iterations};
+    else if (fml >= fmr)
+        return {std::move(midleft), std::move(fml), true, iterations};
+    else
+        return {std::move(midright), std::move(fmr), true, iterations};
+}
 
 }

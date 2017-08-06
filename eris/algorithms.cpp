@@ -1,7 +1,4 @@
 #include <eris/algorithms.hpp>
-#include <cmath>
-#include <algorithm>
-#include <boost/math/constants/constants.hpp>
 
 namespace eris {
 
@@ -53,91 +50,6 @@ double Stepper::step(bool up) {
     if (not relative_steps) return up ? step_size : -step_size;
     else if (up) return 1 + step_size;
     else return 1.0 / (1 + step_size);
-}
-
-// Relative right midpoint position.  Equal to \f$\varphi - 1\f$.
-constexpr double sps_right_mid_ = boost::math::constants::phi<double>() - 1;
-// Relative left midpoint position.  Equal to 1 minus `sps_right_mid_`, which also equals 2 - phi.
-constexpr double sps_left_mid_ = 1 - sps_right_mid_;
-
-single_peak_result single_peak_search(
-        const std::function<double(const double &)> &f,
-        double left,
-        double right,
-        double tol_rel,
-        double tol_abs) {
-
-    if (tol_rel < 0) tol_rel = 0;
-    if (tol_abs < 0) tol_abs = 0;
-
-    // Track whether the peak is strictly inside the initial boundaries:
-    bool inside_left = false, inside_right = false;
-
-    double midleft = left + sps_left_mid_*(right - left);
-    double midright = left + sps_right_mid_*(right - left);
-    double fl = f(left), fml = f(midleft), fmr = f(midright), fr = f(right);
-
-    while (
-        tol_abs < right - left
-            and
-        tol_rel < (right - left) / std::max(std::fabs(left), std::fabs(right))
-    ) {
-
-        if (fml >= fmr) {
-            // midleft is the higher point, so we can exclude everything right of midright.
-            right = midright; fr = fmr;
-            inside_right = true;
-            midright = midleft; fmr = fml;
-            midleft = left + (right - left) * sps_left_mid_;
-            fml = f(midleft);
-            // If the midpoint is closer to the endpoint than is numerically distinguishable, finish:
-            if (midleft == left) break;
-        }
-        else {
-            // midright is higher, so exclude everything left of midleft.
-            left = midleft; fl = fml;
-            inside_left = true;
-            midleft = midright; fml = fmr;
-            midright = left + (right - left) * sps_right_mid_;
-            fmr = f(midright);
-            // If the midpoint is closer to the endpoint than is numerically distinguishable, finish:
-            if (midright == right) break;
-        }
-
-        // Sometimes, we can run into numerical instability that results in midleft > midright,
-        // particular when the optimum is close to 0.  If we encounter that, swap midleft and
-        // midright.
-        if (midleft > midright) {
-            std::swap(midleft, midright);
-            std::swap(fml, fmr);
-        }
-    }
-
-    single_peak_result result;
-    // Prefer the end-points for ties (the max might legitimate be an end-point), and prefer
-    // left over right (for no particularly good reason).
-    if (fl >= fml && fl >= fmr && fl >= fr) {
-        result.arg = left;
-        result.max = fl;
-        result.inside = inside_left;
-    }
-    else if (fr >= fmr && fr >= fml) {
-        result.arg = right;
-        result.max = fr;
-        result.inside = inside_right;
-    }
-    else if (fml >= fmr) {
-        result.arg = midleft;
-        result.max = fml;
-        result.inside = true;
-    }
-    else {
-        result.arg = midright;
-        result.max = fmr;
-        result.inside = true;
-    }
-
-    return result;
 }
 
 }
