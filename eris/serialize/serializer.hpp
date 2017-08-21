@@ -71,7 +71,6 @@ public:
         is >> serializer<T>(val);
         return val;
     }
-protected:
 };
 
 /** Convenience base class for serialization of const values; this extends serializer_base by
@@ -87,13 +86,22 @@ public:
 };
 
 /// Sending a serializer-wrapped value to an output stream
-std::ostream& operator<<(std::ostream &out, const serializer_base &s);
+inline std::ostream& operator<<(std::ostream &out, const serializer_base &s) {
+    s.store_to(out);
+    return out;
+}
 
 /// Reads a serialized value from an input stream
-std::istream& operator>>(std::istream &in, serializer_base &s);
+inline std::istream& operator>>(std::istream &in, serializer_base &s) {
+    s.load_from(in);
+    return in;
+}
 
 /// Read a serialized value from an input stream, rvalue version
-std::istream& operator>>(std::istream &in, serializer_base &&s);
+inline std::istream& operator>>(std::istream &in, serializer_base &&s) {
+    s.load_from(in);
+    return in;
+}
 
 template <typename T> using EnableFixedArithmetic = std::enable_if_t<
     !std::is_const<T>::value && std::is_arithmetic<T>::value>;
@@ -114,8 +122,6 @@ public:
     /// The fixed size of this serialization
     static constexpr size_t size = sizeof(T);
 
-protected:
-    template <typename, typename> friend class serializer;
     /** Serializes the data by writing it as bytes and copying it to the given ostream in
      * little-endian order.
      */
@@ -155,8 +161,6 @@ public:
     /// The fixed size of this serialization
     static constexpr size_t size = sizeof(T);
 
-protected:
-    template <typename, typename> friend class serializer;
     inline void store_to(std::ostream &os) const override {
         const char *in = reinterpret_cast<const char*>(&ref);
 #if defined(BOOST_LITTLE_ENDIAN)
@@ -190,7 +194,6 @@ public:
     /// The fixed size of this serialization
     static constexpr size_t size = N * serializer<T>::size;
 
-protected:
     /** Serializes the data by serializing each array element in sequence. */
     inline void store_to(std::ostream &os) const override {
         for (auto &s : serializers) s.store_to(os);
@@ -206,25 +209,72 @@ private:
     std::array<serializer<T>, N> serializers;
 };
 
-/** Specialization for std::pair<A, B>.  A and B must have serialize<T> specializations.
+/// Returns the sum of all template arguments if all are strictly positive; 0 if any values equal 0.
+template <size_t... S> struct nonzero_sum : std::integral_constant<size_t, 0> {};
+template <size_t S, size_t... More> struct nonzero_sum<S, More...>
+    : std::integral_constant<size_t, (S > 0) ? S + nonzero_sum<More...>::value : 0> {};
+
+/// Apply a function over each element of a parameter pack
+#ifdef __cpp_fold_expressions
+#define ERIS_SERIALIZER_EXPAND_SIDE_EFFECTS(PATTERN) (((PATTERN), void()), ...)
+#else
+using expand_side_effects = bool[];
+#define ERIS_SERIALIZER_EXPAND_SIDE_EFFECTS(PATTERN) eris::serialize::expand_side_effects{ ((PATTERN), void(), false)..., false }
+#endif
+
+/** Specialization for std::pair<A, B> and std::tuple<A, B, ...>.  Each type must have serialize<T>
+ * specializations.
  *
  * This holds a reference to the given pair; it should stay alive for the duration of the
  * serialization object.
  */
-template <typename T1, typename T2>
-class serializer<std::pair<T1, T2>> : public serializer_base {
+template <template<typename...> class TupleType, typename... Ts>
+class tuple_serializer : public serializer_base {
+    using Tuple = TupleType<Ts...>;
 public:
     /// Wraps a serializer around a reference
-    explicit serializer(std::pair<T1, T2> &var) :
-        serializers{{serializer<T1>(var.first), serializer<T2>(var.second)}}
+    explicit tuple_serializer(Tuple &var) : tuple_serializer(var, std::index_sequence_for<Ts...>{}) {}
+
+    template <size_t... Ix>
+    tuple_serializer(Tuple &var, std::index_sequence<Ix...>) :
+        serializers{serializer<Ts>(std::get<Ix>(var))...}
     {}
 
     /// If both pair types have fixed sizes, this is the sum of those sizes, else 0 (i.e. variable size)
-    static constexpr size_t size = (serializer<T1>::size > 0 && serializer<T2>::size > 0)
-        ? serializer<T1>::size + serializer<T2>::size : 0;
+    static constexpr size_t size = nonzero_sum<serializer<Ts>::size...>::value;
 
+    /** Serializes the data by serializing each array element in sequence. */
+    inline void store_to(std::ostream &os) const override {
+        store_to_impl(os, std::index_sequence_for<Ts...>{});
+    }
+    /** Deserializes the data by reading the individual serialized values from the given istream and
+     * storing them, in order, in the referenced array.
+     */
+    inline void load_from(std::istream &is) override {
+        load_from_impl(is, std::index_sequence_for<Ts...>{});
+    }
 private:
-    std::pair<serializer<T1>, serializer<T2>> serializers;
+    template <size_t... Ix>
+    void store_to_impl(std::ostream &os, std::index_sequence<Ix...>) const {
+        ERIS_SERIALIZER_EXPAND_SIDE_EFFECTS(std::get<Ix>(serializers).store_to(os));
+    }
+
+    template <size_t... Ix>
+    void load_from_impl(std::istream &is, std::index_sequence<Ix...>) {
+        ERIS_SERIALIZER_EXPAND_SIDE_EFFECTS(std::get<Ix>(serializers).load_from(is));
+    }
+    TupleType<serializer<Ts>...> serializers;
 };
+
+template <typename T1, typename T2>
+class serializer<std::pair<T1, T2>> : public tuple_serializer<std::pair, T1, T2> {
+    using tuple_serializer<std::pair, T1, T2>::tuple_serializer;
+};
+
+template <typename... Ts>
+class serializer<std::tuple<Ts...>> : public tuple_serializer<std::tuple, Ts...> {
+    using tuple_serializer<std::tuple, Ts...>::tuple_serializer;
+};
+
 
 }}
