@@ -261,7 +261,8 @@ template <typename ArgType = double, typename ValueType = double> struct search_
     int iterations;
     operator ArgType() const { return arg; } ///< Implicit conversion to double returns `.arg`
 
-    search_result(ArgType a, ValueType v, bool in, int it = -1) : arg(std::move(a)), value(std::move(v)), inside(in), iterations(it) {}
+    search_result(ArgType a, ValueType v, bool in, int it = -1) :
+        arg(std::move(a)), value(std::move(v)), inside(in), iterations(it) {}
 };
 
 /// The constant phi.  Callers can specialize this template if using custom types with more
@@ -372,6 +373,8 @@ search_result<ArgT, ValueT> single_peak_search(
         return {std::move(midright), std::move(fmr), true, iterations};
 }
 
+template <typename T> using non_deduced = T;
+
 /** Performs a binary search to find the maximum function value that satisfies a constraint given
  * a pair of values that satisfy and do not satisfy the constraint.
  *
@@ -382,7 +385,10 @@ search_result<ArgT, ValueT> single_peak_search(
  * \param f the function (or function-like) object that can be called with a single double argument
  * and returns true if the value satisfies the constraint and false otherwise.
  * \param left the left edge of the domain to consider.
- * \param right the right edge of the domain to consider.
+ * \param right the right edge of the domain to consider.  Can be NaN, in which case the
+ * algorithm first starts at x = max{-left, 2*left}, doubling x until a constraint violation is
+ * encountered, at which point this `x` becomes `right`.  (This attempts to determine `right` are
+ * not counted in iterations in the returned object).
  *
  * \return a `eris::search_result` struct.  If the initial `f(left)` is not satisfied, this
  * immediately returns (with `value` set to false, `inside` set to false, and `arg` set to left).
@@ -394,19 +400,29 @@ search_result<ArgT, ValueT> single_peak_search(
  */
 template <typename ArgT, typename Func>
 search_result<ArgT, bool> constrained_maximum_search(
-        Func f, ArgT left, ArgT right, std::common_type_t<ArgT> tol_rel = 1e-10) {
+        Func f, ArgT left, non_deduced<ArgT> right, non_deduced<ArgT> tol_rel = ArgT(1e-10)) {
     static_assert(std::is_same<bool, decltype(f(left))>::value,
             "constrained_minimum_search: given function must return a `bool` value");
 
     bool fl = f(left);
     if (!fl) return {std::move(left), false, false, 0};
 
+    // Don't call std::abs etc. directly (to allow ADL on these funcs)
+    using std::abs;
+    using std::max;
+    using std::isfinite;
+    using std::isnan;
+
+    if (isnan(right)) {
+        ArgT x = left < ArgT(0) ? -left : 2*left;
+        while (isfinite(x) && f(x)) x *= ArgT(2);
+        right = x;
+    }
+
     bool fr = f(right);
-    if (fr) return {std::move(right), true, false, 0};
+    if (fr || !isfinite(right)) return {std::move(right), fr, false, 0};
 
     ArgT span = right - left;
-    using std::abs; // Don't use std::abs directly (to allow ADL on abs)
-    using std::max;
     int iterations = 0;
     while (span > tol_rel * max(abs(left), abs(right))) {
         iterations++;
