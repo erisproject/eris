@@ -85,7 +85,10 @@ public:
     }
 
     /** const access to the underlying shared_ptr */
-    const std::shared_ptr<T>& ptr() const noexcept { return ptr_; }
+    const std::shared_ptr<T>& ptr() const & noexcept { return ptr_; }
+
+    /** In rvalue context the current shared pointer can be obtained as an rvalue. */
+    std::shared_ptr<T>&& ptr() && noexcept { return std::move(ptr_); }
 
     /** Resets the underlying shared_ptr */
     void reset() { ptr_.reset(); }
@@ -131,21 +134,84 @@ public:
     }
 
     /// Default copy constructor.
-    SharedMember(const SharedMember<T> &) = default;
+    SharedMember(const SharedMember &) = default;
 
     /// Default move constructor.  The underlying shared pointer is moved
-    SharedMember(SharedMember<T> &&) = default;
+    SharedMember(SharedMember &&) = default;
 
     /// Default copy assignment
-    SharedMember<T>& operator=(const SharedMember<T> &) = default;
+    SharedMember& operator=(const SharedMember &) = default;
 
     /// Default move assignment
-    SharedMember<T>& operator=(SharedMember<T> &&) = default;
+    SharedMember& operator=(SharedMember &&) = default;
 
 private:
     std::shared_ptr<T> ptr_;
 
     template <typename O> friend class SharedMember;
+};
+
+/** Weak-reference version of SharedMember<T>.  This is internally a wrapper around a
+ * `std::weak_ptr<T>` that weakly references a member.  It is implicitly convertible from a
+ * `SharedMember<T>`, and implicitly convertible to a `SharedMember<U>` for any `U` for which
+ * `SharedMember<T>` is implicitly convertible.  It also can be used in boolean context (in the same
+ * way as SharedMember, i.e. to determine if there is actually a reference).  It is not otherwise
+ * directly usable: any member access must operate by first converting into a SharedMember<T>.
+ */
+template <class T>
+class WeakMember final {
+    template <typename U> constexpr static bool convertible_from = std::is_convertible<SharedMember<U>, SharedMember<T>>::value;
+public:
+    /// Default constructor; the weak pointer doesn't have a target.
+    WeakMember() = default;
+
+    /// Copy constructor
+    WeakMember(const WeakMember &) = default;
+
+    /// Move constructor
+    WeakMember(WeakMember &&) = default;
+
+    /// Constructs a weak member from a shared member; allows implicit conversion
+    WeakMember(const SharedMember<T> &member) :
+        ptr_{member.ptr()} {};
+
+    /// Implicit conversion from this weak member to a shared member of the same type
+    operator SharedMember<T>() const { return SharedMember<T>(ptr_.lock()); }
+
+    /// Same as implicit conversion to a SharedMember<T>, but easier in some contexts.
+    SharedMember<T> lock() const { return SharedMember<T>(ptr_.lock()); }
+
+    /// Implicit conversion from this WeakMember<T> to a related SharedMember<U>; this operator only
+    /// participates when `SharedMember<T>` is convertible to `SharedMember<U>`.  Also note that
+    /// this conversion may fail (see SharedMember implicit conversion for details).
+    template <typename U, typename = std::enable_if_t<convertible_from<U>>>
+    operator SharedMember<U>() const { return SharedMember<U>(*this); }
+
+    /// Default copy assignment
+    WeakMember& operator=(const WeakMember &) = default;
+
+    /// Default move assignment
+    WeakMember& operator=(WeakMember &&) = default;
+
+    /// Copy assignment from a SharedMember<T>; replaces current weak pointer with new weak pointer
+    /// referencing the given member.
+    WeakMember& operator=(const SharedMember<T> &m) { ptr_ = m.ptr(); }
+
+    /// Copy assignment from a SharedMember<T>, rvalue version.
+    WeakMember& operator=(SharedMember<T> &&m) { ptr_ = std::move(m).ptr(); }
+
+    /// Copy assignment from a SharedMember<U>; only participates if convertible to SharedMember<T>.
+    /// Also note that this can throw at runtime whenever the SharedMember conversion throws.
+    template <typename U, typename = std::enable_if_t<convertible_from<U>>>
+    WeakMember &operator=(const SharedMember<U> &m) { *this = (SharedMember<T>) m; }
+
+    /// boolean context: returns true if there is a referenced member.  Note that if not used
+    /// carefully this can have a race condition: the referenced member could be set (or disappear)
+    /// between the boolean conversion and the subsequent operation.
+    operator bool() { return !ptr_.expired(); }
+
+private:
+    std::weak_ptr<T> ptr_;
 };
 
 }
