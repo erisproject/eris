@@ -301,27 +301,33 @@ template <typename RealType> constexpr RealType golden_section_left = RealType(1
  * default, if the argument is omitted, is \f$10^{-10}\f$.  Note that the algorithm will also stop
  * when it reaches the limits of numerical precision, that is, where a calculated midpoint does not
  * numerically differ from an end point (and so you can safely specify a tolerance of 0 to get
- * maximum double precision).
+ * maximum precision).
+ *
+ * The domain type may be optionally specified as a template arugment; if not provided it defaults
+ * to `double`.
  *
  * \return a `eris::search_result` struct with `.arg` set to the peak argument, and `.max` set to
  * the value of the function at `.arg`.
  */
-template <typename ArgT, typename Func, typename ValueT = decltype(std::declval<Func>()(std::declval<ArgT>()))>
-search_result<ArgT, ValueT> single_peak_search(
-        Func f, ArgT left, ArgT right, std::common_type_t<ArgT> tol_rel = 1e-10) {
+template <typename domain_t = double, typename Func, typename value_t = decltype(std::declval<Func>()(std::declval<domain_t>()))>
+search_result<domain_t, value_t> single_peak_search(
+        Func f,
+        std::common_type_t<domain_t> left,
+        std::common_type_t<domain_t> right,
+        std::common_type_t<domain_t> tol_rel = 1e-10) {
 
     if (tol_rel < 0) tol_rel = 0;
 
-    constexpr ArgT midpoint_right = phi<ArgT> - ArgT(1);
-    constexpr ArgT midpoint_left = ArgT(1) - midpoint_right;
+    constexpr domain_t midpoint_right = phi<domain_t> - domain_t(1);
+    constexpr domain_t midpoint_left = domain_t(1) - midpoint_right;
 
     // Track whether the peak is strictly inside the initial boundaries:
     bool inside_left = false, inside_right = false;
 
-    ArgT span = right - left;
-    ArgT midleft = left + midpoint_left * span;
-    ArgT midright = left + midpoint_right * span;
-    ValueT fl = f(left), fml = f(midleft), fmr = f(midright), fr = f(right);
+    domain_t span = right - left;
+    domain_t midleft = left + midpoint_left * span;
+    domain_t midright = left + midpoint_right * span;
+    value_t fl = f(left), fml = f(midleft), fmr = f(midright), fr = f(right);
 
     int iterations = 1; // Count the above mid calcs as an iteration
     using std::abs; // Don't use std::abs directly (to allow ADL on abs)
@@ -398,9 +404,9 @@ template <typename T> using non_deduced = T;
  * `.inside` set to true.  (Note that a maximum at exactly `left` is considered "inside" `[left,
  * right)`).
  */
-template <typename ArgT, typename Func>
-search_result<ArgT, bool> constrained_maximum_search(
-        Func f, ArgT left, non_deduced<ArgT> right, non_deduced<ArgT> tol_rel = ArgT(1e-10)) {
+template <typename domain_t, typename Func>
+search_result<domain_t, bool> constrained_maximum_search(
+        Func f, domain_t left, non_deduced<domain_t> right, non_deduced<domain_t> tol_rel = domain_t(1e-10)) {
     static_assert(std::is_same<bool, decltype(f(left))>::value,
             "constrained_minimum_search: given function must return a `bool` value");
 
@@ -414,19 +420,19 @@ search_result<ArgT, bool> constrained_maximum_search(
     using std::isnan;
 
     if (isnan(right)) {
-        ArgT x = left < ArgT(0) ? -left : 2*left;
-        while (isfinite(x) && f(x)) x *= ArgT(2);
+        domain_t x = left < domain_t(0) ? -left : 2*left;
+        while (isfinite(x) && f(x)) x *= domain_t(2);
         right = x;
     }
 
     bool fr = f(right);
     if (fr || !isfinite(right)) return {std::move(right), fr, false, 0};
 
-    ArgT span = right - left;
+    domain_t span = right - left;
     int iterations = 0;
     while (span > tol_rel * max(abs(left), abs(right))) {
         iterations++;
-        ArgT mid = left + 0.5 * span;
+        domain_t mid = left + 0.5 * span;
         if (mid == left || mid == right) break; // Numerical precision limit
         bool fm = f(mid);
         if (fm) {
@@ -446,13 +452,13 @@ search_result<ArgT, bool> constrained_maximum_search(
 
 /// Helper that converts arguments to use `constrained_maximum_search` to find the smallest
 /// satisfying argument rather than the largest.
-template <typename ArgT, typename Func>
-search_result<ArgT, bool> constrained_minimum_search(
-        Func f, ArgT left, ArgT right, std::common_type_t<ArgT> tol_rel = 1e-10) {
+template <typename domain_t, typename Func>
+search_result<domain_t, bool> constrained_minimum_search(
+        Func f, domain_t left, domain_t right, std::common_type_t<domain_t> tol_rel = 1e-10) {
     static_assert(std::is_same<bool, decltype(f(left))>::value,
             "constrained_minimum_search: given function must return a `bool` value");
     auto ret = constrained_maximum_search(
-            [f = std::move(f)](ArgT a) { return f(-a); },
+            [f = std::move(f)](domain_t a) { return f(-a); },
             -right, -left, tol_rel);
     ret.arg *= -1;
     return ret;
