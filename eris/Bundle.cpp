@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <limits>
 #include <unordered_set>
-#include <set>
+#include <vector>
 #include <cmath>
 
 namespace eris {
@@ -527,12 +527,14 @@ void BundleSigned::_print(std::ostream &os) const {
     os << "(";
 
     // Sort the keys:
-    std::set<id_t> keys;
+    std::vector<id_t> keys;
+    keys.reserve(size());
     for (auto &g : *this)
-        keys.insert(g.first);
+        keys.push_back(g.first);
+    std::sort(keys.begin(), keys.end());
 
     bool first = true;
-    for (auto &k : keys) {
+    for (auto k : keys) {
         if (!first) os << ", ";
         else first = false;
 
