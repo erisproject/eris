@@ -27,10 +27,10 @@ namespace eris {
  * - ids are *currently* allocated sequentially, starting at 1.  This behaviour is not
  *   guaranteed.
  *
- * Note that attempt to use this name (via `using eris::id_t`) or `using namespace eris;` is likely
- * to conflict with the system `id_t` type from `time.h` when used in non-namespaced code (code
- * importing it into a namespace shouldn't conflict).  If you need to reference it in such a context
- * use full qualification: `eris::id_t`.
+ * Note that attempting to use this name via `using namespace eris;` can result in ambiguous use
+ * (conflicting with the `id_t` C typedef from system headers); you can avoid the ambiguity by
+ * either importing it explicitly into some other namespace (`using eris::id_t;`) or by always
+ * qualifying it (`eris::id_t`).
  */
 using id_t = std::uint64_t;
 
@@ -40,10 +40,10 @@ using eris_id_t [[deprecated("Use eris::id_t instead")]] = id_t;
 /** Signed integer type that stores an eris time period.  This is a signed type that can also be
  * used for time period deltas.
  *
- * Note that attempt to use this name (via `using eris::time_t`) or `using namespace eris;` is
- * likely to conflict with the system `time_t` type from `time.h` when used in non-namespaced
- * code (code importing it into a namespace shouldn't conflict).  If you need to reference it in
- * such a context use full qualification: `eris::time_t`.
+ * Note that attempting to use this name via `using namespace eris;` can result in ambiguous use
+ * (conflicting with the `time_t` C typedef from system headers); you can avoid the ambiguity by
+ * either importing it explicitly into some other namespace (`using eris::time_t;`) or by always
+ * qualifying it (`eris::time_t`).
  */
 using time_t = std::int32_t;
 
