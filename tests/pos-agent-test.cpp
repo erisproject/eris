@@ -6,6 +6,7 @@
 #include <eris/Agent.hpp>
 #include <gtest/gtest.h>
 #include <iostream>
+#include <cmath>
 
 #define INF std::numeric_limits<double>::infinity()
 #define EXPECT_EQP(a,b) EXPECT_EQ(Position(a), b)

@@ -1,6 +1,7 @@
 #include <eris/Simulation.hpp>
 #include <eris/consumer/Quadratic.hpp>
 #include <eris/Good.hpp>
+#include <eris/good/Discrete.hpp>
 #include <iostream>
 #include <map>
 #include <boost/format.hpp>
@@ -20,11 +21,11 @@ int main() {
     auto sim = Simulation::create();
 
     // Set up a numeraire good
-    auto money = sim->spawn<Good::Continuous>("Money");
+    auto money = sim->spawn<Good>("Money");
     // Plus another divisible good
-    auto x = sim->spawn<Good::Continuous>("x");
+    auto x = sim->spawn<Good>("x");
     // And a discrete good
-    auto w = sim->spawn<Good::Discrete>("w");
+    auto w = sim->spawn<good::Discrete>("w");
 
 
     // We have just a single consumer, with quaslinear quadratic utility in the x good
@@ -52,13 +53,13 @@ int main() {
 
         bool first = true;
         cout << "Gradient:";
-        for (auto g : c1->gradient({money,x,w}, b)) {
+        for (auto g : c1->gradient({money->id(),x->id(),w->id()}, b)) {
             cout << format(" %10g") % g.second;
         }
         cout << "\n\n";
 
         first = true;
-        for (auto col : c1->hessian({money,x,w}, b)) {
+        for (auto col : c1->hessian({money->id(),x->id(),w->id()}, b)) {
             if (first) { first = false; cout << "Hessian: "; }
             else cout << "         ";
 
