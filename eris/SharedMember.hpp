@@ -195,15 +195,15 @@ public:
 
     /// Copy assignment from a SharedMember<T>; replaces current weak pointer with new weak pointer
     /// referencing the given member.
-    WeakMember& operator=(const SharedMember<T> &m) { ptr_ = m.ptr(); }
+    WeakMember& operator=(const SharedMember<T> &m) { ptr_ = m.ptr(); return *this; }
 
     /// Copy assignment from a SharedMember<T>, rvalue version.
-    WeakMember& operator=(SharedMember<T> &&m) { ptr_ = std::move(m).ptr(); }
+    WeakMember& operator=(SharedMember<T> &&m) { ptr_ = std::move(m).ptr(); return *this; }
 
     /// Copy assignment from a SharedMember<U>; only participates if convertible to SharedMember<T>.
     /// Also note that this can throw at runtime whenever the SharedMember conversion throws.
     template <typename U, typename = std::enable_if_t<convertible_from<U>>>
-    WeakMember &operator=(const SharedMember<U> &m) { *this = (SharedMember<T>) m; }
+    WeakMember &operator=(const SharedMember<U> &m) { *this = (SharedMember<T>) m; return *this; }
 
     /// boolean context: returns true if there is a referenced member.  Note that if not used
     /// carefully this can have a race condition: the referenced member could be set (or disappear)
