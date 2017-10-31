@@ -64,7 +64,7 @@ Bertrand::allocation Bertrand::allocate(double q) const {
 
     // Keys are prices, values are maps of <firm -> fraction of q*output_unit available> available
     // at that price.
-    std::unordered_map<double, std::vector<std::pair<eris_id_t, double>>> schedule;
+    std::unordered_map<double, std::vector<std::pair<id_t, double>>> schedule;
 
     double agg_quantity = 0.0;
     Bundle q_bundle = q * output_unit;
@@ -243,7 +243,7 @@ Market::Reservation Bertrand::reserve(SharedMember<Agent> agent, double q, doubl
 
     double total_q = 0, total_p = 0;
 
-    std::unordered_map<eris_id_t, BundleNegative> firm_transfers;
+    std::unordered_map<id_t, BundleNegative> firm_transfers;
 
     // Figure out how much each firm contributes to the reservation
     for (auto &firm_share : a.shares) {

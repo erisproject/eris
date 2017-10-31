@@ -156,7 +156,7 @@ class Market : public Member {
                  * Positive amounts are to be transferred from the firm, negative amounts are to be
                  * transferred to the firm.  This is intended to be called only by Market subclasses.
                  */
-                void firmReserve(eris_id_t firm_id, BundleNegative transfer);
+                void firmReserve(id_t firm_id, BundleNegative transfer);
                 /** Calls buy() on the market.  Calling obj->buy() is a shortcut for calling
                  * `obj->market->buy(obj)`.
                  */
@@ -289,11 +289,11 @@ class Market : public Member {
         /** Removes f from the firms supplying in this market.  This is called automatically if a
          * firm passed to addFirm is removed from the simulation; manual calling is only needed if a
          * firm exits the market but stays in the simulation. */
-        virtual void removeFirm(eris_id_t fid);
+        virtual void removeFirm(id_t fid);
 
-        /** Returns the std::unordered_set of the eris_id_t's of firms supplying this market.
+        /** Returns the std::unordered_set of the eris::id_t's of firms supplying this market.
          */
-        const std::unordered_set<eris_id_t>& firms();
+        const std::unordered_set<id_t>& firms();
 
         /** Exception class thrown when a quantity that exceeds the market capacity has been
          * requested.
@@ -329,7 +329,7 @@ class Market : public Member {
 
     protected:
         /// Firms participating in this market
-        std::unordered_set<eris_id_t> suppliers_;
+        std::unordered_set<id_t> suppliers_;
 
         /** Creates a Reservation and returns it.  For use by subclasses only.  The reserved payment
          * (i.e. p*price_unit) will be transferred out of the Agent's assets Bundle and held

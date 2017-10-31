@@ -7,11 +7,11 @@ namespace eris { namespace consumer {
 
 CobbDouglas::CobbDouglas(double c) : constant(c) {}
 CobbDouglas::CobbDouglas(
-        eris_id_t g1,
+        id_t g1,
         double exp1,
-        eris_id_t g2,
+        id_t g2,
         double exp2,
-        eris_id_t g3,
+        id_t g3,
         double exp3,
         double c
         ) : constant(c) {
@@ -19,7 +19,7 @@ CobbDouglas::CobbDouglas(
     if (g2 != 0) exponents[g2] = exp2;
     if (g3 != 0) exponents[g3] = exp3;
 }
-CobbDouglas::CobbDouglas(const std::unordered_map<eris_id_t, double> &exps, double c) : constant(c), exponents(exps) {}
+CobbDouglas::CobbDouglas(const std::unordered_map<id_t, double> &exps, double c) : constant(c), exponents(exps) {}
 
 // Constant
 double& CobbDouglas::coef() {

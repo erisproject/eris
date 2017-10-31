@@ -23,7 +23,7 @@ int main() {
     auto w = sim->spawn<Good::Discrete>("w");
 
 
-    std::map<eris_id_t, double> init;
+    std::map<eris::id_t, double> init;
     init[money] = 1;
     init[x] = 10;
     init[w] = 100;

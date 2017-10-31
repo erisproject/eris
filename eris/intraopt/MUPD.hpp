@@ -58,10 +58,10 @@ class MUPD : public Member, public virtual OptApplyReset {
                 /** Constructor sets an appropriate `what()` message and stores the given market id
                  * in `market`.
                  */
-                market_exhausted_error(eris_id_t mkt) : std::runtime_error("Cannot computed MU/$ in exhausted market"), market(mkt) {}
+                market_exhausted_error(id_t mkt) : std::runtime_error("Cannot computed MU/$ in exhausted market"), market(mkt) {}
 
                 /// The id of the exhausted market that caused this exception to occur
-                const eris_id_t market;
+                const id_t market;
         };
 
     protected:
@@ -79,16 +79,16 @@ class MUPD : public Member, public virtual OptApplyReset {
             /// The Bundle of final quantities that would be purchased
             Bundle bundle;
             /// A map of market -> quantities purchased
-            std::unordered_map<eris_id_t, double> quantity;
+            std::unordered_map<id_t, double> quantity;
             /// A set of constrained markets (i.e. where we can't increase quantity any more)
-            std::unordered_set<eris_id_t> constrained;
+            std::unordered_set<id_t> constrained;
         };
 
         /** Calculates the Bundle that the given spending allocation will buy.  A market id of 0 is
          * interpreted as a pseudomarket for holding onto cash, i.e. the "spending" is just held as
          * cash.
          */
-        allocation spending_allocation(const std::unordered_map<eris_id_t, double> &spending) const;
+        allocation spending_allocation(const std::unordered_map<id_t, double> &spending) const;
 
         /** Calculates the marginal utility per money unit evaluated at the given Bundle.
          * \param con the consumer
@@ -103,7 +103,7 @@ class MUPD : public Member, public virtual OptApplyReset {
         double calc_mu_per_d(
                 const SharedMember<Consumer::Differentiable> &con,
                 Member::Lock &lock,
-                eris_id_t mkt_id,
+                id_t mkt_id,
                 const allocation &a,
                 const Bundle &b) const;
 
@@ -119,7 +119,7 @@ class MUPD : public Member, public virtual OptApplyReset {
 
     private:
         /// Stores cached price ratios
-        mutable std::unordered_map<eris_id_t, double> price_ratio_cache;
+        mutable std::unordered_map<id_t, double> price_ratio_cache;
 
 };
 

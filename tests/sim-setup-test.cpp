@@ -18,11 +18,11 @@ using namespace eris;
 using namespace eris::consumer;
 using namespace eris::intraopt;
 
-std::string as_string(const unordered_map<eris_id_t, unordered_set<eris_id_t>> &deps) {
+std::string as_string(const unordered_map<eris::id_t, unordered_set<eris::id_t>> &deps) {
     // Stick everything into a map/set, so that it is ordered
-    map<eris_id_t, set<eris_id_t>> m;
+    map<eris::id_t, set<eris::id_t>> m;
     for (auto d : deps) {
-        m[d.first] = set<eris_id_t>(d.second.cbegin(), d.second.cend());
+        m[d.first] = set<eris::id_t>(d.second.cbegin(), d.second.cend());
     }
 
     stringstream s;

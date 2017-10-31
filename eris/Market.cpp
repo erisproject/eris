@@ -11,12 +11,12 @@ void Market::addFirm(SharedMember<Firm> f) {
     dependsWeaklyOn(f);
 }
 
-void Market::removeFirm(eris_id_t fid) {
+void Market::removeFirm(id_t fid) {
     auto lock = writeLock();
     suppliers_.erase(fid);
 }
 
-const std::unordered_set<eris_id_t>& Market::firms() {
+const std::unordered_set<id_t>& Market::firms() {
     return suppliers_;
 }
 
@@ -79,7 +79,7 @@ Market::Reservation::~Reservation() {
         release();
 }
 
-void Market::Reservation::firmReserve(eris_id_t firm_id, BundleNegative transfer) {
+void Market::Reservation::firmReserve(id_t firm_id, BundleNegative transfer) {
     auto firm = market->simAgent<Firm>(firm_id);
     firm_reservations_.push_front(firm->reserve(transfer));
 }

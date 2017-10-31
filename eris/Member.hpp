@@ -28,10 +28,10 @@ class Member : private noncopyable {
 
         virtual ~Member() = default;
 
-        /** Returns the eris_id_t ID of this member.  An ID is assigned when the Member is created,
+        /** Returns the eris::id_t ID of this member.  An ID is assigned when the Member is created,
          * and is unique across all Member instances.
          */
-        eris_id_t id() const { return id_; }
+        id_t id() const { return id_; }
 
         /** Returns true if this member belongs to a simulation, false otherwise.
          */
@@ -67,7 +67,7 @@ class Member : private noncopyable {
         }
 
         /// Shortcut for `member.simulation()->t()`, i.e. returns the current simulation time period.
-        eris_time_t simT() const { return simulation()->t(); }
+        time_t simT() const { return simulation()->t(); }
 
         /** Records a dependency with the Simulation object.  This should not be called until after
          * the member has been added to a simulation, and is typically invoked in an overridden
@@ -630,10 +630,10 @@ class Member : private noncopyable {
 
     private:
         // The global id counter
-        static std::atomic<eris_id_t> next_id_;
+        static std::atomic<id_t> next_id_;
 
         // The unique id
-        eris_id_t id_{next_id_++};
+        id_t id_{next_id_++};
 
         /** Stores a weak pointer to the simulation this Member belongs to. */
         std::weak_ptr<eris::Simulation> simulation_;

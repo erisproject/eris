@@ -250,18 +250,18 @@ class Stepper final {
 
 /// Struct holding the results of a call to an optimization function such as single_peak_search() or
 /// `constrained_maximum_search()`
-template <typename ArgType = double, typename ValueType = double> struct search_result {
-    ArgType arg; ///< The argument that maximizes the searched function
-    ValueType value; ///< The value of the function at `.arg`
+template <typename domain_t = double, typename value_t = double> struct search_result {
+    domain_t arg; ///< The argument that maximizes the searched function
+    value_t value; ///< The value of the function at `.arg`
     /** Whether `.arg` is strictly inside the given left/right limits.  If false, the found value
      * was at one of the end-points, and may not actually be a peak at all.
      */
     bool inside;
     /// Number of iterations, if applicable (-1 otherwise).
     int iterations;
-    operator ArgType() const { return arg; } ///< Implicit conversion to double returns `.arg`
+    operator domain_t() const { return arg; } ///< Implicit conversion to double returns `.arg`
 
-    search_result(ArgType a, ValueType v, bool in, int it = -1) :
+    search_result(domain_t a, value_t v, bool in, int it = -1) :
         arg(std::move(a)), value(std::move(v)), inside(in), iterations(it) {}
 };
 

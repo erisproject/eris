@@ -24,7 +24,7 @@ class Quadratic : public Consumer::Differentiable {
          * coefficients have to be set individually after construction using &coef(MemberID,
          * MemberID).
          */
-        Quadratic(std::map<eris_id_t, double> linear, double offset = 0.0);
+        Quadratic(std::map<id_t, double> linear, double offset = 0.0);
 
         /// Accesses the constant term.
         double& coef();
@@ -62,13 +62,13 @@ class Quadratic : public Consumer::Differentiable {
         /// The constant offset.  \sa coef()
         double offset = 0.0;
         /// The map of coefficients on linear terms.  \sa coef(MemberID)
-        std::map<eris_id_t, double> linear;
+        std::map<id_t, double> linear;
         /** The nested map of coefficients on quadratic terms.  \sa coef(MemberID, MemberID) Note
          * that we only store values for which the outer key is less than or equal to the inner key.
          * That is, we store `quad[3][4]` but not `quad[4][3]`.  `coef(MemberID, MemberID)` handles this
          * argument reordering so that both `coef(3, 4)` and `coef(4, 3)` access `quad[3][4]`.
          */
-        std::map<eris_id_t, std::map<eris_id_t, double>> quad;
+        std::map<id_t, std::map<id_t, double>> quad;
 };
 
 } }

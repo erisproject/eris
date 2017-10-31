@@ -73,8 +73,8 @@ class ProfitStepper : public InterStepper {
         /// Declares a dependency on the handled firm when added to the simulation
         virtual void added() override;
 
-        /// The eris_id_t of the firm this stepper applies to.
-        const eris_id_t firm_;
+        /// The eris::id_t of the firm this stepper applies to.
+        const id_t firm_;
 
         /** Stores a fixed Bundle telling us what money is so that we can compare profits.  Thus
          * this stores the *initial* firm price, since that will be denominated in money.  We can't/

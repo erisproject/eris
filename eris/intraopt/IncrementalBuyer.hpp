@@ -54,7 +54,7 @@ class IncrementalBuyer : public Member, public virtual OptApplyReset {
         /** Constructs a new IncrementalBuyer optimization object for a given agent.
          *
          * \param consumer The Consumer object (or subclass thereof) that this optimizer works on.
-         * \param money The eris_id_t for the money good for this agent.  Only markets that have a
+         * \param money The eris::id_t for the money good for this agent.  Only markets that have a
          *        price consisting only of this good will be considered.
          * \param rounds How many rounds to take to spend all income when optimizing.  A value of
          *        100 (the default) means each round will use up approximately 1% of income.  Note
@@ -65,7 +65,7 @@ class IncrementalBuyer : public Member, public virtual OptApplyReset {
          */
         IncrementalBuyer(
                 const Consumer &consumer,
-                eris_id_t money,
+                id_t money,
                 int rounds = 100
                 );
 
@@ -116,9 +116,9 @@ class IncrementalBuyer : public Member, public virtual OptApplyReset {
 
     protected:
         /// The id of the consumer this optimizer controls
-        const eris_id_t con_id;
+        const id_t con_id;
         /// The id of the money good in the simulation
-        const eris_id_t money;
+        const id_t money;
         /// A bundle consisting of example 1 of the money good
         const Bundle money_unit;
         /** The number of rounds to use to use to spend income.  Each round spends (on average)

@@ -9,9 +9,8 @@
 #include <iostream>
 
 using std::cout;
-using eris::eris_id_t;
 
-void print_vec(const std::vector<eris_id_t> &v) {
+void print_vec(const std::vector<eris::id_t> &v) {
     cout << "[";
     bool first = true;
     for (auto vi : v) {
@@ -25,7 +24,7 @@ void print_vec(const std::vector<eris_id_t> &v) {
 
 int main() {
 
-    std::set<eris_id_t> permute;
+    std::set<eris::id_t> permute;
     permute.insert(33);
     permute.insert(44);
     permute.insert(55);
@@ -36,9 +35,9 @@ int main() {
 
     eris::all_combinations(permute.begin(), permute.end(), print_vec);
     eris::all_combinations(permute.crbegin(), permute.crend(),
-            [](const std::vector<eris_id_t> &comb) -> void { print_vec(comb); });
+            [](const std::vector<eris::id_t> &comb) -> void { print_vec(comb); });
 
-    std::unordered_set<eris_id_t> pb;
+    std::unordered_set<eris::id_t> pb;
     pb.insert(33);
     pb.insert(44);
     eris::all_combinations(pb.cbegin(), pb.cend(), print_vec);

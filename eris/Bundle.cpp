@@ -16,7 +16,7 @@ BundleSigned::BundleSigned(MemberID g, double q) { set(g, q); }
 BundleSigned::BundleSigned(const BundleSigned &b) {
     for (auto &g : b) set(g.first, g.second);
 }
-BundleSigned::BundleSigned(const std::initializer_list<std::pair<eris_id_t, double>> &init) {
+BundleSigned::BundleSigned(const std::initializer_list<std::pair<id_t, double>> &init) {
     for (auto &g : init) set(g.first, g.second);
 }
 
@@ -26,7 +26,7 @@ Bundle::Bundle(const BundleSigned &b) : BundleSigned() {
     for (auto &g : b) set(g.first, g.second);
 }
 Bundle::Bundle(const Bundle &b) : Bundle((BundleSigned&) b) {}
-Bundle::Bundle(const std::initializer_list<std::pair<eris_id_t, double>> &init) {
+Bundle::Bundle(const std::initializer_list<std::pair<id_t, double>> &init) {
     for (auto &g : init) set(g.first, g.second);
 }
 
@@ -55,16 +55,16 @@ void Bundle::set(MemberID gid, double quantity) {
 bool BundleSigned::empty() const {
     return q_stack_.front().empty();
 }
-std::unordered_map<eris_id_t, double>::size_type BundleSigned::size() const {
+std::unordered_map<id_t, double>::size_type BundleSigned::size() const {
     return q_stack_.front().size();
 }
 int BundleSigned::count(MemberID gid) const {
     return q_stack_.front().count(gid);
 }
-std::unordered_map<eris_id_t, double>::const_iterator BundleSigned::begin() const {
+std::unordered_map<id_t, double>::const_iterator BundleSigned::begin() const {
     return q_stack_.front().cbegin();
 }
-std::unordered_map<eris_id_t, double>::const_iterator BundleSigned::end() const {
+std::unordered_map<id_t, double>::const_iterator BundleSigned::end() const {
     return q_stack_.front().cend();
 }
 
@@ -224,7 +224,7 @@ Bundle Bundle::operator / (double d) const {
 // for the static (e.g. 3 >= b) operator, as it just translate this into (b <= 3)
 #define _ERIS_BUNDLE_CPP_COMPARE(OP, REVOP) \
 bool BundleSigned::operator OP (const BundleSigned &b) const noexcept {\
-    std::unordered_set<eris_id_t> goods;\
+    std::unordered_set<id_t> goods;\
     for (auto &g : *this) goods.insert(g.first);\
     for (auto &g : b) goods.insert(g.first);\
 \
@@ -527,7 +527,7 @@ void BundleSigned::_print(std::ostream &os) const {
     os << "(";
 
     // Sort the keys:
-    std::set<eris_id_t> keys;
+    std::set<id_t> keys;
     for (auto &g : *this)
         keys.insert(g.first);
 

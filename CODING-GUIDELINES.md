@@ -55,7 +55,7 @@ Guide](http://google-styleguide.googlecode.com/svn/trunk/cppguide.xml)
   classes.
 
 - Header files beginning with a lower-case letter are used for collections of
-  small classes or definitions.  For example, the `eris_id_t` typedef is
+  small classes or definitions.  For example, the `eris::id_t` typedef is
   defined in eris/types.hpp, and a few small algorithm functions and classes
   are in `eris/algorithms.hpp`.
 

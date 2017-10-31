@@ -56,7 +56,7 @@ class Bertrand : public Market {
             /// The Market::price_info associated with the allocation
             price_info p;
             /// A map of firm id to the quantity/total price `share` value of that firm
-            std::unordered_map<eris_id_t, share> shares;
+            std::unordered_map<id_t, share> shares;
         };
         /** Calculates the allocations across firms for a purchase of q units of the good.
          * Lower-priced firms get priority, with ties as decided by the randomize parameter

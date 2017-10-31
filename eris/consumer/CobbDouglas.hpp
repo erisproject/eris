@@ -25,11 +25,11 @@ class CobbDouglas : public Consumer::Differentiable {
          * coefficients can be accessed via the coef() and exp() methods.
          */
         CobbDouglas(
-                eris_id_t g1,
+                id_t g1,
                 double exp1,
-                eris_id_t g2 = 0,
+                id_t g2 = 0,
                 double exp2 = 1.0,
-                eris_id_t g3 = 0,
+                id_t g3 = 0,
                 double exp3 = 1.0,
                 double c = 1.0
                 );
@@ -39,7 +39,7 @@ class CobbDouglas : public Consumer::Differentiable {
          * \param exps a map of goods to exponents
          * \param c the optional leading coefficient, defaulting to 1.0
          */
-        CobbDouglas(const std::unordered_map<eris_id_t, double> &exps, double c = 1.0);
+        CobbDouglas(const std::unordered_map<id_t, double> &exps, double c = 1.0);
 
         /// Accesses the constant term.
         double& coef();
@@ -67,8 +67,8 @@ class CobbDouglas : public Consumer::Differentiable {
     protected:
         /// The constant offset.  \sa coef()
         double constant = 0.0;
-        /// The map of exponents.  \sa exp(eris_id_t)
-        std::unordered_map<eris_id_t, double> exponents;
+        /// The map of exponents.  \sa exp(id_t)
+        std::unordered_map<id_t, double> exponents;
     private:
         // Wrapper around pow() that redefines some special 0/infinity cases.
         double power(double val, double exponent) const;

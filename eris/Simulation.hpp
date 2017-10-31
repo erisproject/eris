@@ -68,10 +68,10 @@ class Simulation : public std::enable_shared_from_this<Simulation>, private nonc
         /// Destructor.  When destruction occurs, any outstanding threads are killed and rejoined.
         virtual ~Simulation();
 
-        /// Alias for a map of eris_id_t to SharedMember<T> of arbitrary type T
-        template <class T> using MemberMap = std::unordered_map<eris_id_t, SharedMember<T>>;
+        /// Alias for a map of eris::id_t to SharedMember<T> of arbitrary type T
+        template <class T> using MemberMap = std::unordered_map<id_t, SharedMember<T>>;
         /// typedef for the map of id's to the set of dependent members
-        using DepMap = std::unordered_map<eris_id_t, std::unordered_set<eris_id_t>>;
+        using DepMap = std::unordered_map<id_t, std::unordered_set<id_t>>;
 
         /** Wrapper around std::enable_if that defines a typedef `type` (defaulting to
          * SharedMember<Derived>) only if `Derived` is a `Base` member type.  `Base` must itself be
@@ -100,25 +100,25 @@ class Simulation : public std::enable_shared_from_this<Simulation>, private nonc
             return SharedMember<T>(NAME##s_.at(id)); \
         }
 
-        /** Accesses an agent given the agent's eris_id_t.  Templated to allow conversion to
+        /** Accesses an agent given the agent's eris::id_t.  Templated to allow conversion to
          * a SharedMember of the given Agent subclass; defaults to Agent.
          */
-        ERIS_SIM_MEMBER_ACCESS(A, Agent, agent) // agent(eris_id_t)
+        ERIS_SIM_MEMBER_ACCESS(A, Agent, agent) // agent(id_t)
 
-        /** Accesses a good given the good's eris_id_t.  Templated to allow conversion to a
+        /** Accesses a good given the good's eris::id_t.  Templated to allow conversion to a
          * SharedMember of the given Good subclass; defaults to Good.
          */
-        ERIS_SIM_MEMBER_ACCESS(G, Good, good) // good(eris_id_t)
+        ERIS_SIM_MEMBER_ACCESS(G, Good, good) // good(id_t)
 
-        /** Accesses a market given the market's eris_id_t.  Templated to allow conversion to a
+        /** Accesses a market given the market's eris::id_t.  Templated to allow conversion to a
          * SharedMember of the given Market subclass; defaults to Market.
          */
-        ERIS_SIM_MEMBER_ACCESS(M, Market, market) // market(eris_id_t)
+        ERIS_SIM_MEMBER_ACCESS(M, Market, market) // market(id_t)
 
         /** Accesses a non-agent/good/market member that has been added to this simulation.  This is
          * typically an optimization object.
          */
-        ERIS_SIM_MEMBER_ACCESS(O, Member, other) // other(eris_id_t)
+        ERIS_SIM_MEMBER_ACCESS(O, Member, other) // other(id_t)
 
 #undef ERIS_SIM_MEMBER_ACCESS
 
@@ -353,7 +353,7 @@ class Simulation : public std::enable_shared_from_this<Simulation>, private nonc
          *
          * This is initially 0 (until the first run() call).
          */
-        eris_time_t t() const { return t_; }
+        time_t t() const { return t_; }
 
         /** enum of the different stages of the simulation, primarily used for synchronizing threads.
          *
@@ -460,7 +460,7 @@ class Simulation : public std::enable_shared_from_this<Simulation>, private nonc
         void insertOther(const SharedMember<Member> &other);
 
         // Internal remove() method that doesn't defer if currently running
-        void removeNoDefer(eris_id_t id);
+        void removeNoDefer(id_t id);
 
         // Processes any deferred member insertions/removals.  This is called at the end of each
         // stage (while the exclusive run lock is held).
@@ -468,10 +468,10 @@ class Simulation : public std::enable_shared_from_this<Simulation>, private nonc
 
         // Internal method to remove one of the various types.  Called by the public remove()
         // method, which figures out which type the removal request is for.
-        void removeAgent(eris_id_t aid);
-        void removeGood(eris_id_t gid);
-        void removeMarket(eris_id_t mid);
-        void removeOther(eris_id_t oid);
+        void removeAgent(id_t aid);
+        void removeGood(id_t gid);
+        void removeMarket(id_t mid);
+        void removeOther(id_t oid);
 
         // Determines which (if any) optimization interfaces the member implements, and records it
         // for the next optimization stage.
@@ -511,13 +511,13 @@ class Simulation : public std::enable_shared_from_this<Simulation>, private nonc
         DepMap depends_on_, weak_dep_;
 
         // Removes hard dependents
-        void removeDeps(eris_id_t member);
+        void removeDeps(id_t member);
 
         // Notifies weak dependents
         void notifyWeakDeps(SharedMember<Member> member);
 
         // Tracks the iteration number, can be accessed via t().
-        eris_time_t t_ = 0;
+        time_t t_ = 0;
 
         /* Threading variables */
 
@@ -577,7 +577,7 @@ class Simulation : public std::enable_shared_from_this<Simulation>, private nonc
         // stage/priority.
         std::list<SharedMember<Member>> deferred_insert_;
         // List of ids with deferred removal to be removed at the end of the current stage/priority
-        std::list<eris_id_t> deferred_remove_;
+        std::list<id_t> deferred_remove_;
         // Mutex governing the two above variables
         std::mutex deferred_mutex_;
 

@@ -63,11 +63,11 @@ Market::Reservation QMarket::reserve(SharedMember<Agent> agent, double q, double
 
     // Attempt to divide the purchase across all firms.  This might take more than one round,
     // however, if an equal share would exhaust one or more firms' assets.
-    std::unordered_set<eris_id_t> qfirm;
+    std::unordered_set<id_t> qfirm;
 
     Reservation res = createReservation(agent, q, q*price_);
 
-    std::unordered_map<eris_id_t, BundleNegative> firm_transfers;
+    std::unordered_map<id_t, BundleNegative> firm_transfers;
 
     const double threshold = q * std::numeric_limits<double>::epsilon();
 

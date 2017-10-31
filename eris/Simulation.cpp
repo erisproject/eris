@@ -41,7 +41,7 @@ void Simulation::insert(const SharedMember<Member> &member) {
 }
 
 // Macro for the 4 nearly-identical versions of these two functions.  When adding to the simulation,
-// we need to assign an eris_id_t, give a reference to the simulation to the object, insert into
+// we need to assign an eris::id_t, give a reference to the simulation to the object, insert into
 // agents_/goods_/markets_/others_, register any optimization implementations, and invalidate the
 // associated filter cache.  When removing, we need to undo all of the above.
 // This should be the *ONLY* place anything is ever added or removed from agents_, goods_, markets_,
@@ -58,7 +58,7 @@ void Simulation::insert##TYPE(const SharedMember<CLASS> &member) {\
     member->simulation(shared_from_this());\
     insertOptimizers(member);\
 }\
-void Simulation::remove##TYPE(eris_id_t id) {\
+void Simulation::remove##TYPE(id_t id) {\
     std::lock_guard<std::recursive_mutex> mbr_lock(member_mutex_);\
     auto member = MAP.at(id);\
     auto lock = member->writeLock();\
@@ -88,12 +88,12 @@ void Simulation::remove(MemberID id) {
     }
 }
 
-void Simulation::removeNoDefer(eris_id_t id) {
+void Simulation::removeNoDefer(id_t id) {
     if (agents_.count(id)) removeAgent(id);
     else if (goods_.count(id)) removeGood(id);
     else if (markets_.count(id)) removeMarket(id);
     else if (others_.count(id)) removeOther(id);
-    else throw std::out_of_range("eris_id_t to be removed does not exist");
+    else throw std::out_of_range("eris::id_t to be removed does not exist");
 }
 
 void Simulation::processDeferredQueue() {
@@ -111,7 +111,7 @@ void Simulation::processDeferredQueue() {
             insert(to_insert);
         }
         else if (not deferred_remove_.empty()) {
-            eris_id_t to_remove = deferred_remove_.front();
+            id_t to_remove = deferred_remove_.front();
             deferred_remove_.pop_front();
             deferred_mutex_.unlock();
             removeNoDefer(to_remove);
@@ -163,7 +163,7 @@ void Simulation::removeOptimizers(const SharedMember<Member> &member) {
     }
 }
 
-void Simulation::removeDeps(eris_id_t member) {
+void Simulation::removeDeps(id_t member) {
     std::lock_guard<std::recursive_mutex> lock(member_mutex_);
 
     if (!depends_on_.count(member)) return;

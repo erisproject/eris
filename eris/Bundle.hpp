@@ -24,7 +24,7 @@ namespace eris {
  * object calling set() internally, to verify values, i.e. positive quantities when needed).
  *
  * You can iterate through goods via the usual begin() / end() pattern; note that these get mapped
- * to through to the underlying std::unordered_map<eris_id_t,double>'s cbegin() and cend() methods,
+ * to through to the underlying std::unordered_map<eris::id_t,double>'s cbegin() and cend() methods,
  * and so are immutable.
  *
  * The usual `+`, `-`, `*`, `/` operators are overloaded as expected for adding/scaling bundles,
@@ -89,7 +89,7 @@ class BundleSigned {
          * Since an initializer_list requires constant values, this is primary useful for debugging
          * purposes.
          */
-        BundleSigned(const std::initializer_list<std::pair<eris_id_t, double>> &init);
+        BundleSigned(const std::initializer_list<std::pair<id_t, double>> &init);
 
         /** Creates a new Bundle by copying quantities from another Bundle.
          *
@@ -127,18 +127,18 @@ class BundleSigned {
         /** This method is is provided to be able to use a Bundle in a range for loop; it is, however, a
          * const_iterator, mapped internally to the underlying std::unordered_map's cbegin() method.
          */
-        std::unordered_map<eris_id_t, double>::const_iterator begin() const;
+        std::unordered_map<id_t, double>::const_iterator begin() const;
 
         /** This method is is provided to be able to use a Bundle in a range for loop; it is, however, a
          * const_iterator, mapped internally to the underlying std::unordered_map's cend() method.
          */
-        std::unordered_map<eris_id_t, double>::const_iterator end() const;
+        std::unordered_map<id_t, double>::const_iterator end() const;
 
         /** Returns the number of goods in the bundle.  Note that values that have not been
          * explicitly set (and thus return a value of 0) are *not* included in the size(), but
          * values that have been explitly set (even to 0) *are* included.
          */
-        std::unordered_map<eris_id_t, double>::size_type size() const;
+        std::unordered_map<id_t, double>::size_type size() const;
 
         /** Returns true iff size() == 0.  Note that empty() is not true for a bundle with explicit
          * quantities of 0; for testing whether a bundle is empty in the sense of all quantities
@@ -474,7 +474,7 @@ class BundleSigned {
          *     Bundle()
          *     BundleSigned([3]=-3.75, [2]=0, [1]=4.2e-24)
          *
-         * The value in brackets is the eris_id_t of the good.
+         * The value in brackets is the eris::id_t of the good.
          */
         friend std::ostream& operator << (std::ostream &os, const BundleSigned &b);
 
@@ -486,11 +486,11 @@ class BundleSigned {
         class valueproxy {
             private:
                 BundleSigned &bundle_;
-                const eris_id_t gid_;
+                const id_t gid_;
             public:
                 valueproxy() = delete;
                 /// Constructs a valueproxy from a BundleSigned and good id of the proxied value
-                valueproxy(BundleSigned &bn, eris_id_t gid) : bundle_(bn), gid_(gid) {}
+                valueproxy(BundleSigned &bn, id_t gid) : bundle_(bn), gid_(gid) {}
                 /// Assigns a new value to the proxied bundle quantity
                 void operator=(double q) { bundle_.set(gid_, q); }
                 /// Adds a value to the current proxied bundle quantity
@@ -508,7 +508,7 @@ class BundleSigned {
     private:
         // The stack of quantity maps; the front of q_stack_ is the currently visible quantities;
         // remainder items are the pre-transaction values.
-        std::forward_list<std::unordered_map<eris_id_t, double>> q_stack_ = {std::unordered_map<eris_id_t, double>()};
+        std::forward_list<std::unordered_map<id_t, double>> q_stack_ = {std::unordered_map<id_t, double>()};
 
         // If non-empty, we're inside an encompassing transaction or fake transaction.  The value at
         // the beginning of the list tells us whether it's a encompassing transaction (started by
@@ -530,7 +530,7 @@ class Bundle final : public BundleSigned {
         /// Creates a new Bundle containing a single good of the given quantity.
         Bundle(MemberID g, double q);
         /// Creates a new Bundle from an initializer list of goods and quantities.
-        Bundle(const std::initializer_list<std::pair<eris_id_t, double>> &init);
+        Bundle(const std::initializer_list<std::pair<id_t, double>> &init);
         /** Creates a new Bundle by copying quantities from a BundleSigned.  If the other Bundle is
          * currently in a transaction, only the current values are copied; the transactions and
          * pre-transactions values are not.
@@ -783,7 +783,7 @@ class Bundle final : public BundleSigned {
          *     Bundle()
          *     BundleSigned([3]=-3.75, [2]=0, [1]=4.2e-24)
          *
-         * The value in brackets is the eris_id_t of the good.
+         * The value in brackets is the eris::id_t of the good.
          */
         friend std::ostream& operator << (std::ostream &os, const Bundle& b);
 
@@ -797,8 +797,8 @@ class Bundle final : public BundleSigned {
                  * \param good the id of the good that was assigned a negative value
                  * \param value the negative value that was assigned
                  */
-                negativity_error(eris_id_t good, double value) :
-                    std::range_error("eris_id_t=" + std::to_string(good) + " assigned illegal negative value "
+                negativity_error(id_t good, double value) :
+                    std::range_error("good[" + std::to_string(good) + "] assigned illegal negative value "
                             + std::to_string(value) + " in Bundle."), good(good), value(value) {}
                 /** Constructor for a negativity exception for a negative quantity with a given
                  * error message.
@@ -807,10 +807,10 @@ class Bundle final : public BundleSigned {
                  * \param good the id of the good that was assigned a negative value
                  * \param value the negative value that was assigned
                  */
-                negativity_error(const std::string& what_arg, eris_id_t good, double value) :
+                negativity_error(const std::string& what_arg, id_t good, double value) :
                     std::range_error(what_arg), good(good), value(value) {}
                 /// The id of the good that caused the error
-                const eris_id_t good;
+                const id_t good;
                 /// The illegal value that caused the error
                 const double value;
         };

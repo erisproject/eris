@@ -42,10 +42,10 @@ class Consumer::Differentiable : public Consumer {
          * default implementation simply calls d() for each good, but subclasses may override that
          * behaviour (i.e. if a more efficient alternative is available).
          *
-         * \param g a std::vector<eris_id_t> of the goods for which the gradient is sought
+         * \param g a std::vector<id_t> of the goods for which the gradient is sought
          * \param b the BundleNegative (typically a Bundle instance) at which the gradient is to be evaluated
          */
-        virtual std::map<eris_id_t, double> gradient(const std::vector<eris_id_t> &g, const BundleNegative &b) const;
+        virtual std::map<id_t, double> gradient(const std::vector<id_t> &g, const BundleNegative &b) const;
         /** Returns the Hessian (as a two-dimensional nested std::map) for the given set of goods g
          * given a Bundle b.  The Bundle and std::vector of Good ids is specified separately because
          * the Bundle is not required to contain all of the goods at which the Hessian is to be
@@ -57,10 +57,10 @@ class Consumer::Differentiable : public Consumer {
          * overridden.  As with gradient(), this may also be overridden if a more efficient
          * calculation is available.
          *
-         * \param g a std::vector<eris_id_t> of the goods for which the hessian is sought
+         * \param g a std::vector<id_t> of the goods for which the hessian is sought
          * \param b the Bundle at which the hessian is to be evaluated
          */
-        virtual std::map<eris_id_t, std::map<eris_id_t, double>> hessian(const std::vector<eris_id_t> &g, const BundleNegative &b) const;
+        virtual std::map<id_t, std::map<id_t, double>> hessian(const std::vector<id_t> &g, const BundleNegative &b) const;
 };
 
 /** Very simple consumer class that takes a function (or lambda) that takes a const BundleNegative &

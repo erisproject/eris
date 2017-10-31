@@ -12,7 +12,7 @@ namespace eris { namespace consumer {
 
 Polynomial::Polynomial(double offset) : offset(offset) {}
 
-Polynomial::Polynomial(std::map<eris_id_t, std::vector<double>> coef, double offset) : offset(offset), coefficients(coef) {}
+Polynomial::Polynomial(std::map<id_t, std::vector<double>> coef, double offset) : offset(offset), coefficients(coef) {}
 
 double& Polynomial::coef(MemberID g, unsigned int n) {
     if (n == 0) return coef();
@@ -97,9 +97,9 @@ double Polynomial::d2(const BundleNegative &b, MemberID g1, MemberID g2) const {
 
 // Override Consumer's hessian function: since off-diagonals of the Hessian are
 // 0 for this class, we can skip those calculations.
-std::map<eris_id_t, std::map<eris_id_t, double>>
-Polynomial::hessian(const std::vector<eris_id_t> &goods, const BundleNegative &b) const {
-    std::map<eris_id_t, std::map<eris_id_t, double>> H;
+std::map<id_t, std::map<id_t, double>>
+Polynomial::hessian(const std::vector<id_t> &goods, const BundleNegative &b) const {
+    std::map<id_t, std::map<id_t, double>> H;
 
     for (auto g1 : goods) {
         for (auto g2 : goods) {

@@ -1,5 +1,5 @@
 [
- { symbol: ["eris::eris_id_t", "private", "<eris/types.hpp>", "public"] },
+ { symbol: ["eris::id_t", "private", "<eris/types.hpp>", "public"] },
  { include: ["<eris/types.hpp>", "public", "<eris/Simulation.hpp>", "public"] },
  { include: ["\"eris/types.hpp\"", "public", "<eris/Simulation.hpp>", "public"] },
  { include: ["<eris/types.hpp>", "public", "<eris/Bundle.hpp>", "public"] },

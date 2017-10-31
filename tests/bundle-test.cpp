@@ -12,7 +12,6 @@
 #include <gtest/gtest.h>
 #include <cmath>
 
-using eris::eris_id_t;
 using eris::Bundle;
 using eris::BundleNegative;
 using std::numeric_limits;
@@ -43,7 +42,7 @@ TEST(Construction, Empty) {
 }
 
 TEST(Construction, Pair) {
-    eris_id_t real_idA = 2, real_idB = 43, real_idC = 8949;
+    eris::id_t real_idA = 2, real_idB = 43, real_idC = 8949;
     double real_valA = -13.75, real_valB = 1.25, real_valC = 0;
     BundleNegative a(real_idA, real_valA);
     Bundle b(real_idB, real_valB);
@@ -61,7 +60,7 @@ TEST(Construction, Pair) {
     EXPECT_FALSE(c.empty());
 
     int foundA = 0, foundB = 0, foundBN = 0, foundC = 0;
-    eris_id_t idA = 41241, idB = 55156, idBN = 424571, idC = 32;
+    eris::id_t idA = 41241, idB = 55156, idBN = 424571, idC = 32;
     double valA = -123, valB = -456, valBN = -789, valC = -1012;
     for (auto g : a)   { idA  = g.first; valA  = g.second; ++foundA; }
     for (auto g : b)   { idB  = g.first; valB  = g.second; ++foundB; }
@@ -88,7 +87,7 @@ TEST(Construction, Pair) {
 TEST(Construction, InitLists) {
     GIMME_BUNDLES;
 
-    eris_id_t idprodA = 1, idprodB = 1;
+    eris::id_t idprodA = 1, idprodB = 1;
     double asum = 0, bsum = 0;
     int foundA = 0, foundB = 0;
     for (auto g : a) { idprodA *= g.first; asum += g.second; ++foundA; }
@@ -193,7 +192,7 @@ TEST(Access, index) {
 TEST(Access, iterator) {
     GIMME_BUNDLES
 
-    eris_id_t idprodA = 1, idprodB = 1;
+    eris::id_t idprodA = 1, idprodB = 1;
     double asum = 0, bsum = 0;
     int foundA = 0, foundB = 0;
     for (auto g : a) { idprodA *= g.first; asum += g.second; ++foundA; }

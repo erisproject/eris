@@ -12,7 +12,7 @@
 
 namespace eris { namespace intraopt {
 
-IncrementalBuyer::IncrementalBuyer(const Consumer &consumer, eris_id_t money, int rounds) :
+IncrementalBuyer::IncrementalBuyer(const Consumer &consumer, id_t money, int rounds) :
     con_id(consumer.id()), money(money), money_unit(Bundle {{ money, 1 }}), rounds(rounds) {}
 
 void IncrementalBuyer::permuteThreshold(const double &thresh) noexcept {
@@ -62,18 +62,18 @@ bool IncrementalBuyer::oneRound() {
     Bundle remaining = a - spending;
 
     // Stores the utility changes for each market
-    std::map<eris_id_t, double> delta_u;
+    std::map<id_t, double> delta_u;
 
     double current_utility = consumer->utility(a);
 
     // The base case: don't spend anything (0 is special for "don't spend")
-    std::vector<eris_id_t> best {0};
+    std::vector<id_t> best {0};
     double best_delta_u = 0;
 
     // market->quantity() can be a relatively expensive operation, so cache its
     // results.  This stores the market m quantity for price spending/n in
     // q_cache[m][n]
-    std::unordered_map<eris_id_t, std::unordered_map<int, Market::quantity_info>> q_cache;
+    std::unordered_map<id_t, std::unordered_map<int, Market::quantity_info>> q_cache;
 
     for (auto market : sim->markets()) {
 
@@ -116,9 +116,9 @@ bool IncrementalBuyer::oneRound() {
     }
 
     // Now figure out which, if any, permutations we also need to consider
-    std::set<eris_id_t> permute;
+    std::set<id_t> permute;
     for (auto du : delta_u) {
-        eris_id_t market_id = du.first;
+        id_t market_id = du.first;
         double delta_u = du.second;
 
         if (threshold == -std::numeric_limits<double>::infinity() // Permute all
@@ -133,7 +133,7 @@ bool IncrementalBuyer::oneRound() {
     // combinations; e.g. if permute = {1,2,3} we have 4 possibilities: {1,2}, {1,3}, {2,3}, {1,2,3}
 
     eris::all_combinations(permute.cbegin(), permute.cend(),
-            [&](const std::vector<eris_id_t> &combination) -> void {
+            [&](const std::vector<id_t> &combination) -> void {
 
         int comb_size = combination.size();
 

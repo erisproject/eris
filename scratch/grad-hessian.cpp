@@ -12,7 +12,7 @@ using boost::format;
 
 void printGoodId(const Good &g) {
     cout << "good.id() = " << g.id() << "\n";
-    cout << "(eris_id_t) good = " << (eris_id_t) g << "\n";
+    cout << "(eris::id_t) good = " << g.id() << "\n";
     cout << "good.name = " << g.name << "\n";
 }
 

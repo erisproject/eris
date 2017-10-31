@@ -24,7 +24,7 @@ class FixedIncome : public Member, public virtual Initialize {
         Bundle income;
 
     private:
-        const eris_id_t agent_id_;
+        const id_t agent_id_;
 };
 
 } }

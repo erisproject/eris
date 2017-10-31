@@ -22,7 +22,7 @@ double MUPD::price_ratio(const SharedMember<Market> &m) const {
     return price_ratio_cache[mid];
 }
 
-MUPD::allocation MUPD::spending_allocation(const unordered_map<eris_id_t, double> &spending) const {
+MUPD::allocation MUPD::spending_allocation(const unordered_map<id_t, double> &spending) const {
     allocation a = {};
 
     auto sim = simulation();
@@ -60,7 +60,7 @@ MUPD::allocation MUPD::spending_allocation(const unordered_map<eris_id_t, double
 double MUPD::calc_mu_per_d(
         const SharedMember<Consumer::Differentiable> &con,
         Member::Lock &lock,
-        eris_id_t mkt_id,
+        id_t mkt_id,
         const allocation &alloc,
         const Bundle &b) const {
 
@@ -101,7 +101,7 @@ void MUPD::intraOptimize() {
             return;
     }
 
-    unordered_map<eris_id_t, double> spending;
+    unordered_map<id_t, double> spending;
 
     spending[0] = 0.0; // 0 is the "don't spend"/"hold cash" option
 
@@ -154,7 +154,7 @@ void MUPD::intraOptimize() {
             m.second = cash / markets;
     }
 
-    unordered_map <eris_id_t, double> mu_per_d;
+    unordered_map <id_t, double> mu_per_d;
 
     allocation final_alloc = {};
 
@@ -168,7 +168,7 @@ void MUPD::intraOptimize() {
                     mu_per_d[m.first] = calc_mu_per_d(con, big_lock, m.first, alloc, tryout);
                 }
 
-                eris_id_t highest = 0, lowest = 0;
+                id_t highest = 0, lowest = 0;
                 double highest_u = mu_per_d[0], lowest_u = std::numeric_limits<double>::infinity();
                 for (auto m : mu_per_d) {
                     // Consider all markets (even eligible ones that we aren't currently spending in) for
@@ -201,7 +201,7 @@ void MUPD::intraOptimize() {
                 // consider u = xyz^2: setting z=0 will result in MU=0 for all three goods.  So we need to
                 // check not just the marginal utilities, but that this reallocation actually increases
                 // overall utility.
-                unordered_map<eris_id_t, double> try_spending = spending;
+                unordered_map<id_t, double> try_spending = spending;
 
                 try_spending[highest] = spending[highest] + spending[lowest];
                 try_spending[lowest] = 0;

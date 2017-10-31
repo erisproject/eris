@@ -56,7 +56,7 @@ class QFStepper : public ProfitStepper {
         virtual void take_jump() override;
 
     private:
-        eris_id_t firm_;
+        id_t firm_;
         double jump_cap_;
 };
 

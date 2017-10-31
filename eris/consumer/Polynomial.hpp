@@ -25,7 +25,7 @@ class Polynomial : public Consumer::Differentiable {
          *     u(\mathbf{X}) = 3 + 5 x_1 - x_1^2 + 5 x_3^2 - x_3^3
          * \f]
          */
-        Polynomial(std::map<eris_id_t, std::vector<double>> coef, double offset = 0.0);
+        Polynomial(std::map<id_t, std::vector<double>> coef, double offset = 0.0);
 
         /** Returns a (mutable) reference to the coefficient on the \f$g^n\f$ term.  If the
          * coefficient or lesser coefficients for the given good do not yet exist, they will be
@@ -76,15 +76,15 @@ class Polynomial : public Consumer::Differentiable {
          * Consumer::Differentiable with a more efficient version, since only diagonal elements need
          * to be calculated (off-diagonal elements are always 0).
          */
-        virtual std::map<eris_id_t, std::map<eris_id_t, double>>
-            hessian(const std::vector<eris_id_t> &g, const BundleNegative &b) const override;
+        virtual std::map<id_t, std::map<id_t, double>>
+            hessian(const std::vector<id_t> &g, const BundleNegative &b) const override;
 
     protected:
         /// The constant offset term in the consumer's utility.
         double offset = 0.0;
 
         /// The map of coefficients for the consumer's utility.
-        std::map<eris_id_t, std::vector<double>> coefficients;
+        std::map<id_t, std::vector<double>> coefficients;
 
 };
 

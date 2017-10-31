@@ -4,7 +4,7 @@
 
 namespace eris {
 
-std::atomic<eris_id_t> Member::next_id_{1};
+std::atomic<id_t> Member::next_id_{1};
 
 void Member::dependsOn(MemberID dep_id) {
     simulation()->registerDependency(id(), dep_id);
