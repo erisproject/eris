@@ -9,18 +9,34 @@ namespace eris {
  * which returns just such a pair.  This class is typically invoked via the range() function.
  */
 template <class Iter>
-class range_ final : public std::pair<Iter, Iter> {
-    public:
-        /// Builds an iteratable range from a start and end iterator
-        range_(std::pair<Iter, Iter> const &pair) : std::pair<Iter, Iter>(pair) {}
-        /// Returns the beginning of the range
-        Iter begin() const { return this->first;  }
-        /// Returns the end of the range
-        Iter end()   const { return this->second; }
+class range_ final {
+    Iter begin_, end_;
+public:
+    /// Builds an iteratable range from a start and end iterator
+    range_(Iter begin, Iter end) : begin_{std::move(begin)}, end_{std::move(end)} {}
+    /// Returns the beginning of the range
+    const Iter &begin() const { return begin_; }
+    /// Returns the end of the range
+    const Iter &end()   const { return end_; }
 };
-/** Takes a std::pair of iterators that represents a range, and returns an iterable object for that
- * range.  This is intended to allow for range-based for loops for methods that return a pair of
- * iterators representing a range, such as multimap's equal_range() method.
+
+/** Takes a pair of iterators that represents a range, and returns an iterable object for that
+ * range.  This is intended to allow for range-based for loops for code deals with a pair of
+ * iterators.
+ *
+ * Example:
+ *
+ *     using eris::range;
+ *     for (auto &whatever : range(from, to)) {
+ *         ...
+ *     }
+ */
+template <class Iter>
+range_<Iter> range(Iter start, Iter end) {
+    return range_<Iter>(std::move(start), std::move(end));
+}
+
+/** Same as above, but takes the from/to iterators in a std::pair
  *
  * Example:
  *
@@ -30,9 +46,14 @@ class range_ final : public std::pair<Iter, Iter> {
  */
 template <class Iter>
 range_<Iter> range(std::pair<Iter, Iter> const &pair) {
-    return range_<Iter>(pair);
+    return range_<Iter>(pair.first, pair.second);
 }
 
+/// Save as above, rvalue version
+template <class Iter>
+range_<Iter> range(std::pair<Iter, Iter> &&pair) {
+    return range_<Iter>(std::move(pair.first), std::move(pair.second));
+}
 
 #if __cplusplus > 201103L
 /** C++14-compatible index_sequence; under C++14, this is just a typedef for std::index_sequence;
