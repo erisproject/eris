@@ -381,6 +381,11 @@ search_result<domain_t, value_t> single_peak_search(
 
 template <typename T> using non_deduced = T;
 
+/// Divides by 2, but with specializations for floating point types that do so by multiplying by
+/// 0.5 instead.
+template <typename T, std::enable_if_t< std::is_floating_point<T>::value, int> = 0> T half(T val) { return val * T(0.5); }
+template <typename T, std::enable_if_t<!std::is_floating_point<T>::value, int> = 0> T half(T val) { return val / T(2); }
+
 /** Performs a binary search to find the maximum function value that satisfies a constraint given
  * a pair of values that satisfy and do not satisfy the constraint.
  *
@@ -390,11 +395,15 @@ template <typename T> using non_deduced = T;
  *
  * \param f the function (or function-like) object that can be called with a single double argument
  * and returns true if the value satisfies the constraint and false otherwise.
- * \param left the left edge of the domain to consider.
- * \param right the right edge of the domain to consider.  Can be NaN, in which case the
- * algorithm first starts at x = max{-left, 2*left}, doubling x until a constraint violation is
- * encountered, at which point this `x` becomes `right`.  (This attempts to determine `right` are
- * not counted in iterations in the returned object).
+ *
+ * \param left the left edge of the domain to consider; the constraint should be satisfied at
+ * `f(left)` (if not, the algorithms fails immediately).
+ *
+ * \param right the right edge of the domain to consider at which the constraint should not be
+ * satisfied.  If specified as NaN the algorithm first starts at x = max{-left, 2*left}, doubling x
+ * until a constraint violation is encountered, at which point this `x` becomes `right`.  (This
+ * attempts to determine `right` are not counted in iterations in the returned object).  If `left`
+ * is 0, this starts looking at `right` at 1.0 (then doubling, etc.).
  *
  * \return a `eris::search_result` struct.  If the initial `f(left)` is not satisfied, this
  * immediately returns (with `value` set to false, `inside` set to false, and `arg` set to left).
@@ -408,7 +417,7 @@ template <typename domain_t, typename Func>
 search_result<domain_t, bool> constrained_maximum_search(
         Func f, domain_t left, non_deduced<domain_t> right, non_deduced<domain_t> tol_rel = domain_t(1e-10)) {
     static_assert(std::is_same<bool, decltype(f(left))>::value,
-            "constrained_minimum_search: given function must return a `bool` value");
+            "constrained_maximum_search: given function must return a `bool` value");
 
     bool fl = f(left);
     if (!fl) return {std::move(left), false, false, 0};
@@ -420,7 +429,7 @@ search_result<domain_t, bool> constrained_maximum_search(
     using std::isnan;
 
     if (isnan(right)) {
-        domain_t x = left < domain_t(0) ? -left : 2*left;
+        domain_t x = left < domain_t(0) ? -left : left > domain_t(0) ? domain_t(2)*left : domain_t(1);
         while (isfinite(x) && f(x)) x *= domain_t(2);
         right = x;
     }
@@ -432,7 +441,7 @@ search_result<domain_t, bool> constrained_maximum_search(
     int iterations = 0;
     while (span > tol_rel * max(abs(left), abs(right))) {
         iterations++;
-        domain_t mid = left + 0.5 * span;
+        domain_t mid = left + half(span);
         if (mid == left || mid == right) break; // Numerical precision limit
         bool fm = f(mid);
         if (fm) {
@@ -452,15 +461,27 @@ search_result<domain_t, bool> constrained_maximum_search(
 
 /// Helper that converts arguments to use `constrained_maximum_search` to find the smallest
 /// satisfying argument rather than the largest.
+///
+/// The constraint should be satisfied at `f(right)` and *not* satisfied at `f(left)`.  As with
+/// `constrained_maximum_search`, `right` can be specified as NaN, in which case the same search for
+/// an initial `right` value will be done as in `constrained_maximum_search`, but looking for an
+/// initial `right` value that doesn't satisfy the constraint.
 template <typename domain_t, typename Func>
 search_result<domain_t, bool> constrained_minimum_search(
-        Func f, domain_t left, domain_t right, std::common_type_t<domain_t> tol_rel = 1e-10) {
+        Func f, domain_t left, domain_t right, std::common_type_t<domain_t> tol_rel = domain_t(1e-10)) {
     static_assert(std::is_same<bool, decltype(f(left))>::value,
             "constrained_minimum_search: given function must return a `bool` value");
+
+    if (isnan(right)) {
+        domain_t x = left < domain_t(0) ? -left : left > domain_t(0) ? domain_t(2)*left : domain_t(1);
+        while (isfinite(x) && !f(x)) x *= domain_t(2);
+        right = x;
+    }
+
     auto ret = constrained_maximum_search(
             [f = std::move(f)](domain_t a) { return f(-a); },
             -right, -left, tol_rel);
-    ret.arg *= -1;
+    ret.arg = -ret.arg;
     return ret;
 }
 
