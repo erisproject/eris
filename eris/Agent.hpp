@@ -20,6 +20,10 @@ public:
      * at the beginning of each period.
      */
     Bundle assets;
+
+    /// Returns `Agent[n]`
+    explicit operator std::string() const override;
+
 protected:
     /// Returns a SharedMember<Member> wrapped around the current object
     SharedMember<Member> sharedSelf() const override;

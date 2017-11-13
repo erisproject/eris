@@ -33,8 +33,12 @@ public:
      */
     virtual double atom() { return 0.0; }
 
+    /// Converts to string (primarily for debugging).  String will be: `Good[n]` for an unnamed
+    /// good, and `Good[NAME, id=n]` for a named good with name string "NAME".
+    operator std::string() const override;
+
 protected:
-    SharedMember<Member> sharedSelf() const override { return simGood(id()); }
+    SharedMember<Member> sharedSelf() const override;
 };
 
 }

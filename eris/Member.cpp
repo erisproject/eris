@@ -240,4 +240,12 @@ Member::Lock::Supplemental Member::Lock::supplement(const SharedMember<Member> &
     return Supplemental(*this, member);
 }
 
+Member::operator std::string() const {
+    return "Member[" + std::to_string(id()) + "]";
+}
+
+std::ostream& operator << (std::ostream &os, const Member &m) {
+    return os << static_cast<std::string>(m);
+}
+
 }

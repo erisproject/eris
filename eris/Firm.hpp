@@ -237,6 +237,9 @@ public:
      */
     double epsilon = 1e-10;
 
+    /// Converts to string `Firm[n]`.
+    operator std::string() const override;
+
 protected:
     // The following are internal methods that subclasses should provide, but should only be called
     // externally indirectly through a call to the analogous supply...() function.

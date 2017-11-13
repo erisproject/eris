@@ -264,4 +264,8 @@ Firm::Reservation::~Reservation() {
         release();
 }
 
+Firm::operator std::string() const {
+    return "Firm[" + std::to_string(id()) + "]";
+}
+
 }

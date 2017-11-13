@@ -327,6 +327,10 @@ public:
      */
     const Bundle price_unit;
 
+    /// Converts to string `Market[n: In -> Out]`, where `n` is the `id()`, `In` is the input
+    /// bundle, and `Out` is the output bundle.  If both are empty, yields just `Market[n]`.
+    operator std::string() const override;
+
 protected:
     /// Firms participating in this market
     std::unordered_set<id_t> suppliers_;

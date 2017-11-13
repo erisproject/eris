@@ -10,6 +10,7 @@
 #include <type_traits>
 #include <algorithm>
 #include <string>
+#include <ostream>
 
 namespace eris {
 
@@ -610,6 +611,13 @@ protected:
      * simulation()->maxThreads().
      */
     unsigned long maxThreads() const { return simulation()->maxThreads(); }
+
+    /// Obtains a string representation of this member, primarily for debugging.  The default is
+    /// `Member[n]` where `n` is the id() of the agent, but subclasses may override.
+    virtual explicit operator std::string() const;
+
+    /// Converts the object to a std::string when sent to an output stream
+    friend std::ostream& operator << (std::ostream &os, const Member &m);
 
 private:
     // The global id counter

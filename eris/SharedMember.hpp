@@ -5,6 +5,7 @@
 #include <typeinfo>
 #include <functional>
 #include <type_traits>
+#include <ostream>
 
 namespace eris {
 
@@ -145,6 +146,12 @@ public:
     /// Default move assignment
     SharedMember& operator=(SharedMember &&) = default;
 
+    /// Output support; outputs '<null member>' for an empty reference, otherwise forwards to
+    /// underlying T's `operator <<`.
+    friend std::ostream& operator << (std::ostream &os, const SharedMember &s) {
+        return s.ptr_ ? os << *s : os << "<null member>";
+    }
+
 private:
     std::shared_ptr<T> ptr_;
 
@@ -209,6 +216,9 @@ public:
     /// carefully this can have a race condition: the referenced member could be set (or disappear)
     /// between the boolean conversion and the subsequent operation.
     operator bool() { return !ptr_.expired(); }
+
+    /// Output support; equivalent to `os << w.lock()`.
+    friend std::ostream& operator << (std::ostream &os, const WeakMember &w) { return os << w.lock(); }
 
 private:
     std::weak_ptr<T> ptr_;

@@ -1,5 +1,6 @@
 #include <eris/Market.hpp>
 #include <vector>
+#include <sstream>
 
 namespace eris {
 
@@ -107,5 +108,13 @@ Bundle& Market::reservationBundle_(Reservation &res) { return res.b_; }
 const char* Market::output_infeasible::what() const noexcept { return "Requested output not available"; }
 const char* Market::low_price::what() const noexcept { return "Requested output not available for given price"; }
 const char* Market::insufficient_assets::what() const noexcept { return "Assets insufficient for purchasing requested output"; }
+
+Market::operator std::string() const {
+    if (price_unit.empty() && output_unit.empty())
+        return "Market[" + std::to_string(id()) + "]";
+    std::ostringstream ss;
+    ss << "Market[" << id() << ": " << price_unit << " -> " << output_unit << "]";
+    return ss.str();
+}
 
 }
