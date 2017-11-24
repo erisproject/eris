@@ -120,6 +120,9 @@ private:
     /// Tries to obtain a exclusive or shared lock on a member mutex
     bool try_lock_(bool exclusive) { return exclusive ? mutex_.try_lock() : mutex_.try_lock_shared(); }
 
+    /// The set type used by locks:
+    using MemberSet = std::unordered_set<SharedMember<Member>>;
+
 public:
     /** A RAII-style locking class for holding one or more simultaneous Member locks.  Locks are
      * established during object construction and released when the object is destroyed.  A Lock may
@@ -397,7 +400,7 @@ public:
         Lock remove(const Container &members) {
             if (members.empty()) return Lock(isWrite(), isLocked()); // Fake lock
 
-            std::set<SharedMember<Member>> new_lock_members;
+            MemberSet new_lock_members;
             for (auto &mem : members) {
                 auto found = data->members.find(mem);
                 if (found == data->members.end())
@@ -421,14 +424,14 @@ public:
 
         /** Creates a lock that applies to a set of members. Calls lock() (which calls read() or
          * write()) before returning. */
-        Lock(bool write, std::set<SharedMember<Member>> &&members);
+        Lock(bool write, MemberSet &&members);
 
         /** Creates a lock that applies to a set of members, initially in the given lock status.
          * Note that this does *not* establish a lock, even if `lock` is true: this method is
          * primarily intended for use by remove() to split a Lock into multiple Locks without
          * requiring an intermediate release and relocking.
          */
-        Lock(bool write, bool locked, std::set<SharedMember<Member>> &&members);
+        Lock(bool write, bool locked, MemberSet &&members);
 
         /** Obtains a lock on all members.  If `write` is true, all locks will be exclusive;
          * otherwise all locks will be shared.  This method blocks until a mutex is held on all
@@ -451,10 +454,10 @@ public:
             public:
                 /** Default constructor explicitly deleted. */
                 Data() = delete;
-                Data(std::set<SharedMember<Member>> &&mbrs, bool wrt, bool lckd = false)
+                Data(MemberSet &&mbrs, bool wrt, bool lckd = false)
                     : members{std::move(mbrs)}, write{wrt}, locked{lckd}
                 {}
-                std::set<SharedMember<Member>> members;
+                MemberSet members;
                 bool write;
                 bool locked;
         };
@@ -462,8 +465,10 @@ public:
         std::shared_ptr<Data> data;
     };
 
-    /** Obtains a read lock for the current object *plus* all the objects passed in via the given
-     * container.  This will block until a read lock can be obtained on all objects.
+    /** Obtains a read lock for the current object *plus* all the objects passed in; provided
+     * objects can either be provided as singletons, or as an stl or stl-compatible container.
+     * Multiple objects and/or containers are permitted.  This will block until a read lock can be
+     * obtained on all objects.
      *
      * This method is designed to be deadlock safe: it will not block while holding any lock; if
      * unable to obtain a lock on one of the objects, it will release any other held locks before
@@ -479,28 +484,20 @@ public:
      * (In such a case there is no reliable way to obtain a SharedMember wrapper around the caller).
      * This is unlikely to be an issue as it only typically comes up during destruction phases.
      *
-     * \param plus any iterable object containing SharedMember<T> objects
+     * \param plus any number of SharedMember<T> objects or iterable containers containing
+     * SharedMember<T> objects
      *
      * \sa Member::Lock
      */
-    template <class Container>
-    [[gnu::warn_unused_result]] Lock readLock(const Container &plus) {
-        return rwLock_(false, plus);
+    template <typename... Args>
+    [[gnu::warn_unused_result]] Lock readLock(Args &&...more) const {
+        return rwLock_(false, std::forward<Args>(more)...);
     }
 
-    /** Obtains a read lock for the current object plus any number of SharedMember<T> members passed
-     * in.
-     *
-     * \sa readLock(const Container&)
-     */
-    template <class... Args>
-    [[gnu::warn_unused_result]] Lock readLock(Args... more) const {
-        return rwLock_(false, more...);
-    }
-
-
-    /** Obtains a write lock for the current object plus all the objects passed in via the provided
-     * container.  This will block until a write lock can be obtained on all objects.
+    /** Obtains a write lock for the current object *plus* all the objects passed in; provided
+     * objects can either be provided as singletons, or as an stl or stl-compatible container.
+     * Multiple objects and/or containers are permitted.  This will block until a write lock can be
+     * obtained on all objects.
      *
      * Like readLock, this method is deadlock safe if used properly: it will not block waiting for a
      * lock while holding any other locks, and, because of the use of a recursive mutex, will not
@@ -520,26 +517,14 @@ public:
      * (In such a case there is no reliable way to obtain a SharedMember wrapper around the caller).
      * This is unlikely to be an issue as it only typically comes up during destruction phases.
      *
-     * \param plus any iterable object containing SharedMember<T> objects
+     * \param plus any number of SharedMember<T> objects or iterable containers containing
+     * SharedMember<T> objects
      *
      * \sa Member::Lock
      */
-    template <class Container,
-        std::enable_if_t<std::is_base_of<Member, typename Container::value_type::member_type>::value, int> = 0>
-    [[gnu::warn_unused_result]]
-    Lock writeLock(const Container &plus) const {
-        return rwLock_(true, plus);
-    }
-
-    /** Obtains a write lock for the current objects *plus* the all the SharedMember<T> values
-     * passed in.  If no additional objects are passed-in, the lock applies only to the calling
-     * object.
-     *
-     * \sa writeLock(const Container&)
-     */
-    template <class... Args>
-    [[gnu::warn_unused_result]] Lock writeLock(Args... more) const {
-        return rwLock_(true, more...);
+    template <typename... Args>
+    [[gnu::warn_unused_result]] Lock writeLock(Args &&...more) const {
+        return rwLock_(true, std::forward<Args>(more)...);
     }
 
     /** Error class throw when attempting to perform a member action requiring a simulation when the
@@ -635,33 +620,15 @@ private:
         return sim->as<T>();
     }
 
-    /// Helper class doing all the grunt work of the Container version of readLock/writeLock.
-    template <class Container,
-        std::enable_if_t<std::is_base_of<Member, typename Container::value_type::member_type>::value, int> = 0>
-    Lock rwLock_(bool write, const Container &plus) const {
-        const bool has_sim = hasSimulation();
-        if (has_sim && maxThreads() == 0) return Member::Lock(write); // Fake lock
-        std::set<SharedMember<Member>> members;
-        if (has_sim)
-            members.insert(sharedSelf());
-        members.insert(plus.begin(), plus.end());
-
-        // members could be empty if we tried to get a writeLock on just an object that isn't in
-        // the simulation (e.g. during some destructions)
-        if (members.empty()) return Member::Lock(write);
-
-        return Member::Lock(write, std::move(members));
-    }
-
-    /// Helper class doing all the grunt work of the varargs version of readLock/writeLock.
-    template <class... Args>
-    Lock rwLock_(const bool &write, Args... more) const {
+    /// Helper method doing all the grunt work of readLock/writeLock.
+    template <typename... Args>
+    Lock rwLock_(const bool &write, Args &&...args) const {
         const bool has_sim = hasSimulation();
         if (has_sim and maxThreads() == 0) return Member::Lock(write); // Fake lock
-        std::set<SharedMember<Member>> members;
+        MemberSet members;
         if (has_sim)
             members.insert(sharedSelf());
-        member_zip_(members, more...);
+        member_zip_(members, std::forward<Args>(args)...);
 
         // members could be empty if we tried to get a writeLock on just an object that isn't in the
         // simulation (e.g. during some destructions)
@@ -670,13 +637,23 @@ private:
         return Member::Lock(write, std::move(members));
     }
 
-    /** Sticks the passed-in SharedMember<T> objects into the passed-in std::set */
-    template <class... Args>
-    void member_zip_(std::set<SharedMember<Member>> &zip, SharedMember<Member> add, Args... more) const {
+    /** Sticks the passed-in SharedMember<T> objects into the passed-in MemberSet */
+    template <typename... Args>
+    void member_zip_(MemberSet &zip, SharedMember<Member> add, Args &&...more) const {
         zip.insert(add);
-        member_zip_(zip, more...);
+        member_zip_(zip, std::forward<Args>(more)...);
     }
-    void member_zip_(std::set<SharedMember<Member>>&) const {}
+
+    /// Copies a container's contents into the passed-in MemberSet */
+    template <typename Container, typename... Args,
+             std::enable_if_t<std::is_base_of<Member, typename Container::value_type::member_type>::value, int> = 0>
+    void member_zip_(MemberSet &zip, const Container &plus, Args &&...args) const {
+        zip.insert(plus.begin(), plus.end());
+        member_zip_(zip, std::forward<Args>(args)...);
+    }
+
+    /// Recursion terminator:
+    void member_zip_(MemberSet &) const {}
 };
 
 // Non-casting specialization that avoids an extra shared_ptr creation + static cast:

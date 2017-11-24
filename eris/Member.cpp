@@ -32,14 +32,13 @@ bool Member::hasSimulation() const {
 void Member::added() {}
 void Member::removed() {}
 
-Member::Lock::Lock(bool write, bool locked) : Lock{write, locked, std::set<SharedMember<Member>>{}} {}
-Member::Lock::Lock(bool write, std::set<SharedMember<Member>> &&members)
+Member::Lock::Lock(bool write, bool locked) : Lock{write, locked, MemberSet{}} {}
+Member::Lock::Lock(bool write, MemberSet &&members)
     : data{std::make_shared<Data>(std::move(members), write)} {
     lock();
 }
-Member::Lock::Lock(bool write, bool locked, std::set<SharedMember<Member>> &&members)
+Member::Lock::Lock(bool write, bool locked, MemberSet &&members)
     : data{std::make_shared<Data>(std::move(members), write, locked)} {}
-
 Member::Lock::Lock(const Lock &l) : data{l.data} {}
 
 Member::Lock::~Lock() {
